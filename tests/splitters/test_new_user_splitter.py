@@ -1,4 +1,3 @@
-# pylint: disable-all
 from datetime import datetime
 
 import numpy as np
@@ -8,7 +7,6 @@ import pytest
 
 from replay.splitters import NewUsersSplitter
 from replay.utils import PandasDataFrame
-from tests.utils import spark
 
 log_data = [
     [1, 3, datetime(2019, 9, 14), 3.0, 1],
@@ -52,15 +50,12 @@ def log_not_implemented(log_pandas):
         pytest.param("log", marks=pytest.mark.spark),
         pytest.param("log_pandas", marks=pytest.mark.core),
         pytest.param("log_polars", marks=pytest.mark.core),
-    ]
+    ],
 )
 def test_users_are_cold(dataset_type, request):
     log = request.getfixturevalue(dataset_type)
     splitter = NewUsersSplitter(
-        test_size=0.25,
-        query_column="user_id",
-        drop_cold_items=False,
-        session_id_column="session_id"
+        test_size=0.25, query_column="user_id", drop_cold_items=False, session_id_column="session_id"
     )
     train, test = splitter.split(log)
 

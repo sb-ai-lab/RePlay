@@ -1,4 +1,3 @@
-# pylint: disable=wildcard-import,invalid-name,unused-wildcard-import,unspecified-encoding
 import json
 from inspect import getfullargspec
 from os.path import join
@@ -6,20 +5,17 @@ from pathlib import Path
 from typing import Union
 
 from replay.experimental.models.base_rec import BaseRecommender
-from replay.experimental.models import *
 from replay.experimental.preprocessing import Indexer
-from replay.models import *
-from replay.splitters import *
 from replay.utils import PYSPARK_AVAILABLE
 from replay.utils.session_handler import State
-from replay.utils.spark_utils import save_picklable_to_parquet, load_pickled_from_parquet
+from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.types as st
     from pyspark.ml.feature import IndexToString, StringIndexerModel
+    from pyspark.sql import SparkSession
 
     from replay.utils.model_handler import get_fs
-    from pyspark.sql import SparkSession
 
     def get_list_of_paths(spark: SparkSession, dir_path: str):
         """
@@ -34,9 +30,7 @@ if PYSPARK_AVAILABLE:
         return [str(f.getPath()) for f in statuses]
 
 
-def save(
-    model: BaseRecommender, path: Union[str, Path], overwrite: bool = False
-):
+def save(model: BaseRecommender, path: Union[str, Path], overwrite: bool = False):
     """
     Save fitted model to disk as a folder
 
@@ -53,9 +47,8 @@ def save(
     if not overwrite:
         is_exists = fs.exists(spark._jvm.org.apache.hadoop.fs.Path(path))
         if is_exists:
-            raise FileExistsError(
-                f"Path '{path}' already exists. Mode is 'overwrite = False'."
-            )
+            msg = f"Path '{path}' already exists. Mode is 'overwrite = False'."
+            raise FileExistsError(msg)
 
     fs.mkdirs(spark._jvm.org.apache.hadoop.fs.Path(path))
     model._save_model(join(path, "model"))
@@ -64,9 +57,7 @@ def save(
     init_args["_model_name"] = str(model)
     sc = spark.sparkContext
     df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
-    df.coalesce(1).write.mode("overwrite").option(
-        "ignoreNullFields", "false"
-    ).json(join(path, "init_args.json"))
+    df.coalesce(1).write.mode("overwrite").option("ignoreNullFields", "false").json(join(path, "init_args.json"))
 
     dataframes = model._dataframes
     df_path = join(path, "dataframes")
@@ -75,18 +66,13 @@ def save(
             df.write.mode("overwrite").parquet(join(df_path, name))
 
     if hasattr(model, "fit_users"):
-        model.fit_users.write.mode("overwrite").parquet(
-            join(df_path, "fit_users")
-        )
+        model.fit_users.write.mode("overwrite").parquet(join(df_path, "fit_users"))
     if hasattr(model, "fit_items"):
-        model.fit_items.write.mode("overwrite").parquet(
-            join(df_path, "fit_items")
-        )
+        model.fit_items.write.mode("overwrite").parquet(join(df_path, "fit_items"))
     if hasattr(model, "study"):
         save_picklable_to_parquet(model.study, join(path, "study"))
 
 
-# pylint: disable=too-many-locals
 def load(path: str, model_type=None) -> BaseRecommender:
     """
     Load saved model from disk
@@ -95,21 +81,14 @@ def load(path: str, model_type=None) -> BaseRecommender:
     :return: Restored trained model
     """
     spark = State().session
-    args = (
-        spark.read.json(join(path, "init_args.json"))
-        .first()
-        .asDict(recursive=True)
-    )
+    args = spark.read.json(join(path, "init_args.json")).first().asDict(recursive=True)
     name = args["_model_name"]
     del args["_model_name"]
 
-    if model_type is not None:
-        model_class = model_type
-    else:
-        model_class = globals()[name]
+    model_class = model_type if model_type is not None else globals()[name]
     if name == "CQL":
         for a in args:
-            if isinstance(args[a], dict) and 'type' in args[a] and args[a]["type"] == "none":
+            if isinstance(args[a], dict) and "type" in args[a] and args[a]["type"] == "none":
                 args[a]["params"] = {}
     init_args = getfullargspec(model_class.__init__).args
     init_args.remove("self")
@@ -142,9 +121,7 @@ def load(path: str, model_type=None) -> BaseRecommender:
     return model
 
 
-def save_indexer(
-    indexer: Indexer, path: Union[str, Path], overwrite: bool = False
-):
+def save_indexer(indexer: Indexer, path: Union[str, Path], overwrite: bool = False):
     """
     Save fitted indexer to disk as a folder
 
@@ -160,9 +137,8 @@ def save_indexer(
         fs = get_fs(spark)
         is_exists = fs.exists(spark._jvm.org.apache.hadoop.fs.Path(path))
         if is_exists:
-            raise FileExistsError(
-                f"Path '{path}' already exists. Mode is 'overwrite = False'."
-            )
+            msg = f"Path '{path}' already exists. Mode is 'overwrite = False'."
+            raise FileExistsError(msg)
 
     init_args = indexer._init_args
     init_args["user_type"] = str(indexer.user_type)
@@ -173,12 +149,8 @@ def save_indexer(
 
     indexer.user_indexer.write().overwrite().save(join(path, "user_indexer"))
     indexer.item_indexer.write().overwrite().save(join(path, "item_indexer"))
-    indexer.inv_user_indexer.write().overwrite().save(
-        join(path, "inv_user_indexer")
-    )
-    indexer.inv_item_indexer.write().overwrite().save(
-        join(path, "inv_item_indexer")
-    )
+    indexer.inv_user_indexer.write().overwrite().save(join(path, "inv_user_indexer"))
+    indexer.inv_item_indexer.write().overwrite().save(join(path, "inv_item_indexer"))
 
 
 def load_indexer(path: str) -> Indexer:
@@ -203,11 +175,7 @@ def load_indexer(path: str) -> Indexer:
 
     indexer.user_indexer = StringIndexerModel.load(join(path, "user_indexer"))
     indexer.item_indexer = StringIndexerModel.load(join(path, "item_indexer"))
-    indexer.inv_user_indexer = IndexToString.load(
-        join(path, "inv_user_indexer")
-    )
-    indexer.inv_item_indexer = IndexToString.load(
-        join(path, "inv_item_indexer")
-    )
+    indexer.inv_user_indexer = IndexToString.load(join(path, "inv_user_indexer"))
+    indexer.inv_item_indexer = IndexToString.load(join(path, "inv_item_indexer"))
 
     return indexer

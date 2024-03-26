@@ -1,17 +1,17 @@
 import math
-from typing import Any, Optional, Tuple, Union, cast, Dict
+from typing import Any, Dict, Optional, Tuple, Union, cast
 
-import lightning as L
+import lightning
 import torch
 
 from replay.data.nn import TensorMap, TensorSchema
 from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
+
 from .dataset import SasRecPredictionBatch, SasRecTrainingBatch, SasRecValidationBatch
 from .model import SasRecModel
 
 
-# pylint: disable=too-many-instance-attributes
-class SasRec(L.LightningModule):
+class SasRec(lightning.LightningModule):
     """
     SASRec Lightning module.
 
@@ -19,7 +19,6 @@ class SasRec(L.LightningModule):
     for object of SasRec instance.
     """
 
-    # pylint: disable=too-many-arguments, too-many-locals
     def __init__(
         self,
         tensor_schema: TensorSchema,
@@ -94,7 +93,6 @@ class SasRec(L.LightningModule):
         assert item_count
         self._vocab_size = item_count
 
-    # pylint: disable=unused-argument, arguments-differ
     def training_step(self, batch: SasRecTrainingBatch, batch_idx: int) -> torch.Tensor:
         """
         :param batch (SasRecTrainingBatch): Batch of training data.
@@ -108,7 +106,6 @@ class SasRec(L.LightningModule):
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         return loss
 
-    # pylint: disable=arguments-differ
     def forward(self, feature_tensors: TensorMap, padding_mask: torch.BoolTensor) -> torch.Tensor:  # pragma: no cover
         """
         :param feature_tensors: Batch of features.
@@ -118,8 +115,9 @@ class SasRec(L.LightningModule):
         """
         return self._model_predict(feature_tensors, padding_mask)
 
-    # pylint: disable=unused-argument
-    def predict_step(self, batch: SasRecPredictionBatch, batch_idx: int, dataloader_idx: int = 0) -> torch.Tensor:
+    def predict_step(
+        self, batch: SasRecPredictionBatch, batch_idx: int, dataloader_idx: int = 0  # noqa: ARG002
+    ) -> torch.Tensor:
         """
         :param batch: Batch of prediction data.
         :param batch_idx: Batch index.
@@ -130,8 +128,9 @@ class SasRec(L.LightningModule):
         batch = self._prepare_prediction_batch(batch)
         return self._model_predict(batch.features, batch.padding_mask)
 
-    # pylint: disable=unused-argument, arguments-differ
-    def validation_step(self, batch: SasRecValidationBatch, batch_idx: int, dataloader_idx: int = 0) -> torch.Tensor:
+    def validation_step(
+        self, batch: SasRecValidationBatch, batch_idx: int, dataloader_idx: int = 0  # noqa: ARG002
+    ) -> torch.Tensor:
         """
         :param batch (SasRecValidationBatch): Batch of prediction data.
         :param batch_idx (int): Batch index.
@@ -155,57 +154,46 @@ class SasRec(L.LightningModule):
 
     def _prepare_prediction_batch(self, batch: SasRecPredictionBatch) -> SasRecPredictionBatch:
         if batch.padding_mask.shape[1] > self._model.max_len:
-            raise ValueError(
-                f"The length of the submitted sequence \
+            msg = f"The length of the submitted sequence \
                 must not exceed the maximum length of the sequence. \
                 The length of the sequence is given {batch.padding_mask.shape[1]}, \
-                while the maximum length is {self._model.max_len}")
+                while the maximum length is {self._model.max_len}"
+            raise ValueError(msg)
+
         if batch.padding_mask.shape[1] < self._model.max_len:
             query_id, padding_mask, features = batch
             sequence_item_count = padding_mask.shape[1]
             for feature_name, feature_tensor in features.items():
                 if self._schema[feature_name].is_cat:
                     features[feature_name] = torch.nn.functional.pad(
-                        feature_tensor,
-                        (self._model.max_len - sequence_item_count, 0),
-                        value=0
+                        feature_tensor, (self._model.max_len - sequence_item_count, 0), value=0
                     )
                 else:
                     features[feature_name] = torch.nn.functional.pad(
                         feature_tensor.view(feature_tensor.size(0), feature_tensor.size(1)),
                         (self._model.max_len - sequence_item_count, 0),
-                        value=0
+                        value=0,
                     ).unsqueeze(-1)
             padding_mask = torch.nn.functional.pad(
-                padding_mask,
-                (self._model.max_len - sequence_item_count, 0),
-                value=0
+                padding_mask, (self._model.max_len - sequence_item_count, 0), value=0
             )
             batch = SasRecPredictionBatch(query_id, padding_mask, features)
         return batch
 
     def _model_predict(self, feature_tensors: TensorMap, padding_mask: torch.BoolTensor) -> torch.Tensor:
         model: SasRecModel
-        if isinstance(self._model, torch.nn.DataParallel):
-            model = cast(SasRecModel, self._model.module)  # multigpu
-        else:
-            model = self._model
+        model = cast(SasRecModel, self._model.module) if isinstance(self._model, torch.nn.DataParallel) else self._model
         scores = model.predict(feature_tensors, padding_mask)
         return scores
 
     def _compute_loss(self, batch: SasRecTrainingBatch) -> torch.Tensor:
         if self._loss_type == "BCE":
-            if self._loss_sample_count is None:
-                loss_func = self._compute_loss_bce
-            else:
-                loss_func = self._compute_loss_bce_sampled
+            loss_func = self._compute_loss_bce if self._loss_sample_count is None else self._compute_loss_bce_sampled
         elif self._loss_type == "CE":
-            if self._loss_sample_count is None:
-                loss_func = self._compute_loss_ce
-            else:
-                loss_func = self._compute_loss_ce_sampled
+            loss_func = self._compute_loss_ce if self._loss_sample_count is None else self._compute_loss_ce_sampled
         else:
-            raise ValueError(f"Not supported loss type: {self._loss_type}")
+            msg = f"Not supported loss type: {self._loss_type}"
+            raise ValueError(msg)
 
         loss = loss_func(
             batch.features,
@@ -225,8 +213,10 @@ class SasRec(L.LightningModule):
         # [B x L x V]
         logits = self._model.forward(feature_tensors, padding_mask)
 
-        # Take only logits which correspond to non-padded tokens
-        # M = non_zero_count(target_padding_mask)
+        """
+        Take only logits which correspond to non-padded tokens
+        M = non_zero_count(target_padding_mask)
+        """
         logits = logits[target_padding_mask]  # [M x V]
         labels = positive_labels[target_padding_mask]  # [M]
 
@@ -318,7 +308,6 @@ class SasRec(L.LightningModule):
         loss = self._loss(logits, labels_flat)
         return loss
 
-    # pylint: disable=too-many-locals
     def _get_sampled_logits(
         self,
         feature_tensors: TensorMap,
@@ -354,7 +343,8 @@ class SasRec(L.LightningModule):
             else:
                 multinomial_sample_distribution = torch.softmax(positive_logits, dim=-1)
         else:
-            raise NotImplementedError(f"Unknown negative sampling strategy: {self._negative_sampling_strategy}")
+            msg = f"Unknown negative sampling strategy: {self._negative_sampling_strategy}"
+            raise NotImplementedError(msg)
         n_negative_samples = min(n_negative_samples, vocab_size)
 
         if self._negatives_sharing:
@@ -405,7 +395,8 @@ class SasRec(L.LightningModule):
         if self._loss_type == "CE":
             return torch.nn.CrossEntropyLoss()
 
-        raise NotImplementedError("Not supported loss_type")
+        msg = "Not supported loss_type"
+        raise NotImplementedError(msg)
 
     def get_all_embeddings(self) -> Dict[str, torch.nn.Embedding]:
         """
@@ -425,7 +416,8 @@ class SasRec(L.LightningModule):
         hidden_size = self._model.hidden_size
 
         if new_vocab_size <= old_vocab_size:
-            raise ValueError("New vocabulary size must be greater then already fitted")
+            msg = "New vocabulary size must be greater then already fitted"
+            raise ValueError(msg)
 
         new_embedding = torch.nn.Embedding(new_vocab_size + 1, hidden_size, padding_idx=new_vocab_size)
         torch.nn.init.xavier_normal_(new_embedding.weight)
@@ -443,16 +435,19 @@ class SasRec(L.LightningModule):
             shape (n, h), where n - number of all items, h - model hidden size.
         """
         if all_item_embeddings.dim() != 2:
-            raise ValueError("Input tensor must have (number of all items, model hidden size) shape")
+            msg = "Input tensor must have (number of all items, model hidden size) shape"
+            raise ValueError(msg)
 
         old_vocab_size = self._model.item_embedder.item_emb.weight.data.shape[0] - 1
         new_vocab_size = all_item_embeddings.shape[0]
         hidden_size = self._model.hidden_size
 
         if new_vocab_size < old_vocab_size:
-            raise ValueError("New vocabulary size can't be less then already fitted")
+            msg = "New vocabulary size can't be less then already fitted"
+            raise ValueError(msg)
         if all_item_embeddings.shape[1] != hidden_size:
-            raise ValueError("Input tensor second dimension doesn't match model hidden size")
+            msg = "Input tensor second dimension doesn't match model hidden size"
+            raise ValueError(msg)
 
         new_embedding = torch.nn.Embedding(new_vocab_size + 1, hidden_size, padding_idx=new_vocab_size)
         new_embedding.weight.data[:-1, :] = all_item_embeddings
@@ -467,14 +462,16 @@ class SasRec(L.LightningModule):
             n - number of only new items, h - model hidden size.
         """
         if item_embeddings.dim() != 2:
-            raise ValueError("Input tensor must have (number of new items, model hidden size) shape")
+            msg = "Input tensor must have (number of new items, model hidden size) shape"
+            raise ValueError(msg)
 
         old_vocab_size = self._model.item_embedder.item_emb.weight.data.shape[0] - 1
         new_vocab_size = item_embeddings.shape[0] + old_vocab_size
         hidden_size = self._model.hidden_size
 
         if item_embeddings.shape[1] != hidden_size:
-            raise ValueError("Input tensor second dimension doesn't match model hidden size")
+            msg = "Input tensor second dimension doesn't match model hidden size"
+            raise ValueError(msg)
 
         new_embedding = torch.nn.Embedding(new_vocab_size + 1, hidden_size, padding_idx=new_vocab_size)
         new_embedding.weight.data[:old_vocab_size, :] = self._model.item_embedder.item_emb.weight.data[:-1, :]

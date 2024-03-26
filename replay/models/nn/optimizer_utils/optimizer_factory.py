@@ -4,7 +4,6 @@ from typing import Iterator, Tuple
 import torch
 
 
-# pylint: disable=too-few-public-methods
 class OptimizerFactory(abc.ABC):
     """
     Interface for optimizer factory
@@ -21,7 +20,6 @@ class OptimizerFactory(abc.ABC):
         """
 
 
-# pylint: disable=too-few-public-methods
 class LRSchedulerFactory(abc.ABC):
     """
     Interface for learning rate scheduler factory
@@ -38,13 +36,11 @@ class LRSchedulerFactory(abc.ABC):
         """
 
 
-# pylint: disable=too-few-public-methods
 class FatOptimizerFactory(OptimizerFactory):
     """
     Factory that creates optimizer depending on passed parameters
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         optimizer: str = "adam",
@@ -74,10 +70,11 @@ class FatOptimizerFactory(OptimizerFactory):
             return torch.optim.SGD(
                 parameters, lr=self.learning_rate, weight_decay=self.weight_decay, momentum=self.sgd_momentum
             )
-        raise ValueError("Unexpected optimizer")
+
+        msg = "Unexpected optimizer"
+        raise ValueError(msg)
 
 
-# pylint: disable=too-few-public-methods
 class FatLRSchedulerFactory(LRSchedulerFactory):
     """
     Factory that creates learning rate schedule depending on passed parameters

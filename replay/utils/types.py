@@ -4,7 +4,6 @@ from pandas import DataFrame as PandasDataFrame
 from polars import DataFrame as PolarsDataFrame
 
 
-# pylint: disable=too-few-public-methods
 class MissingImportType:
     """
     Replacement class with missing import
@@ -17,10 +16,9 @@ try:
     PYSPARK_AVAILABLE = True
 except ImportError:
     PYSPARK_AVAILABLE = False
-    SparkDataFrame = MissingImportType  # type: ignore
+    SparkDataFrame = MissingImportType
 
 try:
-    # pylint: disable=unused-import
     import torch  # noqa: F401
 
     TORCH_AVAILABLE = True

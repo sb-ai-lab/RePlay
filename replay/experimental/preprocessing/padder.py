@@ -9,7 +9,6 @@ if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
 
 
-# pylint: disable=too-few-public-methods
 class Padder:
     """
     Pad array columns in dataframe.
@@ -56,12 +55,11 @@ class Padder:
     <BLANKLINE>
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         pad_columns: Union[str, List[str]],
         padding_side: Optional[str] = "right",
-        padding_value: Union[str, float, int, List, None] = 0,
+        padding_value: Union[str, float, List, None] = 0,
         array_size: Optional[int] = None,
         cut_array: Optional[bool] = True,
         cut_side: Optional[str] = "right",
@@ -86,7 +84,8 @@ class Padder:
             "right",
             "left",
         ):
-            raise ValueError(f"padding_side value {padding_side} is not implemented. Should be 'right' or 'left'")
+            msg = f"padding_side value {padding_side} is not implemented. Should be 'right' or 'left'"
+            raise ValueError(msg)
 
         self.padding_side = padding_side
         self.padding_value = (
@@ -97,12 +96,14 @@ class Padder:
         if len(self.padding_value) == 1 and len(self.pad_columns) > 1:
             self.padding_value = self.padding_value * len(self.pad_columns)
         if len(self.pad_columns) != len(self.padding_value):
-            raise ValueError("pad_columns and padding_value should have same length")
+            msg = "pad_columns and padding_value should have same length"
+            raise ValueError(msg)
 
         self.array_size = array_size
         if self.array_size is not None:
             if self.array_size < 1 or not isinstance(self.array_size, int):
-                raise ValueError("array_size should be positive integer more than 0")
+                msg = "array_size should be positive integer greater than 0"
+                raise ValueError(msg)
         else:
             self.array_size = -1
 
@@ -123,11 +124,14 @@ class Padder:
 
         for col, pad_value in zip(self.pad_columns, self.padding_value):
             if col not in df_transformed.columns:
-                raise ValueError(f"Column {col} not in DataFrame columns.")
+                msg = f"Column {col} not in DataFrame columns."
+                raise ValueError(msg)
             if is_spark is True and not column_dtypes[col].startswith("array"):
-                raise ValueError(f"Column {col} should have ArrayType to be padded.")
+                msg = f"Column {col} should have ArrayType to be padded."
+                raise ValueError(msg)
             if is_spark is False and not is_object_dtype(df_transformed[col]):
-                raise ValueError(f"Column {col} should have object dtype to be padded.")
+                msg = f"Column {col} should have object dtype to be padded."
+                raise ValueError()
 
             if is_spark is True:
                 df_transformed = self._transform_spark(df_transformed, col, pad_value)
@@ -137,12 +141,9 @@ class Padder:
         return df_transformed
 
     def _transform_pandas(
-        self, df_transformed: PandasDataFrame, col: str, pad_value: Union[str, float, int, List, None]
+        self, df_transformed: PandasDataFrame, col: str, pad_value: Union[str, float, List, None]
     ) -> PandasDataFrame:
-        if self.array_size == -1:
-            max_array_size = df_transformed[col].str.len().max()
-        else:
-            max_array_size = self.array_size
+        max_array_size = df_transformed[col].str.len().max() if self.array_size == -1 else self.array_size
 
         def right_cut(sample: List) -> List:
             # fmt: off
@@ -158,10 +159,7 @@ class Padder:
         res[col] = res[col].apply(lambda sample: sample if isinstance(sample, list) else [])
         cut_col_name = f"{col}_cut"
         if self.cut_array:
-            if self.cut_side == "right":
-                cut_func = right_cut
-            else:
-                cut_func = left_cut
+            cut_func = right_cut if self.cut_side == "right" else left_cut
 
             res[cut_col_name] = res[col].apply(cut_func)
         else:
@@ -178,7 +176,7 @@ class Padder:
         return res
 
     def _transform_spark(
-        self, df_transformed: SparkDataFrame, col: str, pad_value: Union[str, float, int, List, None]
+        self, df_transformed: SparkDataFrame, col: str, pad_value: Union[str, float, List, None]
     ) -> SparkDataFrame:
         if self.array_size == -1:
             max_array_size = df_transformed.agg(sf.max(sf.size(col)).alias("max_array_len")).collect()[0][0]
@@ -202,9 +200,9 @@ class Padder:
                 ).otherwise(sf.array())
             else:
                 slice_func = sf.least(sf.size(col), sf.lit(max_array_size))
-                cut_func = sf.when(
-                    sf.size(col) > 0, sf.expr(f"slice({col}, 1, {slice_col_name})")
-                ).otherwise(sf.array())
+                cut_func = sf.when(sf.size(col) > 0, sf.expr(f"slice({col}, 1, {slice_col_name})")).otherwise(
+                    sf.array()
+                )
 
             df_transformed = df_transformed.withColumn(slice_col_name, slice_func).withColumn(cut_col_name, cut_func)
 

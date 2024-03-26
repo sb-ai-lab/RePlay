@@ -1,5 +1,3 @@
-# pylint: disable-all
-import sys
 import numpy as np
 import pytest
 from _pytest.python_api import approx
@@ -12,10 +10,9 @@ from d3rlpy.models.optimizers import AdamFactory
 from pyspark.sql import functions as sf
 
 from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
-from replay.experimental.models.cql import CQL
-from replay.experimental.models.cql import MdpDatasetBuilder
+from replay.experimental.models.cql import CQL, MdpDatasetBuilder
 from replay.utils import SparkDataFrame
-from tests.utils import log, log_to_pred, long_log_with_features, spark, sparkDataFrameEqual, user_features
+from tests.utils import sparkDataFrameEqual
 
 
 def fit_predict_selected(model, train_log, inf_log, user_features, users):
@@ -63,10 +60,18 @@ def test_serialize_deserialize_policy(log: SparkDataFrame):
     model.fit(log)
 
     # arbitrary batch of user-item pairs as we test exact relevance for each one
-    user_item_batch = np.array([
-        [0, 0], [0, 1], [0, 2], [0, 3],
-        [1, 0], [1, 1], [1, 2], [1, 3],
-    ])
+    user_item_batch = np.array(
+        [
+            [0, 0],
+            [0, 1],
+            [0, 2],
+            [0, 3],
+            [1, 0],
+            [1, 1],
+            [1, 2],
+            [1, 3],
+        ]
+    )
 
     # predict user-item relevance with the original model
     relevance = model.model.predict(user_item_batch)
@@ -84,18 +89,25 @@ def test_mdp_dataset_builder(log: SparkDataFrame):
     mdp_dataset = MdpDatasetBuilder(top_k=1, action_randomization_scale=1e-9).build(log)
 
     # we test only users {0, 1} as for the rest log has non-deterministic order (see log dates)
-    gt_observations = np.array([
-        [0, 0], [0, 2], [0, 1],
-        [1, 3], [1, 0],
-    ])
-    gt_actions = np.array([
-        4, 3, 2,
-        3, 4
-    ])
-    gt_rewards = np.array([
-        1, 0, 0,
-        0, 1,
-    ])
+    gt_observations = np.array(
+        [
+            [0, 0],
+            [0, 2],
+            [0, 1],
+            [1, 3],
+            [1, 0],
+        ]
+    )
+    gt_actions = np.array([4, 3, 2, 3, 4])
+    gt_rewards = np.array(
+        [
+            1,
+            0,
+            0,
+            0,
+            1,
+        ]
+    )
     n = 3
 
     assert mdp_dataset.episodes[0].observations[:n] == approx(gt_observations[:n])
@@ -138,7 +150,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred):
     assert np.allclose(
         recs_joined.select("relevance").toPandas().to_numpy(),
         recs_joined.select("pairs_relevance").toPandas().to_numpy(),
-        atol=0.01
+        atol=0.01,
     )
 
 
@@ -179,7 +191,7 @@ def test_initialization_args_matches():
         n_steps=3,
         mdp_dataset_builder=MdpDatasetBuilder(top_k=3),
         batch_size=512,
-        actor_optim_factory=AdamFactory(betas=(0.8, 0.95))
+        actor_optim_factory=AdamFactory(betas=(0.8, 0.95)),
     )
     params = model._init_args
     new_model = CQL(**params)

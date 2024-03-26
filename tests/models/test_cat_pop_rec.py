@@ -1,11 +1,10 @@
-# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
+import logging
 
 import pytest
-import logging
 
 from replay.data import FeatureHint, FeatureInfo, FeatureSchema, FeatureType
 from replay.models import CatPopRec
-from tests.utils import create_dataset, spark, sparkDataFrameEqual
+from tests.utils import create_dataset, sparkDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
@@ -76,19 +75,11 @@ def test_cat_tree(model):
     mapping.show()
     assert mapping.count() == 8
     assert mapping.filter(sf.col("category") == "healthy_food").count() == 1
-    assert (
-        mapping.filter(sf.col("category") == "healthy_food")
-        .select("leaf_cat")
-        .collect()[0][0]
-        == "healthy_food"
-    )
+    assert mapping.filter(sf.col("category") == "healthy_food").select("leaf_cat").collect()[0][0] == "healthy_food"
 
     assert mapping.filter(sf.col("category") == "groceries").count() == 2
     assert sorted(
-        mapping.filter(sf.col("category") == "groceries")
-        .select("leaf_cat")
-        .toPandas()["leaf_cat"]
-        .tolist()
+        mapping.filter(sf.col("category") == "groceries").select("leaf_cat").toPandas()["leaf_cat"].tolist()
     ) == ["bananas", "red_apples"]
 
 
@@ -176,12 +167,11 @@ def test_max_iter_warning(cat_tree, caplog):
         assert (
             "Category tree was not fully processed in 1 iterations. "
             "Increase the `max_iter` value or check the category tree structure."
-            "It must not have loops and each category should have only one parent."
-            in caplog.text
+            "It must not have loops and each category should have only one parent." in caplog.text
         )
 
 
-def test_predict_cold_items(cat_log, requested_cats, model, cold_items ,caplog):
+def test_predict_cold_items(cat_log, requested_cats, model, cold_items, caplog):
     caplog.set_level(logging.INFO, logger="replay")
     feature_schema = FeatureSchema(
         [
@@ -205,7 +195,4 @@ def test_predict_cold_items(cat_log, requested_cats, model, cold_items ,caplog):
     model.fit(dataset)
     model.predict(requested_cats, k=3, items=cold_items)
 
-    assert (
-        f"{model} model can't predict cold items, they will be ignored"
-        in caplog.text
-    )
+    assert f"{model} model can't predict cold items, they will be ignored" in caplog.text

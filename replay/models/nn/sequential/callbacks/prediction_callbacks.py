@@ -1,39 +1,37 @@
 import abc
 from typing import Generic, List, Optional, Protocol, Tuple, TypeVar, cast
 
-import lightning as L
+import lightning
 import torch
 
 from replay.models.nn.sequential import Bert4Rec
 from replay.models.nn.sequential.postprocessors import BasePostProcessor
-from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame, SparkDataFrame, MissingImportType
+from replay.utils import PYSPARK_AVAILABLE, MissingImportType, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:  # pragma: no cover
+    import pyspark.sql.functions as sf
     from pyspark.sql import SparkSession
-    import pyspark.sql.functions as F
     from pyspark.sql.types import ArrayType, DoubleType, IntegerType, StructType
 else:
     SparkSession = MissingImportType
 
 
-# pylint: disable=too-few-public-methods
 class PredictionBatch(Protocol):
     """
     Prediction callback batch
     """
+
     query_id: torch.LongTensor
 
 
 _T = TypeVar("_T")
 
 
-# pylint: disable=too-many-instance-attributes
-class BasePredictionCallback(L.Callback, Generic[_T]):
+class BasePredictionCallback(lightning.Callback, Generic[_T]):
     """
     Base callback for prediction stage
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         top_k: int,
@@ -59,21 +57,21 @@ class BasePredictionCallback(L.Callback, Generic[_T]):
         self._item_batches: List[torch.Tensor] = []
         self._item_scores: List[torch.Tensor] = []
 
-    # pylint: disable=unused-argument
-    def on_predict_epoch_start(self, trainer: L.Trainer, pl_module: L.LightningModule) -> None:
+    def on_predict_epoch_start(
+        self, trainer: lightning.Trainer, pl_module: lightning.LightningModule  # noqa: ARG002
+    ) -> None:
         self._query_batches.clear()
         self._item_batches.clear()
         self._item_scores.clear()
 
-    # pylint: disable=unused-argument, too-many-arguments
     def on_predict_batch_end(
         self,
-        trainer: L.Trainer,
-        pl_module: L.LightningModule,
+        trainer: lightning.Trainer,  # noqa: ARG002
+        pl_module: lightning.LightningModule,  # noqa: ARG002
         outputs: torch.Tensor,
         batch: PredictionBatch,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        batch_idx: int,  # noqa: ARG002
+        dataloader_idx: int = 0,  # noqa: ARG002
     ) -> None:
         query_ids, scores = self._compute_pipeline(batch.query_id, outputs)
         top_scores, top_item_ids = torch.topk(scores, k=self._top_k, dim=1)
@@ -157,7 +155,6 @@ class SparkPredictionCallback(BasePredictionCallback[SparkDataFrame]):
     Callback for prediction stage with spark data frame
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         top_k: int,
@@ -206,7 +203,7 @@ class SparkPredictionCallback(BasePredictionCallback[SparkDataFrame]):
                 ),
                 schema=schema,
             )
-            .withColumn("exploded_columns", F.explode(F.arrays_zip(self.item_column, self.rating_column)))
+            .withColumn("exploded_columns", sf.explode(sf.arrays_zip(self.item_column, self.rating_column)))
             .select(self.query_column, f"exploded_columns.{self.item_column}", f"exploded_columns.{self.rating_column}")
         )
         return prediction
@@ -247,26 +244,27 @@ class TorchPredictionCallback(BasePredictionCallback[Tuple[torch.LongTensor, tor
         )
 
 
-class QueryEmbeddingsPredictionCallback(L.Callback):
+class QueryEmbeddingsPredictionCallback(lightning.Callback):
     """
     Callback for prediction stage to get query embeddings.
     """
+
     def __init__(self):
         self._embeddings_per_batch: List[torch.Tensor] = []
 
-    # pylint: disable=unused-argument
-    def on_predict_epoch_start(self, trainer: L.Trainer, pl_module: L.LightningModule) -> None:
+    def on_predict_epoch_start(
+        self, trainer: lightning.Trainer, pl_module: lightning.LightningModule  # noqa: ARG002
+    ) -> None:
         self._embeddings_per_batch.clear()
 
-    # pylint: disable=unused-argument, too-many-arguments
     def on_predict_batch_end(
         self,
-        trainer: L.Trainer,
-        pl_module: L.LightningModule,
-        outputs: torch.Tensor,
+        trainer: lightning.Trainer,  # noqa: ARG002
+        pl_module: lightning.LightningModule,
+        outputs: torch.Tensor,  # noqa: ARG002
         batch: PredictionBatch,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        batch_idx: int,  # noqa: ARG002
+        dataloader_idx: int = 0,  # noqa: ARG002
     ) -> None:
         args = [batch.features, batch.padding_mask]
         if isinstance(pl_module, Bert4Rec):

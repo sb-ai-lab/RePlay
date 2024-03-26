@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, List, Type
 
-from replay.utils import PandasDataFrame, SparkDataFrame, PolarsDataFrame
+from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 from .base_metric import Metric, MetricsDataFrameLike, MetricsReturnType
 
@@ -8,7 +8,6 @@ if TYPE_CHECKING:  # pragma: no cover
     __class__: Type
 
 
-# pylint: disable=too-few-public-methods
 class Novelty(Metric):
     """
     Measure the fraction of shown items in recommendation list, that users\
@@ -16,11 +15,11 @@ class Novelty(Metric):
 
     .. math::
         Novelty@K(i) = \\frac
-        {\parallel {R^{i}_{1..\min(K, \parallel R^{i} \parallel)} \setminus train^{i}} \parallel}
+        {\\parallel {R^{i}_{1..\\min(K, \\parallel R^{i} \\parallel)} \\setminus train^{i}} \\parallel}
         {K}
 
     .. math::
-        Novelty@K = \\frac {1}{N}\sum_{i=1}^{N}Novelty@K(i)
+        Novelty@K = \\frac {1}{N}\\sum_{i=1}^{N}Novelty@K(i)
 
     :math:`R^{i}` -- the recommendations for the :math:`i`-th user.
 
@@ -114,9 +113,7 @@ class Novelty(Metric):
             else self._convert_dict_to_dict_with_score(recommendations)
         )
         self._check_duplicates_dict(recommendations)
-        train = (
-            self._convert_pandas_to_dict_without_score(train) if is_pandas else train
-        )
+        train = self._convert_pandas_to_dict_without_score(train) if is_pandas else train
         assert isinstance(train, dict)
 
         return self._dict_call(
@@ -125,41 +122,25 @@ class Novelty(Metric):
             train=train,
         )
 
-    # pylint: disable=arguments-renamed
-    def _spark_call(
-        self, recommendations: SparkDataFrame, train: SparkDataFrame
-    ) -> MetricsReturnType:
+    def _spark_call(self, recommendations: SparkDataFrame, train: SparkDataFrame) -> MetricsReturnType:
         """
         Implementation for Pyspark DataFrame.
         """
-        recs = self._get_enriched_recommendations(
-            recommendations, train
-        ).withColumnRenamed("ground_truth", "train")
+        recs = self._get_enriched_recommendations(recommendations, train).withColumnRenamed("ground_truth", "train")
         recs = self._rearrange_columns(recs)
         return self._spark_compute(recs)
 
-    # pylint: disable=arguments-renamed
-    def _polars_call(
-        self, recommendations: PolarsDataFrame, train: PolarsDataFrame
-    ) -> MetricsReturnType:
+    def _polars_call(self, recommendations: PolarsDataFrame, train: PolarsDataFrame) -> MetricsReturnType:
         """
         Implementation for Polars DataFrame.
         """
-        recs = self._get_enriched_recommendations(
-            recommendations, train
-        ).rename({"ground_truth": "train"})
+        recs = self._get_enriched_recommendations(recommendations, train).rename({"ground_truth": "train"})
         recs = self._rearrange_columns(recs)
         return self._polars_compute(recs)
 
-    # pylint: disable=arguments-differ
     @staticmethod
-    def _get_metric_value_by_user(
-        ks: List[int], pred: List, train: List
-    ) -> List[float]:
+    def _get_metric_value_by_user(ks: List[int], pred: List, train: List) -> List[float]:
         if not train or not pred:
             return [1.0 for _ in ks]
         set_train = set(train)
-        res = []
-        for k in ks:
-            res.append(1.0 - len(set(pred[:k]) & set_train) / len(pred[:k]))
-        return res
+        return [1.0 - len(set(pred[:k]) & set_train) / len(pred[:k]) for k in ks]

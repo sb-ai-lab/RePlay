@@ -28,7 +28,6 @@ DEFAULT_METRICS: List[MetricName] = [
 DEFAULT_KS: List[int] = [1, 5, 10, 20]
 
 
-# pylint: disable=too-many-instance-attributes
 @dataclass
 class _MetricRequirements:
     """
@@ -113,7 +112,6 @@ class _CoverageHelper:
         self._train_hist = torch.zeros(self.item_count)
         self._pred_hist: Dict[int, torch.Tensor] = {k: torch.zeros(self.item_count) for k in self._top_k}
 
-    # pylint: disable=attribute-defined-outside-init
     def _ensure_hists_on_device(self, device: torch.device) -> None:
         self._train_hist = self._train_hist.to(device)
         for k in self._top_k:
@@ -192,13 +190,11 @@ class _MetricBuilder(abc.ABC):
         """
 
 
-# pylint: disable=too-many-instance-attributes
 class TorchMetricsBuilder(_MetricBuilder):
     """
     Computes specified metrics over multiple batches
     """
 
-    # pylint: disable=dangerous-default-value
     def __init__(
         self,
         metrics: List[MetricName] = DEFAULT_METRICS,

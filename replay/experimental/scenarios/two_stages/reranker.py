@@ -112,5 +112,6 @@ class LamaWrap(ReRanker):
 
         self.logger.info("top-k")
         return get_top_k_recs(
-            recs=convert2spark(candidates_ids), k=k,
+            recs=convert2spark(candidates_ids),
+            k=k,
         )

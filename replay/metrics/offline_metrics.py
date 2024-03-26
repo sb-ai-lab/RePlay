@@ -1,7 +1,7 @@
 import warnings
 from typing import Dict, List, Optional, Tuple, Union
 
-from replay.utils import PandasDataFrame, SparkDataFrame, PolarsDataFrame
+from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 from .base_metric import Metric, MetricsDataFrameLike, MetricsReturnType
 from .coverage import Coverage
@@ -10,7 +10,6 @@ from .recall import Recall
 from .surprisal import Surprisal
 
 
-# pylint: disable=too-few-public-methods
 class OfflineMetrics:
     """
     Designed for efficient calculation of offline metrics provided by the RePlay.
@@ -146,7 +145,6 @@ class OfflineMetrics:
         "Recall": ["ground_truth"],
     }
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         metrics: List[Metric],
@@ -220,15 +218,11 @@ class OfflineMetrics:
             default_metric._check_duplicates_polars(recommendations)
         unchanged_recs = recommendations
 
-        # pylint: disable=too-many-function-args
-        result_dict["default"] = default_metric._get_enriched_recommendations(
-            recommendations, ground_truth
-        )
+        result_dict["default"] = default_metric._get_enriched_recommendations(recommendations, ground_truth)
 
         for metric in self.metrics:
             # find Coverage
             if metric.__class__.__name__ == "Coverage":
-                # pylint: disable=protected-access
                 result_dict["Coverage"] = Coverage(
                     topk=2,
                     query_column=query_column,
@@ -244,9 +238,7 @@ class OfflineMetrics:
                     item_column=item_column,
                     rating_column=rating_column,
                 )
-                cur_recs = novelty_metric._get_enriched_recommendations(
-                    unchanged_recs, train
-                )
+                cur_recs = novelty_metric._get_enriched_recommendations(unchanged_recs, train)
                 if is_spark:
                     cur_recs = cur_recs.withColumnRenamed("ground_truth", "train")
                 else:
@@ -265,12 +257,10 @@ class OfflineMetrics:
 
         return result_dict, train
 
-    # pylint: disable=no-self-use
     def _cache_dataframes(self, dataframes: Dict[str, SparkDataFrame]) -> None:
         for data in dataframes.values():
             data.cache()
 
-    # pylint: disable=no-self-use
     def _unpersist_dataframes(self, dataframes: Dict[str, SparkDataFrame]) -> None:
         for data in dataframes.values():
             data.unpersist()
@@ -294,22 +284,18 @@ class OfflineMetrics:
             else:
                 metric_args["recs"] = enriched_recs_dict["default"]
 
-            # pylint: disable=protected-access
             if is_spark:
                 result.update(metric._spark_compute(**metric_args))
             else:
                 result.update(metric._polars_compute(**metric_args))
         return result
 
-    # pylint: disable=no-self-use
     def _check_dataframes_types(
         self,
         recommendations: MetricsDataFrameLike,
         ground_truth: MetricsDataFrameLike,
         train: Optional[MetricsDataFrameLike],
-        base_recommendations: Optional[
-            Union[MetricsDataFrameLike, Dict[str, MetricsDataFrameLike]]
-        ],
+        base_recommendations: Optional[Union[MetricsDataFrameLike, Dict[str, MetricsDataFrameLike]]],
     ) -> None:
         types = set()
         types.add(type(recommendations))
@@ -317,7 +303,7 @@ class OfflineMetrics:
         if train is not None:
             types.add(type(train))
         if isinstance(base_recommendations, dict):
-            for _, df in base_recommendations.items():
+            for df in base_recommendations.values():
                 if not isinstance(df, list):
                     types.add(type(df))
                 else:
@@ -327,7 +313,8 @@ class OfflineMetrics:
             types.add(type(base_recommendations))
 
         if len(types) != 1:
-            raise ValueError("All given data frames must have the same type")
+            msg = "All given data frames must have the same type"
+            raise ValueError(msg)
 
     def _check_query_column_present(
         self,
@@ -350,7 +337,8 @@ class OfflineMetrics:
             dataset_names = dataset.columns
 
         if not isinstance(dataset, dict) and query_column not in dataset_names:
-            raise KeyError(f"Query column {query_column} is not present in {dataset_name} dataframe")
+            msg = f"Query column {query_column} is not present in {dataset_name} dataframe"
+            raise KeyError(msg)
 
     def _get_unique_queries(
         self,
@@ -386,14 +374,12 @@ class OfflineMetrics:
         if queries.issubset(other_queries) is False:
             warnings.warn(f"{dataset_name} contains queries that are not presented in recommendations")
 
-    def __call__(  # pylint: disable=too-many-branches, too-many-locals, too-many-statements
+    def __call__(  # noqa: C901
         self,
         recommendations: MetricsDataFrameLike,
         ground_truth: MetricsDataFrameLike,
         train: Optional[MetricsDataFrameLike] = None,
-        base_recommendations: Optional[
-            Union[MetricsDataFrameLike, Dict[str, MetricsDataFrameLike]]
-        ] = None,
+        base_recommendations: Optional[Union[MetricsDataFrameLike, Dict[str, MetricsDataFrameLike]]] = None,
     ) -> Dict[str, float]:
         """
         Compute metrics.
@@ -424,9 +410,7 @@ class OfflineMetrics:
 
         :return: metric values
         """
-        self._check_dataframes_types(
-            recommendations, ground_truth, train, base_recommendations
-        )
+        self._check_dataframes_types(recommendations, ground_truth, train, base_recommendations)
 
         if len(self.main_metrics) > 0:
             query_column = self.main_metrics[0].query_column
@@ -443,31 +427,22 @@ class OfflineMetrics:
 
         if train is not None:
             self._check_query_column_present(train, query_column, "train")
-            self._check_contains(
-                recs_queries,
-                self._get_unique_queries(train, query_column),
-                "train"
-            )
+            self._check_contains(recs_queries, self._get_unique_queries(train, query_column), "train")
         if base_recommendations is not None:
-            if (not isinstance(base_recommendations, dict)
-                    or isinstance(next(iter(base_recommendations.values())), list)):
+            if not isinstance(base_recommendations, dict) or isinstance(
+                next(iter(base_recommendations.values())), list
+            ):
                 base_recommendations = {"base_recommendations": base_recommendations}
             for name, dataset in base_recommendations.items():
                 self._check_query_column_present(dataset, query_column, name)
-                self._check_contains(
-                    recs_queries,
-                    self._get_unique_queries(dataset, query_column),
-                    name
-                )
+                self._check_contains(recs_queries, self._get_unique_queries(dataset, query_column), name)
 
         result = {}
         if isinstance(recommendations, (SparkDataFrame, PolarsDataFrame)):
             is_spark = isinstance(recommendations, SparkDataFrame)
             assert isinstance(ground_truth, type(recommendations))
             assert train is None or isinstance(train, type(recommendations))
-            enriched_recs_dict, train = self._get_enriched_recommendations(
-                recommendations, ground_truth, train
-            )
+            enriched_recs_dict, train = self._get_enriched_recommendations(recommendations, ground_truth, train)
 
             if is_spark and self._allow_caching:
                 self._cache_dataframes(enriched_recs_dict)
@@ -480,12 +455,8 @@ class OfflineMetrics:
                 "train": train,
             }
             for metric in self.metrics:
-                args_to_call: Dict[str, Union[PandasDataFrame, Dict]] = {
-                    "recommendations": recommendations
-                }
-                for data_name in self._metrics_call_requirement_map[
-                    str(metric.__class__.__name__)
-                ]:
+                args_to_call: Dict[str, Union[PandasDataFrame, Dict]] = {"recommendations": recommendations}
+                for data_name in self._metrics_call_requirement_map[str(metric.__class__.__name__)]:
                     args_to_call[data_name] = current_map[data_name]
                 result.update(metric(**args_to_call))
         unexpectedness_result = {}
@@ -493,23 +464,17 @@ class OfflineMetrics:
 
         if len(self.unexpectedness_metric) != 0:
             if base_recommendations is None:
-                raise ValueError(
-                    "Can not calculate Unexpectedness because base_recommendations is None"
-                )
-            if isinstance(base_recommendations, dict) and not isinstance(
-                list(base_recommendations.values())[0], list
-            ):
+                msg = "Can not calculate Unexpectedness because base_recommendations is None"
+                raise ValueError(msg)
+            first_element = next(iter(base_recommendations.values()))
+            if isinstance(base_recommendations, dict) and not isinstance(first_element, list):
                 for unexp in self.unexpectedness_metric:
                     for model_name in base_recommendations:
-                        cur_result = unexp(
-                            recommendations, base_recommendations[model_name]
-                        )
+                        cur_result = unexp(recommendations, base_recommendations[model_name])
                         for metric_name in cur_result:
                             splitted = metric_name.split("@")
                             splitted[0] += "_" + model_name
-                            unexpectedness_result["@".join(splitted)] = cur_result[
-                                metric_name
-                            ]
+                            unexpectedness_result["@".join(splitted)] = cur_result[metric_name]
 
         if len(self.diversity_metric) != 0:
             for diversity in self.diversity_metric:

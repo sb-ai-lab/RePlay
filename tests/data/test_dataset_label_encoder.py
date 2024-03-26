@@ -181,7 +181,7 @@ def test_label_encoder_transform_unknown_feature(full_pandas_dataset):
     encoder.fit(dataset_for_fit)
 
     dataset_for_transform = Dataset(
-        feature_schema=get_features(full_pandas_dataset).subset(user_item_features + ["timestamp"]),
+        feature_schema=get_features(full_pandas_dataset).subset([*user_item_features, "timestamp"]),
         interactions=full_pandas_dataset["interactions"],
     )
 

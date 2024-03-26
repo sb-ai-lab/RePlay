@@ -2,11 +2,11 @@ from typing import Optional
 
 import polars as pl
 
-from replay.utils.spark_utils import spark_to_pandas
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame
+from replay.utils.spark_utils import spark_to_pandas
 
 if PYSPARK_AVAILABLE:  # pragma: no cover
-    import pyspark.sql.functions as F
+    import pyspark.sql.functions as sf
 
 
 def groupby_sequences(events: DataFrameLike, groupby_col: str, sort_col: Optional[str] = None) -> DataFrameLike:
@@ -38,9 +38,7 @@ def groupby_sequences(events: DataFrameLike, groupby_col: str, sort_col: Optiona
             event_cols_without_groupby.insert(0, sort_col)
             events = events.sort(event_cols_without_groupby)
 
-        grouped_sequences = events.group_by(groupby_col).agg(
-            *[pl.col(x) for x in event_cols_without_groupby]
-        )
+        grouped_sequences = events.group_by(groupby_col).agg(*[pl.col(x) for x in event_cols_without_groupby])
     else:
         event_cols_without_groupby = events.columns.copy()
         event_cols_without_groupby.remove(groupby_col)
@@ -49,16 +47,16 @@ def groupby_sequences(events: DataFrameLike, groupby_col: str, sort_col: Optiona
             event_cols_without_groupby.remove(sort_col)
             event_cols_without_groupby.insert(0, sort_col)
 
-        all_cols_struct = F.struct(event_cols_without_groupby)  # type: ignore
+        all_cols_struct = sf.struct(event_cols_without_groupby)
 
-        collect_fn = F.collect_list(all_cols_struct)
+        collect_fn = sf.collect_list(all_cols_struct)
         if sort_col:
-            collect_fn = F.sort_array(collect_fn)
+            collect_fn = sf.sort_array(collect_fn)
 
         grouped_sequences = (
             events.groupby(groupby_col)
             .agg(collect_fn.alias("_"))
-            .select([F.col(groupby_col)] + [F.col(f"_.{col}").alias(col) for col in event_cols_without_groupby])
+            .select([sf.col(groupby_col)] + [sf.col(f"_.{col}").alias(col) for col in event_cols_without_groupby])
             .drop("_")
         )
 

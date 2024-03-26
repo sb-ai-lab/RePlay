@@ -7,10 +7,11 @@ from typing import Any, Callable
 
 from pyarrow import fs
 
-from .base_index_store import IndexStore
-from .utils import FileSystem, get_filesystem
 from replay.utils import PYSPARK_AVAILABLE
 from replay.utils.session_handler import State
+
+from .base_index_store import IndexStore
+from .utils import FileSystem, get_filesystem
 
 if PYSPARK_AVAILABLE:
     from pyspark import SparkFiles
@@ -20,6 +21,7 @@ logger = logging.getLogger("replay")
 
 
 if PYSPARK_AVAILABLE:
+
     class SparkFilesIndexStore(IndexStore):
         """Class that responsible for index store in spark files.
         Works through SparkContext.addFile()."""
@@ -62,14 +64,10 @@ if PYSPARK_AVAILABLE:
             for filename in os.listdir(self.index_dir_path):
                 index_file_path = os.path.join(self.index_dir_path, filename)
                 spark.sparkContext.addFile("file://" + index_file_path)
-                logger.info(
-                    "Index file %s transferred to executors", index_file_path
-                )
+                logger.info("Index file %s transferred to executors", index_file_path)
 
         def dump_index(self, target_path: str):
-            destination_filesystem, target_path = fs.FileSystem.from_uri(
-                target_path
-            )
+            destination_filesystem, target_path = fs.FileSystem.from_uri(target_path)
             target_path = os.path.join(target_path, "index_files")
             destination_filesystem.create_dir(target_path)
             fs.copy_files(
@@ -83,9 +81,7 @@ if PYSPARK_AVAILABLE:
             """Loads index from `path` directory to spark files."""
             path_info = get_filesystem(path)
             source_filesystem, path = fs.FileSystem.from_uri(
-                path_info.hdfs_uri + path_info.path
-                if path_info.filesystem == FileSystem.HDFS
-                else path_info.path
+                path_info.hdfs_uri + path_info.path if path_info.filesystem == FileSystem.HDFS else path_info.path
             )
             path = os.path.join(path, "index_files")
             self.index_dir_path: str = tempfile.mkdtemp()
@@ -100,6 +96,4 @@ if PYSPARK_AVAILABLE:
             for filename in os.listdir(self.index_dir_path):
                 index_file_path = os.path.join(self.index_dir_path, filename)
                 spark.sparkContext.addFile("file://" + index_file_path)
-                logger.info(
-                    "Index file %s transferred to executors", index_file_path
-                )
+                logger.info("Index file %s transferred to executors", index_file_path)

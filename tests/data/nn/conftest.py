@@ -8,6 +8,7 @@ from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
     import torch
+
     from replay.data.nn import PandasSequentialDataset, TensorFeatureInfo, TensorFeatureSource
     from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
 
@@ -358,9 +359,12 @@ def item_id_and_timestamp_schema():
             is_seq=True,
             tensor_dim=64,
             feature_hint=FeatureHint.TIMESTAMP,
-            feature_sources=[TensorFeatureSource(
-                FeatureSource.INTERACTIONS, "timestamp",
-            )]
+            feature_sources=[
+                TensorFeatureSource(
+                    FeatureSource.INTERACTIONS,
+                    "timestamp",
+                )
+            ],
         )
         .build()
     )

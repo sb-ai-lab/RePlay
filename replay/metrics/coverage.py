@@ -1,16 +1,20 @@
+import functools
+import operator
 from typing import Dict, List, Union
+
 import polars as pl
 
-from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame, PolarsDataFrame
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 from .base_metric import Metric, MetricsDataFrameLike, MetricsMeanReturnType, MetricsReturnType
 
 if PYSPARK_AVAILABLE:
-    from pyspark.sql import Window
-    from pyspark.sql import functions as sf
+    from pyspark.sql import (
+        Window,
+        functions as sf,
+    )
 
 
-# pylint: disable=too-few-public-methods
 class Coverage(Metric):
     """
     Metric calculation is as follows:
@@ -54,7 +58,6 @@ class Coverage(Metric):
     <BLANKLINE>
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         topk: Union[List, int],
@@ -79,7 +82,6 @@ class Coverage(Metric):
         )
         self._allow_caching = allow_caching
 
-    # pylint: disable=arguments-differ
     def _get_enriched_recommendations(
         self,
         recommendations: Union[PolarsDataFrame, SparkDataFrame],
@@ -89,16 +91,9 @@ class Coverage(Metric):
         else:
             return self._get_enriched_recommendations_polars(recommendations)
 
-    # pylint: disable=arguments-differ
-    def _get_enriched_recommendations_spark(
-        self, recommendations: SparkDataFrame
-    ) -> SparkDataFrame:
-        window = Window.partitionBy(self.query_column).orderBy(
-            sf.col(self.rating_column).desc()
-        )
-        sorted_by_score_recommendations = recommendations.withColumn(
-            "rank", sf.row_number().over(window)
-        )
+    def _get_enriched_recommendations_spark(self, recommendations: SparkDataFrame) -> SparkDataFrame:
+        window = Window.partitionBy(self.query_column).orderBy(sf.col(self.rating_column).desc())
+        sorted_by_score_recommendations = recommendations.withColumn("rank", sf.row_number().over(window))
         grouped_recs = (
             sorted_by_score_recommendations.select(self.item_column, "rank")
             .groupBy(self.item_column)
@@ -106,10 +101,7 @@ class Coverage(Metric):
         )
         return grouped_recs
 
-    # pylint: disable=arguments-differ
-    def _get_enriched_recommendations_polars(
-        self, recommendations: PolarsDataFrame
-    ) -> PolarsDataFrame:
+    def _get_enriched_recommendations_polars(self, recommendations: PolarsDataFrame) -> PolarsDataFrame:
         sorted_by_score_recommendations = recommendations.select(
             pl.all().sort_by(self.rating_column, descending=True).over(self.query_column)
         )
@@ -119,17 +111,13 @@ class Coverage(Metric):
             )
         )
         grouped_recs = (
-            sorted_by_score_recommendations
-            .select(self.item_column, "rank")
+            sorted_by_score_recommendations.select(self.item_column, "rank")
             .group_by(self.item_column)
             .agg(pl.col("rank").min().alias("best_position"))
         )
         return grouped_recs
 
-    # pylint: disable=arguments-differ
-    def _spark_compute(
-        self, recs: SparkDataFrame, train: SparkDataFrame
-    ) -> MetricsMeanReturnType:
+    def _spark_compute(self, recs: SparkDataFrame, train: SparkDataFrame) -> MetricsMeanReturnType:
         """
         Calculating metrics for PySpark DataFrame.
         """
@@ -144,10 +132,9 @@ class Coverage(Metric):
                 recs.filter(sf.col("best_position") <= k)
                 .select(self.item_column)
                 .distinct()
-                .join(
-                    train.select(self.item_column).distinct(), on=self.item_column
-                )
-                .count() / item_count
+                .join(train.select(self.item_column).distinct(), on=self.item_column)
+                .count()
+                / item_count
             )
             metrics.append(res)
 
@@ -156,10 +143,7 @@ class Coverage(Metric):
 
         return self._aggregate_results(metrics)
 
-    # pylint: disable=arguments-differ
-    def _polars_compute(
-        self, recs: PolarsDataFrame, train: PolarsDataFrame
-    ) -> MetricsMeanReturnType:
+    def _polars_compute(self, recs: PolarsDataFrame, train: PolarsDataFrame) -> MetricsMeanReturnType:
         """
         Calculating metrics for Polars DataFrame.
         """
@@ -172,44 +156,38 @@ class Coverage(Metric):
                 .select(self.item_column)
                 .unique()
                 .join(train.select(self.item_column).unique(), on=self.item_column)
-                .count() / item_count
+                .count()
+                / item_count
             ).rows()[0][0]
             metrics.append(res)
 
         return self._aggregate_results(metrics)
 
-    # pylint: disable=arguments-renamed
-    def _spark_call(
-        self, recommendations: SparkDataFrame, train: SparkDataFrame
-    ) -> MetricsReturnType:
+    def _spark_call(self, recommendations: SparkDataFrame, train: SparkDataFrame) -> MetricsReturnType:
         """
         Implementation for Pyspark DataFrame.
         """
         recs = self._get_enriched_recommendations(recommendations)
         return self._spark_compute(recs, train)
 
-    # pylint: disable=arguments-renamed
-    def _polars_call(
-        self, recommendations: PolarsDataFrame, train: PolarsDataFrame
-    ) -> MetricsReturnType:
+    def _polars_call(self, recommendations: PolarsDataFrame, train: PolarsDataFrame) -> MetricsReturnType:
         """
         Implementation for Polars DataFrame.
         """
         recs = self._get_enriched_recommendations(recommendations)
         return self._polars_compute(recs, train)
 
-    # pylint: disable=arguments-differ
     def _dict_call(self, recommendations: Dict, train: Dict) -> MetricsReturnType:
         """
         Calculating metrics in dict format.
         """
-        train_items = set(sum(train.values(), []))
+        train_items = set(functools.reduce(operator.iconcat, train.values(), []))
 
         len_train_items = len(train_items)
         metrics = []
         for k in self.topk:
             pred_items = set()
-            for _, items in recommendations.items():
+            for items in recommendations.values():
                 for item in items[:k]:
                     pred_items.add(item)
             metrics.append(len(pred_items & train_items) / len_train_items)
@@ -250,9 +228,7 @@ class Coverage(Metric):
             else self._convert_dict_to_dict_with_score(recommendations)
         )
         self._check_duplicates_dict(recommendations)
-        train = (
-            self._convert_pandas_to_dict_without_score(train) if is_pandas else train
-        )
+        train = self._convert_pandas_to_dict_without_score(train) if is_pandas else train
         assert isinstance(train, dict)
         return self._dict_call(recommendations, train)
 

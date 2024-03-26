@@ -3,12 +3,13 @@ from typing import Iterator, Optional
 
 import numpy as np
 
-from .base_index_builder import IndexBuilder
 from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
 from replay.models.extensions.ann.index_inferers.hnswlib_filter_index_inferer import HnswlibFilterIndexInferer
 from replay.models.extensions.ann.index_inferers.hnswlib_index_inferer import HnswlibIndexInferer
 from replay.models.extensions.ann.utils import create_hnswlib_index_instance
 from replay.utils import PandasDataFrame, SparkDataFrame
+
+from .base_index_builder import IndexBuilder
 
 logger = logging.getLogger("replay")
 
@@ -20,9 +21,7 @@ class ExecutorHnswlibIndexBuilder(IndexBuilder):
 
     def produce_inferer(self, filter_seen_items: bool) -> IndexInferer:
         if filter_seen_items:
-            return HnswlibFilterIndexInferer(
-                self.index_params, self.index_store
-            )
+            return HnswlibFilterIndexInferer(self.index_params, self.index_store)
         else:
             return HnswlibIndexInferer(self.index_params, self.index_store)
 
@@ -56,17 +55,11 @@ class ExecutorHnswlibIndexBuilder(IndexBuilder):
                     # ids will be from [0, ..., len(vectors_np)]
                     index.add_items(np.stack(vectors_np))
 
-            _index_store.save_to_store(
-                lambda path: index.save_index(  # pylint: disable=unnecessary-lambda)
-                    path
-                )
-            )
+            _index_store.save_to_store(lambda path: index.save_index(path))
 
             yield PandasDataFrame(data={"_success": 1}, index=[0])
 
         # Here we perform materialization (`.collect()`) to build the hnsw index.
         cols = [ids_col, features_col] if ids_col else [features_col]
 
-        vectors.select(*cols).mapInPandas(
-            build_index_udf, "_success int"
-        ).collect()
+        vectors.select(*cols).mapInPandas(build_index_udf, "_success int").collect()

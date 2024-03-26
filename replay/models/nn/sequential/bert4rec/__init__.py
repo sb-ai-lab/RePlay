@@ -6,9 +6,9 @@ if TORCH_AVAILABLE:
         Bert4RecPredictionDataset,
         Bert4RecTrainingBatch,
         Bert4RecTrainingDataset,
+        Bert4RecUniformMasker,
         Bert4RecValidationBatch,
         Bert4RecValidationDataset,
-        Bert4RecUniformMasker,
     )
     from .lightning import Bert4Rec
     from .model import Bert4RecModel

@@ -7,19 +7,20 @@ from replay.utils import (
     PYSPARK_AVAILABLE,
     DataFrameLike,
     PandasDataFrame,
-    SparkDataFrame,
     PolarsDataFrame,
+    SparkDataFrame,
 )
 
 if PYSPARK_AVAILABLE:
-    from pyspark.sql import Window
-    from pyspark.sql import functions as sf
+    from pyspark.sql import (
+        Window,
+        functions as sf,
+    )
 
 
 SplitterReturnType = Tuple[DataFrameLike, DataFrameLike]
 
 
-# pylint: disable=too-few-public-methods, too-many-instance-attributes
 class Splitter(ABC):
     """Base class"""
 
@@ -33,7 +34,6 @@ class Splitter(ABC):
         "session_id_processing_strategy",
     ]
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         drop_cold_items: bool = False,
@@ -71,14 +71,14 @@ class Splitter(ABC):
     def __str__(self):
         return type(self).__name__
 
-    # pylint: disable=too-many-arguments
     def _drop_cold_items_and_users(
         self,
         train: DataFrameLike,
         test: DataFrameLike,
     ) -> DataFrameLike:
         if isinstance(train, type(test)) is False:
-            raise TypeError("Train and test dataframes must have consistent types")
+            msg = "Train and test dataframes must have consistent types"
+            raise TypeError(msg)
 
         if isinstance(test, SparkDataFrame):
             return self._drop_cold_items_and_users_from_spark(train, test)
@@ -105,7 +105,6 @@ class Splitter(ABC):
         train: SparkDataFrame,
         test: SparkDataFrame,
     ) -> SparkDataFrame:
-
         if self.drop_cold_items:
             train_tmp = train.select(sf.col(self.item_column).alias("item")).distinct()
             test = test.join(train_tmp, train_tmp["item"] == test[self.item_column]).drop("item")
@@ -121,7 +120,6 @@ class Splitter(ABC):
         train: PolarsDataFrame,
         test: PolarsDataFrame,
     ) -> PolarsDataFrame:
-
         if self.drop_cold_items:
             train_tmp = train.select(self.item_column).unique()
             test = test.join(train_tmp, on=self.item_column)
@@ -164,9 +162,9 @@ class Splitter(ABC):
     def _recalculate_with_session_id_column_pandas(self, data: PandasDataFrame) -> PandasDataFrame:
         agg_function_name = "first" if self.session_id_processing_strategy == "train" else "last"
         res = data.copy()
-        res["is_test"] = res.groupby(
-            [self.query_column, self.session_id_column]
-        )["is_test"].transform(agg_function_name)
+        res["is_test"] = res.groupby([self.query_column, self.session_id_column])["is_test"].transform(
+            agg_function_name
+        )
 
         return res
 
@@ -176,7 +174,7 @@ class Splitter(ABC):
             "is_test",
             agg_function("is_test").over(
                 Window.orderBy(self.timestamp_column)
-                .partitionBy(self.query_column, self.session_id_column)  # type: ignore
+                .partitionBy(self.query_column, self.session_id_column)
                 .rowsBetween(Window.unboundedPreceding, Window.unboundedFollowing)
             ),
         )
@@ -186,7 +184,9 @@ class Splitter(ABC):
     def _recalculate_with_session_id_column_polars(self, data: PolarsDataFrame) -> PolarsDataFrame:
         agg_function = pl.Expr.first if self.session_id_processing_strategy == "train" else pl.Expr.last
         res = data.with_columns(
-            agg_function(pl.col("is_test").sort_by(self.timestamp_column))
-            .over([self.query_column, self.session_id_column]))
+            agg_function(pl.col("is_test").sort_by(self.timestamp_column)).over(
+                [self.query_column, self.session_id_column]
+            )
+        )
 
         return res

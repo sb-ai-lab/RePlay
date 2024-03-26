@@ -205,5 +205,5 @@ def test_tensor_scheme_inits():
 
     assert TensorSchema(features_list) is not None
     assert TensorSchema(feature) is not None
-    assert TensorSchema(features_list + [feature]).names == schema.names
+    assert TensorSchema([*features_list, feature]).names == schema.names
     assert (TensorSchema(features_list) + TensorSchema(feature)).names == schema.names

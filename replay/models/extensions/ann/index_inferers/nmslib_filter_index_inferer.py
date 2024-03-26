@@ -11,22 +11,17 @@ if PYSPARK_AVAILABLE:
     from pyspark.sql.pandas.functions import pandas_udf
 
 
-# pylint: disable=too-few-public-methods
 class NmslibFilterIndexInferer(IndexInferer):
     """Nmslib index inferer with filter seen items. Infers nmslib hnsw index."""
 
-    def infer(
-        self, vectors: SparkDataFrame, features_col: str, k: int
-    ) -> SparkDataFrame:
+    def infer(self, vectors: SparkDataFrame, features_col: str, k: int) -> SparkDataFrame:  # noqa: ARG002
         _index_store = self.index_store
         index_params = self.index_params
 
-        index_store_broadcast = State().session.sparkContext.broadcast(
-            _index_store
-        )
+        index_store_broadcast = State().session.sparkContext.broadcast(_index_store)
 
         @pandas_udf(self.udf_return_type)
-        def infer_index_udf(  # pylint: disable=too-many-locals
+        def infer_index_udf(
             user_idx: pd.Series,
             vector_items: pd.Series,
             vector_ratings: pd.Series,
@@ -36,12 +31,8 @@ class NmslibFilterIndexInferer(IndexInferer):
             index_store = index_store_broadcast.value
             index = index_store.load_index(
                 init_index=lambda: create_nmslib_index_instance(index_params),
-                load_index=lambda index, path: index.loadIndex(
-                    path, load_data=True
-                ),
-                configure_index=lambda index: index.setQueryTimeParams(
-                    {"efSearch": index_params.ef_s}
-                )
+                load_index=lambda index, path: index.loadIndex(path, load_data=True),
+                configure_index=lambda index: index.setQueryTimeParams({"efSearch": index_params.ef_s})
                 if index_params.ef_s
                 else None,
             )
@@ -49,9 +40,7 @@ class NmslibFilterIndexInferer(IndexInferer):
             # max number of items to retrieve per batch
             max_items_to_retrieve = num_items.max()
 
-            user_vectors = get_csr_matrix(
-                user_idx, vector_items, vector_ratings
-            )
+            user_vectors = get_csr_matrix(user_idx, vector_items, vector_ratings)
 
             neighbours = index.knnQueryBatch(
                 user_vectors[user_idx.values, :],
@@ -61,9 +50,7 @@ class NmslibFilterIndexInferer(IndexInferer):
 
             neighbours_filtered = []
             for i, (item_idxs, distances) in enumerate(neighbours):
-                non_seen_item_indexes = ~np.isin(
-                    item_idxs, seen_item_ids[i], assume_unique=True
-                )
+                non_seen_item_indexes = ~np.isin(item_idxs, seen_item_ids[i], assume_unique=True)
                 neighbours_filtered.append(
                     (
                         (item_idxs[non_seen_item_indexes])[:k],
@@ -71,14 +58,14 @@ class NmslibFilterIndexInferer(IndexInferer):
                     )
                 )
 
-            pd_res = PandasDataFrame(
-                neighbours_filtered, columns=["item_idx", "distance"]
-            )
+            pd_res = PandasDataFrame(neighbours_filtered, columns=["item_idx", "distance"])
 
-            # pd_res looks like
-            # item_idx       distances
-            # [1, 2, 3, ...] [-0.5, -0.3, -0.1, ...]
-            # [1, 3, 4, ...] [-0.1, -0.8, -0.2, ...]
+            """
+            pd_res looks like
+            item_idx       distances
+            [1, 2, 3, ...] [-0.5, -0.3, -0.1, ...]
+            [1, 3, 4, ...] [-0.1, -0.8, -0.2, ...]
+            """
 
             return pd_res
 
@@ -89,7 +76,6 @@ class NmslibFilterIndexInferer(IndexInferer):
             "num_items",
             "seen_item_idxs",
         ]
-        # cols = cols + ["num_items", "seen_item_idxs"]
 
         res = vectors.select(
             "user_idx",

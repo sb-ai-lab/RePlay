@@ -17,9 +17,7 @@ class SharedDiskIndexStore(IndexStore):
     It can also be used with a local disk when the driver and executors
     are running on the same machine."""
 
-    def __init__(
-        self, warehouse_dir: str, index_dir: str, cleanup: bool = True
-    ):
+    def __init__(self, warehouse_dir: str, index_dir: str, cleanup: bool = True):
         self.index_dir_path = os.path.join(warehouse_dir, index_dir)
         super().__init__(cleanup)
         if self.cleanup:
@@ -52,9 +50,7 @@ class SharedDiskIndexStore(IndexStore):
         save_index(temp_file_path)
 
     def dump_index(self, target_path: str):
-        destination_filesystem, target_path = fs.FileSystem.from_uri(
-            target_path
-        )
+        destination_filesystem, target_path = fs.FileSystem.from_uri(target_path)
         target_path = os.path.join(target_path, "index_files")
         destination_filesystem.create_dir(target_path)
         fs.copy_files(

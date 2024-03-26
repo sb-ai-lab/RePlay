@@ -1,8 +1,8 @@
 from typing import List
 
 import numpy as np
-import polars as pl
 import pandas as pd
+import polars as pl
 import pytest
 
 pytest.importorskip("torch")
@@ -11,7 +11,7 @@ from replay.data import FeatureHint, FeatureType
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
-    from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset, TensorSchema, TensorFeatureInfo
+    from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset, TensorFeatureInfo, TensorSchema
     from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
 
 

@@ -1,7 +1,6 @@
-import numpy as np
-
 from typing import Optional
 
+import numpy as np
 import pytest
 from pytest import approx
 
@@ -130,13 +129,8 @@ def test_seen_metrics(random_train_test_recs):
 def test_unseen_metrics(random_train_test_recs):
     train, test, recs = random_train_test_recs
 
-    merged = test.merge(
-        train,
-        how="outer",
-        on=["user_idx", "item_idx"],
-        indicator=True
-    )
-    test_without_train = merged[merged['_merge'] == 'left_only'].drop("_merge", axis=1)
+    merged = test.merge(train, how="outer", on=["user_idx", "item_idx"], indicator=True)
+    test_without_train = merged[merged["_merge"] == "left_only"].drop("_merge", axis=1)
 
     evaluation_metrics = compute_evaluation_metrics(
         [

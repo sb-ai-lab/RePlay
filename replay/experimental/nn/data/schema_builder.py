@@ -21,10 +21,7 @@ class TensorSchemaBuilder:
         feature_hint: Optional[FeatureHint] = None,
         embedding_dim: Optional[int] = None,
     ) -> "TensorSchemaBuilder":
-        if feature_source:
-            source = [feature_source]
-        else:
-            source = None
+        source = [feature_source] if feature_source else None
         self._tensor_schema[name] = TensorFeatureInfo(
             name=name,
             feature_type=FeatureType.CATEGORICAL,

@@ -1,18 +1,18 @@
+import contextlib
 import math
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, Union, cast, Dict
+from typing import Dict, Optional, Tuple, Union, cast
 
 import torch
 
 from replay.data.nn import TensorFeatureInfo, TensorMap, TensorSchema
 
 
-# pylint: disable=too-many-instance-attributes
 class Bert4RecModel(torch.nn.Module):
     """
     BERT model
     """
-    # pylint: disable=too-many-arguments
+
     def __init__(
         self,
         schema: TensorSchema,
@@ -137,12 +137,7 @@ class Bert4RecModel(torch.nn.Module):
         """
         return self._head(out_embeddings, item_ids)
 
-    def get_query_embeddings(
-        self,
-        inputs: TensorMap,
-        pad_mask: torch.BoolTensor,
-        token_mask: torch.BoolTensor
-    ):
+    def get_query_embeddings(self, inputs: TensorMap, pad_mask: torch.BoolTensor, token_mask: torch.BoolTensor):
         """
         :param inputs: Batch of features.
         :param pad_mask: Padding mask where 0 - <PAD>, 1 otherwise.
@@ -159,13 +154,10 @@ class Bert4RecModel(torch.nn.Module):
 
     def _init(self) -> None:
         for _, param in self.named_parameters():
-            try:
+            with contextlib.suppress(ValueError):
                 torch.nn.init.xavier_normal_(param.data)
-            except ValueError:
-                pass
 
 
-# pylint: disable=too-many-instance-attributes
 class BertEmbedding(torch.nn.Module):
     """
     BERT Embedding which is consisted with under features
@@ -174,7 +166,6 @@ class BertEmbedding(torch.nn.Module):
         sum of all these features are output of BertEmbedding
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         schema: TensorSchema,
@@ -206,19 +197,18 @@ class BertEmbedding(torch.nn.Module):
 
         for feature_name, tensor_info in schema.items():
             if not tensor_info.is_seq:
-                raise NotImplementedError("Non-sequential features is not yet supported")
+                msg = "Non-sequential features is not yet supported"
+                raise NotImplementedError(msg)
 
-            if tensor_info.is_cat:
-                dim = tensor_info.embedding_dim
-            else:
-                dim = tensor_info.tensor_dim
+            dim = tensor_info.embedding_dim if tensor_info.is_cat else tensor_info.tensor_dim
 
             if aggregation_method == "sum":
                 if common_dim is None:
                     common_dim = dim
 
                 if dim != common_dim:
-                    raise ValueError("Dimension of all features must be the same for sum aggregation")
+                    msg = "Dimension of all features must be the same for sum aggregation"
+                    raise ValueError(msg)
             else:
                 raise NotImplementedError()
 
@@ -242,7 +232,7 @@ class BertEmbedding(torch.nn.Module):
         :returns: Embeddings for input features.
         """
         if self.aggregation_method == "sum":
-            aggregated_embedding: torch.Tensor = None  # type: ignore
+            aggregated_embedding: torch.Tensor = None
 
             for feature_name in self.schema.categorical_features:
                 x = inputs[feature_name]
@@ -307,7 +297,7 @@ class BertEmbedding(torch.nn.Module):
         embeddings = {
             "item_embedding": self.item_embeddings.data.detach().clone(),
         }
-        for feature_name, _ in self.schema.items():
+        for feature_name in self.schema:
             if feature_name != self.schema.item_id_feature_name:
                 embeddings[feature_name] = self.cat_embeddings[feature_name].weight.data.detach().clone()
         if self.enable_positional_embedding:
@@ -335,7 +325,6 @@ class PositionalEmbedding(torch.nn.Module):
     Positional embedding.
     """
 
-    # pylint: disable=invalid-name
     def __init__(self, max_len: int, d_model: int) -> None:
         """
         :param max_len: Max sequence length.
@@ -477,7 +466,6 @@ class TransformerBlock(torch.nn.Module):
 
         self.dropout = torch.nn.Dropout(p=dropout)
 
-    # pylint: disable=invalid-name
     def forward(
         self,
         x: torch.Tensor,
@@ -537,7 +525,6 @@ class MultiHeadedAttention(torch.nn.Module):
     Take in model size and number of heads.
     """
 
-    # pylint: disable=invalid-name
     def __init__(self, h: int, d_model: int, dropout: float = 0.1) -> None:
         """
         :param h: Head sizes of multi-head attention.

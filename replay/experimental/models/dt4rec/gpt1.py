@@ -1,32 +1,28 @@
-# pylint: disable=invalid-name
-
 import logging
 import math
 
 from replay.utils import TORCH_AVAILABLE
+
 if TORCH_AVAILABLE:
     import torch
     from torch import nn
-    from torch.nn import functional as F
+    from torch.nn import functional as func
 
 logger = logging.getLogger(__name__)
 
 
-# pylint: disable=too-few-public-methods
 class GELU(nn.Module):
     """
     GELU callable class
     """
 
-    # pylint: disable=no-self-use
     def forward(self, x):
         """
         Apply GELU
         """
-        return F.gelu(x)
+        return func.gelu(x)
 
 
-# pylint: disable=too-few-public-methods
 class GPTConfig:
     """base GPT config, params common to all GPT versions"""
 
@@ -94,7 +90,7 @@ class CausalSelfAttention(nn.Module):
         """
         Apply attention
         """
-        B, T, C = x.size()
+        B, T, C = x.size()  # noqa: N806
 
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
         k = self.key(x).view(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
@@ -104,7 +100,7 @@ class CausalSelfAttention(nn.Module):
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
         att = att.masked_fill(self.mask[:, :, :T, :T] == 0, float("-inf"))
-        att = F.softmax(att, dim=-1)
+        att = func.softmax(att, dim=-1)
         att = self.attn_drop(att)
         y = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
         y = y.transpose(1, 2).contiguous().view(B, T, C)  # re-assemble all head outputs side by side
@@ -191,7 +187,6 @@ class StateReprModule(nn.Module):
         return output
 
 
-# pylint: disable=too-many-instance-attributes
 class GPT(nn.Module):
     """the full GPT language model, with a context size of block_size"""
 
@@ -265,9 +260,7 @@ class GPT(nn.Module):
             torch.nn.Conv1d,
         )
         blacklist_weight_modules = (torch.nn.LayerNorm, torch.nn.Embedding)
-        # pylint: disable=invalid-name
         for mn, m in self.named_modules():
-            # pylint: disable=invalid-name
             for pn, _ in m.named_parameters():
                 fpn = f"{mn}.{pn}" if mn else pn  # full param name
 
@@ -289,26 +282,24 @@ class GPT(nn.Module):
         param_dict = dict(self.named_parameters())
         inter_params = decay & no_decay
         union_params = decay | no_decay
-        assert len(inter_params) == 0, f"parameters {str(inter_params)} made it into both decay/no_decay sets!"
+        assert len(inter_params) == 0, f"parameters {inter_params!s} made it into both decay/no_decay sets!"
         assert (
             len(param_dict.keys() - union_params) == 0
-        ), f"parameters {str(param_dict.keys() - union_params)} were not separated into either decay/no_decay set!"
+        ), f"parameters {param_dict.keys() - union_params!s} were not separated into either decay/no_decay set!"
 
         optim_groups = [
             {
-                "params": [param_dict[pn] for pn in sorted(list(decay))],
+                "params": [param_dict[pn] for pn in sorted(decay)],
                 "weight_decay": 0.1,
             },
             {
-                "params": [param_dict[pn] for pn in sorted(list(no_decay))],
+                "params": [param_dict[pn] for pn in sorted(no_decay)],
                 "weight_decay": 0.0,
             },
         ]
         return optim_groups
 
     # state, action, and return
-    # pylint: disable=too-many-locals
-    # pylint: disable=too-many-arguments
     def forward(
         self,
         states,
@@ -389,7 +380,6 @@ class GPT(nn.Module):
 
         return logits
 
-    # pylint: disable=too-many-arguments
     def predict(self, states, actions, rtgs, timesteps, users):
         """
         :states: states batch, (batch, block_size, 3)

@@ -7,6 +7,6 @@ from .types import (
     MissingImportType,
     NumType,
     PandasDataFrame,
-    SparkDataFrame,
     PolarsDataFrame,
+    SparkDataFrame,
 )

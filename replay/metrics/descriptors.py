@@ -4,7 +4,7 @@ from typing import Union
 import numpy as np
 from scipy.stats import norm, sem
 
-from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame, PolarsDataFrame
+from replay.utils import PYSPARK_AVAILABLE, PolarsDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -66,9 +66,7 @@ class Median(CalculationDescriptor):
 
     def spark(self, distribution: SparkDataFrame):
         column_name = distribution.columns[0]
-        return distribution.select(
-            sf.expr(f"percentile_approx({column_name}, 0.5)")
-        ).first()[0]
+        return distribution.select(sf.expr(f"percentile_approx({column_name}, 0.5)")).first()[0]
 
     def cpu(self, distribution: Union[np.array, PolarsDataFrame]):
         if isinstance(distribution, PolarsDataFrame):
@@ -119,12 +117,5 @@ class ConfidenceInterval(CalculationDescriptor):
         column_name = distribution.columns[0]
         quantile = norm.ppf((1 + self.alpha) / 2)
         count = distribution.select(column_name).count().rows()[0][0]
-        std = (
-            distribution
-            .select(column_name)
-            .std()
-            .fill_null(0.0)
-            .fill_nan(0.0)
-            .rows()[0][0]
-        )
-        return quantile * std / (count ** 0.5)
+        std = distribution.select(column_name).std().fill_null(0.0).fill_nan(0.0).rows()[0][0]
+        return quantile * std / (count**0.5)

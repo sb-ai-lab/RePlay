@@ -6,14 +6,14 @@ import polars as pl
 from pandas import DataFrame as PandasDataFrame
 from polars import DataFrame as PolarsDataFrame
 
-from replay.data import Dataset, FeatureSchema, FeatureSource, FeatureHint
+from replay.data import Dataset, FeatureHint, FeatureSchema, FeatureSource
 from replay.data.dataset_utils import DatasetLabelEncoder
-from .schema import TensorFeatureInfo, TensorFeatureSource, TensorSchema
-from .sequential_dataset import PandasSequentialDataset, SequentialDataset, PolarsSequentialDataset
-from .utils import ensure_pandas, groupby_sequences
 from replay.preprocessing import LabelEncoder
 from replay.preprocessing.label_encoder import HandleUnknownStrategies
 
+from .schema import TensorFeatureInfo, TensorFeatureSource, TensorSchema
+from .sequential_dataset import PandasSequentialDataset, PolarsSequentialDataset, SequentialDataset
+from .utils import ensure_pandas, groupby_sequences
 
 SequenceDataFrameLike = Union[PandasDataFrame, PolarsDataFrame]
 
@@ -84,7 +84,6 @@ class SequenceTokenizer:
         :param dataset: input dataset to transform
         :returns: SequentialDataset
         """
-        # pylint: disable=protected-access
         return self.fit(dataset)._transform_unchecked(dataset)
 
     @property
@@ -161,10 +160,7 @@ class SequenceTokenizer:
 
         assert self._tensor_schema.item_id_feature_name
 
-        if is_polars:
-            dataset_type = PolarsSequentialDataset
-        else:
-            dataset_type = PandasSequentialDataset
+        dataset_type = PolarsSequentialDataset if is_polars else PandasSequentialDataset
 
         return dataset_type(
             tensor_schema=schema,
@@ -191,7 +187,7 @@ class SequenceTokenizer:
             return (
                 grouped_interactions.sort(dataset.feature_schema.query_id_column),
                 dataset.query_features,
-                dataset.item_features
+                dataset.item_features,
             )
 
         # We sort by QUERY_ID to make sure order is deterministic
@@ -211,7 +207,6 @@ class SequenceTokenizer:
 
         return grouped_interactions_pd, query_features_pd, item_features_pd
 
-    # pylint: disable=too-many-arguments
     def _make_sequence_features(
         self,
         schema: TensorSchema,
@@ -298,24 +293,27 @@ class SequenceTokenizer:
         for tensor_feature in tensor_schema.all_features:
             feature_sources = tensor_feature.feature_sources
             if not feature_sources:
-                raise ValueError("All tensor features must have sources defined")
+                msg = "All tensor features must have sources defined"
+                raise ValueError(msg)
 
             source_tables: List[FeatureSource] = [s.source for s in feature_sources]
 
             unexpected_tables = list(filter(lambda x: not isinstance(x, FeatureSource), source_tables))
             if len(unexpected_tables) > 0:
-                raise ValueError(f"Found unexpected source tables: {unexpected_tables}")
+                msg = f"Found unexpected source tables: {unexpected_tables}"
+                raise ValueError(msg)
 
             if not tensor_feature.is_seq:
                 if FeatureSource.INTERACTIONS in source_tables:
-                    raise ValueError("Interaction features must be treated as sequential")
+                    msg = "Interaction features must be treated as sequential"
+                    raise ValueError(msg)
 
                 if FeatureSource.ITEM_FEATURES in source_tables:
-                    raise ValueError("Item features must be treated as sequential")
+                    msg = "Item features must be treated as sequential"
+                    raise ValueError(msg)
 
-    # pylint: disable=too-many-branches
     @classmethod
-    def _check_if_tensor_schema_matches_data(
+    def _check_if_tensor_schema_matches_data(  # noqa: C901
         cls,
         dataset: Dataset,
         tensor_schema: TensorSchema,
@@ -324,54 +322,64 @@ class SequenceTokenizer:
         # Check if all source columns specified in tensor schema exist in provided data frames
         sources_for_tensors: List[TensorFeatureSource] = []
         for tensor_feature_name, tensor_feature in tensor_schema.items():
-            if (tensor_features_to_keep is not None) and (tensor_feature_name not in tensor_features_to_keep):
+            if tensor_features_to_keep is not None and tensor_feature_name not in tensor_features_to_keep:
                 continue
 
-            feature_sources = tensor_feature.feature_sources
-            if feature_sources:
-                sources_for_tensors += feature_sources
+            if tensor_feature.feature_sources:
+                sources_for_tensors += tensor_feature.feature_sources
 
         query_id_column = dataset.feature_schema.query_id_column
         item_id_column = dataset.feature_schema.item_id_column
 
-        interaction_feature_columns = set(
-            list(dataset.feature_schema.interaction_features.columns) + [query_id_column, item_id_column]
-        )
-        query_feature_columns = set(list(dataset.feature_schema.query_features.columns) + [query_id_column])
-        item_feature_columns = set(list(dataset.feature_schema.item_features.columns) + [item_id_column])
+        interaction_feature_columns = {
+            *dataset.feature_schema.interaction_features.columns,
+            query_id_column,
+            item_id_column,
+        }
+        query_feature_columns = {*dataset.feature_schema.query_features.columns, query_id_column}
+        item_feature_columns = {*dataset.feature_schema.item_features.columns, item_id_column}
 
         for feature_source in sources_for_tensors:
             assert feature_source is not None
             if feature_source.source == FeatureSource.INTERACTIONS:
                 if feature_source.column not in interaction_feature_columns:
-                    raise ValueError(f"Expected column '{feature_source.column}' in dataset")
+                    msg = f"Expected column '{feature_source.column}' in dataset"
+                    raise ValueError(msg)
             elif feature_source.source == FeatureSource.QUERY_FEATURES:
                 if dataset.query_features is None:
-                    raise ValueError(f"Expected column '{feature_source.column}', but query features are not specified")
+                    msg = f"Expected column '{feature_source.column}', but query features are not specified"
+                    raise ValueError(msg)
                 if feature_source.column not in query_feature_columns:
-                    raise ValueError(f"Expected column '{feature_source.column}' in query features data frame")
+                    msg = f"Expected column '{feature_source.column}' in query features data frame"
+                    raise ValueError(msg)
             elif feature_source.source == FeatureSource.ITEM_FEATURES:
                 if dataset.item_features is None:
-                    raise ValueError(f"Expected column '{feature_source.column}', but item features are not specified")
+                    msg = f"Expected column '{feature_source.column}', but item features are not specified"
+                    raise ValueError(msg)
                 if feature_source.column not in item_feature_columns:
-                    raise ValueError(f"Expected column '{feature_source.column}' in item features data frame")
+                    msg = f"Expected column '{feature_source.column}' in item features data frame"
+                    raise ValueError(msg)
             else:
-                raise ValueError(f"Found unexpected table '{feature_source.source}' in tensor schema")
+                msg = f"Found unexpected table '{feature_source.source}' in tensor schema"
+                raise ValueError(msg)
 
         # Check if user ID and item ID columns are consistent with tensor schema
         if tensor_schema.query_id_feature_name is not None:
             tensor_feature = tensor_schema.query_id_features.item()
             assert tensor_feature.feature_source
             if tensor_feature.feature_source.column != dataset.feature_schema.query_id_column:
-                raise ValueError("Tensor schema query ID source colum does not match query ID in data frame")
+                msg = "Tensor schema query ID source colum does not match query ID in data frame"
+                raise ValueError(msg)
 
         if tensor_schema.item_id_feature_name is None:
-            raise ValueError("Tensor schema must have item id feature defined")
+            msg = "Tensor schema must have item id feature defined"
+            raise ValueError(msg)
 
         tensor_feature = tensor_schema.item_id_features.item()
         assert tensor_feature.feature_source
         if tensor_feature.feature_source.column != dataset.feature_schema.item_id_column:
-            raise ValueError("Tensor schema item ID source colum does not match item ID in data frame")
+            msg = "Tensor schema item ID source colum does not match item ID in data frame"
+            raise ValueError(msg)
 
     @classmethod
     def load(cls, path: str) -> "SequenceTokenizer":
@@ -409,7 +417,6 @@ class _SequenceProcessor:
         with passing all tensor features one by one.
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         tensor_schema: TensorSchema,
@@ -462,13 +469,9 @@ class _SequenceProcessor:
         for tensor_feature_name in self._tensor_schema:
             tensor_feature = self._tensor_schema[tensor_feature_name]
             if tensor_feature.is_cat:
-                data = data.join(
-                    self._process_cat_feature(tensor_feature), on=self._query_id_column, how="left"
-                )
+                data = data.join(self._process_cat_feature(tensor_feature), on=self._query_id_column, how="left")
             elif tensor_feature.is_num:
-                data = data.join(
-                    self._process_num_feature(tensor_feature), on=self._query_id_column, how="left"
-                )
+                data = data.join(self._process_num_feature(tensor_feature), on=self._query_id_column, how="left")
             else:
                 assert False, "Unknown tensor feature type"
         return data
@@ -490,28 +493,24 @@ class _SequenceProcessor:
         def get_sequence(user, source, data):
             if source.source == FeatureSource.INTERACTIONS:
                 return np.array(
-                    self._grouped_interactions
-                    .filter(pl.col(self._query_id_column) == user)[source.column][0],
-                    dtype=np.float32
+                    self._grouped_interactions.filter(pl.col(self._query_id_column) == user)[source.column][0],
+                    dtype=np.float32,
                 ).tolist()
             elif source.source == FeatureSource.ITEM_FEATURES:
                 return (
                     pl.DataFrame({self._item_id_column: data})
                     .join(self._item_features, on=self._item_id_column, how="left")
-                    .select(source.column).to_numpy().reshape(-1).tolist()
+                    .select(source.column)
+                    .to_numpy()
+                    .reshape(-1)
+                    .tolist()
                 )
             else:
                 assert False, "Unknown tensor feature source table"
+
         result = (
-            self._grouped_interactions
-            .select(self._query_id_column, self._item_id_column)
-            .map_rows(
-                lambda x:
-                (
-                    x[0],
-                    [get_sequence(x[0], source, x[1])
-                     for source in tensor_feature.feature_sources]
-                )
+            self._grouped_interactions.select(self._query_id_column, self._item_id_column).map_rows(
+                lambda x: (x[0], [get_sequence(x[0], source, x[1]) for source in tensor_feature.feature_sources])
             )
         ).rename({"column_0": self._query_id_column, "column_1": tensor_feature.name})
 
@@ -520,13 +519,14 @@ class _SequenceProcessor:
         else:
             reshape_size = (-1, len(tensor_feature.feature_sources))
 
-        return pl.DataFrame({
-            self._query_id_column: result[self._query_id_column].to_list(),
-            tensor_feature.name: list(map(
-                lambda x: np.array(x).reshape(reshape_size).tolist(),
-                result[tensor_feature.name].to_list()
-            ))
-        })
+        return pl.DataFrame(
+            {
+                self._query_id_column: result[self._query_id_column].to_list(),
+                tensor_feature.name: [
+                    np.array(x).reshape(reshape_size).tolist() for x in result[tensor_feature.name].to_list()
+                ],
+            }
+        )
 
     def _process_num_feature(self, tensor_feature: TensorFeatureInfo) -> List[np.ndarray]:
         """
@@ -580,9 +580,9 @@ class _SequenceProcessor:
         assert source is not None
 
         if self._is_polars:
-            return self._grouped_interactions.select(
-                self._query_id_column, source.column
-            ).rename({source.column: tensor_feature.name})
+            return self._grouped_interactions.select(self._query_id_column, source.column).rename(
+                {source.column: tensor_feature.name}
+            )
 
         return [np.array(sequence, dtype=np.int64) for sequence in self._grouped_interactions[source.column]]
 
@@ -611,9 +611,9 @@ class _SequenceProcessor:
                 result = self._query_features
                 repeat_value = 1
 
-            return result.select(
-                self._query_id_column, pl.col(source.column).repeat_by(repeat_value)
-            ).rename({source.column: tensor_feature.name})
+            return result.select(self._query_id_column, pl.col(source.column).repeat_by(repeat_value)).rename(
+                {source.column: tensor_feature.name}
+            )
 
         query_feature = self._query_features[source.column].values
         if tensor_feature.is_seq:
@@ -640,20 +640,19 @@ class _SequenceProcessor:
 
         if self._is_polars:
             return (
-                self._grouped_interactions
-                .select(self._query_id_column, self._item_id_column)
+                self._grouped_interactions.select(self._query_id_column, self._item_id_column)
                 .map_rows(
-                    lambda x:
-                    (
+                    lambda x: (
                         x[0],
                         pl.DataFrame({self._item_id_column: x[1]})
                         .join(self._item_features, on=self._item_id_column, how="left")
-                        .select(source.column).to_numpy().reshape(-1).tolist(),
+                        .select(source.column)
+                        .to_numpy()
+                        .reshape(-1)
+                        .tolist(),
                     )
-                ).rename({
-                    "column_0": self._query_id_column,
-                    "column_1": tensor_feature.name
-                })
+                )
+                .rename({"column_0": self._query_id_column, "column_1": tensor_feature.name})
             )
 
         item_feature = self._item_features[source.column]

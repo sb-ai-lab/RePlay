@@ -6,7 +6,7 @@ from typing import Mapping, TextIO, Tuple
 
 
 class TemplateEngine:
-    _statement_re = re.compile("\{\% (\w+)(.*) \%\}")
+    _statement_re = re.compile(r"\{\% (\w+)(.*) \%\}")
 
     def __init__(self, variables: Mapping[str, str]) -> None:
         self._variables = variables

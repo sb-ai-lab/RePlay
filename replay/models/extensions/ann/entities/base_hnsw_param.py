@@ -9,7 +9,7 @@ class BaseHnswParam:
     """
 
     space: str
-    m: int = 200  # pylint: disable=invalid-name
+    m: int = 200
     ef_c: int = 20000
     post: int = 0
     ef_s: Optional[int] = None

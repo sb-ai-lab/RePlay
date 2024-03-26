@@ -13,6 +13,7 @@ from replay.metrics import (
     CategoricalDiversity,
     ConfidenceInterval,
     Coverage,
+    Experiment,
     HitRate,
     Mean,
     Median,
@@ -24,10 +25,9 @@ from replay.metrics import (
     RocAuc,
     Surprisal,
     Unexpectedness,
-    Experiment,
 )
 from replay.metrics.base_metric import MetricDuplicatesWarning
-from replay.utils import DataFrameLike, PandasDataFrame, SparkDataFrame, PolarsDataFrame
+from replay.utils import DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 ABS = 1e-5
 QUERY_COLUMN = "uid"
@@ -50,7 +50,7 @@ def compute_mean_from_result_per_user(result_per_user):
     mean_result = {}
     for metric_name, user_metrics in result_per_user.items():
         value = 0
-        for _, metric_value in user_metrics.items():
+        for metric_value in user_metrics.values():
             value += metric_value
         value /= max(1, len(user_metrics))
         mean_result[metric_name] = value
@@ -73,9 +73,7 @@ def compute_mean_from_result_per_user(result_per_user):
     ],
 )
 @pytest.mark.usefixtures("predict_spark", "gt_spark")
-def test_metric_with_different_column_names(
-    metric, predict_spark: SparkDataFrame, gt_spark: SparkDataFrame
-):
+def test_metric_with_different_column_names(metric, predict_spark: SparkDataFrame, gt_spark: SparkDataFrame):
     metric_value = metric(topk=[5], **INIT_DICT)(predict_spark, gt_spark)
 
     def generate_string():
@@ -91,18 +89,16 @@ def test_metric_with_different_column_names(
         .withColumnRenamed(ITEM_COLUMN, new_item_column)
         .withColumnRenamed(RATING_COLUMN, new_rating_column)
     )
-    gt_spark = gt_spark.withColumnRenamed(
-        QUERY_COLUMN, new_query_column
-    ).withColumnRenamed(ITEM_COLUMN, new_item_column)
+    gt_spark = gt_spark.withColumnRenamed(QUERY_COLUMN, new_query_column).withColumnRenamed(
+        ITEM_COLUMN, new_item_column
+    )
     new_metric_value = metric(
         topk=[5],
         query_column=new_query_column,
         item_column=new_item_column,
         rating_column=new_rating_column,
     )(predict_spark, gt_spark)
-    assert list(metric_value.values()) == approx(
-        list(new_metric_value.values()), abs=ABS
-    )
+    assert list(metric_value.values()) == approx(list(new_metric_value.values()), abs=ABS)
 
 
 @pytest.mark.parametrize(
@@ -278,9 +274,7 @@ def test_precision(topk, answer, predict_data, gt_data, request):
         pytest.param([3, 5], [0, 0], "predict_spark", "predict_spark", marks=pytest.mark.spark),
         pytest.param([3, 5], [0.444444, 0.577777], "predict_pd", "gt_pd", marks=pytest.mark.core),
         pytest.param([3, 5], [0.444444, 0.577777], "predict_pl", "gt_pl", marks=pytest.mark.core),
-        pytest.param(
-            [3, 5], [0.444444, 0.577777], "predict_spark", "gt_spark", marks=pytest.mark.spark
-        ),
+        pytest.param([3, 5], [0.444444, 0.577777], "predict_spark", "gt_spark", marks=pytest.mark.spark),
     ],
 )
 def test_novelty(topk, answer, recs, train, request):
@@ -293,12 +287,8 @@ def test_novelty(topk, answer, recs, train, request):
 @pytest.mark.parametrize(
     "topk, answer, recs, train",
     [
-        pytest.param(
-            [3, 5], [0.78969, 0.614294], "predict_pd", "predict_pd", marks=pytest.mark.core
-        ),
-        pytest.param(
-            [3, 5], [0.78969, 0.614294], "predict_pl", "predict_pl", marks=pytest.mark.core
-        ),
+        pytest.param([3, 5], [0.78969, 0.614294], "predict_pd", "predict_pd", marks=pytest.mark.core),
+        pytest.param([3, 5], [0.78969, 0.614294], "predict_pl", "predict_pl", marks=pytest.mark.core),
         pytest.param(
             [3, 5],
             [0.78969, 0.614294],
@@ -306,12 +296,8 @@ def test_novelty(topk, answer, recs, train, request):
             "predict_spark",
             marks=pytest.mark.spark,
         ),
-        pytest.param(
-            [3, 5], [0.719586, 0.698418], "predict_pd", "gt_pd", marks=pytest.mark.core
-        ),
-        pytest.param(
-            [3, 5], [0.719586, 0.698418], "predict_pl", "gt_pl", marks=pytest.mark.core
-        ),
+        pytest.param([3, 5], [0.719586, 0.698418], "predict_pd", "gt_pd", marks=pytest.mark.core),
+        pytest.param([3, 5], [0.719586, 0.698418], "predict_pl", "gt_pl", marks=pytest.mark.core),
         pytest.param(
             [3, 5],
             [0.719586, 0.698418],
@@ -361,14 +347,10 @@ def test_surprisal(topk, answer, recs, train, request):
 @pytest.mark.parametrize(
     "predict_data, gt_data, train_data",
     [
-        pytest.param(
-            "predict_spark", "gt_spark", "predict_spark", marks=pytest.mark.spark
-        ),
+        pytest.param("predict_spark", "gt_spark", "predict_spark", marks=pytest.mark.spark),
         pytest.param("predict_pd", "gt_pd", "predict_pd", marks=pytest.mark.core),
         pytest.param("predict_pl", "gt_pl", "predict_pl", marks=pytest.mark.core),
-        pytest.param(
-            "predict_sorted_dict", "gt_dict", "fake_train_dict", marks=pytest.mark.core
-        ),
+        pytest.param("predict_sorted_dict", "gt_dict", "fake_train_dict", marks=pytest.mark.core),
     ],
 )
 def test_offline_metrics(metrics, answer, predict_data, gt_data, train_data, request):
@@ -391,9 +373,7 @@ def test_offline_metrics_types_raises(request):
 @pytest.mark.parametrize(
     "predict_data, gt_data, train_data",
     [
-        pytest.param(
-            "predict_spark", "gt_spark", "predict_spark", marks=pytest.mark.spark
-        ),
+        pytest.param("predict_spark", "gt_spark", "predict_spark", marks=pytest.mark.spark),
         pytest.param("predict_pd", "gt_pd", "predict_pd", marks=pytest.mark.core),
         pytest.param("predict_pl", "gt_pl", "predict_pl", marks=pytest.mark.core),
         pytest.param("predict_fake_query_pd", "gt_pd", "predict_pd", marks=pytest.mark.core),
@@ -404,21 +384,20 @@ def test_offline_metrics_query_id_errors(predict_data, gt_data, train_data, requ
     gt_data = request.getfixturevalue(gt_data)
     train_data = request.getfixturevalue(train_data)
     with pytest.raises(KeyError):
-        OfflineMetrics(
-            [Coverage(5), Recall(5), Precision(5), Novelty(5)],
-            query_column="fake_query_id"
-        )(predict_data, gt_data, train_data)
+        OfflineMetrics([Coverage(5), Recall(5), Precision(5), Novelty(5)], query_column="fake_query_id")(
+            predict_data, gt_data, train_data
+        )
 
 
 @pytest.mark.cpu
 def test_offline_metrics_subset_queries_works(predict_pd, gt_pd):
-    OfflineMetrics([
-        Recall(5),
-        Precision(5),
-    ], **INIT_DICT)(
-        predict_pd,
-        gt_pd[gt_pd["uid"] != 3]
-    )
+    OfflineMetrics(
+        [
+            Recall(5),
+            Precision(5),
+        ],
+        **INIT_DICT
+    )(predict_pd, gt_pd[gt_pd["uid"] != 3])
 
 
 @pytest.mark.cpu
@@ -447,19 +426,13 @@ def test_offline_metrics_diversity_metric_only_works(predict_pd, gt_pd):
 @pytest.mark.parametrize(
     "predict_data, gt_data, base_recs",
     [
-        pytest.param(
-            "predict_spark", "gt_spark", "base_recs_spark", marks=pytest.mark.spark
-        ),
+        pytest.param("predict_spark", "gt_spark", "base_recs_spark", marks=pytest.mark.spark),
         pytest.param("predict_pd", "gt_pd", "base_recs_pd", marks=pytest.mark.core),
         pytest.param("predict_pl", "gt_pl", "base_recs_pl", marks=pytest.mark.core),
-        pytest.param(
-            "predict_sorted_dict", "gt_dict", "base_recs_dict", marks=pytest.mark.core
-        ),
+        pytest.param("predict_sorted_dict", "gt_dict", "base_recs_dict", marks=pytest.mark.core),
     ],
 )
-def test_offline_metrics_unexpectedness_and_diversity(
-    metrics, answer, predict_data, gt_data, base_recs, request
-):
+def test_offline_metrics_unexpectedness_and_diversity(metrics, answer, predict_data, gt_data, base_recs, request):
     predict_data = request.getfixturevalue(predict_data)
     gt_data = request.getfixturevalue(gt_data)
     base_recs = request.getfixturevalue(base_recs)
@@ -498,14 +471,10 @@ def test_offline_metrics_unexpectedness_and_diversity(
 @pytest.mark.parametrize(
     "predict_data, gt_data, base_recommendations",
     [
-        pytest.param(
-            "predict_spark", "gt_spark", "base_recs_spark", marks=pytest.mark.spark
-        ),
+        pytest.param("predict_spark", "gt_spark", "base_recs_spark", marks=pytest.mark.spark),
         pytest.param("predict_pd", "gt_pd", "base_recs_pd", marks=pytest.mark.core),
         pytest.param("predict_pl", "gt_pl", "base_recs_pl", marks=pytest.mark.core),
-        pytest.param(
-            "predict_sorted_dict", "gt_dict", "base_recs_dict", marks=pytest.mark.core
-        ),
+        pytest.param("predict_sorted_dict", "gt_dict", "base_recs_dict", marks=pytest.mark.core),
     ],
 )
 def test_offline_metrics_unexpectedness_different_base_recs(
@@ -528,9 +497,7 @@ def test_offline_metrics_unexpectedness_different_base_recs(
     offline_metrics_instance = OfflineMetrics([Unexpectedness([2, 10])], **INIT_DICT)
     if base_recs is None:
         with pytest.raises(ValueError):
-            offline_metrics_instance(
-                predict_data, gt_data, base_recommendations=base_recs
-            )
+            offline_metrics_instance(predict_data, gt_data, base_recommendations=base_recs)
     else:
         result = offline_metrics_instance(
             predict_data,
@@ -630,7 +597,7 @@ def test_duplicates_warning(predict_data, request):
         df_duplicated = pd.concat([predict_data, predict_data])
 
     with pytest.warns(MetricDuplicatesWarning):
-        Precision([1,5], **INIT_DICT)(df_duplicated, df_duplicated)
+        Precision([1, 5], **INIT_DICT)(df_duplicated, df_duplicated)
 
 
 @pytest.mark.parametrize(

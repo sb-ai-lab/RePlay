@@ -4,7 +4,6 @@ if PYSPARK_AVAILABLE:
     from pyspark.sql.types import DoubleType, IntegerType, StructField, StructType, TimestampType
 
 
-# pylint: disable=too-many-arguments
 def get_schema(
     query_column: str = "query_id",
     item_column: str = "item_id",

@@ -1,17 +1,17 @@
 from typing import Any, Dict, Optional
 
 from replay.data import Dataset
-from .base_neighbour_rec import NeighbourRec
-from .extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.optimization.optuna_objective import ItemKNNObjective
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+from .base_neighbour_rec import NeighbourRec
+from .extensions.ann.index_builders.base_index_builder import IndexBuilder
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
     from pyspark.sql.window import Window
 
 
-# pylint: disable=too-many-ancestors, too-many-instance-attributes
 class ItemKNN(NeighbourRec):
     """Item-based ItemKNN with modified cosine similarity measure."""
 
@@ -29,15 +29,15 @@ class ItemKNN(NeighbourRec):
     _search_space = {
         "num_neighbours": {"type": "int", "args": [1, 100]},
         "shrink": {"type": "int", "args": [0, 100]},
-        "weighting": {"type": "categorical", "args": [None, "tf_idf", "bm25"]}
+        "weighting": {"type": "categorical", "args": [None, "tf_idf", "bm25"]},
     }
 
-    def __init__(  # pylint: disable=too-many-arguments
+    def __init__(
         self,
         num_neighbours: int = 10,
         use_rating: bool = False,
         shrink: float = 0.0,
-        weighting: str = None,
+        weighting: Optional[str] = None,
         index_builder: Optional[IndexBuilder] = None,
     ):
         """
@@ -54,7 +54,8 @@ class ItemKNN(NeighbourRec):
 
         valid_weightings = self._search_space["weighting"]["args"]
         if weighting not in valid_weightings:
-            raise ValueError(f"weighting must be one of {valid_weightings}")
+            msg = f"weighting must be one of {valid_weightings}"
+            raise ValueError(msg)
         self.weighting = weighting
         if isinstance(index_builder, (IndexBuilder, type(None))):
             self.index_builder = index_builder
@@ -75,8 +76,7 @@ class ItemKNN(NeighbourRec):
     def _shrink(dot_products: SparkDataFrame, shrink: float) -> SparkDataFrame:
         return dot_products.withColumn(
             "similarity",
-            sf.col("dot_product")
-            / (sf.col("norm1") * sf.col("norm2") + shrink),
+            sf.col("dot_product") / (sf.col("norm1") * sf.col("norm2") + shrink),
         ).select("item_idx_one", "item_idx_two", "similarity")
 
     def _get_similarity(self, interactions: SparkDataFrame) -> SparkDataFrame:
@@ -116,25 +116,19 @@ class ItemKNN(NeighbourRec):
         :param interactions: SparkDataFrame with interactions, `[user_id, item_id, rating]`
         :return: interactions `[user_id, item_id, rating]`
         """
-        item_stats = interactions.groupBy(self.item_column).agg(
-            sf.count(self.query_column).alias("n_queries_per_item")
-        )
+        item_stats = interactions.groupBy(self.item_column).agg(sf.count(self.query_column).alias("n_queries_per_item"))
         avgdl = item_stats.select(sf.mean("n_queries_per_item")).take(1)[0][0]
         interactions = interactions.join(item_stats, how="inner", on=self.item_column)
 
-        interactions = (
-            interactions.withColumn(
-                self.rating_column,
-                sf.col(self.rating_column) * (self.bm25_k1 + 1) / (
-                    sf.col(self.rating_column) + self.bm25_k1 * (
-                        1 - self.bm25_b + self.bm25_b * (
-                            sf.col("n_queries_per_item") / avgdl
-                        )
-                    )
-                )
-            )
-            .drop("n_queries_per_item")
-        )
+        interactions = interactions.withColumn(
+            self.rating_column,
+            sf.col(self.rating_column)
+            * (self.bm25_k1 + 1)
+            / (
+                sf.col(self.rating_column)
+                + self.bm25_k1 * (1 - self.bm25_b + self.bm25_b * (sf.col("n_queries_per_item") / avgdl))
+            ),
+        ).drop("n_queries_per_item")
 
         return interactions
 
@@ -150,23 +144,15 @@ class ItemKNN(NeighbourRec):
         n_items = interactions.select(self.item_column).distinct().count()
 
         if self.weighting == "tf_idf":
-            idf = (
-                df.withColumn("idf", sf.log1p(sf.lit(n_items) / sf.col("DF")))
-                .drop("DF")
-            )
+            idf = df.withColumn("idf", sf.log1p(sf.lit(n_items) / sf.col("DF"))).drop("DF")
         elif self.weighting == "bm25":
-            idf = (
-                df.withColumn(
-                    "idf",
-                    sf.log1p(
-                        (sf.lit(n_items) - sf.col("DF") + 0.5)
-                        / (sf.col("DF") + 0.5)
-                    ),
-                )
-                .drop("DF")
-            )
+            idf = df.withColumn(
+                "idf",
+                sf.log1p((sf.lit(n_items) - sf.col("DF") + 0.5) / (sf.col("DF") + 0.5)),
+            ).drop("DF")
         else:
-            raise ValueError("weighting must be one of ['tf_idf', 'bm25']")
+            msg = "weighting must be one of ['tf_idf', 'bm25']"
+            raise ValueError(msg)
 
         return idf
 
@@ -180,12 +166,12 @@ class ItemKNN(NeighbourRec):
         if self.weighting:
             interactions = self._reweight_interactions(interactions)
 
-        left = interactions.withColumnRenamed(
-            self.item_column, "item_idx_one"
-        ).withColumnRenamed(self.rating_column, "rel_one")
-        right = interactions.withColumnRenamed(
-            self.item_column, "item_idx_two"
-        ).withColumnRenamed(self.rating_column, "rel_two")
+        left = interactions.withColumnRenamed(self.item_column, "item_idx_one").withColumnRenamed(
+            self.rating_column, "rel_one"
+        )
+        right = interactions.withColumnRenamed(self.item_column, "item_idx_two").withColumnRenamed(
+            self.rating_column, "rel_two"
+        )
 
         dot_products = (
             left.join(right, how="inner", on=self.query_column)
@@ -201,19 +187,11 @@ class ItemKNN(NeighbourRec):
             .agg(sf.sum(self.rating_column).alias("square_norm"))
             .select(sf.col(self.item_column), sf.sqrt("square_norm").alias("norm"))
         )
-        norm1 = item_norms.withColumnRenamed(
-            self.item_column, "item_id1"
-        ).withColumnRenamed("norm", "norm1")
-        norm2 = item_norms.withColumnRenamed(
-            self.item_column, "item_id2"
-        ).withColumnRenamed("norm", "norm2")
+        norm1 = item_norms.withColumnRenamed(self.item_column, "item_id1").withColumnRenamed("norm", "norm1")
+        norm2 = item_norms.withColumnRenamed(self.item_column, "item_id2").withColumnRenamed("norm", "norm2")
 
-        dot_products = dot_products.join(
-            norm1, how="inner", on=sf.col("item_id1") == sf.col("item_idx_one")
-        )
-        dot_products = dot_products.join(
-            norm2, how="inner", on=sf.col("item_id2") == sf.col("item_idx_two")
-        )
+        dot_products = dot_products.join(norm1, how="inner", on=sf.col("item_id1") == sf.col("item_idx_one"))
+        dot_products = dot_products.join(norm2, how="inner", on=sf.col("item_id2") == sf.col("item_idx_two"))
 
         return dot_products
 

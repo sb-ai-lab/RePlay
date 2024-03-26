@@ -1,4 +1,3 @@
-# pylint: disable-all
 from datetime import datetime
 
 import numpy as np
@@ -7,8 +6,7 @@ import polars as pl
 import pytest
 
 from replay.splitters import TwoStageSplitter
-from replay.utils import PandasDataFrame, SparkDataFrame
-from tests.utils import spark
+from replay.utils import PandasDataFrame
 
 log_data = [
     [0, 3, datetime(2019, 9, 12), 1.0, 1],
@@ -53,7 +51,7 @@ def log_not_implemented(log_pandas):
         pytest.param("log", marks=pytest.mark.spark),
         pytest.param("log_pandas", marks=pytest.mark.core),
         pytest.param("log_polars", marks=pytest.mark.core),
-    ]
+    ],
 )
 @pytest.mark.parametrize("fraction", [3, 0.6])
 def test_get_test_values(dataset_type, request, fraction):
@@ -84,7 +82,7 @@ def test_get_test_values(dataset_type, request, fraction):
         pytest.param("log", marks=pytest.mark.spark),
         pytest.param("log_pandas", marks=pytest.mark.core),
         pytest.param("log_polars", marks=pytest.mark.core),
-    ]
+    ],
 )
 @pytest.mark.parametrize("fraction", [5, 1.0])
 def test_user_test_size_exception(dataset_type, request, fraction):
@@ -153,7 +151,7 @@ test_sizes = np.arange(0.1, 1, 0.25).tolist() + list(range(1, 5))
         pytest.param("big_log", marks=pytest.mark.spark),
         pytest.param("big_log_pandas", marks=pytest.mark.core),
         pytest.param("big_log_polars", marks=pytest.mark.core),
-    ]
+    ],
 )
 @pytest.mark.parametrize("item_test_size", test_sizes)
 @pytest.mark.parametrize("shuffle", [True, False])
@@ -177,7 +175,7 @@ def test_random_split(dataset_type, request, item_test_size, shuffle):
 
         if isinstance(item_test_size, int):
             #  it's a rough check. for it to be true, item_test_size must be bigger than log length for every user
-            num_users = big_log["user_id"].nunique() * 0.5     # only half of users go to test
+            num_users = big_log["user_id"].nunique() * 0.5  # only half of users go to test
             assert num_users * item_test_size == test.shape[0]
             assert big_log.shape[0] - num_users * item_test_size == train.shape[0]
     elif isinstance(big_log, pl.DataFrame):
@@ -186,7 +184,7 @@ def test_random_split(dataset_type, request, item_test_size, shuffle):
 
         if isinstance(item_test_size, int):
             #  it's a rough check. for it to be true, item_test_size must be bigger than log length for every user
-            num_users = len(big_log["user_id"].unique()) * 0.5     # only half of users go to test
+            num_users = len(big_log["user_id"].unique()) * 0.5  # only half of users go to test
             assert num_users * item_test_size == test.shape[0]
             assert big_log.shape[0] - num_users * item_test_size == train.shape[0]
     else:
@@ -206,7 +204,7 @@ def test_random_split(dataset_type, request, item_test_size, shuffle):
         pytest.param("big_log", marks=pytest.mark.spark),
         pytest.param("big_log_pandas", marks=pytest.mark.core),
         pytest.param("big_log_polars", marks=pytest.mark.core),
-    ]
+    ],
 )
 @pytest.mark.parametrize("item_test_size", [2.0, -1, -50, 2.1, -0.01])
 def test_item_test_size_exception(dataset_type, request, item_test_size):
@@ -264,7 +262,7 @@ def log2_polars(log2_pandas):
         pytest.param("log2", marks=pytest.mark.spark),
         pytest.param("log2_pandas", marks=pytest.mark.core),
         pytest.param("log2_polars", marks=pytest.mark.core),
-    ]
+    ],
 )
 def test_split_quantity(dataset_type, request):
     log2 = request.getfixturevalue(dataset_type)
@@ -294,7 +292,7 @@ def test_split_quantity(dataset_type, request):
         pytest.param("log2", marks=pytest.mark.spark),
         pytest.param("log2_pandas", marks=pytest.mark.core),
         pytest.param("log2_polars", marks=pytest.mark.core),
-    ]
+    ],
 )
 def test_split_proportion(dataset_type, request):
     log2 = request.getfixturevalue(dataset_type)

@@ -4,9 +4,9 @@ from replay.data import FeatureHint
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
-    from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
-    from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionDataset, Bert4RecPredictionBatch
     from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
+    from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
+    from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionBatch, Bert4RecPredictionDataset
 
 torch = pytest.importorskip("torch")
 L = pytest.importorskip("lightning")
@@ -39,9 +39,7 @@ def test_training_bert4rec_with_different_losses(
 @pytest.mark.torch
 def test_init_bert4rec_with_invalid_loss_type(item_user_sequential_dataset):
     with pytest.raises(NotImplementedError) as exc:
-        Bert4Rec(
-            tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_type=""
-        )
+        Bert4Rec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_type="")
 
     assert str(exc.value) == "Not supported loss_type"
 
@@ -198,20 +196,11 @@ def test_bert4rec_get_embeddings():
     assert len(model_embeddings) == 3
     assert isinstance(model_item_embedding, torch.Tensor)
     assert id(model_item_embedding) != id(model._model.item_embedder)
-    assert torch.eq(
-        model_item_embedding,
-        model._model.item_embedder.item_embeddings.data
-    ).all()
+    assert torch.eq(model_item_embedding, model._model.item_embedder.item_embeddings.data).all()
 
 
 @pytest.mark.torch
-@pytest.mark.parametrize(
-    "fitted_bert4rec_model",
-    [
-        ("fitted_bert4rec"),
-        ("fitted_bert4rec_enable_embedding_tying")
-    ]
-)
+@pytest.mark.parametrize("fitted_bert4rec_model", [("fitted_bert4rec"), ("fitted_bert4rec_enable_embedding_tying")])
 def test_bert4rec_fine_tuning_on_new_items_by_size(request, fitted_bert4rec_model, new_items_dataset):
     fitted_bert4rec = request.getfixturevalue(fitted_bert4rec_model)
 
@@ -236,13 +225,7 @@ def test_bert4rec_fine_tuning_on_new_items_by_size(request, fitted_bert4rec_mode
 
 
 @pytest.mark.torch
-@pytest.mark.parametrize(
-    "fitted_bert4rec_model",
-    [
-        ("fitted_bert4rec"),
-        ("fitted_bert4rec_enable_embedding_tying")
-    ]
-)
+@pytest.mark.parametrize("fitted_bert4rec_model", [("fitted_bert4rec"), ("fitted_bert4rec_enable_embedding_tying")])
 def test_bert4rec_fine_tuning_on_new_items_by_tensor(request, fitted_bert4rec_model, new_items_dataset):
     fitted_bert4rec = request.getfixturevalue(fitted_bert4rec_model)
 
@@ -262,13 +245,7 @@ def test_bert4rec_fine_tuning_on_new_items_by_tensor(request, fitted_bert4rec_mo
 
 
 @pytest.mark.torch
-@pytest.mark.parametrize(
-    "fitted_bert4rec_model",
-    [
-        ("fitted_bert4rec"),
-        ("fitted_bert4rec_enable_embedding_tying")
-    ]
-)
+@pytest.mark.parametrize("fitted_bert4rec_model", [("fitted_bert4rec"), ("fitted_bert4rec_enable_embedding_tying")])
 def test_bert4rec_fine_tuning_on_new_items_by_appending(request, fitted_bert4rec_model, new_items_dataset):
     fitted_bert4rec = request.getfixturevalue(fitted_bert4rec_model)
 
@@ -310,10 +287,15 @@ def test_predict_step_with_small_seq_len(item_user_num_sequential_dataset, simpl
     item_sequences, padding_mask, tokens_mask, _ = simple_masks
 
     model = Bert4Rec(
-        tensor_schema=item_user_num_sequential_dataset._tensor_schema, max_seq_len=10, hidden_size=64, loss_sample_count=6
+        tensor_schema=item_user_num_sequential_dataset._tensor_schema,
+        max_seq_len=10,
+        hidden_size=64,
+        loss_sample_count=6,
     )
 
-    batch = Bert4RecPredictionBatch(torch.arange(0, 4), padding_mask, {"item_id": item_sequences, "num_feature": item_sequences}, tokens_mask)
+    batch = Bert4RecPredictionBatch(
+        torch.arange(0, 4), padding_mask, {"item_id": item_sequences, "num_feature": item_sequences}, tokens_mask
+    )
     model.predict_step(batch, 0)
 
 

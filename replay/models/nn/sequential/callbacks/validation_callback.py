@@ -1,12 +1,11 @@
-from typing import Any, List, Optional, Protocol, Tuple, Literal
+from typing import Any, List, Literal, Optional, Protocol, Tuple
 
-import lightning as L
+import lightning
 import torch
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
 
 from replay.metrics.torch_metrics_builder import TorchMetricsBuilder, metrics_to_df
 from replay.models.nn.sequential.postprocessors import BasePostProcessor
-
 
 CallbackMetricName = Literal[
     "recall",
@@ -19,17 +18,17 @@ CallbackMetricName = Literal[
 ]
 
 
-# pylint: disable=too-few-public-methods
 class ValidationBatch(Protocol):
     """
     Validation callback batch
     """
+
     query_id: torch.LongTensor
     ground_truth: torch.LongTensor
     train: torch.LongTensor
 
 
-class ValidationMetricsCallback(L.Callback):
+class ValidationMetricsCallback(lightning.Callback):
     """
     Callback for validation and testing stages.
 
@@ -37,7 +36,6 @@ class ValidationMetricsCallback(L.Callback):
     the suffix of the metric name will contain the serial number of the dataloader.
     """
 
-    # pylint: disable=invalid-name
     def __init__(
         self,
         metrics: Optional[List[CallbackMetricName]] = None,
@@ -63,8 +61,9 @@ class ValidationMetricsCallback(L.Callback):
             return [len(dataloaders)]
         return [len(dataloader) for dataloader in dataloaders]
 
-    # pylint: disable=unused-argument
-    def on_validation_epoch_start(self, trainer: L.Trainer, pl_module: L.LightningModule) -> None:
+    def on_validation_epoch_start(
+        self, trainer: lightning.Trainer, pl_module: lightning.LightningModule  # noqa: ARG002
+    ) -> None:
         self._dataloaders_size = self._get_dataloaders_size(trainer.val_dataloaders)
         self._metrics_builders = [
             TorchMetricsBuilder(self._metrics, self._ks, self._item_count) for _ in self._dataloaders_size
@@ -72,8 +71,11 @@ class ValidationMetricsCallback(L.Callback):
         for builder in self._metrics_builders:
             builder.reset()
 
-    # pylint: disable=unused-argument
-    def on_test_epoch_start(self, trainer: L.Trainer, pl_module: L.LightningModule) -> None:  # pragma: no cover
+    def on_test_epoch_start(
+        self,
+        trainer: lightning.Trainer,
+        pl_module: lightning.LightningModule,  # noqa: ARG002
+    ) -> None:  # pragma: no cover
         self._dataloaders_size = self._get_dataloaders_size(trainer.test_dataloaders)
         self._metrics_builders = [
             TorchMetricsBuilder(self._metrics, self._ks, self._item_count) for _ in self._dataloaders_size
@@ -88,11 +90,10 @@ class ValidationMetricsCallback(L.Callback):
             query_ids, scores, ground_truth = postprocessor.on_validation(query_ids, scores, ground_truth)
         return query_ids, scores, ground_truth
 
-    # pylint: disable=too-many-arguments
     def on_validation_batch_end(
         self,
-        trainer: L.Trainer,
-        pl_module: L.LightningModule,
+        trainer: lightning.Trainer,
+        pl_module: lightning.LightningModule,
         outputs: torch.Tensor,
         batch: ValidationBatch,
         batch_idx: int,
@@ -100,11 +101,10 @@ class ValidationMetricsCallback(L.Callback):
     ) -> None:
         self._batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
 
-    # pylint: disable=unused-argument, too-many-arguments
     def on_test_batch_end(
         self,
-        trainer: L.Trainer,
-        pl_module: L.LightningModule,
+        trainer: lightning.Trainer,
+        pl_module: lightning.LightningModule,
         outputs: torch.Tensor,
         batch: ValidationBatch,
         batch_idx: int,
@@ -112,11 +112,10 @@ class ValidationMetricsCallback(L.Callback):
     ) -> None:  # pragma: no cover
         self._batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
 
-    # pylint: disable=too-many-arguments
     def _batch_end(
         self,
-        trainer: L.Trainer,
-        pl_module: L.LightningModule,
+        trainer: lightning.Trainer,  # noqa: ARG002
+        pl_module: lightning.LightningModule,
         outputs: torch.Tensor,
         batch: ValidationBatch,
         batch_idx: int,
@@ -131,31 +130,29 @@ class ValidationMetricsCallback(L.Callback):
                 self._metrics_builders[dataloader_idx].get_metrics(),
                 on_epoch=True,
                 sync_dist=True,
-                add_dataloader_idx=True
+                add_dataloader_idx=True,
             )
 
-    # pylint: disable=unused-argument
-    def on_validation_epoch_end(self, trainer: L.Trainer, pl_module: L.LightningModule) -> None:
+    def on_validation_epoch_end(self, trainer: lightning.Trainer, pl_module: lightning.LightningModule) -> None:
         self._epoch_end(trainer, pl_module)
 
-    # pylint: disable=unused-argument
-    def on_test_epoch_end(self, trainer: L.Trainer, pl_module: L.LightningModule) -> None:  # pragma: no cover
+    def on_test_epoch_end(
+        self, trainer: lightning.Trainer, pl_module: lightning.LightningModule
+    ) -> None:  # pragma: no cover
         self._epoch_end(trainer, pl_module)
 
-    # pylint: disable=unused-argument
-    def _epoch_end(self, trainer: L.Trainer, pl_module: L.LightningModule) -> None:
-        # pylint: disable=W0212
+    def _epoch_end(self, trainer: lightning.Trainer, pl_module: lightning.LightningModule) -> None:  # noqa: ARG002
         @rank_zero_only
         def print_metrics() -> None:
             metrics = {}
             for name, value in trainer.logged_metrics.items():
-                if '@' in name:
+                if "@" in name:
                     metrics[name] = value.item()
 
             if metrics:
                 metrics_df = metrics_to_df(metrics)
 
-                print(metrics_df)
-                print()
+                print(metrics_df)  # noqa: T201
+                print()  # noqa: T201
 
         print_metrics()

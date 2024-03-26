@@ -1,9 +1,10 @@
-# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
-import numpy as np
-import pytest
 import logging
 
+import numpy as np
+import pytest
+
 from replay.models import (
+    KLUCB,
     SLIM,
     UCB,
     ALSWrap,
@@ -11,21 +12,15 @@ from replay.models import (
     ClusterRec,
     ItemKNN,
     PopRec,
+    QueryPopRec,
     RandomRec,
+    ThompsonSampling,
     Wilson,
     Word2VecRec,
-    ThompsonSampling,
-    KLUCB,
-    QueryPopRec,
 )
 from tests.utils import (
     create_dataset,
-    log,
-    log_to_pred,
-    long_log_with_features,
-    spark,
     sparkDataFrameEqual,
-    user_features,
 )
 
 pyspark = pytest.importorskip("pyspark")
@@ -36,9 +31,7 @@ SEED = 123
 
 @pytest.fixture
 def log_binary_rating(log):
-    return log.withColumn(
-        "relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)
-    )
+    return log.withColumn("relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0))
 
 
 @pytest.mark.spark
@@ -135,21 +128,9 @@ def test_predict_pairs_k(log, model):
         k=None,
     )
 
-    assert (
-        pairs_pred_k.groupBy("user_idx")
-        .count()
-        .filter(sf.col("count") > 1)
-        .count()
-        == 0
-    )
+    assert pairs_pred_k.groupBy("user_idx").count().filter(sf.col("count") > 1).count() == 0
 
-    assert (
-        pairs_pred.groupBy("user_idx")
-        .count()
-        .filter(sf.col("count") > 1)
-        .count()
-        > 0
-    )
+    assert pairs_pred.groupBy("user_idx").count().filter(sf.col("count") > 1).count() > 0
 
 
 @pytest.mark.spark
@@ -334,20 +315,13 @@ def test_get_nearest_items(log, model, metric, caplog):
         candidates=[0, 3],
     )
     assert res.count() == 1
-    assert (
-        len(
-            set(res.toPandas().to_dict()["item_idx"].values()).difference(
-                {0, 1}
-            )
-        )
-        == 0
-    )
+    assert len(set(res.toPandas().to_dict()["item_idx"].values()).difference({0, 1})) == 0
 
     if metric is None:
         caplog.set_level(logging.DEBUG, logger="replay")
         res = model.get_nearest_items(items=[0, 1], k=2, metric="similarity")
         assert caplog.record_tuples == [
-            ("replay", logging.DEBUG, f"Metric is not used to determine nearest items in {str(model)} model")
+            ("replay", logging.DEBUG, f"Metric is not used to determine nearest items in {model!s} model")
         ]
 
 
@@ -371,7 +345,7 @@ def test_get_nearest_items_metric_error(log, model, metric):
     with pytest.raises(ValueError, match="Select one of the valid distance metrics*"):
         train_dataset = create_dataset(log)
         model.fit(train_dataset)
-        res = model.get_nearest_items(items=[0, 1], k=2, metric=metric)
+        _ = model.get_nearest_items(items=[0, 1], k=2, metric=metric)
 
 
 @pytest.mark.spark
@@ -513,16 +487,12 @@ def test_predict_pairs_to_file(spark, model, long_log_with_features, tmp_path):
     model.fit(train_dataset)
     model.predict_pairs(
         dataset=train_dataset,
-        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
-            "user_idx", "item_idx"
-        ),
+        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"),
         recs_file_path=path,
     )
     pred_cached = model.predict_pairs(
         dataset=train_dataset,
-        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
-            "user_idx", "item_idx"
-        ),
+        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"),
         recs_file_path=None,
     )
     pred_from_file = spark.read.parquet(path)
@@ -547,9 +517,7 @@ def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
     train_dataset = create_dataset(long_log_with_features)
     path = str((tmp_path / "pred.parquet").resolve().absolute())
     model.fit_predict(train_dataset, k=10, recs_file_path=path)
-    pred_cached = model.predict(
-        train_dataset, k=10, recs_file_path=None
-    )
+    pred_cached = model.predict(train_dataset, k=10, recs_file_path=None)
     pred_from_file = spark.read.parquet(path)
     sparkDataFrameEqual(pred_cached, pred_from_file)
 
@@ -576,9 +544,7 @@ def test_predict_to_file(spark, model, long_log_with_features, tmp_path):
         "UCB",
     ],
 )
-def test_add_cold_items_for_nonpersonalized(
-    model, add_cold_items, predict_cold_only, long_log_with_features
-):
+def test_add_cold_items_for_nonpersonalized(model, add_cold_items, predict_cold_only, long_log_with_features):
     num_warm = 5
     # k is greater than the number of warm items to check if
     # the cold items are presented in prediction
@@ -586,9 +552,7 @@ def test_add_cold_items_for_nonpersonalized(
     log = (
         long_log_with_features
         if not isinstance(model, (Wilson, UCB))
-        else long_log_with_features.withColumn(
-            "relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1)
-        )
+        else long_log_with_features.withColumn("relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1))
     )
     train_log = log.filter(sf.col("item_idx") < num_warm)
     train_dataset = create_dataset(train_log)
@@ -625,10 +589,7 @@ def test_add_cold_items_for_nonpersonalized(
             assert pred.select(sf.max("item_idx")).collect()[0][0] < num_warm
             assert pred.count() == min(
                 k,
-                train_log.select("item_idx")
-                .distinct()
-                .join(items, on="item_idx")
-                .count(),
+                train_log.select("item_idx").distinct().join(items, on="item_idx").count(),
             )
 
 

@@ -3,8 +3,9 @@ from typing import Optional
 import numpy as np
 
 from replay.data.dataset import Dataset
-from .base_rec import NonPersonalizedRecommender
 from replay.utils import PYSPARK_AVAILABLE
+
+from .base_rec import NonPersonalizedRecommender
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -19,6 +20,7 @@ class ThompsonSampling(NonPersonalizedRecommender):
     The reward probability of each of the K arms is modeled by a Beta distribution
     which is updated after an arm is selected. The initial prior distribution is Beta(1,1).
     """
+
     def __init__(
         self,
         sample: bool = False,
@@ -38,24 +40,21 @@ class ThompsonSampling(NonPersonalizedRecommender):
     ) -> None:
         self._check_rating(dataset)
 
-        num_positive = dataset.interactions.filter(
-            sf.col(self.rating_column) == sf.lit(1)
-        ).groupby(self.item_column).agg(
-            sf.count(self.rating_column).alias("positive")
+        num_positive = (
+            dataset.interactions.filter(sf.col(self.rating_column) == sf.lit(1))
+            .groupby(self.item_column)
+            .agg(sf.count(self.rating_column).alias("positive"))
         )
-        num_negative = dataset.interactions.filter(
-            sf.col(self.rating_column) == sf.lit(0)
-        ).groupby(self.item_column).agg(
-            sf.count(self.rating_column).alias("negative")
+        num_negative = (
+            dataset.interactions.filter(sf.col(self.rating_column) == sf.lit(0))
+            .groupby(self.item_column)
+            .agg(sf.count(self.rating_column).alias("negative"))
         )
 
-        self.item_popularity = num_positive.join(
-            num_negative, how="inner", on=self.item_column
-        )
+        self.item_popularity = num_positive.join(num_negative, how="inner", on=self.item_column)
 
         self.item_popularity = self.item_popularity.withColumn(
-            self.rating_column,
-            sf.udf(np.random.beta, "double")("positive", "negative")
+            self.rating_column, sf.udf(np.random.beta, "double")("positive", "negative")
         ).drop("positive", "negative")
         self.item_popularity.cache().count()
         self.fill = np.random.beta(1, 1)

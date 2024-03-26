@@ -22,23 +22,11 @@ def item_distribution(
     :return: DataFrame with results
     """
     log = convert2spark(log)
-    res = (
-        log.groupBy("item_idx")
-        .agg(sf.countDistinct("user_idx").alias("user_count"))
-        .select("item_idx", "user_count")
-    )
+    res = log.groupBy("item_idx").agg(sf.countDistinct("user_idx").alias("user_count")).select("item_idx", "user_count")
 
     rec = convert2spark(recommendations)
     rec = get_top_k_recs(rec, k)
-    rec = (
-        rec.groupBy("item_idx")
-        .agg(sf.countDistinct("user_idx").alias("rec_count"))
-        .select("item_idx", "rec_count")
-    )
+    rec = rec.groupBy("item_idx").agg(sf.countDistinct("user_idx").alias("rec_count")).select("item_idx", "rec_count")
 
-    res = (
-        res.join(rec, on="item_idx", how="outer")
-        .fillna(0)
-        .orderBy(["user_count", "item_idx"])
-    )
+    res = res.join(rec, on="item_idx", how="outer").fillna(0).orderBy(["user_count", "item_idx"])
     return spark_to_pandas(res, allow_collect_to_master)

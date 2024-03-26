@@ -61,9 +61,7 @@ def fit_predict_add_res(
     experiment.results.loc[name + suffix, "fit_time"] = fit_time
     experiment.results.loc[name + suffix, "predict_time"] = predict_time
     experiment.results.loc[name + suffix, "metric_time"] = metric_time
-    experiment.results.loc[name + suffix, "full_time"] = (
-        fit_time + predict_time + metric_time
-    )
+    experiment.results.loc[name + suffix, "full_time"] = fit_time + predict_time + metric_time
     pred.unpersist()
     print(
         experiment.results[
@@ -84,9 +82,7 @@ def fit_predict_add_res(
 def main():
     parser = ArgumentParser()
     parser.add_argument("--config", dest="config_path", required=False)
-    parser.add_argument(
-        "--n_trials", dest="n_trials", required=False, default=10, type=int
-    )
+    parser.add_argument("--n_trials", dest="n_trials", required=False, default=10, type=int)
     parser.add_argument("--no-opt", dest="is_opt", action="store_false")
     parser.add_argument("--name", dest="name", required=False, default="DDPG")
     args = parser.parse_args()
@@ -123,9 +119,7 @@ def main():
         data=data.ratings,
     )
 
-    only_positives_log = log.filter(sf.col("relevance") >= 3).withColumn(
-        "relevance", sf.lit(1)
-    )
+    only_positives_log = log.filter(sf.col("relevance") >= 3).withColumn("relevance", sf.lit(1))
 
     indexer = Indexer(user_col="user_id", item_col="item_id")
     indexer.fit(users=log.select("user_id"), items=log.select("item_id"))
@@ -145,9 +139,7 @@ def main():
     model._search_space = config["search_space"]
 
     if args.is_opt:
-        best_params = model.optimize(
-            opt_train, opt_val, k=TOP_K, budget=args.n_trials
-        )
+        best_params = model.optimize(opt_train, opt_val, k=TOP_K, budget=args.n_trials)
 
         with open(folder_path / "best_params.json", "w") as f:
             json.dump(best_params, f)

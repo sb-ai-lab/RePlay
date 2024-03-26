@@ -6,8 +6,9 @@ Contains classes for encoding categorical data
 ``LabelEncoder`` to apply multiple LabelEncodingRule to dataframe.
 """
 import abc
-import polars as pl
 from typing import Dict, List, Literal, Mapping, Optional, Sequence, Union
+
+import polars as pl
 
 from replay.utils import (
     PYSPARK_AVAILABLE,
@@ -20,13 +21,12 @@ from replay.utils import (
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
+    from pyspark.sql.types import LongType, StructType
     from pyspark.storagelevel import StorageLevel
-    from pyspark.sql.types import StructType, LongType
 
 HandleUnknownStrategies = Literal["error", "use_default_value"]
 
 
-# pylint: disable=missing-function-docstring
 class BaseLabelEncodingRule(abc.ABC):  # pragma: no cover
     """
     Interface of the label encoding rule
@@ -70,7 +70,6 @@ class BaseLabelEncodingRule(abc.ABC):  # pragma: no cover
         raise NotImplementedError()
 
 
-# pylint: disable=too-many-instance-attributes
 class LabelEncodingRule(BaseLabelEncodingRule):
     """
     Implementation of the encoding rule for categorical variables of PySpark and Pandas Data Frames.
@@ -110,7 +109,8 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             Default: ``None``.
         """
         if handle_unknown not in self._HANDLE_UNKNOWN_STRATEGIES:
-            raise ValueError(f"handle_unknown should be either 'error' or 'use_default_value', got {handle_unknown}.")
+            msg = f"handle_unknown should be either 'error' or 'use_default_value', got {handle_unknown}."
+            raise ValueError(msg)
         self._handle_unknown = handle_unknown
         if (
             self._handle_unknown == "use_default_value"
@@ -118,7 +118,8 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             and not isinstance(default_value, int)
             and default_value != "last"
         ):
-            raise ValueError("Default value should be None, int or 'last'")
+            msg = "Default value should be None, int or 'last'"
+            raise ValueError(msg)
 
         self._default_value = default_value
         self._col = column
@@ -135,12 +136,14 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
     def get_mapping(self) -> Mapping:
         if self._mapping is None:
-            raise RuntimeError("Label encoder is not fitted")
+            msg = "Label encoder is not fitted"
+            raise RuntimeError(msg)
         return self._mapping
 
     def get_inverse_mapping(self) -> Mapping:
         if self._mapping is None:
-            raise RuntimeError("Label encoder is not fitted")
+            msg = "Label encoder is not fitted"
+            raise RuntimeError(msg)
         return self._inverse_mapping
 
     def _make_inverse_mapping(self) -> Mapping:
@@ -159,17 +162,14 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             unique_col_values.rdd.zipWithIndex()
             .toDF(
                 StructType()
-                .add("_1",
-                     StructType()
-                     .add(self._col, df.schema[self._col].dataType, True),
-                     True)
+                .add("_1", StructType().add(self._col, df.schema[self._col].dataType, True), True)
                 .add("_2", LongType(), True)
             )
             .select(sf.col(f"_1.{self._col}").alias(self._col), sf.col("_2").alias(self._target_col))
             .persist(StorageLevel.MEMORY_ONLY)
         )
 
-        self._mapping = mapping_on_spark.rdd.collectAsMap()  # type: ignore
+        self._mapping = mapping_on_spark.rdd.collectAsMap()
         mapping_on_spark.unpersist()
         unique_col_values.unpersist()
 
@@ -198,17 +198,18 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         elif isinstance(df, PolarsDataFrame):
             self._fit_polars(df)
         else:
-            raise NotImplementedError(f"{self.__class__.__name__} is not implemented for {type(df)}")
+            msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
+            raise NotImplementedError(msg)
         self._inverse_mapping = self._make_inverse_mapping()
         self._inverse_mapping_list = self._make_inverse_mapping_list()
-        if self._handle_unknown == "use_default_value":
-            if self._default_value in self._inverse_mapping:
-                raise ValueError(
-                    "The used value for default_value "
-                    f"{self._default_value} is one of the "
-                    "values already used for encoding the "
-                    "seen labels."
-                )
+        if self._handle_unknown == "use_default_value" and self._default_value in self._inverse_mapping:
+            msg = (
+                "The used value for default_value "
+                f"{self._default_value} is one of the "
+                "values already used for encoding the "
+                "seen labels."
+            )
+            raise ValueError(msg)
         self._is_fitted = True
         return self
 
@@ -226,18 +227,15 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             new_unique_values.rdd.zipWithIndex()
             .toDF(
                 StructType()
-                .add("_1",
-                     StructType()
-                     .add(self._col, df.schema[self._col].dataType),
-                     True)
+                .add("_1", StructType().add(self._col, df.schema[self._col].dataType), True)
                 .add("_2", LongType(), True)
             )
             .select(sf.col(f"_1.{self._col}").alias(self._col), sf.col("_2").alias(self._target_col))
             .withColumn(self._target_col, sf.col(self._target_col) + max_value)
-            .rdd.collectAsMap()  # type: ignore
+            .rdd.collectAsMap()
         )
-        self._mapping.update(new_data)  # type: ignore
-        self._inverse_mapping.update({v: k for k, v in new_data.items()})  # type: ignore
+        self._mapping.update(new_data)
+        self._inverse_mapping.update({v: k for k, v in new_data.items()})
         self._inverse_mapping_list.extend(new_data.keys())
         new_unique_values.unpersist()
 
@@ -247,8 +245,8 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         new_unique_values = set(df[self._col].tolist()) - set(self._mapping)
         last_mapping_value = max(self._mapping.values())
         new_data: dict = {value: last_mapping_value + i for i, value in enumerate(new_unique_values, start=1)}
-        self._mapping.update(new_data)  # type: ignore
-        self._inverse_mapping.update({v: k for k, v in new_data.items()})  # type: ignore
+        self._mapping.update(new_data)
+        self._inverse_mapping.update({v: k for k, v in new_data.items()})
         self._inverse_mapping_list.extend(new_data.keys())
 
     def _partial_fit_polars(self, df: PolarsDataFrame) -> None:
@@ -256,8 +254,8 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
         new_unique_values = set(df.select(self._col).unique().to_series().to_list()) - set(self._mapping)
         new_data: dict = {value: max(self._mapping.values()) + i for i, value in enumerate(new_unique_values, start=1)}
-        self._mapping.update(new_data)  # type: ignore
-        self._inverse_mapping.update({v: k for k, v in new_data.items()})  # type: ignore
+        self._mapping.update(new_data)
+        self._inverse_mapping.update({v: k for k, v in new_data.items()})
         self._inverse_mapping_list.extend(new_data.keys())
 
     def partial_fit(self, df: DataFrameLike) -> "LabelEncodingRule":
@@ -277,7 +275,8 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         elif isinstance(df, PolarsDataFrame):
             self._partial_fit_polars(df)
         else:
-            raise NotImplementedError(f"{self.__class__.__name__} is not implemented for {type(df)}")
+            msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
+            raise NotImplementedError(msg)
 
         self._is_fitted = True
         return self
@@ -319,9 +318,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         transformed_df = df.join(mapping_on_spark, on=self._col, how="left").withColumn(
             "unknown_mask", sf.isnull(self._target_col)
         )
-        unknown_label_count = transformed_df.select(sf.sum(sf.col("unknown_mask").cast("long"))).first()[
-            0
-        ]  # type: ignore
+        unknown_label_count = transformed_df.select(sf.sum(sf.col("unknown_mask").cast("long"))).first()[0]
         if unknown_label_count > 0:
             if self._handle_unknown == "error":
                 collected_list = transformed_df.filter("unknown_mask == True").select(self._col).distinct().collect()
@@ -339,9 +336,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             [list(self.get_mapping().keys()), list(self.get_mapping().values())],
             schema=[self._col, self._target_col],
         )
-        mapping_on_polars = mapping_on_polars.with_columns(
-            pl.col(self._col).cast(df.get_column(self._col).dtype)
-        )
+        mapping_on_polars = mapping_on_polars.with_columns(pl.col(self._col).cast(df.get_column(self._col).dtype))
         transformed_df = df.join(mapping_on_polars, on=self._col, how="left").with_columns(
             pl.col(self._target_col).is_null().alias("unknown_mask")
         )
@@ -365,18 +360,20 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         :returns: transformed dataframe.
         """
         if self._mapping is None:
-            raise RuntimeError("Label encoder is not fitted")
+            msg = "Label encoder is not fitted"
+            raise RuntimeError(msg)
 
         default_value = len(self._mapping) if self._default_value == "last" else self._default_value
 
         if isinstance(df, PandasDataFrame):
-            transformed_df = self._transform_pandas(df, default_value)  # type: ignore
+            transformed_df = self._transform_pandas(df, default_value)
         elif isinstance(df, SparkDataFrame):
-            transformed_df = self._transform_spark(df, default_value)  # type: ignore
+            transformed_df = self._transform_spark(df, default_value)
         elif isinstance(df, PolarsDataFrame):
-            transformed_df = self._transform_polars(df, default_value)  # type: ignore
+            transformed_df = self._transform_polars(df, default_value)
         else:
-            raise NotImplementedError(f"{self.__class__.__name__} is not implemented for {type(df)}")
+            msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
+            raise NotImplementedError(msg)
         return transformed_df
 
     def _inverse_transform_pandas(self, df: PandasDataFrame) -> PandasDataFrame:
@@ -415,7 +412,8 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         :returns: initial dataframe.
         """
         if self._mapping is None:
-            raise RuntimeError("Label encoder is not fitted")
+            msg = "Label encoder is not fitted"
+            raise RuntimeError(msg)
 
         if isinstance(df, PandasDataFrame):
             transformed_df = self._inverse_transform_pandas(df)
@@ -424,7 +422,8 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         elif isinstance(df, PolarsDataFrame):
             transformed_df = self._inverse_transform_polars(df)
         else:
-            raise NotImplementedError(f"{self.__class__.__name__} is not implemented for {type(df)}")
+            msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
+            raise NotImplementedError(msg)
         return transformed_df
 
     def set_default_value(self, default_value: Optional[Union[int, str]]) -> None:
@@ -435,7 +434,8 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         :param default_value: default value.
         """
         if default_value is not None and not isinstance(default_value, int) and default_value != "last":
-            raise ValueError("Default value should be None, int or 'last'")
+            msg = "Default value should be None, int or 'last'"
+            raise ValueError(msg)
         self._default_value = default_value
 
     def set_handle_unknown(self, handle_unknown: HandleUnknownStrategies) -> None:
@@ -445,7 +445,8 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         :param handle_unknown: handle unknown strategy.
         """
         if handle_unknown not in self._HANDLE_UNKNOWN_STRATEGIES:
-            raise ValueError(f"handle_unknown should be either 'error' or 'use_default_value', got {handle_unknown}.")
+            msg = f"handle_unknown should be either 'error' or 'use_default_value', got {handle_unknown}."
+            raise ValueError(msg)
         self._handle_unknown = handle_unknown
 
 
@@ -583,11 +584,12 @@ class LabelEncoder:
             If ``str`` value, should be \"last\" only, then fill by n_classes number.
             Default ``None``.
         """
-        columns = [i.column for i in self.rules]  # pylint: disable=W0212
+        columns = [i.column for i in self.rules]
         for column, handle_unknown in handle_unknown_rules.items():
             if column not in columns:
-                raise ValueError(f"Column {column} not found.")
-            rule = list(filter(lambda x: x.column == column, self.rules))  # pylint: disable = W0212, W0640
+                msg = f"Column {column} not found."
+                raise ValueError(msg)
+            rule = list(filter(lambda x: x.column == column, self.rules))
             rule[0].set_handle_unknown(handle_unknown)
 
     def set_default_values(self, default_value_rules: Dict[str, Optional[Union[int, str]]]) -> None:
@@ -606,9 +608,10 @@ class LabelEncoder:
             to the value given for the parameter default_value.
             Default: ``error``.
         """
-        columns = [i.column for i in self.rules]  # pylint: disable=W0212
+        columns = [i.column for i in self.rules]
         for column, default_value in default_value_rules.items():
             if column not in columns:
-                raise ValueError(f"Column {column} not found.")
-            rule = list(filter(lambda x: x.column == column, self.rules))  # pylint: disable = W0212, W0640
+                msg = f"Column {column} not found."
+                raise ValueError(msg)
+            rule = list(filter(lambda x: x.column == column, self.rules))
             rule[0].set_default_value(default_value)
