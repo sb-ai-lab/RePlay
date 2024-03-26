@@ -1,11 +1,10 @@
 from typing import List, Optional, Union
 
-from replay.utils import PandasDataFrame, SparkDataFrame, PolarsDataFrame
+from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 from .base_metric import Metric, MetricsDataFrameLike, MetricsReturnType
 
 
-# pylint: disable=too-few-public-methods
 class Unexpectedness(Metric):
     """
     Fraction of recommended items that are not present in some baseline\
@@ -13,11 +12,12 @@ class Unexpectedness(Metric):
 
     .. math::
         Unexpectedness@K(i) = 1 -
-            \\frac {\parallel R^{i}_{1..\min(K, \parallel R^{i} \parallel)} \cap BR^{i}_{1..\min(K, \parallel BR^{i} \parallel)} \parallel}
+            \\frac {\\parallel R^{i}_{1..\\min(K, \\parallel R^{i} \\parallel)}
+            \\cap BR^{i}_{1..\\min(K, \\parallel BR^{i} \\parallel)} \\parallel}
             {K}
 
     .. math::
-        Unexpectedness@K = \\frac {1}{N}\sum_{i=1}^{N}Unexpectedness@K(i)
+        Unexpectedness@K = \\frac {1}{N}\\sum_{i=1}^{N}Unexpectedness@K(i)
 
     :math:`R_{1..j}^{i}` -- the first :math:`j` recommendations for the :math:`i`-th user.
 
@@ -61,7 +61,7 @@ class Unexpectedness(Metric):
      'Unexpectedness-ConfidenceInterval@4': 0.0}
     <BLANKLINE>
     """
-    # pylint: disable=arguments-renamed
+
     def _get_enriched_recommendations(
         self,
         recommendations: Union[PolarsDataFrame, SparkDataFrame],
@@ -72,14 +72,14 @@ class Unexpectedness(Metric):
         else:
             return self._get_enriched_recommendations_polars(recommendations, base_recommendations)
 
-    def _get_enriched_recommendations_spark(  # pylint: disable=arguments-renamed
+    def _get_enriched_recommendations_spark(
         self, recommendations: SparkDataFrame, base_recommendations: SparkDataFrame
     ) -> SparkDataFrame:
         sorted_by_score_recommendations = self._get_items_list_per_user(recommendations)
 
-        sorted_by_score_base_recommendations = self._get_items_list_per_user(
-            base_recommendations
-        ).withColumnRenamed("pred_item_id", "base_pred_item_id")
+        sorted_by_score_base_recommendations = self._get_items_list_per_user(base_recommendations).withColumnRenamed(
+            "pred_item_id", "base_pred_item_id"
+        )
 
         enriched_recommendations = sorted_by_score_recommendations.join(
             sorted_by_score_base_recommendations, how="left", on=self.query_column
@@ -87,14 +87,14 @@ class Unexpectedness(Metric):
 
         return self._rearrange_columns(enriched_recommendations)
 
-    def _get_enriched_recommendations_polars(  # pylint: disable=arguments-renamed
+    def _get_enriched_recommendations_polars(
         self, recommendations: PolarsDataFrame, base_recommendations: PolarsDataFrame
     ) -> PolarsDataFrame:
         sorted_by_score_recommendations = self._get_items_list_per_user(recommendations)
 
-        sorted_by_score_base_recommendations = self._get_items_list_per_user(
-            base_recommendations
-        ).rename({"pred_item_id": "base_pred_item_id"})
+        sorted_by_score_base_recommendations = self._get_items_list_per_user(base_recommendations).rename(
+            {"pred_item_id": "base_pred_item_id"}
+        )
 
         enriched_recommendations = sorted_by_score_recommendations.join(
             sorted_by_score_base_recommendations, how="left", on=self.query_column
@@ -152,12 +152,7 @@ class Unexpectedness(Metric):
         )
 
     @staticmethod
-    def _get_metric_value_by_user(  # pylint: disable=arguments-differ
-        ks: List[int], base_recs: Optional[List], recs: Optional[List]
-    ) -> List[float]:
+    def _get_metric_value_by_user(ks: List[int], base_recs: Optional[List], recs: Optional[List]) -> List[float]:
         if not base_recs or not recs:
             return [0.0 for _ in ks]
-        res = []
-        for k in ks:
-            res.append(1.0 - len(set(recs[:k]) & set(base_recs[:k])) / k)
-        return res
+        return [1.0 - len(set(recs[:k]) & set(base_recs[:k])) / k for k in ks]

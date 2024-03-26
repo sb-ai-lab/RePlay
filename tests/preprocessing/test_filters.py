@@ -1,17 +1,18 @@
-import pytest
-import pandas as pd
-import polars as pl
 from datetime import datetime
 
-from replay.utils import get_spark_session, PandasDataFrame, PolarsDataFrame
+import pandas as pd
+import polars as pl
+import pytest
+
 from replay.preprocessing.filters import (
-    MinCountFilter,
-    LowRatingFilter,
-    NumInteractionsFilter,
     EntityDaysFilter,
     GlobalDaysFilter,
+    LowRatingFilter,
+    MinCountFilter,
+    NumInteractionsFilter,
     TimePeriodFilter,
 )
+from replay.utils import PandasDataFrame, PolarsDataFrame, get_spark_session
 
 
 @pytest.fixture
@@ -19,11 +20,16 @@ def interactions_pandas():
     df = PandasDataFrame(
         {
             "user_id": ["u1", "u2", "u2", "u3", "u3", "u3"],
-            "item_id": ["i1", "i2","i3", "i1", "i2","i3"],
-            "rating": [1., 0.5, 3, 1, 0, 1],
-            "timestamp": ["2020-01-01 23:59:59", "2020-02-01",
-                          "2020-02-01", "2020-01-01 00:04:15",
-                          "2020-01-02 00:04:14", "2020-01-05 23:59:59"]
+            "item_id": ["i1", "i2", "i3", "i1", "i2", "i3"],
+            "rating": [1.0, 0.5, 3, 1, 0, 1],
+            "timestamp": [
+                "2020-01-01 23:59:59",
+                "2020-02-01",
+                "2020-02-01",
+                "2020-01-01 00:04:15",
+                "2020-01-02 00:04:14",
+                "2020-01-05 23:59:59",
+            ],
         },
     )
     df["timestamp"] = pd.to_datetime(df["timestamp"])
@@ -38,11 +44,6 @@ def interactions_spark(interactions_pandas):
 @pytest.fixture
 def interactions_polars(interactions_pandas):
     return pl.from_pandas(interactions_pandas)
-
-
-@pytest.fixture
-def interactions_not_implemented(interactions_pandas):
-    return interactions_pandas.to_numpy()
 
 
 @pytest.fixture
@@ -107,16 +108,18 @@ def test_lowrating_filter(dataset_type, request):
     ],
 )
 @pytest.mark.parametrize(
-    "first", [(True), (False)],
+    "first",
+    [(True), (False)],
 )
 @pytest.mark.parametrize(
-    "item_column", [(None), ("item_id")],
+    "item_column",
+    [(None), ("item_id")],
 )
 def test_numinteractions_filter(dataset_type, first, item_column, request):
     test_dataframe = request.getfixturevalue(dataset_type)
-    filtered_dataframe = NumInteractionsFilter(
-        num_interactions=2, first=first, item_column=item_column
-    ).transform(test_dataframe)
+    filtered_dataframe = NumInteractionsFilter(num_interactions=2, first=first, item_column=item_column).transform(
+        test_dataframe
+    )
 
     if isinstance(test_dataframe, PandasDataFrame):
         user_list = filtered_dataframe["user_id"].unique().tolist()
@@ -138,12 +141,14 @@ def test_numinteractions_filter(dataset_type, first, item_column, request):
     ],
 )
 @pytest.mark.parametrize(
-    "first, answer", [(True, 5), (False, 4)],
+    "first, answer",
+    [(True, 5), (False, 4)],
 )
 def test_entitydays_filter(dataset_type, first, answer, request):
     test_dataframe = request.getfixturevalue(dataset_type)
     filtered_dataframe = EntityDaysFilter(
-        days=1, first=first,
+        days=1,
+        first=first,
     ).transform(test_dataframe)
 
     if isinstance(test_dataframe, PandasDataFrame):
@@ -163,12 +168,14 @@ def test_entitydays_filter(dataset_type, first, answer, request):
     ],
 )
 @pytest.mark.parametrize(
-    "first, answer", [(True, 3), (False, 2)],
+    "first, answer",
+    [(True, 3), (False, 2)],
 )
 def test_globaldays_filter(dataset_type, first, answer, request):
     test_dataframe = request.getfixturevalue(dataset_type)
     filtered_dataframe = GlobalDaysFilter(
-        days=1, first=first,
+        days=1,
+        first=first,
     ).transform(test_dataframe)
 
     if isinstance(test_dataframe, PandasDataFrame):
@@ -203,9 +210,7 @@ def test_globaldays_filter(dataset_type, first, answer, request):
 )
 def test_timeperiod_filter(dataset_type, start, end, answer, item_ids, request):
     test_dataframe = request.getfixturevalue(dataset_type)
-    filtered_dataframe = TimePeriodFilter(
-        start_date=start, end_date=end
-    ).transform(test_dataframe)
+    filtered_dataframe = TimePeriodFilter(start_date=start, end_date=end).transform(test_dataframe)
 
     if isinstance(test_dataframe, PandasDataFrame):
         item_list = filtered_dataframe["item_id"].unique().tolist()

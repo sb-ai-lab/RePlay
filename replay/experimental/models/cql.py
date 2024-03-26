@@ -7,18 +7,21 @@ import tempfile
 import timeit
 from typing import Any, Dict, Optional, Union
 
-from d3rlpy.algos import CQLConfig, CQL as CQL_d3rlpy
 import numpy as np
 import torch
+from d3rlpy.algos import (
+    CQL as CQL_d3rlpy,  # noqa: N811
+    CQLConfig,
+)
 from d3rlpy.base import LearnableConfigWithShape
 from d3rlpy.constants import IMPL_NOT_INITIALIZED_ERROR
 from d3rlpy.dataset import MDPDataset
-from d3rlpy.models.encoders import EncoderFactory, DefaultEncoderFactory
-from d3rlpy.models.optimizers import OptimizerFactory, AdamFactory
-from d3rlpy.models.q_functions import QFunctionFactory, MeanQFunctionFactory
+from d3rlpy.models.encoders import DefaultEncoderFactory, EncoderFactory
+from d3rlpy.models.optimizers import AdamFactory, OptimizerFactory
+from d3rlpy.models.q_functions import MeanQFunctionFactory, QFunctionFactory
 from d3rlpy.preprocessing import (
-    ObservationScaler,
     ActionScaler,
+    ObservationScaler,
     RewardScaler,
 )
 
@@ -28,8 +31,10 @@ from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 from replay.utils.spark_utils import assert_omp_single_thread
 
 if PYSPARK_AVAILABLE:
-    from pyspark.sql import Window
-    from pyspark.sql import functions as sf
+    from pyspark.sql import (
+        Window,
+        functions as sf,
+    )
 
 timer = timeit.default_timer
 
@@ -46,7 +51,8 @@ class CQL(Recommender):
 
     .. math::
         L(\\theta_i) = \\alpha\\, \\mathbb{E}_{s_t \\sim D}
-        \\left[\\log{\\sum_a \\exp{Q_{\\theta_i}(s_t, a)}} - \\mathbb{E}_{a \\sim D} \\big[Q_{\\theta_i}(s_t, a)\\big] - \\tau\\right]
+        \\left[\\log{\\sum_a \\exp{Q_{\\theta_i}(s_t, a)}} -
+        \\mathbb{E}_{a \\sim D} \\big[Q_{\\theta_i}(s_t, a)\\big] - \\tau\\right]
         + L_\\mathrm{SAC}(\\theta_i)
 
     where :math:`\alpha` is an automatically adjustable value via Lagrangian
@@ -56,7 +62,7 @@ class CQL(Recommender):
     Otherwise, the :math:`\alpha` will become larger to aggressively penalize
     action-values.
 
-    In continuous control, :math:`\log{\sum_a \exp{Q(s, a)}}` is computed as
+    In continuous control, :math:`\\log{\\sum_a \\exp{Q(s, a)}}` is computed as
     follows.
 
     .. math::
@@ -116,7 +122,7 @@ class CQL(Recommender):
         alpha_threshold (float): threshold value described as :math:`\tau`.
         conservative_weight (float): constant weight to scale conservative loss.
         n_action_samples (int): the number of sampled actions to compute
-        :math:`\log{\sum_a \exp{Q(s, a)}}`.
+        :math:`\\log{\\sum_a \\exp{Q(s, a)}}`.
         soft_q_backup (bool): flag to use SAC-style backup.
         use_gpu (Union[int, str, bool]): device option.
         If the value is boolean and True, cuda:0 will be used.
@@ -132,12 +138,12 @@ class CQL(Recommender):
         impl (d3rlpy.algos.torch.cql_impl.CQLImpl): algorithm implementation.
     """
 
-    mdp_dataset_builder: 'MdpDatasetBuilder'
+    mdp_dataset_builder: "MdpDatasetBuilder"
     model: CQL_d3rlpy
 
     can_predict_cold_users = True
 
-    _observation_shape = (2, )
+    _observation_shape = (2,)
     _action_size = 1
 
     _search_space = {
@@ -149,39 +155,37 @@ class CQL(Recommender):
         "n_critics": {"type": "int", "args": [2, 4]},
     }
 
-    # pylint: disable=too-many-arguments, too-many-locals
     def __init__(
-            self,
-            mdp_dataset_builder: 'MdpDatasetBuilder',
-
-            # CQL inner params
-            actor_learning_rate: float = 1e-4,
-            critic_learning_rate: float = 3e-4,
-            temp_learning_rate: float = 1e-4,
-            alpha_learning_rate: float = 1e-4,
-            actor_optim_factory: OptimizerFactory = AdamFactory(),
-            critic_optim_factory: OptimizerFactory = AdamFactory(),
-            temp_optim_factory: OptimizerFactory = AdamFactory(),
-            alpha_optim_factory: OptimizerFactory = AdamFactory(),
-            actor_encoder_factory: EncoderFactory = DefaultEncoderFactory(),
-            critic_encoder_factory: EncoderFactory = DefaultEncoderFactory(),
-            q_func_factory: QFunctionFactory = MeanQFunctionFactory(),
-            batch_size: int = 64,
-            n_steps: int = 1,
-            gamma: float = 0.99,
-            tau: float = 0.005,
-            n_critics: int = 2,
-            initial_temperature: float = 1.0,
-            initial_alpha: float = 1.0,
-            alpha_threshold: float = 10.0,
-            conservative_weight: float = 5.0,
-            n_action_samples: int = 10,
-            soft_q_backup: bool = False,
-            use_gpu: Union[int, str, bool] = False,
-            observation_scaler: ObservationScaler = None,
-            action_scaler: ActionScaler = None,
-            reward_scaler: RewardScaler = None,
-            **params
+        self,
+        mdp_dataset_builder: "MdpDatasetBuilder",
+        # CQL inner params
+        actor_learning_rate: float = 1e-4,
+        critic_learning_rate: float = 3e-4,
+        temp_learning_rate: float = 1e-4,
+        alpha_learning_rate: float = 1e-4,
+        actor_optim_factory: OptimizerFactory = AdamFactory(),
+        critic_optim_factory: OptimizerFactory = AdamFactory(),
+        temp_optim_factory: OptimizerFactory = AdamFactory(),
+        alpha_optim_factory: OptimizerFactory = AdamFactory(),
+        actor_encoder_factory: EncoderFactory = DefaultEncoderFactory(),
+        critic_encoder_factory: EncoderFactory = DefaultEncoderFactory(),
+        q_func_factory: QFunctionFactory = MeanQFunctionFactory(),
+        batch_size: int = 64,
+        n_steps: int = 1,
+        gamma: float = 0.99,
+        tau: float = 0.005,
+        n_critics: int = 2,
+        initial_temperature: float = 1.0,
+        initial_alpha: float = 1.0,
+        alpha_threshold: float = 10.0,
+        conservative_weight: float = 5.0,
+        n_action_samples: int = 10,
+        soft_q_backup: bool = False,
+        use_gpu: Union[int, str, bool] = False,
+        observation_scaler: ObservationScaler = None,
+        action_scaler: ActionScaler = None,
+        reward_scaler: RewardScaler = None,
+        **params
     ):
         super().__init__()
         assert_omp_single_thread()
@@ -195,7 +199,7 @@ class CQL(Recommender):
             local["action_size"] = self._action_size
             deserialized_config = LearnableConfigWithShape.deserialize_from_dict(local)
 
-            self.logger.info('-- Desiarializing CQL parameters')
+            self.logger.info("-- Desiarializing CQL parameters")
             actor_optim_factory = deserialized_config.config.actor_optim_factory
             critic_optim_factory = deserialized_config.config.critic_optim_factory
             temp_optim_factory = deserialized_config.config.temp_optim_factory
@@ -243,16 +247,13 @@ class CQL(Recommender):
         # explicitly create the model's algorithm implementation at init stage
         # despite the lazy on-fit init convention in d3rlpy a) to avoid serialization
         # complications and b) to make model ready for prediction even before fitting
-        self.model.create_impl(
-            observation_shape=self._observation_shape,
-            action_size=self._action_size
-        )
+        self.model.create_impl(observation_shape=self._observation_shape, action_size=self._action_size)
 
     def _fit(
         self,
         log: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
     ) -> None:
         mdp_dataset: MDPDataset = self.mdp_dataset_builder.build(log)
         self.model.fit(mdp_dataset, self.n_steps)
@@ -263,28 +264,24 @@ class CQL(Recommender):
         user_idx: int,
         items: np.ndarray,
     ) -> PandasDataFrame:
-        user_item_pairs = PandasDataFrame({
-            'user_idx': np.repeat(user_idx, len(items)),
-            'item_idx': items
-        })
+        user_item_pairs = PandasDataFrame({"user_idx": np.repeat(user_idx, len(items)), "item_idx": items})
 
         # deserialize model policy and predict items relevance for the user
         policy = CQL._deserialize_policy(model)
         items_batch = user_item_pairs.to_numpy()
-        user_item_pairs['relevance'] = CQL._predict_relevance_with_policy(policy, items_batch)
+        user_item_pairs["relevance"] = CQL._predict_relevance_with_policy(policy, items_batch)
 
         return user_item_pairs
 
-    # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: SparkDataFrame,
-        k: int,
+        log: SparkDataFrame,  # noqa: ARG002
+        k: int,  # noqa: ARG002
         users: SparkDataFrame,
         items: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
-        filter_seen_items: bool = True,
+        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        filter_seen_items: bool = True,  # noqa: ARG002
     ) -> SparkDataFrame:
         available_items = items.toPandas()["item_idx"].values
         policy_bytes = self._serialize_policy()
@@ -311,8 +308,8 @@ class CQL(Recommender):
         self,
         pairs: SparkDataFrame,
         log: Optional[SparkDataFrame] = None,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
     ) -> SparkDataFrame:
         policy_bytes = self._serialize_policy()
 
@@ -331,8 +328,7 @@ class CQL(Recommender):
             has_timestamp=False,
         )
         return (
-            pairs
-            .groupBy("user_idx")
+            pairs.groupBy("user_idx")
             .agg(sf.collect_list("item_idx").alias("item_idx_to_pred"))
             .join(log.select("user_idx").distinct(), on="user_idx", how="inner")
             .groupby("user_idx")
@@ -347,15 +343,15 @@ class CQL(Recommender):
             "n_steps": self.n_steps,
             # model internal hyperparams
             **self._get_model_hyperparams(),
-            "use_gpu": self.model._impl.device
+            "use_gpu": self.model._impl.device,
         }
 
     def _save_model(self, path: str) -> None:
-        self.logger.info('-- Saving model to %s', path)
+        self.logger.info("-- Saving model to %s", path)
         self.model.save_model(path)
 
     def _load_model(self, path: str) -> None:
-        self.logger.info('-- Loading model from %s', path)
+        self.logger.info("-- Loading model from %s", path)
         self.model.load_model(path)
 
     def _get_model_hyperparams(self) -> Dict[str, Any]:
@@ -378,21 +374,19 @@ class CQL(Recommender):
 
     def _serialize_policy(self) -> bytes:
         # store using temporary file and immediately read serialized version
-        with tempfile.NamedTemporaryFile(suffix='.pt') as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".pt") as tmp:
             # noinspection PyProtectedMember
             self.model.save_policy(tmp.name)
-            with open(tmp.name, 'rb') as policy_file:
+            with open(tmp.name, "rb") as policy_file:
                 return policy_file.read()
 
     @staticmethod
     def _deserialize_policy(policy: bytes) -> torch.jit.ScriptModule:
         with io.BytesIO(policy) as buffer:
-            return torch.jit.load(buffer, map_location=torch.device('cpu'))
+            return torch.jit.load(buffer, map_location=torch.device("cpu"))
 
     @staticmethod
-    def _predict_relevance_with_policy(
-            policy: torch.jit.ScriptModule, items: np.ndarray
-    ) -> np.ndarray:
+    def _predict_relevance_with_policy(policy: torch.jit.ScriptModule, items: np.ndarray) -> np.ndarray:
         items = torch.from_numpy(items).float().cpu()
         with torch.no_grad():
             return policy.forward(items).numpy()
@@ -424,43 +418,33 @@ class MdpDatasetBuilder:
 
         start_time = timer()
         # reward top-K watched movies with 1, the others - with 0
-        reward_condition = sf.row_number().over(
-            Window
-            .partitionBy('user_idx')
-            .orderBy([sf.desc('relevance'), sf.desc('timestamp')])
-        ) <= self.top_k
+        reward_condition = (
+            sf.row_number().over(Window.partitionBy("user_idx").orderBy([sf.desc("relevance"), sf.desc("timestamp")]))
+            <= self.top_k
+        )
 
         # every user has his own episode (the latest item is defined as terminal)
-        terminal_condition = sf.row_number().over(
-            Window
-            .partitionBy('user_idx')
-            .orderBy(sf.desc('timestamp'))
-        ) == 1
+        terminal_condition = sf.row_number().over(Window.partitionBy("user_idx").orderBy(sf.desc("timestamp"))) == 1
 
         user_logs = (
-            log
-            .withColumn("reward", sf.when(reward_condition, sf.lit(1)).otherwise(sf.lit(0)))
+            log.withColumn("reward", sf.when(reward_condition, sf.lit(1)).otherwise(sf.lit(0)))
             .withColumn("terminal", sf.when(terminal_condition, sf.lit(1)).otherwise(sf.lit(0)))
-            .withColumn(
-                "action",
-                sf.col("relevance").cast("float") + sf.randn() * self.action_randomization_scale
-            )
-            .orderBy(['user_idx', 'timestamp'], ascending=True)
-            .select(['user_idx', 'item_idx', 'action', 'reward', 'terminal'])
+            .withColumn("action", sf.col("relevance").cast("float") + sf.randn() * self.action_randomization_scale)
+            .orderBy(["user_idx", "timestamp"], ascending=True)
+            .select(["user_idx", "item_idx", "action", "reward", "terminal"])
             .toPandas()
         )
         train_dataset = MDPDataset(
-            observations=np.array(user_logs[['user_idx', 'item_idx']]),
-            actions=user_logs['action'].to_numpy()[:, None],
-            rewards=user_logs['reward'].to_numpy(),
-            terminals=user_logs['terminal'].to_numpy()
+            observations=np.array(user_logs[["user_idx", "item_idx"]]),
+            actions=user_logs["action"].to_numpy()[:, None],
+            rewards=user_logs["reward"].to_numpy(),
+            terminals=user_logs["terminal"].to_numpy(),
         )
 
         prepare_time = timer() - start_time
-        self.logger.info('-- Building MDP dataset took %.2f seconds', prepare_time)
+        self.logger.info("-- Building MDP dataset took %.2f seconds", prepare_time)
         return train_dataset
 
-    # pylint: disable=missing-function-docstring
     def init_args(self):
         return {
             "top_k": self.top_k,

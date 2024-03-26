@@ -1,15 +1,16 @@
-from typing import Optional, Union
+from typing import Optional, Tuple
+
 import polars as pl
 
-from .base_splitter import Splitter, SplitterReturnType
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
+
+from .base_splitter import Splitter, SplitterReturnType
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
     from pyspark.sql import Window
 
 
-# pylint: disable=too-few-public-methods, duplicate-code
 class NewUsersSplitter(Splitter):
     """
     Only new users will be assigned to test set.
@@ -63,7 +64,6 @@ class NewUsersSplitter(Splitter):
         "session_id_processing_strategy",
     ]
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         test_size: float,
@@ -91,24 +91,23 @@ class NewUsersSplitter(Splitter):
             item_column=item_column,
             timestamp_column=timestamp_column,
             session_id_column=session_id_column,
-            session_id_processing_strategy=session_id_processing_strategy
+            session_id_processing_strategy=session_id_processing_strategy,
         )
         if test_size < 0 or test_size > 1:
-            raise ValueError("test_size must between 0 and 1")
+            msg = "test_size must between 0 and 1"
+            raise ValueError(msg)
         self.test_size = test_size
 
     def _core_split_pandas(
-        self,
-        interactions: PandasDataFrame,
-        threshold: float
-    ) -> Union[PandasDataFrame, PandasDataFrame]:
-        start_date_by_user = interactions.groupby(self.query_column).agg(
-            _start_dt_by_user=(self.timestamp_column, "min")
-        ).reset_index()
+        self, interactions: PandasDataFrame, threshold: float
+    ) -> Tuple[PandasDataFrame, PandasDataFrame]:
+        start_date_by_user = (
+            interactions.groupby(self.query_column).agg(_start_dt_by_user=(self.timestamp_column, "min")).reset_index()
+        )
         test_start_date = (
-            start_date_by_user
-            .groupby("_start_dt_by_user")
-            .agg(_num_users_by_start_date=(self.query_column, "count")).reset_index()
+            start_date_by_user.groupby("_start_dt_by_user")
+            .agg(_num_users_by_start_date=(self.query_column, "count"))
+            .reset_index()
             .sort_values(by="_start_dt_by_user", ascending=False)
         )
         test_start_date["_cum_num_users_to_dt"] = test_start_date["_num_users_by_start_date"].cumsum()
@@ -120,9 +119,7 @@ class NewUsersSplitter(Splitter):
 
         train = interactions[interactions[self.timestamp_column] < test_start]
         test = interactions.merge(
-            start_date_by_user[start_date_by_user["_start_dt_by_user"] >= test_start],
-            how="inner",
-            on=self.query_column
+            start_date_by_user[start_date_by_user["_start_dt_by_user"] >= test_start], how="inner", on=self.query_column
         ).drop(columns=["_start_dt_by_user"])
 
         if self.session_id_column:
@@ -136,10 +133,8 @@ class NewUsersSplitter(Splitter):
         return train, test
 
     def _core_split_spark(
-        self,
-        interactions: SparkDataFrame,
-        threshold: float
-    ) -> Union[SparkDataFrame, SparkDataFrame]:
+        self, interactions: SparkDataFrame, threshold: float
+    ) -> Tuple[SparkDataFrame, SparkDataFrame]:
         start_date_by_user = interactions.groupby(self.query_column).agg(
             sf.min(self.timestamp_column).alias("_start_dt_by_user")
         )
@@ -175,53 +170,33 @@ class NewUsersSplitter(Splitter):
         return train, test
 
     def _core_split_polars(
-        self,
-        interactions: PolarsDataFrame,
-        threshold: float
-    ) -> Union[PolarsDataFrame, PolarsDataFrame]:
-        start_date_by_user = (
-            interactions
-            .group_by(self.query_column).agg(
-                pl.col(self.timestamp_column).min()
-                .alias("_start_dt_by_user")
-            )
+        self, interactions: PolarsDataFrame, threshold: float
+    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+        start_date_by_user = interactions.group_by(self.query_column).agg(
+            pl.col(self.timestamp_column).min().alias("_start_dt_by_user")
         )
         test_start_date = (
-            start_date_by_user
-            .group_by("_start_dt_by_user").agg(
-                pl.col(self.query_column).count()
-                .alias("_num_users_by_start_date")
-            )
+            start_date_by_user.group_by("_start_dt_by_user")
+            .agg(pl.col(self.query_column).count().alias("_num_users_by_start_date"))
             .sort("_start_dt_by_user", descending=True)
             .with_columns(
-                pl.col("_num_users_by_start_date").cum_sum()
-                .alias("cum_sum_users"),
+                pl.col("_num_users_by_start_date").cum_sum().alias("cum_sum_users"),
             )
-            .filter(
-                pl.col("cum_sum_users") >= pl.col("cum_sum_users").max() * threshold
-            )
-            ["_start_dt_by_user"]
+            .filter(pl.col("cum_sum_users") >= pl.col("cum_sum_users").max() * threshold)["_start_dt_by_user"]
             .max()
         )
 
         train = interactions.filter(pl.col(self.timestamp_column) < test_start_date)
         test = interactions.join(
-            start_date_by_user.filter(pl.col("_start_dt_by_user") >= test_start_date),
-            on=self.query_column,
-            how="inner"
+            start_date_by_user.filter(pl.col("_start_dt_by_user") >= test_start_date), on=self.query_column, how="inner"
         ).drop("_start_dt_by_user")
 
         if self.session_id_column:
             interactions = interactions.with_columns(
-                pl.when(
-                    pl.col(self.timestamp_column) < test_start_date
-                )
-                .then(False)
-                .otherwise(True)
-                .alias("is_test")
+                pl.when(pl.col(self.timestamp_column) < test_start_date).then(False).otherwise(True).alias("is_test")
             )
             interactions = self._recalculate_with_session_id_column(interactions)
-            train = interactions.filter(~pl.col("is_test")).drop("is_test")  # pylint: disable=invalid-unary-operand-type
+            train = interactions.filter(~pl.col("is_test")).drop("is_test")
             test = interactions.filter(pl.col("is_test")).drop("is_test")
 
         return train, test
@@ -234,4 +209,5 @@ class NewUsersSplitter(Splitter):
         if isinstance(interactions, PolarsDataFrame):
             return self._core_split_polars(interactions, self.test_size)
 
-        raise NotImplementedError(f"{self} is not implemented for {type(interactions)}")
+        msg = f"{self} is not implemented for {type(interactions)}"
+        raise NotImplementedError(msg)

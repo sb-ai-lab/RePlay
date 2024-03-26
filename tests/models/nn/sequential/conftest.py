@@ -15,7 +15,11 @@ if TORCH_AVAILABLE:
         Bert4RecTrainingDataset,
         Bert4RecValidationDataset,
     )
-    from replay.models.nn.sequential.sasrec import SasRecPredictionDataset, SasRecTrainingDataset, SasRecValidationDataset
+    from replay.models.nn.sequential.sasrec import (
+        SasRecPredictionDataset,
+        SasRecTrainingDataset,
+        SasRecValidationDataset,
+    )
 
 
 @pytest.fixture(scope="package")
@@ -247,11 +251,7 @@ def item_user_num_sequential_dataset():
             (2, np.array([0, 2, 3, 1, 2]), np.array([0.1, 0.2])),
             (3, np.array([1, 2, 0, 1, 2]), np.array([0.1, 0.2])),
         ],
-        columns=[
-            "user_id",
-            "item_id",
-            "num_feature"
-        ],
+        columns=["user_id", "item_id", "num_feature"],
     )
 
     schema = (
@@ -261,7 +261,8 @@ def item_user_num_sequential_dataset():
             cardinality=6,
             is_seq=True,
             feature_hint=FeatureHint.ITEM_ID,
-        ).numerical(
+        )
+        .numerical(
             "num_feature",
             tensor_dim=64,
             is_seq=True,

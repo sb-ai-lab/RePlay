@@ -1,4 +1,3 @@
-# pylint: disable-all
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -6,7 +5,6 @@ import pytest
 
 from replay.splitters import RandomSplitter
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
-from tests.utils import spark
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
@@ -44,9 +42,7 @@ def spark_dataframe_test(spark):
         (3, 1, "04-01-2020", 6),
         (3, 2, "05-01-2020", 6),
     ]
-    return spark.createDataFrame(data, schema=columns).withColumn(
-        "timestamp", sf.to_date("timestamp", "dd-MM-yyyy")
-    )
+    return spark.createDataFrame(data, schema=columns).withColumn("timestamp", sf.to_date("timestamp", "dd-MM-yyyy"))
 
 
 @pytest.fixture(scope="module")
@@ -107,7 +103,7 @@ test_sizes = [0.1, 0.3, 0.5, 0.7, 0.9]
         pytest.param("log_spark", marks=pytest.mark.spark),
         pytest.param("log", marks=pytest.mark.core),
         pytest.param("log_polars", marks=pytest.mark.core),
-    ]
+    ],
 )
 @pytest.mark.parametrize("test_size", test_sizes)
 def test_nothing_is_lost(test_size, dataset_type, request):
@@ -141,7 +137,7 @@ def test_bad_test_size():
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
         pytest.param("polars_dataframe_test", marks=pytest.mark.core),
-    ]
+    ],
 )
 def test_with_session_ids(dataset_type, request):
     log = request.getfixturevalue(dataset_type)
@@ -165,7 +161,7 @@ def test_with_session_ids(dataset_type, request):
         pytest.param("log_spark", marks=pytest.mark.spark),
         pytest.param("log", marks=pytest.mark.core),
         pytest.param("log_polars", marks=pytest.mark.core),
-    ]
+    ],
 )
 def test_with_multiple_splitting(dataset_type, request):
     log = request.getfixturevalue(dataset_type)

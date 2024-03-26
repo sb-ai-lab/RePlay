@@ -1,16 +1,15 @@
 from .base_metric import Metric
 
 
-# pylint: disable=too-few-public-methods
 class Recall(Metric):
     """
     Mean percentage of relevant items, that was shown among top ``K`` recommendations.
 
     .. math::
-        Recall@K(i) = \\frac {\sum_{j=1}^{K}\mathbb{1}_{r_{ij}}}{|Rel_i|}
+        Recall@K(i) = \\frac {\\sum_{j=1}^{K}\\mathbb{1}_{r_{ij}}}{|Rel_i|}
 
     .. math::
-        Recall@K = \\frac {\sum_{i=1}^{N}Recall@K(i)}{N}
+        Recall@K = \\frac {\\sum_{i=1}^{N}Recall@K(i)}{N}
 
     :math:`\\mathbb{1}_{r_{ij}}` -- indicator function showing that user :math:`i` interacted with item :math:`j`
 

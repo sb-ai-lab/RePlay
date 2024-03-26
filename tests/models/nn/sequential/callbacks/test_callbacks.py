@@ -1,15 +1,22 @@
 import pytest
 
-from replay.utils import PYSPARK_AVAILABLE, TORCH_AVAILABLE, PandasDataFrame, PolarsDataFrame, SparkDataFrame, get_spark_session
+from replay.utils import (
+    PYSPARK_AVAILABLE,
+    TORCH_AVAILABLE,
+    PandasDataFrame,
+    PolarsDataFrame,
+    SparkDataFrame,
+    get_spark_session,
+)
 
 if TORCH_AVAILABLE:
     from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionDataset
     from replay.models.nn.sequential.callbacks import (
         PandasPredictionCallback,
         PolarsPredictionCallback,
+        QueryEmbeddingsPredictionCallback,
         TorchPredictionCallback,
         ValidationMetricsCallback,
-        QueryEmbeddingsPredictionCallback,
     )
     from replay.models.nn.sequential.postprocessors import RemoveSeenItems
 
@@ -202,7 +209,13 @@ def test_validation_callbacks(item_user_sequential_dataset, train_loader, val_lo
         (["coverage"], None),
     ],
 )
-def test_validation_callbacks_multiple_dataloaders(item_user_sequential_dataset, train_loader, val_loader, metrics, postprocessor):
+def test_validation_callbacks_multiple_dataloaders(
+    item_user_sequential_dataset,
+    train_loader,
+    val_loader,
+    metrics,
+    postprocessor,
+):
     callback = ValidationMetricsCallback(
         metrics=metrics,
         ks=[1],
@@ -241,10 +254,7 @@ def test_query_embeddings_callback(item_user_sequential_dataset):
     pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_loader = torch.utils.data.DataLoader(pred)
 
-    trainer = L.Trainer(
-        callbacks=[callback],
-        inference_mode=True
-    )
+    trainer = L.Trainer(callbacks=[callback], inference_mode=True)
     trainer.predict(model, pred_loader)
     embs = callback.get_result()
 

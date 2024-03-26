@@ -2,7 +2,6 @@ import pytest
 
 from replay.preprocessing import CSRConverter
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame
-from tests.utils import spark
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
@@ -10,11 +9,13 @@ if PYSPARK_AVAILABLE:
 
 @pytest.fixture(scope="module")
 def interactions_pandas():
-    return PandasDataFrame({
-        "user_id": [1, 1, 1, 2, 2, 2, 3, 3, 3, 3],
-        "item_id": [3, 7, 10, 5, 8, 11, 4, 9, 2, 5],
-        "rating": [1, 2, 3, 3, 2, 1, 3, 12, 1, 4]
-    })
+    return PandasDataFrame(
+        {
+            "user_id": [1, 1, 1, 2, 2, 2, 3, 3, 3, 3],
+            "item_id": [3, 7, 10, 5, 8, 11, 4, 9, 2, 5],
+            "rating": [1, 2, 3, 3, 2, 1, 3, 12, 1, 4],
+        }
+    )
 
 
 @pytest.mark.usefixtures("spark")

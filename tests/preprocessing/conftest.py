@@ -3,7 +3,6 @@ import polars as pl
 import pytest
 
 from replay.utils import PYSPARK_AVAILABLE
-from tests.utils import spark
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql.functions import col, to_date, unix_timestamp

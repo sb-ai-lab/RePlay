@@ -6,7 +6,6 @@ from replay.models.extensions.ann.utils import create_nmslib_index_instance
 from replay.utils import PandasDataFrame
 
 
-# pylint: disable=too-few-public-methods
 class NmslibIndexBuilderMixin:
     """Provides nmslib index building method for different nmslib index builders"""
 
@@ -49,6 +48,4 @@ class NmslibIndexBuilderMixin:
         index.addDataPointBatch(data=sim_matrix)
         index.createIndex(creation_index_params)
 
-        index_store.save_to_store(
-            lambda path: index.saveIndex(path, save_data=True)
-        )  # pylint: disable=unnecessary-lambda)
+        index_store.save_to_store(lambda path: index.saveIndex(path, save_data=True))

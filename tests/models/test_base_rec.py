@@ -1,29 +1,19 @@
-# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, pointless-statement
-import pytest
 import logging
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from replay.data.dataset import Dataset
 from replay.models import RandomRec
-
-from replay.models.base_rec import Recommender, HybridRecommender, NonPersonalizedRecommender
+from replay.models.base_rec import HybridRecommender, NonPersonalizedRecommender, Recommender
 from replay.utils import SparkDataFrame
 from replay.utils.spark_utils import convert2spark
 from tests.utils import (
     create_dataset,
-    log,
-    spark,
-    fake_fit_items,
-    fake_fit_queries,
-    user_features,
-    all_users_features,
-    item_features,
 )
 
 
-# pylint: disable=missing-class-docstring, too-many-arguments
 class DerivedRec(Recommender):
     @property
     def _init_args(self):
@@ -139,9 +129,7 @@ def test_predict_proba(log, sample, n_users=2, n_actions=5, K=3):
     dataset = create_dataset(log)
     model.fit(dataset)
 
-    pred = model._predict_proba(
-        dataset, K, users, items, filter_seen_items=False
-    )
+    pred = model._predict_proba(dataset, K, users, items, filter_seen_items=False)
 
     assert pred.shape == (n_users, n_actions, K)
     assert np.allclose(pred.sum(1), np.ones(shape=(n_users, K)))
@@ -179,17 +167,12 @@ def test_predict_pairs(model, log, caplog):
     dataset = create_dataset(log)
     model.fit(dataset)
 
-    res = model.predict_pairs(
-        pairs=log.select("user_idx", "item_idx"),
-        dataset=dataset,
-        k=1
-    )
+    res = model.predict_pairs(pairs=log.select("user_idx", "item_idx"), dataset=dataset, k=1)
 
     assert res.select("user_idx").count() == 4
     assert (
         "native predict_pairs is not implemented for this model. "
-        "Falling back to usual predict method and filtering the results."
-        in caplog.text
+        "Falling back to usual predict method and filtering the results." in caplog.text
     )
 
 
@@ -206,8 +189,7 @@ def test_get_features_warning(model, caplog):
     with caplog.at_level(logging.INFO):
         model._get_features(None, None)
         assert (
-            f"get_features method is not defined for the model {model}. Features will not be returned."
-            in caplog.text
+            f"get_features method is not defined for the model {model}. Features will not be returned." in caplog.text
         )
 
 

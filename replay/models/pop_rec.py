@@ -1,7 +1,7 @@
-
 from replay.data.dataset import Dataset
-from .base_rec import NonPersonalizedRecommender
 from replay.utils import PYSPARK_AVAILABLE
+
+from .base_rec import NonPersonalizedRecommender
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -23,7 +23,11 @@ class PopRec(NonPersonalizedRecommender):
     >>> import pandas as pd
     >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
     >>> from replay.utils.spark_utils import convert2spark
-    >>> data_frame = pd.DataFrame({"user_id": [1, 1, 2, 2, 3, 4], "item_id": [1, 2, 2, 3, 3, 3], "rating": [0.5, 1, 0.1, 0.8, 0.7, 1]})
+    >>> data_frame = pd.DataFrame(
+    ...    {"user_id": [1, 1, 2, 2, 3, 4],
+    ...     "item_id": [1, 2, 2, 3, 3, 3],
+    ...     "rating": [0.5, 1, 0.1, 0.8, 0.7, 1]}
+    ... )
     >>> data_frame
         user_id   item_id     rating
     0         1         1        0.5
@@ -104,9 +108,7 @@ class PopRec(NonPersonalizedRecommender):
             `Cold_weight` value should be in interval (0, 1].
         """
         self.use_rating = use_rating
-        super().__init__(
-            add_cold_items=add_cold_items, cold_weight=cold_weight
-        )
+        super().__init__(add_cold_items=add_cold_items, cold_weight=cold_weight)
 
     @property
     def _init_args(self):
@@ -120,7 +122,6 @@ class PopRec(NonPersonalizedRecommender):
         self,
         dataset: Dataset,
     ) -> None:
-
         agg_func = sf.countDistinct(self.query_column).alias(self.rating_column)
         if self.use_rating:
             agg_func = sf.sum(self.rating_column).alias(self.rating_column)
@@ -128,9 +129,7 @@ class PopRec(NonPersonalizedRecommender):
         self.item_popularity = (
             dataset.interactions.groupBy(self.item_column)
             .agg(agg_func)
-            .withColumn(
-                self.rating_column, sf.col(self.rating_column) / sf.lit(self.queries_count)
-            )
+            .withColumn(self.rating_column, sf.col(self.rating_column) / sf.lit(self.queries_count))
         )
 
         self.item_popularity.cache().count()

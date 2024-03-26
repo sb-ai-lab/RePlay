@@ -1,16 +1,12 @@
-# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
-import pytest
 import logging
+
+import pytest
 
 from replay.models import SLIM, ALSWrap, ItemKNN
 from tests.utils import (
     create_dataset,
-    log,
-    spark,
-    all_users_features,
-    item_features,
     sparkDataFrameEqual,
-    sparkDataFrameNotEqual
+    sparkDataFrameNotEqual,
 )
 
 
@@ -69,9 +65,7 @@ def test_correct_borders(model, borders):
 
 
 @pytest.mark.core
-@pytest.mark.parametrize(
-    "borders,answer", [(None, True), ({"rank": [-10, -1]}, False)]
-)
+@pytest.mark.parametrize("borders,answer", [(None, True), ({"rank": [-10, -1]}, False)])
 def test_param_in_borders(model, borders, answer):
     search_space = model._prepare_param_borders(borders)
     assert model._init_params_in_search_space(search_space) == answer
@@ -105,10 +99,7 @@ def test_empty_search_space(log, caplog):
         model._search_space = None
         dataset = create_dataset(log)
         res = model.optimize(dataset, dataset, k=2, budget=1)
-        assert (
-            f"{model} has no hyper parameters to optimize"
-            in caplog.text
-        )
+        assert f"{model} has no hyper parameters to optimize" in caplog.text
         assert res is None
 
 

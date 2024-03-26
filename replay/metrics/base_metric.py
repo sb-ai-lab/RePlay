@@ -1,11 +1,11 @@
 import warnings
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Mapping, Union
+from typing import Any, Dict, List, Mapping, Optional, Union
 
 import numpy as np
 import polars as pl
 
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame, PolarsDataFrame
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 from .descriptors import CalculationDescriptor, Mean
 
@@ -27,7 +27,7 @@ class MetricDuplicatesWarning(Warning):
 class Metric(ABC):
     """Base metric class"""
 
-    def __init__(  # pylint: disable=too-many-arguments
+    def __init__(
         self,
         topk: Union[List[int], int],
         query_column: str = "query_id",
@@ -46,11 +46,13 @@ class Metric(ABC):
         if isinstance(topk, list):
             for item in topk:
                 if not isinstance(item, int):
-                    raise ValueError(f"{item} is not int")
+                    msg = f"{item} is not int"
+                    raise ValueError(msg)
         elif isinstance(topk, int):
             topk = [topk]
         else:
-            raise ValueError("topk not list or int")
+            msg = "topk not list or int"
+            raise ValueError(msg)
         self.topk = sorted(topk)
         self.query_column = query_column
         self.item_column = item_column
@@ -60,11 +62,8 @@ class Metric(ABC):
     @property
     def __name__(self) -> str:
         mode_name = self._mode.__name__
-        return str(type(self).__name__) + (
-            f"-{mode_name}" if mode_name != "Mean" else ""
-        )
+        return str(type(self).__name__) + (f"-{mode_name}" if mode_name != "Mean" else "")
 
-    # pylint: disable=no-self-use
     def _check_dataframes_equal_types(
         self,
         recommendations: MetricsDataFrameLike,
@@ -74,39 +73,31 @@ class Metric(ABC):
         Types of all data frames must be the same.
         """
         if not isinstance(recommendations, type(ground_truth)):
-            raise ValueError("All given data frames must have the same type")
+            msg = "All given data frames must have the same type"
+            raise ValueError(msg)
 
     def _duplicate_warn(self):
         warnings.warn(
-            "The recommendations contain duplicated users and items."
-            "The metrics may be higher than the actual ones.",
+            "The recommendations contain duplicated users and items.The metrics may be higher than the actual ones.",
             MetricDuplicatesWarning,
         )
 
     def _check_duplicates_spark(self, recommendations: SparkDataFrame) -> None:
         duplicates_count = (
-            recommendations.groupBy(self.query_column, self.item_column)
-            .count()
-            .filter("count >= 2")
-            .count()
+            recommendations.groupBy(self.query_column, self.item_column).count().filter("count >= 2").count()
         )
         if duplicates_count:
             self._duplicate_warn()
 
     def _check_duplicates_dict(self, recommendations: Dict) -> None:
-        for _, items in recommendations.items():
+        for items in recommendations.values():
             items_set = set(items)
             if len(items) != len(items_set):
                 self._duplicate_warn()
                 return
 
     def _check_duplicates_polars(self, recommendations: PolarsDataFrame) -> None:
-        duplicates_count = (
-            recommendations
-            .group_by(self.query_column, self.item_column)
-            .len()
-            .filter(pl.col("len") > 1)
-        )
+        duplicates_count = recommendations.group_by(self.query_column, self.item_column).len().filter(pl.col("len") > 1)
         if not duplicates_count.is_empty():
             self._duplicate_warn()
 
@@ -144,11 +135,7 @@ class Metric(ABC):
             else self._convert_dict_to_dict_with_score(recommendations)
         )
         self._check_duplicates_dict(recommendations)
-        ground_truth = (
-            self._convert_pandas_to_dict_without_score(ground_truth)
-            if is_pandas
-            else ground_truth
-        )
+        ground_truth = self._convert_pandas_to_dict_without_score(ground_truth) if is_pandas else ground_truth
         assert isinstance(ground_truth, dict)
         return self._dict_call(
             list(ground_truth),
@@ -164,7 +151,6 @@ class Metric(ABC):
             .to_dict()
         )
 
-    # pylint: disable=no-self-use
     def _convert_dict_to_dict_with_score(self, data: Dict) -> Dict:
         converted_data = {}
         for user, items in data.items():
@@ -191,31 +177,21 @@ class Metric(ABC):
         distribution_per_user = {}
         for user in users:
             args = [kwargs[key].get(user, None) for key in keys_list]
-            distribution_per_user[user] = self._get_metric_value_by_user(
-                self.topk, *args
-            )  # pylint: disable=protected-access
+            distribution_per_user[user] = self._get_metric_value_by_user(self.topk, *args)
         if self._mode.__name__ == "PerUser":
             return self._aggregate_results_per_user(distribution_per_user)
         distribution = np.stack(list(distribution_per_user.values()))
         assert distribution.shape[1] == len(self.topk)
-        metrics = []
-        for k in range(distribution.shape[1]):
-            metrics.append(self._mode.cpu(distribution[:, k]))
+        metrics = [self._mode.cpu(distribution[:, k]) for k in range(distribution.shape[1])]
         return self._aggregate_results(metrics)
 
     def _get_items_list_per_user_spark(
-        self, recommendations: SparkDataFrame, extra_column: str = None
+        self, recommendations: SparkDataFrame, extra_column: Optional[str] = None
     ) -> SparkDataFrame:
         recommendations = recommendations.groupby(self.query_column).agg(
             sf.sort_array(
                 sf.collect_list(
-                    sf.struct(
-                        *[
-                            c
-                            for c in [self.rating_column, self.item_column, extra_column]
-                            if c is not None
-                        ]
-                    )
+                    sf.struct(*[c for c in [self.rating_column, self.item_column, extra_column] if c is not None])
                 ),
                 False,
             ).alias("pred")
@@ -231,7 +207,7 @@ class Metric(ABC):
         return recommendations
 
     def _get_items_list_per_user_polars(
-        self, recommendations: PolarsDataFrame, extra_column: str = None
+        self, recommendations: PolarsDataFrame, extra_column: Optional[str] = None
     ) -> PolarsDataFrame:
         selection = [self.query_column, "pred_item_id"]
         sorting = [self.rating_column, self.item_column]
@@ -242,8 +218,7 @@ class Metric(ABC):
             selection.append(extra_column)
 
         recommendations = (
-            recommendations
-            .sort(sorting, descending=True)
+            recommendations.sort(sorting, descending=True)
             .group_by(self.query_column)
             .agg(*agg)
             .rename({self.item_column: "pred_item_id"})
@@ -253,7 +228,7 @@ class Metric(ABC):
         return recommendations
 
     def _get_items_list_per_user(
-        self, recommendations: Union[SparkDataFrame, PolarsDataFrame], extra_column: str = None
+        self, recommendations: Union[SparkDataFrame, PolarsDataFrame], extra_column: Optional[str] = None
     ) -> Union[SparkDataFrame, PolarsDataFrame]:
         if isinstance(recommendations, SparkDataFrame):
             return self._get_items_list_per_user_spark(recommendations, extra_column)
@@ -265,7 +240,7 @@ class Metric(ABC):
     ) -> Union[SparkDataFrame, PolarsDataFrame]:
         cols = data.columns
         cols.remove(self.query_column)
-        cols = [self.query_column] + sorted(cols)
+        cols = [self.query_column, *sorted(cols)]
         return data.select(*cols)
 
     def _get_enriched_recommendations(
@@ -300,8 +275,7 @@ class Metric(ABC):
         ground_truth: PolarsDataFrame,
     ) -> PolarsDataFrame:
         true_items_by_users = (
-            ground_truth
-            .group_by(self.query_column)
+            ground_truth.group_by(self.query_column)
             .agg(pl.col(self.item_column))
             .rename({self.item_column: "ground_truth"})
         )
@@ -313,9 +287,7 @@ class Metric(ABC):
         )
         return self._rearrange_columns(enriched_recommendations)
 
-    def _aggregate_results_per_user(
-        self, distribution_per_user: Dict[Any, List[float]]
-    ) -> MetricsPerUserReturnType:
+    def _aggregate_results_per_user(self, distribution_per_user: Dict[Any, List[float]]) -> MetricsPerUserReturnType:
         res: MetricsPerUserReturnType = {}
         for index, val in enumerate(self.topk):
             metric_name = f"{self.__name__}@{val}"
@@ -335,18 +307,12 @@ class Metric(ABC):
         """
         Calculating metrics for PySpark DataFrame.
         """
-        recs_with_topk_list = recs.withColumn(
-            "k", sf.array(*[sf.lit(x) for x in self.topk])
-        )
+        recs_with_topk_list = recs.withColumn("k", sf.array(*[sf.lit(x) for x in self.topk]))
         distribution = self._get_metric_distribution(recs_with_topk_list)
         if self._mode.__name__ == "PerUser":
             return self._aggregate_results_per_user(distribution.rdd.collectAsMap())
         metrics = [
-            self._mode.spark(
-                distribution.select(sf.col("value").getItem(i)).withColumnRenamed(
-                    f"value[{i}]", "val"
-                )
-            )
+            self._mode.spark(distribution.select(sf.col("value").getItem(i)).withColumnRenamed(f"value[{i}]", "val"))
             for i in range(len(self.topk))
         ]
         return self._aggregate_results(metrics)
@@ -355,27 +321,23 @@ class Metric(ABC):
         distribution = self._get_metric_distribution(recs)
         if self._mode.__name__ == "PerUser":
             return self._aggregate_results_per_user(
-                dict(distribution.select(
-                    self.query_column,
-                    value=pl.concat_list(pl.exclude(self.query_column))
-                ).iter_rows())
+                dict(
+                    distribution.select(
+                        self.query_column, value=pl.concat_list(pl.exclude(self.query_column))
+                    ).iter_rows()
+                )
             )
-        metrics = [self._mode.cpu(distribution.select(column))
-                   for column in distribution.columns[1:]]
+        metrics = [self._mode.cpu(distribution.select(column)) for column in distribution.columns[1:]]
         return self._aggregate_results(metrics)
 
-    def _spark_call(
-        self, recommendations: SparkDataFrame, ground_truth: SparkDataFrame
-    ) -> MetricsReturnType:
+    def _spark_call(self, recommendations: SparkDataFrame, ground_truth: SparkDataFrame) -> MetricsReturnType:
         """
         Implementation for PySpark DataFrame.
         """
         recs = self._get_enriched_recommendations(recommendations, ground_truth)
         return self._spark_compute(recs)
 
-    def _polars_call(
-        self, recommendations: PolarsDataFrame, ground_truth: PolarsDataFrame
-    ) -> MetricsReturnType:
+    def _polars_call(self, recommendations: PolarsDataFrame, ground_truth: PolarsDataFrame) -> MetricsReturnType:
         """
         Implementation for Polars DataFrame.
         """
@@ -383,7 +345,7 @@ class Metric(ABC):
         return self._polars_compute(recs)
 
     def _get_metric_distribution(
-            self, recs: Union[PolarsDataFrame, SparkDataFrame]
+        self, recs: Union[PolarsDataFrame, SparkDataFrame]
     ) -> Union[PolarsDataFrame, SparkDataFrame]:
         if isinstance(recs, SparkDataFrame):
             return self._get_metric_distribution_spark(recs)
@@ -406,16 +368,13 @@ class Metric(ABC):
         distribution = recs.map_rows(lambda x: (x[0], *cur_class._get_metric_value_by_user(self.topk, *x[1:])))
         distribution = distribution.rename({"column_0": self.query_column})
         distribution = distribution.rename(
-            {distribution.columns[x + 1]: f"value_{self.topk[x]}"
-             for x in range(len(self.topk))}
+            {distribution.columns[x + 1]: f"value_{self.topk[x]}" for x in range(len(self.topk))}
         )
         return distribution
 
     @staticmethod
     @abstractmethod
-    def _get_metric_value_by_user(  # pylint: disable=invalid-name
-        ks: List[int], *args: List
-    ) -> List[float]:  # pragma: no cover
+    def _get_metric_value_by_user(ks: List[int], *args: List) -> List[float]:  # pragma: no cover
         """
         Metric calculation for one user.
 

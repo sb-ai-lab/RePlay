@@ -12,7 +12,7 @@ from replay.preprocessing import LabelEncoder, LabelEncodingRule
 from replay.splitters import RatioSplitter
 from replay.utils import PandasDataFrame, SparkDataFrame
 from replay.utils.spark_utils import convert2spark
-from tests.utils import create_dataset, spark
+from tests.utils import create_dataset
 
 recs_data = [
     (1, 3, 0.6),
@@ -146,9 +146,7 @@ def gt_dict():
 @pytest.mark.usefixtures("spark")
 @pytest.fixture()
 def base_recs_spark(spark):
-    return spark.createDataFrame(
-        base_recs_data, schema=["uid", "iid", "scores"]
-    )
+    return spark.createDataFrame(base_recs_data, schema=["uid", "iid", "scores"])
 
 
 @pytest.fixture(scope="module")

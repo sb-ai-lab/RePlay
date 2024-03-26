@@ -5,7 +5,36 @@ torch = pytest.importorskip("torch")
 
 from replay.experimental.preprocessing import Padder
 from replay.utils import SparkDataFrame
-from tests.preprocessing.conftest import *
+from tests.preprocessing.conftest import (
+    dataframe,
+    dataframe_only_item,
+    dataframe_only_item_left,
+    dataframe_only_item_left_pandas,
+    dataframe_only_item_none,
+    dataframe_only_item_none_pandas,
+    dataframe_only_item_pandas,
+    dataframe_pandas,
+    dataframe_special,
+    dataframe_special_pandas,
+    dataframe_string,
+    dataframe_string_pandas,
+    dataframe_two_columns,
+    dataframe_two_columns_cut_left,
+    dataframe_two_columns_cut_left_pandas,
+    dataframe_two_columns_left,
+    dataframe_two_columns_left_pandas,
+    dataframe_two_columns_len_two,
+    dataframe_two_columns_len_two_pandas,
+    dataframe_two_columns_no_cut,
+    dataframe_two_columns_no_cut_pandas,
+    dataframe_two_columns_none,
+    dataframe_two_columns_none_pandas,
+    dataframe_two_columns_pandas,
+    dataframe_two_columns_zeros,
+    dataframe_two_columns_zeros_pandas,
+    schema,
+    schema_string,
+)
 
 
 @pytest.mark.experimental

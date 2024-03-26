@@ -1,22 +1,24 @@
 from typing import Any, Dict, Optional
 
 from replay.data import Dataset
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
 from .base_rec import ItemVectorModel, Recommender
 from .extensions.ann.ann_mixin import ANNMixin
 from .extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
     from pyspark.ml.feature import Word2Vec
     from pyspark.ml.functions import vector_to_array
     from pyspark.ml.stat import Summarizer
-    from pyspark.sql import functions as sf
-    from pyspark.sql import types as st
+    from pyspark.sql import (
+        functions as sf,
+        types as st,
+    )
 
     from replay.utils.spark_utils import join_with_col_renaming, multiply_scala_udf, vector_dot
 
 
-# pylint: disable=too-many-instance-attributes, too-many-ancestors
 class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
     """
     Trains word2vec model where items are treated as words and queries as sentences.
@@ -31,29 +33,18 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
     def _get_vectors_to_infer_ann_inner(self, interactions: SparkDataFrame, queries: SparkDataFrame) -> SparkDataFrame:
         query_vectors = self._get_query_vectors(queries, interactions)
         # converts to pandas_udf compatible format
-        query_vectors = query_vectors.select(
-            self.query_column, vector_to_array("query_vector").alias("query_vector")
-        )
+        query_vectors = query_vectors.select(self.query_column, vector_to_array("query_vector").alias("query_vector"))
         return query_vectors
 
     def _get_ann_build_params(self, interactions: SparkDataFrame) -> Dict[str, Any]:
         self.index_builder.index_params.dim = self.rank
         self.index_builder.index_params.max_elements = interactions.select(self.item_column).distinct().count()
         self.logger.debug("index 'num_elements' = %s", self.num_elements)
-        return {
-            "features_col": "item_vector",
-            "ids_col": self.item_column
-        }
+        return {"features_col": "item_vector", "ids_col": self.item_column}
 
-    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:
+    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:  # noqa: ARG002
         item_vectors = self._get_item_vectors()
-        item_vectors = (
-            item_vectors
-            .select(
-                self.item_column,
-                vector_to_array("item_vector").alias("item_vector")
-            )
-        )
+        item_vectors = item_vectors.select(self.item_column, vector_to_array("item_vector").alias("item_vector"))
         return item_vectors
 
     idf: SparkDataFrame
@@ -66,7 +57,6 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         "use_idf": {"type": "categorical", "args": [True, False]},
     }
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         rank: int = 100,
@@ -120,14 +110,6 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         }
 
     def _save_model(self, path: str, additional_params: Optional[dict] = None):
-        # # create directory on shared disk or in HDFS
-        # path_info = get_filesystem(path)
-        # destination_filesystem, target_dir_path = fs.FileSystem.from_uri(
-        #     path_info.hdfs_uri + path_info.path
-        #     if path_info.filesystem == FileSystem.HDFS
-        #     else path_info.path
-        # )
-        # destination_filesystem.create_dir(target_dir_path)
         super()._save_model(path, additional_params)
         if self.index_builder:
             self._save_index(path)
@@ -146,9 +128,7 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
             .agg(sf.countDistinct(self.query_column).alias("count"))
             .withColumn(
                 "idf",
-                sf.log(sf.lit(self.queries_count) / sf.col("count"))
-                if self.use_idf
-                else sf.lit(1.0),
+                sf.log(sf.lit(self.queries_count) / sf.col("count")) if self.use_idf else sf.lit(1.0),
             )
             .select(self.item_column, "idf")
         )
@@ -156,17 +136,11 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
 
         interactions_by_queries = (
             dataset.interactions.groupBy(self.query_column)
-            .agg(
-                sf.collect_list(sf.struct(self.timestamp_column, self.item_column)).alias(
-                    "ts_item_idx"
-                )
-            )
+            .agg(sf.collect_list(sf.struct(self.timestamp_column, self.item_column)).alias("ts_item_idx"))
             .withColumn("ts_item_idx", sf.array_sort("ts_item_idx"))
             .withColumn(
                 "items",
-                sf.col(f"ts_item_idx.{self.item_column}").cast(
-                    st.ArrayType(st.StringType())
-                ),
+                sf.col(f"ts_item_idx.{self.item_column}").cast(st.ArrayType(st.StringType())),
             )
             .drop("ts_item_idx")
         )
@@ -215,12 +189,8 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         :return: query embeddings dataframe
             ``[query_id, query_vector]``
         """
-        res = join_with_col_renaming(
-            interactions, queries, on_col_name=self.query_column, how="inner"
-        )
-        res = join_with_col_renaming(
-            res, self.idf, on_col_name=self.item_column, how="inner"
-        )
+        res = join_with_col_renaming(interactions, queries, on_col_name=self.query_column, how="inner")
+        res = join_with_col_renaming(res, self.idf, on_col_name=self.item_column, how="inner")
         res = res.join(
             self.vectors.hint("broadcast"),
             how="inner",
@@ -228,11 +198,7 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         ).drop("item")
         return (
             res.groupby(self.query_column)
-            .agg(
-                Summarizer.mean(
-                    multiply_scala_udf(sf.col("idf"), sf.col("vector"))
-                ).alias("query_vector")
-            )
+            .agg(Summarizer.mean(multiply_scala_udf(sf.col("idf"), sf.col("vector"))).alias("query_vector"))
             .select(self.query_column, "query_vector")
         )
 
@@ -242,36 +208,27 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         dataset: Dataset,
     ) -> SparkDataFrame:
         if dataset is None:
-            raise ValueError(
-                f"interactions is not provided, {self} predict requires interactions."
-            )
+            msg = f"interactions is not provided, {self} predict requires interactions."
+            raise ValueError(msg)
 
-        query_vectors = self._get_query_vectors(
-            pairs.select(self.query_column).distinct(), dataset.interactions
-        )
-        pairs_with_vectors = join_with_col_renaming(
-            pairs, query_vectors, on_col_name=self.query_column, how="inner"
-        )
+        query_vectors = self._get_query_vectors(pairs.select(self.query_column).distinct(), dataset.interactions)
+        pairs_with_vectors = join_with_col_renaming(pairs, query_vectors, on_col_name=self.query_column, how="inner")
         pairs_with_vectors = pairs_with_vectors.join(
             self.vectors, on=sf.col(self.item_column) == sf.col("item"), how="inner"
         ).drop("item")
         return pairs_with_vectors.select(
             self.query_column,
             sf.col(self.item_column),
-            (
-                vector_dot(sf.col("vector"), sf.col("query_vector"))
-                + sf.lit(self.rank)
-            ).alias(self.rating_column),
+            (vector_dot(sf.col("vector"), sf.col("query_vector")) + sf.lit(self.rank)).alias(self.rating_column),
         )
 
-    # pylint: disable=too-many-arguments
     def _predict(
         self,
         dataset: Dataset,
-        k: int,
+        k: int,  # noqa: ARG002
         queries: SparkDataFrame,
         items: SparkDataFrame,
-        filter_seen_items: bool = True,
+        filter_seen_items: bool = True,  # noqa: ARG002
     ) -> SparkDataFrame:
         return self._predict_pairs_inner(queries.crossJoin(items), dataset)
 
@@ -283,6 +240,4 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         return self._predict_pairs_inner(pairs, dataset)
 
     def _get_item_vectors(self):
-        return self.vectors.withColumnRenamed(
-            "vector", "item_vector"
-        ).withColumnRenamed("item", self.item_column)
+        return self.vectors.withColumnRenamed("vector", "item_vector").withColumnRenamed("item", self.item_column)

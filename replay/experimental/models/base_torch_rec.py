@@ -24,9 +24,7 @@ class TorchRecommender(Recommender):
     device: torch.device
 
     def __init__(self):
-        self.logger.info(
-            "The model is neural network with non-distributed training"
-        )
+        self.logger.info("The model is neural network with non-distributed training")
         self.checkpoint_path = State().session.conf.get("spark.local.dir")
         self.device = State().device
 
@@ -39,9 +37,7 @@ class TorchRecommender(Recommender):
         optimizer.step()
         return loss.item()
 
-    def _run_validation(
-        self, valid_data_loader: DataLoader, epoch: int
-    ) -> float:
+    def _run_validation(self, valid_data_loader: DataLoader, epoch: int) -> float:
         self.model.eval()
         valid_loss = 0
         with torch.no_grad():
@@ -54,7 +50,6 @@ class TorchRecommender(Recommender):
             self.logger.debug(valid_debug_message)
         return valid_loss.item()
 
-    # pylint: disable=too-many-arguments
     def train(
         self,
         train_data_loader: DataLoader,
@@ -117,17 +112,15 @@ class TorchRecommender(Recommender):
         :return: 1x1 tensor
         """
 
-    # pylint: disable=too-many-arguments
-    # pylint: disable=too-many-locals
     def _predict(
         self,
         log: SparkDataFrame,
         k: int,
         users: SparkDataFrame,
         items: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
-        filter_seen_items: bool = True,
+        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        filter_seen_items: bool = True,  # noqa: ARG002
     ) -> SparkDataFrame:
         items_consider_in_pred = items.toPandas()["item_idx"].values
         items_count = self._item_dim
@@ -135,9 +128,9 @@ class TorchRecommender(Recommender):
         agg_fn = self._predict_by_user
 
         def grouped_map(pandas_df: PandasDataFrame) -> PandasDataFrame:
-            return agg_fn(
-                pandas_df, model, items_consider_in_pred, k, items_count
-            )[["user_idx", "item_idx", "relevance"]]
+            return agg_fn(pandas_df, model, items_consider_in_pred, k, items_count)[
+                ["user_idx", "item_idx", "relevance"]
+            ]
 
         self.logger.debug("Predict started")
         # do not apply map on cold users for MultVAE predict
@@ -160,8 +153,8 @@ class TorchRecommender(Recommender):
         self,
         pairs: SparkDataFrame,
         log: Optional[SparkDataFrame] = None,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
     ) -> SparkDataFrame:
         items_count = self._item_dim
         model = self.model.cpu()
@@ -169,9 +162,7 @@ class TorchRecommender(Recommender):
         users = pairs.select("user_idx").distinct()
 
         def grouped_map(pandas_df: PandasDataFrame) -> PandasDataFrame:
-            return agg_fn(pandas_df, model, items_count)[
-                ["user_idx", "item_idx", "relevance"]
-            ]
+            return agg_fn(pandas_df, model, items_count)[["user_idx", "item_idx", "relevance"]]
 
         self.logger.debug("Calculate relevance for user-item pairs")
         user_history = (
@@ -179,9 +170,7 @@ class TorchRecommender(Recommender):
             .groupBy("user_idx")
             .agg(sf.collect_list("item_idx").alias("item_idx_history"))
         )
-        user_pairs = pairs.groupBy("user_idx").agg(
-            sf.collect_list("item_idx").alias("item_idx_to_pred")
-        )
+        user_pairs = pairs.groupBy("user_idx").agg(sf.collect_list("item_idx").alias("item_idx_to_pred"))
         full_df = user_pairs.join(user_history, on="user_idx", how="inner")
 
         rec_schema = get_schema(
@@ -190,9 +179,7 @@ class TorchRecommender(Recommender):
             rating_column="relevance",
             has_timestamp=False,
         )
-        recs = full_df.groupby("user_idx").applyInPandas(
-            grouped_map, rec_schema
-        )
+        recs = full_df.groupby("user_idx").applyInPandas(grouped_map, rec_schema)
 
         return recs
 

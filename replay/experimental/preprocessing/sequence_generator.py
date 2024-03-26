@@ -5,11 +5,13 @@ import pandas as pd
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
-    from pyspark.sql import Column, Window
-    from pyspark.sql import functions as sf
+    from pyspark.sql import (
+        Column,
+        Window,
+        functions as sf,
+    )
 
 
-# pylint: disable=too-many-instance-attributes, too-few-public-methods
 class SequenceGenerator:
     """
     Creating sequences for sequential models.
@@ -63,7 +65,6 @@ class SequenceGenerator:
     <BLANKLINE>
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         groupby_column: Union[str, List[str]],
@@ -166,10 +167,8 @@ class SequenceGenerator:
         first_tranformed_col = self.sequence_prefix + self.transform_columns[0] + self.sequence_suffix
         processed_interactions = processed_interactions[processed_interactions[first_tranformed_col].str.len() > 0]
 
-        transformed_columns = list(
-            map(lambda x: self.sequence_prefix + x + self.sequence_suffix, self.transform_columns)
-        )
-        label_columns = list(map(lambda x: self.label_prefix + x + self.label_suffix, self.transform_columns))
+        transformed_columns = [self.sequence_prefix + x + self.sequence_suffix for x in self.transform_columns]
+        label_columns = [self.label_prefix + x + self.label_suffix for x in self.transform_columns]
         select_columns = self.groupby_column + transformed_columns + label_columns
 
         if self.get_list_len:
@@ -184,16 +183,9 @@ class SequenceGenerator:
         assert self.transform_columns is not None
         processed_interactions = interactions
         orderby_column: Union[Column, List]
-        if self.orderby_column is None:
-            orderby_column = sf.lit(1)
-        else:
-            orderby_column = self.orderby_column
+        orderby_column = sf.lit(1) if self.orderby_column is None else self.orderby_column
 
-        window = (
-            Window.partitionBy(self.groupby_column)  # type: ignore
-            .orderBy(orderby_column)
-            .rowsBetween(-self.len_window, -1)
-        )
+        window = Window.partitionBy(self.groupby_column).orderBy(orderby_column).rowsBetween(-self.len_window, -1)
         for transform_col in self.transform_columns:
             processed_interactions = processed_interactions.withColumn(
                 self.sequence_prefix + transform_col + self.sequence_suffix,
@@ -203,10 +195,8 @@ class SequenceGenerator:
         first_tranformed_col = self.sequence_prefix + self.transform_columns[0] + self.sequence_suffix
         processed_interactions = processed_interactions.filter(sf.size(first_tranformed_col) > 0)
 
-        transformed_columns = list(
-            map(lambda x: self.sequence_prefix + x + self.sequence_suffix, self.transform_columns)
-        )
-        label_columns = list(map(lambda x: self.label_prefix + x + self.label_suffix, self.transform_columns))
+        transformed_columns = [self.sequence_prefix + x + self.sequence_suffix for x in self.transform_columns]
+        label_columns = [self.label_prefix + x + self.label_suffix for x in self.transform_columns]
         select_columns = self.groupby_column + transformed_columns + label_columns
 
         if self.get_list_len:

@@ -1,7 +1,6 @@
 from .base_metric import Metric
 
 
-# pylint: disable=too-few-public-methods
 class RocAuc(Metric):
     """
     Receiver Operating Characteristic/Area Under the Curve is the aggregated performance measure,
@@ -11,21 +10,21 @@ class RocAuc(Metric):
     The bigger the value of AUC, the better the classification model.
 
     .. math::
-        ROCAUC@K(i) = \\frac {\sum_{s=1}^{K}\sum_{t=1}^{K}
-        \mathbb{1}_{r_{si}<r_{ti}}
-        \mathbb{1}_{gt_{si}<gt_{ti}}}
-        {\sum_{s=1}^{K}\sum_{t=1}^{K} \mathbb{1}_{gt_{si}<gt_{tj}}}
+        ROCAUC@K(i) = \\frac {\\sum_{s=1}^{K}\\sum_{t=1}^{K}
+        \\mathbb{1}_{r_{si}<r_{ti}}
+        \\mathbb{1}_{gt_{si}<gt_{ti}}}
+        {\\sum_{s=1}^{K}\\sum_{t=1}^{K} \\mathbb{1}_{gt_{si}<gt_{tj}}}
 
     :math:`\\mathbb{1}_{r_{si}<r_{ti}}` -- indicator function showing that recommendation score for
     user :math:`i` for item :math:`s` is bigger than for item :math:`t`
 
-    :math:`\mathbb{1}_{gt_{si}<gt_{ti}}` --  indicator function showing that
+    :math:`\\mathbb{1}_{gt_{si}<gt_{ti}}` --  indicator function showing that
     user :math:`i` values item :math:`s` more than item :math:`t`.
 
     Metric is averaged by all users.
 
     .. math::
-        ROCAUC@K = \\frac {\sum_{i=1}^{N}ROCAUC@K(i)}{N}
+        ROCAUC@K = \\frac {\\sum_{i=1}^{N}ROCAUC@K(i)}{N}
     """
 
     _scala_udf_name = "getRocAucMetricValue"

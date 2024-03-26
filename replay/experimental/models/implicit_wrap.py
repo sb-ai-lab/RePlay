@@ -33,9 +33,7 @@ class ImplicitWrap(Recommender):
     def __init__(self, model):
         """Provide initialized ``implicit`` model."""
         self.model = model
-        self.logger.info(
-            "The model is a wrapper of a non-distributed model which may affect performance"
-        )
+        self.logger.info("The model is a wrapper of a non-distributed model which may affect performance")
 
     @property
     def _init_args(self):
@@ -50,13 +48,11 @@ class ImplicitWrap(Recommender):
     def _fit(
         self,
         log: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
     ) -> None:
         matrix = CSRConverter(
-            first_dim_column="user_idx",
-            second_dim_column="item_idx",
-            data_column="relevance"
+            first_dim_column="user_idx", second_dim_column="item_idx", data_column="relevance"
         ).transform(log)
         self.model.fit(matrix)
 
@@ -83,23 +79,19 @@ class ImplicitWrap(Recommender):
 
         return predict_by_user_item
 
-    # pylint: disable=too-many-arguments
     def _predict(
         self,
         log: SparkDataFrame,
-        k: int,
+        k: int,  # noqa: ARG002
         users: SparkDataFrame,
         items: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
         filter_seen_items: bool = True,
     ) -> SparkDataFrame:
-
         items_to_use = items.distinct().toPandas().item_idx.tolist()
         user_item_data = CSRConverter(
-            first_dim_column="user_idx",
-            second_dim_column="item_idx",
-            data_column="relevance"
+            first_dim_column="user_idx", second_dim_column="item_idx", data_column="relevance"
         ).transform(log)
         model = self.model
         rec_schema = get_schema(
@@ -111,21 +103,24 @@ class ImplicitWrap(Recommender):
         return (
             users.select("user_idx")
             .groupby("user_idx")
-            .applyInPandas(self._pd_func(
-                model=model,
-                items_to_use=items_to_use,
-                user_item_data=user_item_data,
-                filter_seen_items=filter_seen_items), rec_schema)
+            .applyInPandas(
+                self._pd_func(
+                    model=model,
+                    items_to_use=items_to_use,
+                    user_item_data=user_item_data,
+                    filter_seen_items=filter_seen_items,
+                ),
+                rec_schema,
+            )
         )
 
     def _predict_pairs(
         self,
         pairs: SparkDataFrame,
-        log: Optional[SparkDataFrame] = None,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        log: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
     ) -> SparkDataFrame:
-
         model = self.model
         rec_schema = get_schema(
             query_column="user_idx",
@@ -133,6 +128,4 @@ class ImplicitWrap(Recommender):
             rating_column="relevance",
             has_timestamp=False,
         )
-        return pairs.groupby("user_idx").applyInPandas(
-            self._pd_func(model=model, filter_seen_items=False),
-            rec_schema)
+        return pairs.groupby("user_idx").applyInPandas(self._pd_func(model=model, filter_seen_items=False), rec_schema)

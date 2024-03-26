@@ -4,7 +4,7 @@ from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
     from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
-    from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionDataset, SasRecPredictionBatch
+    from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionBatch, SasRecPredictionDataset
 
 torch = pytest.importorskip("torch")
 L = pytest.importorskip("lightning")
@@ -37,9 +37,7 @@ def test_training_sasrec_with_different_losses(
 @pytest.mark.torch
 def test_init_sasrec_with_invalid_loss_type(item_user_sequential_dataset):
     with pytest.raises(NotImplementedError) as exc:
-        SasRec(
-            tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_type=""
-        )
+        SasRec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_type="")
 
     assert str(exc.value) == "Not supported loss_type"
 
@@ -178,14 +176,8 @@ def test_sasrec_get_embeddings(tensor_schema):
     assert id(model_ti_item_embedding) != id(model_ti._model.item_embedder.item_emb)
 
     # Ensure we got same values
-    assert torch.eq(
-        model_item_embedding,
-        model._model.item_embedder.item_emb.weight.data[:-1, :]
-    ).all()
-    assert torch.eq(
-        model_ti_item_embedding,
-        model_ti._model.item_embedder.item_emb.weight.data[:-1, :]
-    ).all()
+    assert torch.eq(model_item_embedding, model._model.item_embedder.item_emb.weight.data[:-1, :]).all()
+    assert torch.eq(model_ti_item_embedding, model_ti._model.item_embedder.item_emb.weight.data[:-1, :]).all()
 
 
 @pytest.mark.torch
@@ -276,10 +268,15 @@ def test_predict_step_with_small_seq_len(item_user_num_sequential_dataset, simpl
     item_sequences, padding_mask, _, _ = simple_masks
 
     model = SasRec(
-        tensor_schema=item_user_num_sequential_dataset._tensor_schema, max_seq_len=10, hidden_size=64, loss_sample_count=6
+        tensor_schema=item_user_num_sequential_dataset._tensor_schema,
+        max_seq_len=10,
+        hidden_size=64,
+        loss_sample_count=6,
     )
 
-    batch = SasRecPredictionBatch(torch.arange(0, 4), padding_mask, {"item_id": item_sequences, "num_feature": item_sequences})
+    batch = SasRecPredictionBatch(
+        torch.arange(0, 4), padding_mask, {"item_id": item_sequences, "num_feature": item_sequences}
+    )
     model.predict_step(batch, 0)
 
 

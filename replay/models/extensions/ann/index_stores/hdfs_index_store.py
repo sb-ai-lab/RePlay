@@ -19,12 +19,9 @@ class HdfsIndexStore(IndexStore):
         index_dir_path = os.path.join(warehouse_dir, index_dir)
         self._index_dir_info = get_filesystem(index_dir_path)
         if self._index_dir_info.filesystem != FileSystem.HDFS:
-            raise ValueError(
-                f"Can't recognize path {index_dir_path} as HDFS path!"
-            )
-        self._hadoop_fs = fs.HadoopFileSystem.from_uri(
-            self._index_dir_info.hdfs_uri
-        )
+            msg = f"Can't recognize path {index_dir_path} as HDFS path!"
+            raise ValueError(msg)
+        self._hadoop_fs = fs.HadoopFileSystem.from_uri(self._index_dir_info.hdfs_uri)
         super().__init__()
 
         if self.cleanup:
@@ -32,9 +29,7 @@ class HdfsIndexStore(IndexStore):
                 "Index directory %s is marked for deletion via weakref.finalize()",
                 self._index_dir_info.path,
             )
-            weakref.finalize(
-                self, self._hadoop_fs.delete_dir, self._index_dir_info.path
-            )
+            weakref.finalize(self, self._hadoop_fs.delete_dir, self._index_dir_info.path)
 
     def load_index(
         self,

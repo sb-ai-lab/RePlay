@@ -6,7 +6,6 @@ import pytest
 
 from replay.splitters import RatioSplitter
 from replay.utils import PYSPARK_AVAILABLE
-from tests.utils import spark
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as F
@@ -51,9 +50,7 @@ def spark_dataframe_test(spark):
         (3, 1, "04-01-2020", 6),
         (3, 2, "05-01-2020", 6),
     ]
-    return spark.createDataFrame(data, schema=columns).withColumn(
-        "timestamp", F.to_date("timestamp", "dd-MM-yyyy")
-    )
+    return spark.createDataFrame(data, schema=columns).withColumn("timestamp", F.to_date("timestamp", "dd-MM-yyyy"))
 
 
 @pytest.fixture(scope="module")
@@ -400,7 +397,11 @@ def test_ratio_splitter_without_drops_with_sessions(
 def test_original_dataframe_not_change(pandas_dataframe_test):
     original_dataframe = pandas_dataframe_test.copy(deep=True)
 
-    RatioSplitter(0.5, query_column="user_id", divide_column="user_id",).split(original_dataframe)
+    RatioSplitter(
+        0.5,
+        query_column="user_id",
+        divide_column="user_id",
+    ).split(original_dataframe)
 
     assert original_dataframe.equals(pandas_dataframe_test)
 

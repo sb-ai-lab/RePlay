@@ -6,17 +6,17 @@ from scipy.sparse import csc_matrix
 from sklearn.linear_model import ElasticNet
 
 from replay.data import Dataset
-from .base_neighbour_rec import NeighbourRec
-from .extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.utils import PYSPARK_AVAILABLE
 from replay.utils.session_handler import State
 from replay.utils.spark_utils import spark_to_pandas
+
+from .base_neighbour_rec import NeighbourRec
+from .extensions.ann.index_builders.base_index_builder import IndexBuilder
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import types as st
 
 
-# pylint: disable=too-many-ancestors, too-many-instance-attributes
 class SLIM(NeighbourRec):
     """`SLIM: Sparse Linear Methods for Top-N Recommender Systems
     <http://glaros.dtc.umn.edu/gkhome/fetch/papers/SLIM2011icdm.pdf>`_"""
@@ -31,7 +31,6 @@ class SLIM(NeighbourRec):
         "lambda_": {"type": "loguniform", "args": [1e-6, 2]},
     }
 
-    # pylint: disable=R0913
     def __init__(
         self,
         beta: float = 0.01,
@@ -50,7 +49,8 @@ class SLIM(NeighbourRec):
             Default: ``False``.
         """
         if beta < 0 or lambda_ <= 0:
-            raise ValueError("Invalid regularization parameters")
+            msg = "Invalid regularization parameters"
+            raise ValueError(msg)
         self.beta = beta
         self.lambda_ = lambda_
         self.seed = seed
@@ -74,10 +74,7 @@ class SLIM(NeighbourRec):
         self,
         dataset: Dataset,
     ) -> None:
-        interactions = (
-            dataset.interactions
-            .select(self.query_column, self.item_column, self.rating_column)
-        )
+        interactions = dataset.interactions.select(self.query_column, self.item_column, self.rating_column)
         pandas_interactions = spark_to_pandas(interactions, self.allow_collect_to_master)
         interactions_matrix = csc_matrix(
             (
@@ -108,7 +105,7 @@ class SLIM(NeighbourRec):
             positive=True,
         )
 
-        def slim_column(pandas_df: pd.DataFrame) -> pd.DataFrame:   # pragma: no cover
+        def slim_column(pandas_df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover
             """
             fit similarity matrix with ElasticNet
             :param pandas_df: pd.Dataframe
@@ -117,9 +114,7 @@ class SLIM(NeighbourRec):
             idx = int(pandas_df["item_idx_one"][0])
             column = interactions_matrix[:, idx]
             column_arr = column.toarray().ravel()
-            interactions_matrix[
-                interactions_matrix[:, idx].nonzero()[0], idx
-            ] = 0
+            interactions_matrix[interactions_matrix[:, idx].nonzero()[0], idx] = 0
 
             regression.fit(interactions_matrix, column_arr)
             interactions_matrix[:, idx] = column

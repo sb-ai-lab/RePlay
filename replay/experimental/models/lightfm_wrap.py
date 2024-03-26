@@ -18,7 +18,6 @@ if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
 
 
-# pylint: disable=too-many-locals, too-many-instance-attributes
 class LightFMWrap(HybridRecommender):
     """Wrapper for LightFM."""
 
@@ -38,7 +37,7 @@ class LightFMWrap(HybridRecommender):
         no_components: int = 128,
         loss: str = "warp",
         random_state: Optional[int] = None,
-    ):  # pylint: disable=too-many-arguments
+    ):
         np.random.seed(42)
         self.no_components = no_components
         self.loss = loss
@@ -94,9 +93,7 @@ class LightFMWrap(HybridRecommender):
         idx_col_name = f"{entity}_idx"
 
         # filter features by log
-        feature_table = feature_table.join(
-            log_ids_list, on=idx_col_name, how="inner"
-        )
+        feature_table = feature_table.join(log_ids_list, on=idx_col_name, how="inner")
 
         fit_dim = getattr(self, f"_{entity}_dim")
         matrix_height = max(
@@ -113,15 +110,7 @@ class LightFMWrap(HybridRecommender):
             feature_table.select(
                 idx_col_name,
                 # first column contains id, next contain features
-                *(
-                    sorted(
-                        list(
-                            set(feature_table.columns).difference(
-                                {idx_col_name}
-                            )
-                        )
-                    )
-                ),
+                *sorted(set(feature_table.columns).difference({idx_col_name})),
             )
             .toPandas()
             .to_numpy()
@@ -144,7 +133,8 @@ class LightFMWrap(HybridRecommender):
         scaler_name = f"{entity}_feat_scaler"
         if getattr(self, scaler_name) is None:
             if not features_np.size:
-                raise ValueError(f"features for {entity}s from log are absent")
+                msg = f"features for {entity}s from log are absent"
+                raise ValueError(msg)
             setattr(self, scaler_name, MinMaxScaler().fit(features_np))
 
         if features_np.size:
@@ -186,14 +176,10 @@ class LightFMWrap(HybridRecommender):
             second_dim_column="item_idx",
             data_column="relevance",
             row_count=self._user_dim,
-            column_count=self._item_dim
+            column_count=self._item_dim,
         ).transform(log)
-        csr_item_features = self._feature_table_to_csr(
-            log.select("item_idx").distinct(), item_features
-        )
-        csr_user_features = self._feature_table_to_csr(
-            log.select("user_idx").distinct(), user_features
-        )
+        csr_item_features = self._feature_table_to_csr(log.select("item_idx").distinct(), item_features)
+        csr_user_features = self._feature_table_to_csr(log.select("user_idx").distinct(), user_features)
 
         if user_features is not None:
             self.can_predict_cold_users = True
@@ -230,51 +216,42 @@ class LightFMWrap(HybridRecommender):
         model = self.model
 
         if self.can_predict_cold_users and user_features is None:
-            raise ValueError("User features are missing for predict")
+            msg = "User features are missing for predict"
+            raise ValueError(msg)
         if self.can_predict_cold_items and item_features is None:
-            raise ValueError("Item features are missing for predict")
+            msg = "Item features are missing for predict"
+            raise ValueError(msg)
 
-        csr_item_features = self._feature_table_to_csr(
-            pairs.select("item_idx").distinct(), item_features
-        )
-        csr_user_features = self._feature_table_to_csr(
-            pairs.select("user_idx").distinct(), user_features
-        )
+        csr_item_features = self._feature_table_to_csr(pairs.select("item_idx").distinct(), item_features)
+        csr_user_features = self._feature_table_to_csr(pairs.select("user_idx").distinct(), user_features)
         rec_schema = get_schema(
             query_column="user_idx",
             item_column="item_idx",
             rating_column="relevance",
             has_timestamp=False,
         )
-        return pairs.groupby("user_idx").applyInPandas(
-            predict_by_user, rec_schema
-        )
+        return pairs.groupby("user_idx").applyInPandas(predict_by_user, rec_schema)
 
-    # pylint: disable=too-many-arguments
     def _predict(
         self,
-        log: SparkDataFrame,
-        k: int,
+        log: SparkDataFrame,  # noqa: ARG002
+        k: int,  # noqa: ARG002
         users: SparkDataFrame,
         items: SparkDataFrame,
         user_features: Optional[SparkDataFrame] = None,
         item_features: Optional[SparkDataFrame] = None,
-        filter_seen_items: bool = True,
+        filter_seen_items: bool = True,  # noqa: ARG002
     ) -> SparkDataFrame:
-        return self._predict_selected_pairs(
-            users.crossJoin(items), user_features, item_features
-        )
+        return self._predict_selected_pairs(users.crossJoin(items), user_features, item_features)
 
     def _predict_pairs(
         self,
         pairs: SparkDataFrame,
-        log: Optional[SparkDataFrame] = None,
+        log: Optional[SparkDataFrame] = None,  # noqa: ARG002
         user_features: Optional[SparkDataFrame] = None,
         item_features: Optional[SparkDataFrame] = None,
     ) -> SparkDataFrame:
-        return self._predict_selected_pairs(
-            pairs, user_features, item_features
-        )
+        return self._predict_selected_pairs(pairs, user_features, item_features)
 
     def _get_features(
         self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
@@ -305,9 +282,7 @@ class LightFMWrap(HybridRecommender):
         else:
             sparse_features = self._feature_table_to_csr(ids, features)
 
-        biases, vectors = getattr(self.model, f"get_{entity}_representations")(
-            sparse_features
-        )
+        biases, vectors = getattr(self.model, f"get_{entity}_representations")(sparse_features)
 
         embed_list = list(
             zip(

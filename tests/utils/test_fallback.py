@@ -1,4 +1,3 @@
-# pylint: disable-all
 import pandas as pd
 import pytest
 
@@ -7,26 +6,20 @@ pyspark = pytest.importorskip("pyspark")
 from replay.models import ItemKNN
 from replay.scenarios import Fallback
 from replay.utils.spark_utils import convert2spark, fallback
-from tests.utils import create_dataset, log, log2, spark, sparkDataFrameEqual
+from tests.utils import create_dataset, sparkDataFrameEqual
 
 
 @pytest.mark.spark
 def test_fallback():
     base = pd.DataFrame({"user_idx": [1], "item_idx": [1], "relevance": [1]})
-    extra = pd.DataFrame(
-        {"user_idx": [1, 1, 2], "item_idx": [1, 2, 1], "relevance": [1, 2, 1]}
-    )
+    extra = pd.DataFrame({"user_idx": [1, 1, 2], "item_idx": [1, 2, 1], "relevance": [1, 2, 1]})
     base = convert2spark(base)
     extra = convert2spark(extra)
     res = fallback(base, extra, 2).toPandas()
     assert len(res) == 3
     assert res.user_idx.nunique() == 2
-    a = res.loc[
-        (res["user_idx"] == 1) & (res["item_idx"] == 1), "relevance"
-    ].iloc[0]
-    b = res.loc[
-        (res["user_idx"] == 1) & (res["item_idx"] == 2), "relevance"
-    ].iloc[0]
+    a = res.loc[(res["user_idx"] == 1) & (res["item_idx"] == 1), "relevance"].iloc[0]
+    b = res.loc[(res["user_idx"] == 1) & (res["item_idx"] == 2), "relevance"].iloc[0]
     assert a > b
     bypass_res = fallback(base, None, 2)
     sparkDataFrameEqual(bypass_res, base)

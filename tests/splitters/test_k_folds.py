@@ -1,17 +1,19 @@
-# pylint: disable-all
 import pandas as pd
 import polars as pl
 import pytest
 
 from replay.splitters import KFolds
-from tests.utils import spark
 
 
 @pytest.fixture
 def df():
     df = pd.DataFrame(
-        {"user_id": [1, 1, 1, 2, 2], "item_id": [1, 2, 3, 4, 5],
-         "session_id": [1, 1, 2, 1, 1], "timestamp": [1, 2, 3, 2, 3]}
+        {
+            "user_id": [1, 1, 1, 2, 2],
+            "item_id": [1, 2, 3, 4, 5],
+            "session_id": [1, 1, 2, 1, 1],
+            "timestamp": [1, 2, 3, 2, 3],
+        }
     )
     return df
 

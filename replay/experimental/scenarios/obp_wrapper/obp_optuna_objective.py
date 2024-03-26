@@ -1,28 +1,22 @@
-import numpy as np
 from functools import partial
 from typing import Any, Dict, List, Optional
 
+import numpy as np
+from obp.ope import DirectMethod, DoublyRobust, InverseProbabilityWeighting, OffPolicyEvaluation
 from optuna import Trial
 
-from obp.ope import (
-    OffPolicyEvaluation,
-    DirectMethod,
-    InverseProbabilityWeighting,
-    DoublyRobust
-)
-from replay.optimization.optuna_objective import ObjectiveWrapper, suggest_params
 from replay.experimental.scenarios.obp_wrapper.utils import get_est_rewards_by_reg
+from replay.optimization.optuna_objective import ObjectiveWrapper, suggest_params
 
 
-# pylint: disable=too-many-arguments
 def obp_objective_calculator(
-        trial: Trial,
-        search_space: Dict[str, List[Optional[Any]]],
-        bandit_feedback_train: Dict[str, np.ndarray],
-        bandit_feedback_val: Dict[str, np.ndarray],
-        learner,
-        criterion: str,
-        k: int,
+    trial: Trial,
+    search_space: Dict[str, List[Optional[Any]]],
+    bandit_feedback_train: Dict[str, np.ndarray],
+    bandit_feedback_val: Dict[str, np.ndarray],
+    learner,
+    criterion: str,
+    k: int,
 ) -> float:
     """
     Sample parameters and calculate criterion value
@@ -40,16 +34,15 @@ def obp_objective_calculator(
 
     timestamp = np.arange(bandit_feedback_train["n_rounds"])
 
-    learner.fit(action=bandit_feedback_train["action"],
-                reward=bandit_feedback_train["reward"],
-                timestamp=timestamp,
-                context=bandit_feedback_train["context"],
-                action_context=bandit_feedback_train["action_context"]
-                )
+    learner.fit(
+        action=bandit_feedback_train["action"],
+        reward=bandit_feedback_train["reward"],
+        timestamp=timestamp,
+        context=bandit_feedback_train["context"],
+        action_context=bandit_feedback_train["action_context"],
+    )
 
-    action_dist = learner.predict(bandit_feedback_val["n_rounds"],
-                                  bandit_feedback_val["context"]
-                                  )
+    action_dist = learner.predict(bandit_feedback_val["n_rounds"], bandit_feedback_val["context"])
 
     ope_estimator = None
     if criterion == "ipw":
@@ -59,19 +52,16 @@ def obp_objective_calculator(
     elif criterion == "dr":
         ope_estimator = DoublyRobust()
     else:
-        raise NotImplementedError(f"There is no criterion with name {criterion}")
+        msg = f"There is no criterion with name {criterion}"
+        raise NotImplementedError(msg)
 
-    ope = OffPolicyEvaluation(
-        bandit_feedback=bandit_feedback_val,
-        ope_estimators=[ope_estimator]
-    )
+    ope = OffPolicyEvaluation(bandit_feedback=bandit_feedback_val, ope_estimators=[ope_estimator])
 
     estimated_rewards_by_reg_model = None
     if criterion in ("dm", "dr"):
-        estimated_rewards_by_reg_model = get_est_rewards_by_reg(learner.n_actions,
-                                                                k,
-                                                                bandit_feedback_train,
-                                                                bandit_feedback_val)
+        estimated_rewards_by_reg_model = get_est_rewards_by_reg(
+            learner.n_actions, k, bandit_feedback_train, bandit_feedback_val
+        )
 
     estimated_policy_value = ope.estimate_policy_values(
         action_dist=action_dist,
@@ -81,6 +71,4 @@ def obp_objective_calculator(
     return estimated_policy_value
 
 
-OBPObjective = partial(
-    ObjectiveWrapper, objective_calculator=obp_objective_calculator
-)
+OBPObjective = partial(ObjectiveWrapper, objective_calculator=obp_objective_calculator)

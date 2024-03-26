@@ -29,14 +29,28 @@ jobs:
           pip install --upgrade pip wheel poetry==1.5.1 lightfm==1.17
           poetry cache clear pypi --all
           ./poetry_wrapper.sh --experimental install --all-extras
-      - name: pycodestyle
+      - name: ruff
         run: |
           . ./venv/bin/activate
-          pycodestyle replay tests
-      - name: pylint
+          ./poetry_wrapper.sh --generate
+          ruff check .
+      - name: black
         run: |
           . ./venv/bin/activate
-          pylint replay
+          ./poetry_wrapper.sh --generate
+          black --check --diff -- .
+      - name: poetry-check
+        run: |
+          . ./venv/bin/activate
+          ./poetry_wrapper.sh check
+          ./poetry_wrapper.sh --experimental check
+      - name: toml-sort
+        run: |
+          . ./venv/bin/activate
+          ./poetry_wrapper.sh --generate
+          toml-sort --check pyproject.toml
+          ./poetry_wrapper.sh --experimental --generate
+          toml-sort --check pyproject.toml
           
   pytest_core:
     needs: static_tests

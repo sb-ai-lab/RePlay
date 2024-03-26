@@ -1,5 +1,3 @@
-# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
-
 import pytest
 
 pyspark = pytest.importorskip("pyspark")
@@ -7,8 +5,10 @@ torch = pytest.importorskip("torch")
 
 from pyspark.sql import functions as sf
 
-from replay.experimental.models import LightFMWrap
-from replay.experimental.models import ScalaALSWrap as ALSWrap
+from replay.experimental.models import (
+    LightFMWrap,
+    ScalaALSWrap as ALSWrap,
+)
 from replay.experimental.preprocessing.data_preparator import ToNumericFeatureTransformer
 from replay.experimental.scenarios import TwoStagesScenario
 from replay.experimental.scenarios.two_stages.reranker import LamaWrap
@@ -42,13 +42,10 @@ def two_stages_kwargs():
 
 @pytest.mark.experimental
 def test_init(two_stages_kwargs):
-
     two_stages = TwoStagesScenario(**two_stages_kwargs)
     assert isinstance(two_stages.fallback_model, PopRec)
     assert isinstance(two_stages.second_stage_model, LamaWrap)
-    assert isinstance(
-        two_stages.features_processor, HistoryBasedFeaturesProcessor
-    )
+    assert isinstance(two_stages.features_processor, HistoryBasedFeaturesProcessor)
     assert isinstance(
         two_stages.first_level_item_features_transformer,
         ToNumericFeatureTransformer,
@@ -56,9 +53,7 @@ def test_init(two_stages_kwargs):
     assert two_stages.use_first_level_models_feat == [True, True, True]
 
     two_stages_kwargs["use_first_level_models_feat"] = [True]
-    with pytest.raises(
-        ValueError, match="For each model from first_level_models specify.*"
-    ):
+    with pytest.raises(ValueError, match="For each model from first_level_models specify.*"):
         TwoStagesScenario(**two_stages_kwargs)
 
     two_stages_kwargs["use_first_level_models_feat"] = True
@@ -105,7 +100,10 @@ def test_fit(
 @pytest.mark.xfail
 @pytest.mark.experimental
 def test_predict(
-    long_log_with_features, user_features, item_features, two_stages_kwargs,
+    long_log_with_features,
+    user_features,
+    item_features,
+    two_stages_kwargs,
 ):
     two_stages = TwoStagesScenario(**two_stages_kwargs)
 

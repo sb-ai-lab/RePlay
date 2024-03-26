@@ -74,20 +74,42 @@ resolve-job:
   tags: 
     - ${RUNNER}
 
-pylint-job:
+ruff:
   <<: *install_experimental_replay_with_spark
   stage: code_quality
   script:
-    - pylint replay
+    - ./poetry_wrapper.sh --generate
+    - ruff check .
   tags: 
     - ${RUNNER}
 
-pycodestyle-job:
+black:
   <<: *install_experimental_replay_with_spark
   stage: code_quality
   script:
-    - pycodestyle replay tests
+    - ./poetry_wrapper.sh --generate
+    - black --check --diff -- .
   tags: 
+    - ${RUNNER}
+
+poetry-check:
+  <<: *install_experimental_replay_with_spark
+  stage: code_quality
+  script:
+    - ./poetry_wrapper.sh check
+    - ./poetry_wrapper.sh --experimental check
+  tags:
+    - ${RUNNER}
+
+toml-sort:
+  <<: *install_experimental_replay_with_spark
+  stage: code_quality
+  script:
+    - ./poetry_wrapper.sh --generate
+    - toml-sort --check pyproject.toml
+    - ./poetry_wrapper.sh --experimental --generate
+    - toml-sort --check pyproject.toml
+  tags:
     - ${RUNNER}
 
 sphinx-job:
@@ -102,7 +124,7 @@ sphinx-job:
   image: ${image}
   tags: 
     - ${RUNNER}
-  needs: ["pylint-job", "pycodestyle-job", "sphinx-job"]
+  needs: ["ruff", "black", "poetry-check", "sphinx-job"]
   before_script:
     - export REPLAY_SPARK_CORE_COUNT=8
     - export REPLAY_SPARK_MEMORY=24

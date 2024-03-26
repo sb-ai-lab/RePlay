@@ -1,7 +1,8 @@
-import pytest
 import polars as pl
+import pytest
+
 from replay.preprocessing.filters import InteractionEntriesFilter
-from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame
+from replay.utils import PandasDataFrame, PolarsDataFrame
 
 
 @pytest.fixture
@@ -191,5 +192,5 @@ def test_interaction_entries_filter_by_min_max_users_items(dataset_type, request
         user_list = [user_id[0] for user_id in filtered_dataframe.select("user_id").distinct().collect()]
         item_list = [user_id[0] for user_id in filtered_dataframe.select("item_id").distinct().collect()]
 
-    assert set(user_list) == set([3, 4])
-    assert set(item_list) == set([1, 3, 4])
+    assert set(user_list) == {3, 4}
+    assert set(item_list) == {1, 3, 4}

@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -8,7 +8,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from replay.data import Dataset, FeatureHint, FeatureSource
+from replay.data import FeatureHint, FeatureSource
 from replay.preprocessing import LabelEncoder
 from replay.utils import TORCH_AVAILABLE, MissingImportType
 
@@ -46,9 +46,7 @@ def test_item_ids_are_grouped_to_sequences(dataset, only_item_id_schema: TensorS
 
 @pytest.mark.torch
 @pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
-def test_item_ids_are_grouped_to_sequences_with_subset(
-    dataset, item_id_and_item_feature_schema: TensorSchema, request
-):
+def test_item_ids_are_grouped_to_sequences_with_subset(dataset, item_id_and_item_feature_schema: TensorSchema, request):
     data = request.getfixturevalue(dataset)
     tokenizer = SequenceTokenizer(item_id_and_item_feature_schema).fit(data)
     sequential_dataset = tokenizer.transform(data, tensor_features_to_keep=["item_id"])
@@ -132,12 +130,7 @@ def test_interactions_features_are_grouped_to_sequences(dataset, request):
         3: [5],
         4: [6, 7, 8, 9, 10, 11],
     }
-    _compare_sequence(
-        sequential_dataset,
-        tokenizer,
-        "timestamp",
-        answers
-    )
+    _compare_sequence(sequential_dataset, tokenizer, "timestamp", answers)
 
 
 @pytest.mark.torch
@@ -158,7 +151,7 @@ def test_item_features_are_grouped_to_sequences(dataset, item_id_and_item_featur
         tokenizer,
         "some_item_feature",
         answers,
-        tokenizer.item_features_encoder.inverse_mapping["some_item_feature"]
+        tokenizer.item_features_encoder.inverse_mapping["some_item_feature"],
     )
 
 
@@ -198,7 +191,7 @@ def test_user_features_are_grouped_to_sequences(dataset, request):
         tokenizer,
         "some_user_feature",
         answers,
-        tokenizer.query_features_encoder.inverse_mapping["some_user_feature"]
+        tokenizer.query_features_encoder.inverse_mapping["some_user_feature"],
     )
 
 
@@ -236,7 +229,7 @@ def test_user_features_handled_as_scalars(dataset, request):
         tokenizer,
         "some_user_feature",
         answers,
-        tokenizer.query_features_encoder.inverse_mapping["some_user_feature"]
+        tokenizer.query_features_encoder.inverse_mapping["some_user_feature"],
     )
 
 
@@ -271,10 +264,10 @@ def test_process_numerical_features(dataset, request):
     sequential_dataset = tokenizer.fit_transform(data)
 
     answers = {
-        1: [[2.], [3.]],
-        2: [[2.], [4.], [5.]],
-        3: [[3.]],
-        4: [[2.], [3.], [4.], [5.], [6.], [7.]],
+        1: [[2.0], [3.0]],
+        2: [[2.0], [4.0], [5.0]],
+        3: [[3.0]],
+        4: [[2.0], [3.0], [4.0], [5.0], [6.0], [7.0]],
     }
     _compare_sequence(
         sequential_dataset,
@@ -565,10 +558,7 @@ def test_unknown_feature_type_in_process(dataset_type):
         .build()
     )
     schema["item_id"]._feature_type = None
-    dataset = dataset_type({
-        "user_id": [1, 2, 3],
-        "item_id": [1, 2, 3]
-    })
+    dataset = dataset_type({"user_id": [1, 2, 3], "item_id": [1, 2, 3]})
     with pytest.raises(AssertionError) as exc:
         if isinstance(dataset, pl.DataFrame):
             _SequenceProcessor(schema, "user_id", "item_id", dataset).process_features_polars()
@@ -583,11 +573,13 @@ def _compare_sequence(
     tokenizer: SequenceTokenizer,
     feature_name: str,
     answers: dict,
-    feature_inverse_mapping: dict = None,
+    feature_inverse_mapping: Optional[dict] = None,
 ):
     for query in dataset.get_all_query_ids():
-        sequence = [feature_inverse_mapping[x] if feature_inverse_mapping else x
-                    for x in dataset.get_sequence_by_query_id(query, feature_name)]
+        sequence = [
+            feature_inverse_mapping[x] if feature_inverse_mapping else x
+            for x in dataset.get_sequence_by_query_id(query, feature_name)
+        ]
         query = tokenizer.query_id_encoder.inverse_mapping["user_id"][query]
         assert len(sequence) == len(answers[query])
         assert (sequence == np.array(answers[query])).all()
@@ -643,9 +635,7 @@ def test_my(item_id_and_timestamp_schema, dataset, request):
 
 @pytest.mark.torch
 @pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
-def test_save_and_load_different_features_to_keep(
-    dataset, request, item_id_and_item_feature_schema: TensorSchema
-):
+def test_save_and_load_different_features_to_keep(dataset, request, item_id_and_item_feature_schema: TensorSchema):
     data = request.getfixturevalue(dataset)
     tokenizer = SequenceTokenizer(item_id_and_item_feature_schema).fit(data)
     item_id_transformed = tokenizer.transform(data, tensor_features_to_keep=["item_id"])

@@ -6,7 +6,25 @@ torch = pytest.importorskip("torch")
 
 from replay.experimental.preprocessing import SequenceGenerator
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
-from tests.preprocessing.conftest import *
+from tests.preprocessing.conftest import (
+    columns,
+    columns_target,
+    columns_target_list_len,
+    schema_target,
+    schema_target_list_len,
+    simple_dataframe,
+    simple_dataframe_additional,
+    simple_dataframe_additional_pandas,
+    simple_dataframe_array,
+    simple_dataframe_array_pandas,
+    simple_dataframe_pandas,
+    simple_dataframe_target,
+    simple_dataframe_target_ordered,
+    simple_dataframe_target_ordered_list_len,
+    simple_dataframe_target_ordered_list_len_pandas,
+    simple_dataframe_target_ordered_pandas,
+    simple_dataframe_target_pandas,
+)
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf

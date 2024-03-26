@@ -1,10 +1,10 @@
-from typing import Optional, Union
+from typing import Optional, Tuple
 
-from .base_splitter import Splitter, SplitterReturnType
 from replay.utils import DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
+from .base_splitter import Splitter, SplitterReturnType
 
-# pylint: disable=too-few-public-methods, duplicate-code
+
 class RandomSplitter(Splitter):
     """Assign records into train and test at random."""
 
@@ -17,7 +17,6 @@ class RandomSplitter(Splitter):
         "item_column",
     ]
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         test_size: float,
@@ -25,7 +24,7 @@ class RandomSplitter(Splitter):
         drop_cold_users: bool = False,
         seed: Optional[int] = None,
         query_column: str = "query_id",
-        item_column: str = "item_id"
+        item_column: str = "item_id",
     ):
         """
         :param test_size: test size 0 to 1
@@ -39,37 +38,30 @@ class RandomSplitter(Splitter):
             drop_cold_items=drop_cold_items,
             drop_cold_users=drop_cold_users,
             query_column=query_column,
-            item_column=item_column
+            item_column=item_column,
         )
         self.seed = seed
         if test_size < 0 or test_size > 1:
-            raise ValueError("test_size must between 0 and 1")
+            msg = "test_size must between 0 and 1"
+            raise ValueError(msg)
         self.test_size = test_size
 
     def _random_split_spark(
-        self,
-        interactions: SparkDataFrame,
-        threshold: float
-    ) -> Union[SparkDataFrame, SparkDataFrame]:
-        train, test = interactions.randomSplit(
-            [1 - threshold, threshold], self.seed
-        )
+        self, interactions: SparkDataFrame, threshold: float
+    ) -> Tuple[SparkDataFrame, SparkDataFrame]:
+        train, test = interactions.randomSplit([1 - threshold, threshold], self.seed)
         return train, test
 
     def _random_split_pandas(
-        self,
-        interactions: PandasDataFrame,
-        threshold: float
-    ) -> Union[PandasDataFrame, PandasDataFrame]:
+        self, interactions: PandasDataFrame, threshold: float
+    ) -> Tuple[PandasDataFrame, PandasDataFrame]:
         train = interactions.sample(frac=(1 - threshold), random_state=self.seed)
         test = interactions.drop(train.index)
         return train, test
 
     def _random_split_polars(
-        self,
-        interactions: PolarsDataFrame,
-        threshold: float
-    ) -> Union[PolarsDataFrame, PolarsDataFrame]:
+        self, interactions: PolarsDataFrame, threshold: float
+    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
         train_size = int(len(interactions) * (1 - threshold)) + 1
         shuffled_interactions = interactions.sample(fraction=1, shuffle=True, seed=self.seed)
         train = shuffled_interactions[:train_size]
@@ -84,4 +76,5 @@ class RandomSplitter(Splitter):
         if isinstance(interactions, PolarsDataFrame):
             return self._random_split_polars(interactions, self.test_size)
 
-        raise NotImplementedError(f"{self} is not implemented for {type(interactions)}")
+        msg = f"{self} is not implemented for {type(interactions)}"
+        raise NotImplementedError(msg)
