@@ -62,6 +62,11 @@ def polars_df_for_labelencoder_new_data(pandas_df_for_labelencoder_new_data):
     return pl.from_pandas(pandas_df_for_labelencoder_new_data)
 
 
+@pytest.fixture()
+def spark_df_for_labelencoder_new_data(pandas_df_for_labelencoder_new_data, spark):
+    return spark.createDataFrame(pandas_df_for_labelencoder_new_data)
+
+
 @pytest.fixture(scope="module")
 def schema():
     return StructType(

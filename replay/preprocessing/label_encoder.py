@@ -6,6 +6,7 @@ Contains classes for encoding categorical data
 ``LabelEncoder`` to apply multiple LabelEncodingRule to dataframe.
 """
 import abc
+import warnings
 from typing import Dict, List, Literal, Mapping, Optional, Sequence, Union
 
 import polars as pl
@@ -24,7 +25,11 @@ if PYSPARK_AVAILABLE:
     from pyspark.sql.types import LongType, StructType
     from pyspark.storagelevel import StorageLevel
 
-HandleUnknownStrategies = Literal["error", "use_default_value"]
+HandleUnknownStrategies = Literal["error", "use_default_value", "drop"]
+
+
+class LabelEncoderTransformWarning(Warning):
+    """Label encoder transform warning."""
 
 
 class BaseLabelEncodingRule(abc.ABC):  # pragma: no cover
@@ -78,7 +83,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
     """
 
     _ENCODED_COLUMN_SUFFIX: str = "_encoded"
-    _HANDLE_UNKNOWN_STRATEGIES = ("error", "use_default_value")
+    _HANDLE_UNKNOWN_STRATEGIES = ("error", "use_default_value", "drop")
     _TRANSFORM_PERFORMANCE_THRESHOLD_FOR_PANDAS = 100_000
 
     def __init__(
@@ -98,6 +103,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             When set to ``error`` an error will be raised in case an unknown label is present during transform.
             When set to ``use_default_value``, the encoded value of unknown label will be set
             to the value given for the parameter default_value.
+            When set to ``drop``, the unknown labels will be dropped.
             Default: ``error``.
         :param default_value: Default value that will fill the unknown labels after transform.
             When the parameter handle_unknown is set to ``use_default_value``,
@@ -299,14 +305,24 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             joined_df.loc[unknown_mask, self._target_col] = -1
             is_unknown_label |= unknown_mask.sum() > 0
 
-        if is_unknown_label and default_value != -1:
+        if is_unknown_label:
             unknown_mask = joined_df[self._target_col] == -1
-            if self._handle_unknown == "error":
+            if self._handle_unknown == "drop":
+                joined_df.drop(joined_df[unknown_mask].index, inplace=True)
+                if joined_df.empty:
+                    warnings.warn(
+                        f"You are trying to transform dataframe with all values are unknown for {self._col}, "
+                        "with `handle_unknown_strategy=drop` leads to empty dataframe",
+                        LabelEncoderTransformWarning,
+                    )
+            elif self._handle_unknown == "error":
                 unknown_unique_labels = joined_df[self._col][unknown_mask].unique().tolist()
                 msg = f"Found unknown labels {unknown_unique_labels} in column {self._col} during transform"
                 raise ValueError(msg)
-            joined_df[self._target_col] = joined_df[self._target_col].astype("int")
-            joined_df[self._target_col] = joined_df[self._target_col].replace({-1: default_value})
+            else:
+                if default_value != -1:
+                    joined_df[self._target_col] = joined_df[self._target_col].astype("int")
+                    joined_df[self._target_col] = joined_df[self._target_col].replace({-1: default_value})
 
         result_df = joined_df.drop(self._col, axis=1).rename(columns={self._target_col: self._col})
         return result_df
@@ -320,13 +336,22 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         )
         unknown_label_count = transformed_df.select(sf.sum(sf.col("unknown_mask").cast("long"))).first()[0]
         if unknown_label_count > 0:
-            if self._handle_unknown == "error":
+            if self._handle_unknown == "drop":
+                transformed_df = transformed_df.filter("unknown_mask == False")
+                if transformed_df.rdd.isEmpty():
+                    warnings.warn(
+                        f"You are trying to transform dataframe with all values are unknown for {self._col}, "
+                        "with `handle_unknown_strategy=drop` leads to empty dataframe",
+                        LabelEncoderTransformWarning,
+                    )
+            elif self._handle_unknown == "error":
                 collected_list = transformed_df.filter("unknown_mask == True").select(self._col).distinct().collect()
                 unique_labels = [row[self._col] for row in collected_list]
                 msg = f"Found unknown labels {unique_labels} in column {self._col} during transform"
                 raise ValueError(msg)
-            if default_value:
-                transformed_df = transformed_df.fillna({self._target_col: default_value})
+            else:
+                if default_value:
+                    transformed_df = transformed_df.fillna({self._target_col: default_value})
 
         result_df = transformed_df.drop(self._col, "unknown_mask").withColumnRenamed(self._target_col, self._col)
         return result_df
@@ -342,12 +367,21 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         )
         unknown_df = transformed_df.filter(pl.col("unknown_mask"))
         if not unknown_df.is_empty():
-            if self._handle_unknown == "error":
+            if self._handle_unknown == "drop":
+                transformed_df = transformed_df.filter(pl.col("unknown_mask") == "false")
+                if transformed_df.is_empty():
+                    warnings.warn(
+                        f"You are trying to transform dataframe with all values are unknown for {self._col}, "
+                        "with `handle_unknown_strategy=drop` leads to empty dataframe",
+                        LabelEncoderTransformWarning,
+                    )
+            elif self._handle_unknown == "error":
                 unique_labels = unknown_df.select(self._col).unique().to_series().to_list()
                 msg = f"Found unknown labels {unique_labels} in column {self._col} during transform"
                 raise ValueError(msg)
-            if default_value:
-                transformed_df = transformed_df.with_columns(pl.col(self._target_col).fill_null(default_value))
+            else:
+                if default_value:
+                    transformed_df = transformed_df.with_columns(pl.col(self._target_col).fill_null(default_value))
 
         result_df = transformed_df.drop([self._col, "unknown_mask"]).rename({self._target_col: self._col})
         return result_df

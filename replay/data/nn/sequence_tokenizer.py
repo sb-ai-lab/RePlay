@@ -33,7 +33,7 @@ class SequenceTokenizer:
         """
         :param tensor_schema: tensor schema of tensor features
         :param handle_unknown_rule: handle unknown labels rule for LabelEncoder,
-            values are in ('error', 'use_default_value').
+            values are in ('error', 'use_default_value', 'drop').
             Default: `error`
         :param default_value: Default value that will fill the unknown labels after transform.
             When the parameter handle_unknown is set to ``use_default_value``,

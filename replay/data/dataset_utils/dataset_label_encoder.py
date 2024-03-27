@@ -31,6 +31,7 @@ class DatasetLabelEncoder:
             When set to ``error`` an error will be raised in case an unknown label is present during transform.
             When set to ``use_default_value``, the encoded value of unknown label will be set
             to the value given for the parameter default_value.
+            When set to ``drop``, the unknown labels will be dropped.
             Default: ``error``.
         :param default_value: Default value that will fill the unknown labels after transform.
             When the parameter handle_unknown is set to ``use_default_value``,

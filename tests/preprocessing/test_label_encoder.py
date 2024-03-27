@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 
 from replay.preprocessing import LabelEncoder, LabelEncodingRule
-from replay.utils import PYSPARK_AVAILABLE
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as F
@@ -461,3 +461,56 @@ def test_label_encoder_not_implemented_df(dataframe_not_implemented):
 
     with pytest.raises(NotImplementedError):
         encoder.inverse_transform(dataframe_not_implemented)
+
+
+@pytest.mark.parametrize(
+    "df_for_labelencoder, df_for_labelencoder_modified",
+    [
+        pytest.param("pandas_df_for_labelencoder", "pandas_df_for_labelencoder_modified", marks=pytest.mark.core),
+        pytest.param("polars_df_for_labelencoder", "polars_df_for_labelencoder_modified", marks=pytest.mark.core),
+        pytest.param("spark_df_for_labelencoder", "spark_df_for_labelencoder_modified", marks=pytest.mark.spark),
+    ],
+)
+def test_label_encoder_drop_strategy(request, df_for_labelencoder, df_for_labelencoder_modified):
+    df = request.getfixturevalue(df_for_labelencoder)
+    df_modified = request.getfixturevalue(df_for_labelencoder_modified)
+
+    encoder = LabelEncoder([LabelEncodingRule("item1", handle_unknown="drop")])
+    encoder.fit(df)
+    transformed = encoder.transform(df_modified)
+    inversed = encoder.inverse_transform(transformed)
+
+    if isinstance(inversed, PandasDataFrame):
+        items = inversed["item1"].tolist()
+    elif isinstance(inversed, PolarsDataFrame):
+        items = inversed["item1"].to_list()
+    else:
+        items = [x.item1 for x in inversed.select("item1").collect()]
+
+    assert "item_1" in items
+    assert "item_2" in items
+    assert "item_3" not in items
+
+
+@pytest.mark.parametrize(
+    "df_for_labelencoder, df_for_labelencoder_new_data",
+    [
+        pytest.param("pandas_df_for_labelencoder", "pandas_df_for_labelencoder_new_data", marks=pytest.mark.core),
+        pytest.param("polars_df_for_labelencoder", "polars_df_for_labelencoder_new_data", marks=pytest.mark.core),
+        pytest.param("spark_df_for_labelencoder", "spark_df_for_labelencoder_new_data", marks=pytest.mark.spark),
+    ],
+)
+def test_label_encoder_drop_strategy_empty_dataset(request, df_for_labelencoder, df_for_labelencoder_new_data):
+    df = request.getfixturevalue(df_for_labelencoder)
+    df_new = request.getfixturevalue(df_for_labelencoder_new_data)
+
+    encoder = LabelEncoder([LabelEncodingRule("item1", handle_unknown="drop")])
+    encoder.fit(df)
+    transformed = encoder.transform(df_new)
+
+    if isinstance(transformed, PandasDataFrame):
+        assert transformed.empty
+    elif isinstance(transformed, PolarsDataFrame):
+        assert transformed.is_empty()
+    else:
+        assert transformed.rdd.isEmpty()
