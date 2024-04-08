@@ -427,10 +427,10 @@ class Bert4Rec(lightning.LightningModule):
 
     def set_item_embeddings_by_size(self, new_vocab_size: int):
         """
-        Set item embeddings initialized with xavier_normal_ by new size of vocabulary
-        to item embedder.
+        Keep the current item embeddings and expand vocabulary with new embeddings
+        initialized with xavier_normal_ for new items.
 
-        :param new_vocab_size: Size of vocabulary with new items.
+        :param new_vocab_size: Size of vocabulary with new items included.
             Must be greater then already fitted.
         """
         if new_vocab_size <= self._vocab_size:
