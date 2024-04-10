@@ -44,7 +44,7 @@ def fitted_sasrec(feature_schema_for_sasrec):
     train_dataset = Dataset(feature_schema=feature_schema_for_sasrec, interactions=data)
     tensor_schema = TensorSchema(
         TensorFeatureInfo(
-            name="item_id_seq",
+            name="item_id",
             is_seq=True,
             cardinality=train_dataset.item_count,
             feature_type=FeatureType.CATEGORICAL,
@@ -59,9 +59,9 @@ def fitted_sasrec(feature_schema_for_sasrec):
     tokenizer.fit(train_dataset)
     sequential_train_dataset = tokenizer.transform(train_dataset)
 
-    model = SasRec(tensor_schema)
+    model = SasRec(tensor_schema, max_seq_len=5)
     trainer = L.Trainer(max_epochs=1)
-    train_loader = torch.utils.data.DataLoader(SasRecTrainingDataset(sequential_train_dataset, 200))
+    train_loader = torch.utils.data.DataLoader(SasRecTrainingDataset(sequential_train_dataset, 5))
 
     trainer.fit(model, train_dataloaders=train_loader)
 

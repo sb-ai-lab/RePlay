@@ -506,7 +506,6 @@ class Bert4Rec(lightning.LightningModule):
 
     def _set_new_item_embedder_to_model(self, weights_new: torch.nn.Embedding, new_vocab_size: int):
         self._model.item_embedder.cat_embeddings[self._model.schema.item_id_feature_name] = weights_new
-
         if self._model.enable_embedding_tying is True:
             self._model._head._item_embedder = self._model.item_embedder
             new_bias = torch.Tensor(new_vocab_size)
@@ -521,3 +520,4 @@ class Bert4Rec(lightning.LightningModule):
 
         self._vocab_size = new_vocab_size
         self._model.item_count = new_vocab_size
+        self._schema.item_id_features[self._schema.item_id_feature_name]._set_cardinality(new_vocab_size)
