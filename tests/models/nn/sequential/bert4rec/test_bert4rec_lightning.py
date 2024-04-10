@@ -266,6 +266,20 @@ def test_bert4rec_fine_tuning_on_new_items_by_appending(request, fitted_bert4rec
 
 
 @pytest.mark.torch
+def test_bert4rec_fine_tuning_save_load(fitted_bert4rec, new_items_dataset, train_loader):
+    model, tokenizer = fitted_bert4rec
+    trainer = L.Trainer(max_epochs=1)
+    tokenizer.item_id_encoder.partial_fit(new_items_dataset)
+    new_vocab_size = len(tokenizer.item_id_encoder.mapping["item_id"])
+    model.set_item_embeddings_by_size(new_vocab_size)
+    trainer.fit(model, train_loader)
+    trainer.save_checkpoint("bert_test.ckpt")
+    best_model = Bert4Rec.load_from_checkpoint("bert_test.ckpt")
+
+    assert best_model.get_all_embeddings()["item_embedding"].shape[0] == new_vocab_size
+
+
+@pytest.mark.torch
 def test_bert4rec_fine_tuning_errors(fitted_bert4rec):
     model, _ = fitted_bert4rec
 

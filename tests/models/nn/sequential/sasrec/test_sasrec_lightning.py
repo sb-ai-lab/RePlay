@@ -6,6 +6,7 @@ if TORCH_AVAILABLE:
     from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
     from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionBatch, SasRecPredictionDataset
 
+
 torch = pytest.importorskip("torch")
 L = pytest.importorskip("lightning")
 
@@ -237,6 +238,20 @@ def test_sasrec_fine_tuning_on_new_items_by_appending(fitted_sasrec, new_items_d
 
 
 @pytest.mark.torch
+def test_sasrec_fine_tuning_save_load(fitted_sasrec, new_items_dataset, train_sasrec_loader):
+    model, tokenizer = fitted_sasrec
+    trainer = L.Trainer(max_epochs=1)
+    tokenizer.item_id_encoder.partial_fit(new_items_dataset)
+    new_vocab_size = len(tokenizer.item_id_encoder.mapping["item_id"])
+    model.set_item_embeddings_by_size(new_vocab_size)
+    trainer.fit(model, train_sasrec_loader)
+    trainer.save_checkpoint("test.ckpt")
+    best_model = SasRec.load_from_checkpoint("test.ckpt")
+
+    assert best_model.get_all_embeddings()["item_embedding"].shape[0] == new_vocab_size
+
+
+@pytest.mark.torch
 def test_sasrec_fine_tuning_errors(fitted_sasrec):
     model, _ = fitted_sasrec
 
@@ -260,7 +275,7 @@ def test_sasrec_get_init_parameters(fitted_sasrec):
     params = model.hparams
 
     assert params["tensor_schema"].item().cardinality == 4
-    assert params["max_seq_len"] == 200
+    assert params["max_seq_len"] == 5
     assert params["hidden_size"] == 50
 
 

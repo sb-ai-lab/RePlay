@@ -9,6 +9,7 @@
 lightning_logs/
 .logs/
 .checkpoints/
+*.ckpt
 
 # Poetry (since they are generated from template automatically)
 /poetry.lock

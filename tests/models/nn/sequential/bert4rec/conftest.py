@@ -44,7 +44,7 @@ def fitted_bert4rec(feature_schema_for_bert4rec):
     train_dataset = Dataset(feature_schema=feature_schema_for_bert4rec, interactions=data)
     tensor_schema = TensorSchema(
         TensorFeatureInfo(
-            name="item_id_seq",
+            name="item_id",
             is_seq=True,
             cardinality=train_dataset.item_count,
             feature_type=FeatureType.CATEGORICAL,
