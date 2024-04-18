@@ -7,11 +7,11 @@ import pytest
 
 pytest.importorskip("torch")
 
-from replay.data import FeatureHint, FeatureType
+from replay.data import FeatureHint
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
-    from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset, TensorFeatureInfo, TensorSchema
+    from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset
     from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
 
 
@@ -19,34 +19,6 @@ if TORCH_AVAILABLE:
 def test_can_create_sequential_dataset_with_valid_schema(sequential_info, sequential_info_polars):
     PandasSequentialDataset(**sequential_info)
     PolarsSequentialDataset(**sequential_info_polars)
-
-
-@pytest.mark.torch
-@pytest.mark.parametrize("dataset_type", [PandasSequentialDataset, PolarsSequentialDataset])
-def test_callback_for_cardinality(dataset_type, request):
-    schema = TensorSchema(
-        [
-            TensorFeatureInfo("user_id", feature_type=FeatureType.CATEGORICAL, is_seq=True),
-            TensorFeatureInfo("item_id", feature_type=FeatureType.CATEGORICAL, is_seq=True),
-            TensorFeatureInfo("some_user_feature", feature_type=FeatureType.CATEGORICAL),
-            TensorFeatureInfo("some_item_feature", feature_type=FeatureType.CATEGORICAL, is_seq=True),
-        ]
-    )
-
-    for f in schema.all_features:
-        assert f.cardinality is None
-
-    if dataset_type == PandasSequentialDataset:
-        sequential_info = request.getfixturevalue("sequential_info")
-    else:
-        sequential_info = request.getfixturevalue("sequential_info_polars")
-
-    dataset_type(schema, "user_id", "item_id", sequential_info["sequences"])
-
-    assert schema.all_features[0].cardinality == 4
-    assert schema.all_features[1].cardinality == 6
-    assert schema.all_features[2].cardinality == 4
-    assert schema.all_features[3].cardinality == 6
 
 
 @pytest.mark.torch

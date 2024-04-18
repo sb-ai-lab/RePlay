@@ -8,12 +8,18 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from replay.data import FeatureHint, FeatureSource
+from replay.data import FeatureHint, FeatureSource, FeatureType
 from replay.preprocessing import LabelEncoder
 from replay.utils import TORCH_AVAILABLE, MissingImportType
 
 if TORCH_AVAILABLE:
-    from replay.data.nn import SequenceTokenizer, SequentialDataset, TensorFeatureSource, TensorSchema
+    from replay.data.nn import (
+        SequenceTokenizer,
+        SequentialDataset,
+        TensorFeatureInfo,
+        TensorFeatureSource,
+        TensorSchema,
+    )
     from replay.data.nn.sequence_tokenizer import _SequenceProcessor
     from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
 else:
@@ -103,24 +109,26 @@ def test_encoding_if_features_missing(dataset, only_item_id_schema: TensorSchema
 @pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
 def test_interactions_features_are_grouped_to_sequences(dataset, request):
     data = request.getfixturevalue(dataset)
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "timestamp",
-            cardinality=12,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp"),
-            feature_hint=FeatureHint.TIMESTAMP,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                feature_type=FeatureType.CATEGORICAL,
+                is_seq=True,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+                cardinality=6,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "timestamp",
+                feature_type=FeatureType.NUMERICAL,
+                is_seq=True,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp")],
+                feature_hint=FeatureHint.TIMESTAMP,
+            ),
+        ]
     )
+
     tokenizer = SequenceTokenizer(schema)
     sequential_dataset = tokenizer.fit_transform(data)
 
@@ -131,6 +139,34 @@ def test_interactions_features_are_grouped_to_sequences(dataset, request):
         4: [6, 7, 8, 9, 10, 11],
     }
     _compare_sequence(sequential_dataset, tokenizer, "timestamp", answers)
+
+
+@pytest.mark.torch
+@pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
+def test_mismatch_of_features_type_raises_error(dataset, request):
+    data = request.getfixturevalue(dataset)
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                feature_type=FeatureType.CATEGORICAL,
+                is_seq=True,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+                cardinality=6,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "timestamp",
+                feature_type=FeatureType.CATEGORICAL,
+                is_seq=True,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp")],
+                feature_hint=FeatureHint.TIMESTAMP,
+            ),
+        ]
+    )
+
+    with pytest.raises(RuntimeError):
+        SequenceTokenizer(schema).fit(data)
 
 
 @pytest.mark.torch

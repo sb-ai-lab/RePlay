@@ -6,8 +6,6 @@ import polars as pl
 from pandas import DataFrame as PandasDataFrame
 from polars import DataFrame as PolarsDataFrame
 
-from replay.data.schema import FeatureType
-
 from .schema import TensorSchema
 
 
@@ -132,17 +130,8 @@ class PandasSequentialDataset(SequentialDataset):
 
         self._sequences = sequences
 
-        for feature in tensor_schema.all_features:
-            if feature.feature_type == FeatureType.CATEGORICAL:
-                feature._set_cardinality_callback(self.cardinality_callback)
-
     def __len__(self) -> int:
         return len(self._sequences)
-
-    def cardinality_callback(self, column: str) -> int:
-        if self._query_id_column == column:
-            return self._sequences.index.nunique()
-        return len({x for seq in self._sequences[column] for x in seq})
 
     def get_query_id(self, index: int) -> int:
         return self._sequences.index[index]
@@ -213,10 +202,6 @@ class PolarsSequentialDataset(PandasSequentialDataset):
         self._sequences = sequences.to_pandas()
         if self._sequences.index.name != query_id_column:
             self._sequences = self._sequences.set_index(query_id_column)
-
-        for feature in tensor_schema.all_features:
-            if feature.feature_type == FeatureType.CATEGORICAL:
-                feature._set_cardinality_callback(self.cardinality_callback)
 
     def filter_by_query_id(self, query_ids_to_keep: np.ndarray) -> "PolarsSequentialDataset":
         filtered_sequences = self._sequences.loc[query_ids_to_keep]
