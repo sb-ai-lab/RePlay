@@ -1,4 +1,5 @@
 import pickle
+import warnings
 from typing import Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
@@ -6,7 +7,7 @@ import polars as pl
 from pandas import DataFrame as PandasDataFrame
 from polars import DataFrame as PolarsDataFrame
 
-from replay.data import Dataset, FeatureHint, FeatureSchema, FeatureSource
+from replay.data import Dataset, FeatureHint, FeatureSchema, FeatureSource, FeatureType
 from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.preprocessing import LabelEncoder
 from replay.preprocessing.label_encoder import HandleUnknownStrategies
@@ -60,6 +61,7 @@ class SequenceTokenizer:
         :returns: fitted SequenceTokenizer
         """
         self._check_if_tensor_schema_matches_data(dataset, self._tensor_schema)
+        self._assign_tensor_features_cardinality(dataset)
         self._encoder.fit(dataset)
         return self
 
@@ -380,6 +382,22 @@ class SequenceTokenizer:
         if tensor_feature.feature_source.column != dataset.feature_schema.item_id_column:
             msg = "Tensor schema item ID source colum does not match item ID in data frame"
             raise ValueError(msg)
+
+    def _assign_tensor_features_cardinality(self, dataset: Dataset) -> None:
+        for tensor_feature in self._tensor_schema.categorical_features.all_features:
+            dataset_feature = dataset.feature_schema[tensor_feature.feature_source.column]
+            if tensor_feature.cardinality is not None:
+                warnings.warn(
+                    f"The specified cardinality of {tensor_feature.name} "
+                    f"will be replaced by {dataset_feature.column} from Dataset"
+                )
+            if dataset_feature.feature_type != FeatureType.CATEGORICAL:
+                error_msg = (
+                    f"TensorFeatureInfo {tensor_feature.name} "
+                    f"and FeatureInfo {dataset_feature.column} must be the same FeatureType"
+                )
+                raise RuntimeError(error_msg)
+            tensor_feature._set_cardinality(dataset_feature.cardinality)
 
     @classmethod
     def load(cls, path: str) -> "SequenceTokenizer":
