@@ -3,12 +3,13 @@ from typing import Iterator, Optional
 
 import pandas as pd
 
-from .base_index_builder import IndexBuilder
-from .nmslib_index_builder_mixin import NmslibIndexBuilderMixin
 from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
 from replay.models.extensions.ann.index_inferers.nmslib_filter_index_inferer import NmslibFilterIndexInferer
 from replay.models.extensions.ann.index_inferers.nmslib_index_inferer import NmslibIndexInferer
 from replay.utils import PandasDataFrame, SparkDataFrame
+
+from .base_index_builder import IndexBuilder
+from .nmslib_index_builder_mixin import NmslibIndexBuilderMixin
 
 logger = logging.getLogger("replay")
 
@@ -20,9 +21,7 @@ class ExecutorNmslibIndexBuilder(IndexBuilder):
 
     def produce_inferer(self, filter_seen_items: bool) -> IndexInferer:
         if filter_seen_items:
-            return NmslibFilterIndexInferer(
-                self.index_params, self.index_store
-            )
+            return NmslibFilterIndexInferer(self.index_params, self.index_store)
         else:
             return NmslibIndexInferer(self.index_params, self.index_store)
 
@@ -47,15 +46,9 @@ class ExecutorNmslibIndexBuilder(IndexBuilder):
             # with the same `item_idx_two`.
             # And therefore we cannot call the `addDataPointBatch` iteratively
             # (in build_and_save_index).
-            pdfs = []
-            for pdf in iterator:
-                pdfs.append(pdf)
+            pdf = pd.concat(list(iterator))
 
-            pdf = pd.concat(pdfs)
-
-            NmslibIndexBuilderMixin.build_and_save_index(
-                pdf, index_params, index_store
-            )
+            NmslibIndexBuilderMixin.build_and_save_index(pdf, index_params, index_store)
 
             yield PandasDataFrame(data={"_success": 1}, index=[0])
 
@@ -64,8 +57,8 @@ class ExecutorNmslibIndexBuilder(IndexBuilder):
     def build_index(
         self,
         vectors: SparkDataFrame,
-        features_col: str,
-        ids_col: Optional[str] = None,
+        features_col: str,  # noqa: ARG002
+        ids_col: Optional[str] = None,  # noqa: ARG002
     ):
         # to execution in one executor
         vectors = vectors.repartition(1)
@@ -74,6 +67,6 @@ class ExecutorNmslibIndexBuilder(IndexBuilder):
         build_index_udf = self.make_build_index_udf()
 
         # Here we perform materialization (`.collect()`) to build the hnsw index.
-        vectors.select(
-            "similarity", "item_idx_one", "item_idx_two"
-        ).mapInPandas(build_index_udf, "_success int").collect()
+        vectors.select("similarity", "item_idx_one", "item_idx_two").mapInPandas(
+            build_index_udf, "_success int"
+        ).collect()

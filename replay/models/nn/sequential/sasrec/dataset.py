@@ -30,7 +30,6 @@ class SasRecTrainingDataset(TorchDataset):
     Dataset that generates samples to train SasRec-like model
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         sequential: SequentialDataset,
@@ -56,13 +55,16 @@ class SasRecTrainingDataset(TorchDataset):
         super().__init__()
         if label_feature_name:
             if label_feature_name not in sequential.schema:
-                raise ValueError("Label feature name not found in provided schema")
+                msg = "Label feature name not found in provided schema"
+                raise ValueError(msg)
 
             if not sequential.schema[label_feature_name].is_cat:
-                raise ValueError("Label feature must be categorical")
+                msg = "Label feature must be categorical"
+                raise ValueError(msg)
 
             if not sequential.schema[label_feature_name].is_seq:
-                raise ValueError("Label feature must be sequential")
+                msg = "Label feature must be sequential"
+                raise ValueError(msg)
 
         self._sequence_shift = sequence_shift
         self._max_sequence_length = max_sequence_length + sequence_shift
@@ -83,8 +85,8 @@ class SasRecTrainingDataset(TorchDataset):
         query_id, padding_mask, features = self._inner[index]
 
         assert self._label_feature_name
-        labels = features[self._label_feature_name][self._sequence_shift :]  # noqa: E203
-        labels_padding_mask = padding_mask[self._sequence_shift :]  # noqa: E203
+        labels = features[self._label_feature_name][self._sequence_shift :]
+        labels_padding_mask = padding_mask[self._sequence_shift :]
 
         output_features: MutableTensorMap = {}
         for feature_name in self._schema:
@@ -165,7 +167,6 @@ class SasRecValidationDataset(TorchDataset):
     Dataset that generates samples to infer and validate SasRec-like model
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         sequential: SequentialDataset,

@@ -4,7 +4,6 @@ from typing import List
 from .base_metric import Metric
 
 
-# pylint: disable=too-few-public-methods
 class NDCG(Metric):
     """
     Normalized Discounted Cumulative Gain is a metric
@@ -14,7 +13,7 @@ class NDCG(Metric):
     whether the item was consumed or not, relevance value is ignored.
 
     .. math::
-        DCG@K(i) = \sum_{j=1}^{K}\\frac{\mathbb{1}_{r_{ij}}}{\log_2 (j+1)}
+        DCG@K(i) = \\sum_{j=1}^{K}\\frac{\\mathbb{1}_{r_{ij}}}{\\log_2 (j+1)}
 
 
     :math:`\\mathbb{1}_{r_{ij}}` -- indicator function showing that user :math:`i` interacted with item :math:`j`
@@ -23,7 +22,7 @@ class NDCG(Metric):
     for user :math:`i` and recommendation length :math:`K`.
 
     .. math::
-        IDCG@K(i) = max(DCG@K(i)) = \sum_{j=1}^{K}\\frac{\mathbb{1}_{j\le|Rel_i|}}{\log_2 (j+1)}
+        IDCG@K(i) = max(DCG@K(i)) = \\sum_{j=1}^{K}\\frac{\\mathbb{1}_{j\\le|Rel_i|}}{\\log_2 (j+1)}
 
     .. math::
         nDCG@K(i) = \\frac {DCG@K(i)}{IDCG@K(i)}
@@ -33,7 +32,7 @@ class NDCG(Metric):
     Metric is averaged by users.
 
     .. math::
-        nDCG@K = \\frac {\sum_{i=1}^{N}nDCG@K(i)}{N}
+        nDCG@K = \\frac {\\sum_{i=1}^{N}nDCG@K(i)}{N}
 
     >>> recommendations
        query_id  item_id  rating
@@ -81,9 +80,7 @@ class NDCG(Metric):
     """
 
     @staticmethod
-    def _get_metric_value_by_user(  # pylint: disable=arguments-differ
-        ks: List[int], ground_truth: List, pred: List
-    ) -> List[float]:
+    def _get_metric_value_by_user(ks: List[int], ground_truth: List, pred: List) -> List[float]:
         if not pred or not ground_truth:
             return [0.0 for _ in ks]
         set_gt = set(ground_truth)

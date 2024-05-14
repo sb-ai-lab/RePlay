@@ -1,4 +1,3 @@
-# pylint: disable=too-many-lines
 from collections.abc import Iterable
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -28,7 +27,6 @@ if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
 
 
-# pylint: disable=too-many-locals, too-many-arguments
 def get_first_level_model_features(
     model: SparkDataFrame,
     pairs: SparkDataFrame,
@@ -52,16 +50,10 @@ def get_first_level_model_features(
     """
     users = pairs.select("user_idx").distinct()
     items = pairs.select("item_idx").distinct()
-    user_factors, user_vector_len = model._get_features_wrap(
-        users, user_features
-    )
-    item_factors, item_vector_len = model._get_features_wrap(
-        items, item_features
-    )
+    user_factors, user_vector_len = model._get_features_wrap(users, user_features)
+    item_factors, item_vector_len = model._get_features_wrap(items, item_features)
 
-    pairs_with_features = join_or_return(
-        pairs, user_factors, how="left", on="user_idx"
-    )
+    pairs_with_features = join_or_return(pairs, user_factors, how="left", on="user_idx")
     pairs_with_features = join_or_return(
         pairs_with_features,
         item_factors,
@@ -97,11 +89,7 @@ def get_first_level_model_features(
             .withColumnRenamed("item_bias", f"{prefix}_item_bias")
         )
 
-    if (
-        add_factors_mult
-        and user_factors is not None
-        and item_factors is not None
-    ):
+    if add_factors_mult and user_factors is not None and item_factors is not None:
         pairs_with_features = pairs_with_features.withColumn(
             "factors_mult",
             array_mult(sf.col("item_factors"), sf.col("user_factors")),
@@ -114,14 +102,13 @@ def get_first_level_model_features(
         pairs_with_features = horizontal_explode(
             data_frame=pairs_with_features,
             column_to_explode=col_name,
-            other_columns=[sf.col(column) for column in sorted(list(col_set))],
+            other_columns=[sf.col(column) for column in sorted(col_set)],
             prefix=f"{prefix}_{feature_prefix}",
         )
 
     return pairs_with_features
 
 
-# pylint: disable=too-many-instance-attributes
 class TwoStagesScenario(HybridRecommender):
     """
     *train*:
@@ -156,13 +143,10 @@ class TwoStagesScenario(HybridRecommender):
     can_predict_cold_users: bool = True
     can_predict_cold_items: bool = True
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         train_splitter: Splitter = RatioSplitter(test_size=0.5),
-        first_level_models: Union[
-            List[BaseRecommender], BaseRecommender
-        ] = ScalaALSWrap(rank=128),
+        first_level_models: Union[List[BaseRecommender], BaseRecommender] = ScalaALSWrap(rank=128),
         fallback_model: Optional[BaseRecommender] = PopRec(),
         use_first_level_models_feat: Union[List[bool], bool] = False,
         second_model_params: Optional[Union[Dict, str]] = None,
@@ -198,9 +182,7 @@ class TwoStagesScenario(HybridRecommender):
         self.cached_list = []
 
         self.first_level_models = (
-            first_level_models
-            if isinstance(first_level_models, Iterable)
-            else [first_level_models]
+            first_level_models if isinstance(first_level_models, Iterable) else [first_level_models]
         )
 
         self.first_level_item_len = 0
@@ -208,39 +190,29 @@ class TwoStagesScenario(HybridRecommender):
 
         self.random_model = RandomRec(seed=seed)
         self.fallback_model = fallback_model
-        self.first_level_user_features_transformer = (
-            ToNumericFeatureTransformer()
-        )
-        self.first_level_item_features_transformer = (
-            ToNumericFeatureTransformer()
-        )
+        self.first_level_user_features_transformer = ToNumericFeatureTransformer()
+        self.first_level_item_features_transformer = ToNumericFeatureTransformer()
 
         if isinstance(use_first_level_models_feat, bool):
-            self.use_first_level_models_feat = [
-                use_first_level_models_feat
-            ] * len(self.first_level_models)
+            self.use_first_level_models_feat = [use_first_level_models_feat] * len(self.first_level_models)
         else:
-            if len(self.first_level_models) != len(
-                use_first_level_models_feat
-            ):
-                raise ValueError(
+            if len(self.first_level_models) != len(use_first_level_models_feat):
+                msg = (
                     f"For each model from first_level_models specify "
                     f"flag to use first level features."
                     f"Length of first_level_models is {len(first_level_models)}, "
                     f"Length of use_first_level_models_feat is {len(use_first_level_models_feat)}"
                 )
+                raise ValueError(msg)
 
             self.use_first_level_models_feat = use_first_level_models_feat
 
-        self.second_stage_model = LamaWrap(
-            params=second_model_params, config_path=second_model_config_path
-        )
+        self.second_stage_model = LamaWrap(params=second_model_params, config_path=second_model_config_path)
 
         self.num_negatives = num_negatives
         if negatives_type not in ["random", "first_level"]:
-            raise ValueError(
-                f"Invalid negatives_type value: {negatives_type}. Use 'random' or 'first_level'"
-            )
+            msg = f"Invalid negatives_type value: {negatives_type}. Use 'random' or 'first_level'"
+            raise ValueError(msg)
         self.negatives_type = negatives_type
 
         self.use_generated_features = use_generated_features
@@ -259,7 +231,6 @@ class TwoStagesScenario(HybridRecommender):
     def _init_args(self):
         return {}
 
-    # pylint: disable=too-many-locals
     def _add_features_for_second_level(
         self,
         log_to_add_features: SparkDataFrame,
@@ -307,9 +278,7 @@ class TwoStagesScenario(HybridRecommender):
             if self.use_first_level_models_feat[idx]:
                 features = get_first_level_model_features(
                     model=model,
-                    pairs=full_second_level_train.select(
-                        "user_idx", "item_idx"
-                    ),
+                    pairs=full_second_level_train.select("user_idx", "item_idx"),
                     user_features=first_level_user_features_cached,
                     item_features=first_level_item_features_cached,
                     prefix=f"m_{idx}",
@@ -324,9 +293,7 @@ class TwoStagesScenario(HybridRecommender):
         unpersist_if_exists(first_level_user_features_cached)
         unpersist_if_exists(first_level_item_features_cached)
 
-        full_second_level_train_cached = full_second_level_train.fillna(
-            0
-        ).cache()
+        full_second_level_train_cached = full_second_level_train.fillna(0).cache()
 
         self.logger.info("Adding features from the dataset")
         full_second_level_train = join_or_return(
@@ -350,9 +317,7 @@ class TwoStagesScenario(HybridRecommender):
                     item_features=item_features,
                 )
             self.logger.info("Adding generated features")
-            full_second_level_train = self.features_processor.transform(
-                log=full_second_level_train
-            )
+            full_second_level_train = self.features_processor.transform(log=full_second_level_train)
 
         self.logger.info(
             "Columns at second level: %s",
@@ -365,12 +330,8 @@ class TwoStagesScenario(HybridRecommender):
         """Write statistics"""
         first_level_train, second_level_train = self.train_splitter.split(log)
         State().logger.debug("Log info: %s", get_log_info(log))
-        State().logger.debug(
-            "first_level_train info: %s", get_log_info(first_level_train)
-        )
-        State().logger.debug(
-            "second_level_train info: %s", get_log_info(second_level_train)
-        )
+        State().logger.debug("first_level_train info: %s", get_log_info(first_level_train))
+        State().logger.debug("second_level_train info: %s", get_log_info(second_level_train))
         return first_level_train, second_level_train
 
     @staticmethod
@@ -480,7 +441,6 @@ class TwoStagesScenario(HybridRecommender):
             item_features=item_features,
         )
 
-    # pylint: disable=unused-argument
     def _get_first_level_candidates(
         self,
         model: BaseRecommender,
@@ -502,9 +462,7 @@ class TwoStagesScenario(HybridRecommender):
 
         if self.fallback_model is not None:
             passed_arguments.pop("model")
-            fallback_candidates = self._predict_with_first_level_model(
-                model=self.fallback_model, **passed_arguments
-            )
+            fallback_candidates = self._predict_with_first_level_model(model=self.fallback_model, **passed_arguments)
 
             candidates = fallback(
                 base=candidates,
@@ -513,34 +471,24 @@ class TwoStagesScenario(HybridRecommender):
             )
         return candidates
 
-    # pylint: disable=too-many-locals,too-many-statements
     def _fit(
         self,
         log: SparkDataFrame,
         user_features: Optional[SparkDataFrame] = None,
         item_features: Optional[SparkDataFrame] = None,
     ) -> None:
-
         self.cached_list = []
 
         self.logger.info("Data split")
         first_level_train, second_level_positive = self._split_data(log)
-        # second_level_positive = second_level_positive
-        # .join(first_level_train.select("user_idx"), on="user_idx", how="left")
 
-        self.first_level_item_len = (
-            first_level_train.select("item_idx").distinct().count()
-        )
-        self.first_level_user_len = (
-            first_level_train.select("user_idx").distinct().count()
-        )
+        self.first_level_item_len = first_level_train.select("item_idx").distinct().count()
+        self.first_level_user_len = first_level_train.select("user_idx").distinct().count()
 
         log.cache()
         first_level_train.cache()
         second_level_positive.cache()
-        self.cached_list.extend(
-            [log, first_level_train, second_level_positive]
-        )
+        self.cached_list.extend([log, first_level_train, second_level_positive])
 
         if user_features is not None:
             user_features.cache()
@@ -553,12 +501,8 @@ class TwoStagesScenario(HybridRecommender):
         self.first_level_item_features_transformer.fit(item_features)
         self.first_level_user_features_transformer.fit(user_features)
 
-        first_level_item_features = cache_if_exists(
-            self.first_level_item_features_transformer.transform(item_features)
-        )
-        first_level_user_features = cache_if_exists(
-            self.first_level_user_features_transformer.transform(user_features)
-        )
+        first_level_item_features = cache_if_exists(self.first_level_item_features_transformer.transform(item_features))
+        first_level_user_features = cache_if_exists(self.first_level_user_features_transformer.transform(user_features))
 
         for base_model in [
             *self.first_level_models,
@@ -567,20 +511,12 @@ class TwoStagesScenario(HybridRecommender):
         ]:
             base_model._fit_wrap(
                 log=first_level_train,
-                user_features=first_level_user_features.filter(
-                    sf.col("user_idx") < self.first_level_user_len
-                ),
-                item_features=first_level_item_features.filter(
-                    sf.col("item_idx") < self.first_level_item_len
-                ),
+                user_features=first_level_user_features.filter(sf.col("user_idx") < self.first_level_user_len),
+                item_features=first_level_item_features.filter(sf.col("item_idx") < self.first_level_item_len),
             )
 
         self.logger.info("Generate negative examples")
-        negatives_source = (
-            self.first_level_models[0]
-            if self.negatives_type == "first_level"
-            else self.random_model
-        )
+        negatives_source = self.first_level_models[0] if self.negatives_type == "first_level" else self.random_model
 
         first_level_candidates = self._get_first_level_candidates(
             model=negatives_source,
@@ -600,9 +536,7 @@ class TwoStagesScenario(HybridRecommender):
 
         second_level_train = (
             first_level_candidates.join(
-                second_level_positive.select(
-                    "user_idx", "item_idx"
-                ).withColumn("target", sf.lit(1.0)),
+                second_level_positive.select("user_idx", "item_idx").withColumn("target", sf.lit(1.0)),
                 on=["user_idx", "item_idx"],
                 how="left",
             ).fillna(0.0, subset="target")
@@ -612,11 +546,7 @@ class TwoStagesScenario(HybridRecommender):
 
         self.logger.info(
             "Distribution of classes in second-level train dataset:/n %s",
-            (
-                second_level_train.groupBy("target")
-                .agg(sf.count(sf.col("target")).alias("count_for_class"))
-                .take(2)
-            ),
+            (second_level_train.groupBy("target").agg(sf.count(sf.col("target")).alias("count_for_class")).take(2)),
         )
 
         self.features_processor.fit(
@@ -638,7 +568,6 @@ class TwoStagesScenario(HybridRecommender):
         for dataframe in self.cached_list:
             unpersist_if_exists(dataframe)
 
-    # pylint: disable=too-many-arguments
     def _predict(
         self,
         log: SparkDataFrame,
@@ -647,17 +576,12 @@ class TwoStagesScenario(HybridRecommender):
         items: SparkDataFrame,
         user_features: Optional[SparkDataFrame] = None,
         item_features: Optional[SparkDataFrame] = None,
-        filter_seen_items: bool = True,
+        filter_seen_items: bool = True,  # noqa: ARG002
     ) -> SparkDataFrame:
-
         State().logger.debug(msg="Generating candidates to rerank")
 
-        first_level_user_features = cache_if_exists(
-            self.first_level_user_features_transformer.transform(user_features)
-        )
-        first_level_item_features = cache_if_exists(
-            self.first_level_item_features_transformer.transform(item_features)
-        )
+        first_level_user_features = cache_if_exists(self.first_level_user_features_transformer.transform(user_features))
+        first_level_item_features = cache_if_exists(self.first_level_item_features_transformer.transform(item_features))
 
         candidates = self._get_first_level_candidates(
             model=self.first_level_models[0],
@@ -746,7 +670,6 @@ class TwoStagesScenario(HybridRecommender):
         )
         return params
 
-    # pylint: disable=too-many-arguments, too-many-locals
     def optimize(
         self,
         train: DataFrameLike,
@@ -779,27 +702,20 @@ class TwoStagesScenario(HybridRecommender):
         if self.fallback_model is not None:
             number_of_models += 1
         if number_of_models != len(param_borders):
-            raise ValueError(
-                "Provide search grid or None for every first level model"
-            )
+            msg = "Provide search grid or None for every first level model"
+            raise ValueError(msg)
 
         first_level_user_features_tr = ToNumericFeatureTransformer()
-        first_level_user_features = first_level_user_features_tr.fit_transform(
-            user_features
-        )
+        first_level_user_features = first_level_user_features_tr.fit_transform(user_features)
         first_level_item_features_tr = ToNumericFeatureTransformer()
-        first_level_item_features = first_level_item_features_tr.fit_transform(
-            item_features
-        )
+        first_level_item_features = first_level_item_features_tr.fit_transform(item_features)
 
         first_level_user_features = cache_if_exists(first_level_user_features)
         first_level_item_features = cache_if_exists(first_level_item_features)
 
         params_found = []
         for i, model in enumerate(self.first_level_models):
-            if param_borders[i] is None or (
-                isinstance(param_borders[i], dict) and param_borders[i]
-            ):
+            if param_borders[i] is None or (isinstance(param_borders[i], dict) and param_borders[i]):
                 self.logger.info(
                     "Optimizing first level model number %s, %s",
                     i,
@@ -822,9 +738,7 @@ class TwoStagesScenario(HybridRecommender):
             else:
                 params_found.append(None)
 
-        if self.fallback_model is None or (
-            isinstance(param_borders[-1], dict) and not param_borders[-1]
-        ):
+        if self.fallback_model is None or (isinstance(param_borders[-1], dict) and not param_borders[-1]):
             return params_found, None
 
         self.logger.info("Optimizing fallback-model")

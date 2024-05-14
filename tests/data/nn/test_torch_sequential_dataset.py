@@ -11,6 +11,7 @@ from replay.utils import TORCH_AVAILABLE, MissingImportType
 
 if TORCH_AVAILABLE:
     import torch
+
     from replay.data.nn import (
         PandasSequentialDataset,
         SequentialDataset,
@@ -69,7 +70,7 @@ def test_can_get_query_id(sequential_dataset: SequentialDataset):
         padding_value=-1,
     )
 
-    for i in range(0, 4):
+    for i in range(4):
         assert sd[i][0].item() == i
 
 
@@ -82,7 +83,7 @@ def test_can_get_query_id_windowed(sequential_dataset: SequentialDataset):
         padding_value=-1,
     )
 
-    for i in range(0, 4):
+    for i in range(4):
         assert sd[i][0].item() == i
 
     assert sd[4][0].item() == i
@@ -276,10 +277,7 @@ def test_validation_dataset(sequential_dataset, item_user_sequential_dataset):
 @pytest.mark.torch
 @pytest.mark.parametrize(
     "sequence, answer",
-    [
-        ([0, 1], [-1, 0, 1]),
-        ([[0, 1, 3], [4, 5, 6]], [[-1, -1, -1], [0, 1, 3], [4, 5, 6]])
-    ],
+    [([0, 1], [-1, 0, 1]), ([[0, 1, 3], [4, 5, 6]], [[-1, -1, -1], [0, 1, 3], [4, 5, 6]])],
 )
 def test_pad_sequence(sequential_dataset, sequence, answer):
     dataset = TorchSequentialDataset(

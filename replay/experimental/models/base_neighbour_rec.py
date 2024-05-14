@@ -1,4 +1,3 @@
-# pylint: disable=too-many-lines
 """
 NeighbourRec - base class that requires log at prediction time.
 Part of set of abstract classes (from base_rec.py)
@@ -34,7 +33,6 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         if hasattr(self, "similarity"):
             self.similarity.unpersist()
 
-    # pylint: disable=missing-function-docstring
     @property
     def similarity_metric(self):
         return self._similarity_metric
@@ -42,14 +40,11 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
     @similarity_metric.setter
     def similarity_metric(self, value):
         if not self.can_change_metric:
-            raise ValueError(
-                "This class does not support changing similarity metrics"
-            )
+            msg = "This class does not support changing similarity metrics"
+            raise ValueError(msg)
         if value not in self.item_to_item_metrics:
-            raise ValueError(
-                f"Select one of the valid metrics for predict: "
-                f"{self.item_to_item_metrics}"
-            )
+            msg = f"Select one of the valid metrics for predict: {self.item_to_item_metrics}"
+            raise ValueError(msg)
         self._similarity_metric = value
 
     def _predict_pairs_inner(
@@ -73,9 +68,8 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         :return: SparkDataFrame ``[user_idx, item_idx, relevance]``
         """
         if log is None:
-            raise ValueError(
-                "log is not provided, but it is required for prediction"
-            )
+            msg = "log is not provided, but it is required for prediction"
+            raise ValueError(msg)
 
         recs = (
             log.join(users, how="inner", on="user_idx")
@@ -95,18 +89,16 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         )
         return recs
 
-    # pylint: disable=too-many-arguments
     def _predict(
         self,
         log: SparkDataFrame,
-        k: int,
+        k: int,  # noqa: ARG002
         users: SparkDataFrame,
         items: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
-        filter_seen_items: bool = True,
+        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        filter_seen_items: bool = True,  # noqa: ARG002
     ) -> SparkDataFrame:
-
         return self._predict_pairs_inner(
             log=log,
             filter_df=items.withColumnRenamed("item_idx", "item_idx_filter"),
@@ -118,21 +110,17 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         self,
         pairs: SparkDataFrame,
         log: Optional[SparkDataFrame] = None,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
     ) -> SparkDataFrame:
-
         if log is None:
-            raise ValueError(
-                "log is not provided, but it is required for prediction"
-            )
+            msg = "log is not provided, but it is required for prediction"
+            raise ValueError(msg)
 
         return self._predict_pairs_inner(
             log=log,
             filter_df=(
-                pairs.withColumnRenamed(
-                    "user_idx", "user_idx_filter"
-                ).withColumnRenamed("item_idx", "item_idx_filter")
+                pairs.withColumnRenamed("user_idx", "user_idx_filter").withColumnRenamed("item_idx", "item_idx_filter")
             ),
             condition=(sf.col("user_idx") == sf.col("user_idx_filter"))
             & (sf.col("item_idx_two") == sf.col("item_idx_filter")),
@@ -180,7 +168,6 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         metric: Optional[str] = None,
         candidates: Optional[SparkDataFrame] = None,
     ) -> SparkDataFrame:
-
         similarity_filtered = self.similarity.join(
             items.withColumnRenamed("item_idx", "item_idx_one"),
             on="item_idx_one",
@@ -204,19 +191,14 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
             "features_col": None,
         }
 
-    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:
-        similarity_df = self.similarity.select(
-            "similarity", "item_idx_one", "item_idx_two"
-        )
+    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:  # noqa: ARG002
+        similarity_df = self.similarity.select("similarity", "item_idx_one", "item_idx_two")
         return similarity_df
 
     def _get_vectors_to_infer_ann_inner(
-            self, interactions: SparkDataFrame, queries: SparkDataFrame
+        self, interactions: SparkDataFrame, queries: SparkDataFrame  # noqa: ARG002
     ) -> SparkDataFrame:
-
-        user_vectors = (
-            interactions.groupBy("user_idx").agg(
-                sf.collect_list("item_idx").alias("vector_items"),
-                sf.collect_list("relevance").alias("vector_relevances"))
+        user_vectors = interactions.groupBy("user_idx").agg(
+            sf.collect_list("item_idx").alias("vector_items"), sf.collect_list("relevance").alias("vector_relevances")
         )
         return user_vectors

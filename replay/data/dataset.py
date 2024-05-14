@@ -7,21 +7,20 @@ from typing import Callable, Dict, Iterable, List, Optional, Sequence
 
 import numpy as np
 
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
+
 from .schema import FeatureHint, FeatureInfo, FeatureSchema, FeatureSource, FeatureType
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
-    import pyspark.sql.functions as F
+    import pyspark.sql.functions as sf
     from pyspark.storagelevel import StorageLevel
 
 
-# pylint: disable=too-many-instance-attributes
 class Dataset:
     """
     Universal dataset for feeding data to models.
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         feature_schema: FeatureSchema,
@@ -50,23 +49,30 @@ class Dataset:
 
         self.is_pandas = isinstance(interactions, PandasDataFrame)
         self.is_spark = isinstance(interactions, SparkDataFrame)
+        self.is_polars = isinstance(interactions, PolarsDataFrame)
 
         self._categorical_encoded = categorical_encoded
 
         try:
             feature_schema.item_id_column
         except Exception as exception:
-            raise ValueError("Item id column is not set.") from exception
+            msg = "Item id column is not set."
+            raise ValueError(msg) from exception
 
         try:
             feature_schema.query_id_column
         except Exception as exception:
-            raise ValueError("Query id column is not set.") from exception
+            msg = "Query id column is not set."
+            raise ValueError(msg) from exception
 
-        if self.item_features is not None and isinstance(self.item_features, PandasDataFrame) != self.is_pandas:
-            raise TypeError("Interactions and item features should have the same type.")
-        if self.query_features is not None and isinstance(self.query_features, PandasDataFrame) != self.is_pandas:
-            raise TypeError("Interactions and query features should have the same type.")
+        if self.item_features is not None and not check_dataframes_types_equal(self._interactions, self.item_features):
+            msg = "Interactions and item features should have the same type."
+            raise TypeError(msg)
+        if self.query_features is not None and not check_dataframes_types_equal(
+            self._interactions, self.query_features
+        ):
+            msg = "Interactions and query features should have the same type."
+            raise TypeError(msg)
 
         self._feature_source_map: Dict[FeatureSource, DataFrameLike] = {
             FeatureSource.INTERACTIONS: self.interactions,
@@ -129,8 +135,13 @@ class Dataset:
             query_ids = PandasDataFrame(
                 {self.feature_schema.query_id_column: query_column_df[self.feature_schema.query_id_column].unique()}
             )
-            return query_ids
-        query_ids = query_column_df.select(self.feature_schema.query_id_column).distinct()
+        if self.is_spark:
+            assert isinstance(query_column_df, SparkDataFrame)
+            query_ids = query_column_df.select(self.feature_schema.query_id_column).distinct()
+        if self.is_polars:
+            assert isinstance(query_column_df, PolarsDataFrame)
+            query_ids = query_column_df.select(self.feature_schema.query_id_column).unique()
+
         return query_ids
 
     @property
@@ -144,9 +155,13 @@ class Dataset:
             all_item_ids = item_column_df[self.feature_schema.item_id_column]
             unique_item_ids = all_item_ids.unique()
             item_ids = PandasDataFrame({self.feature_schema.item_id_column: unique_item_ids})
-            return item_ids
+        if self.is_spark:
+            assert isinstance(item_column_df, SparkDataFrame)
+            item_ids = item_column_df.select(self.feature_schema.item_id_column).distinct()
+        if self.is_polars:
+            assert isinstance(item_column_df, PolarsDataFrame)
+            item_ids = item_column_df.select(self.feature_schema.item_id_column).unique()
 
-        item_ids = item_column_df.select(self.feature_schema.item_id_column).distinct()
         return item_ids
 
     @property
@@ -175,6 +190,7 @@ class Dataset:
         return self._feature_schema
 
     if PYSPARK_AVAILABLE:
+
         def persist(self, storage_level: StorageLevel = StorageLevel(True, True, False, True, 1)) -> None:
             """
             Sets the storage level to persist SparkDataFrame for interactions, item_features
@@ -279,7 +295,6 @@ class Dataset:
     def _set_cardinality(self, features_list: Sequence[FeatureInfo]) -> None:
         for feature in features_list:
             if feature.feature_type == FeatureType.CATEGORICAL:
-                # pylint: disable=protected-access
                 feature._set_cardinality_callback(self._get_cardinality(feature))
 
     def _fill_feature_schema(self, feature_schema: FeatureSchema) -> FeatureSchema:
@@ -317,15 +332,14 @@ class Dataset:
 
         for feature in features_list:
             if feature.feature_hint in [FeatureHint.QUERY_ID, FeatureHint.ITEM_ID]:
-                # pylint: disable=protected-access
                 feature._set_feature_source(source=FeatureSource.INTERACTIONS)
                 continue
-            source = source_mapping.get(feature.column)  # type: ignore
+            source = source_mapping.get(feature.column)
             if source:
-                # pylint: disable=protected-access
                 feature._set_feature_source(source=source_mapping[feature.column])
             else:
-                raise ValueError(f"{feature.column} doesn't exist in provided dataframes")
+                msg = f"{feature.column} doesn't exist in provided dataframes"
+                raise ValueError(msg)
 
         self._set_cardinality(features_list=features_list)
         return features_list
@@ -346,10 +360,8 @@ class Dataset:
         self._set_cardinality(features_list=unlabeled_columns)
         return unlabeled_columns
 
-    # pylint: disable=no-self-use
     def _set_features_source(self, feature_list: List[FeatureInfo], source: FeatureSource) -> None:
         for feature in feature_list:
-            # pylint: disable=protected-access
             feature._set_feature_source(source)
 
     def _check_ids_consistency(self, hint: FeatureHint) -> None:
@@ -361,19 +373,30 @@ class Dataset:
             self.feature_schema.item_id_column if hint == FeatureHint.ITEM_ID else self.feature_schema.query_id_column
         )
         if self.is_pandas:
-            interactions_unique_ids = set(self.interactions[ids_column].unique())  # type: ignore
-            features_df_unique_ids = set(features_df[ids_column].unique())  # type: ignore  # pylint: disable=E1136
+            interactions_unique_ids = set(self.interactions[ids_column].unique())
+            features_df_unique_ids = set(features_df[ids_column].unique())
             in_interactions_not_in_features_ids = interactions_unique_ids - features_df_unique_ids
             is_consistent = len(in_interactions_not_in_features_ids) == 0
-        else:
+        elif self.is_spark:
             is_consistent = (
                 self.interactions.select(ids_column)
                 .distinct()
                 .join(features_df.select(ids_column).distinct(), on=[ids_column], how="leftanti")
                 .count()
             ) == 0
+        else:
+            is_consistent = (
+                len(
+                    self.interactions.select(ids_column)
+                    .unique()
+                    .join(features_df.select(ids_column).unique(), on=ids_column, how="anti")
+                )
+                == 0
+            )
+
         if not is_consistent:
-            raise ValueError(f"There are IDs in the interactions that are missing in the {hint.name} dataframe.")
+            msg = f"There are IDs in the interactions that are missing in the {hint.name} dataframe."
+            raise ValueError(msg)
 
     def _check_column_encoded(
         self, data: DataFrameLike, column: str, source: FeatureSource, cardinality: Optional[int]
@@ -390,25 +413,35 @@ class Dataset:
         """
         if self.is_pandas:
             is_int = np.issubdtype(dict(data.dtypes)[column], int)
-        else:
+        elif self.is_spark:
             is_int = "int" in dict(data.dtypes)[column]
+        else:
+            is_int = data[column].dtype.is_integer()
+
         if not is_int:
-            raise ValueError(f"IDs in {source.name}.{column} are not encoded. They are not int.")
+            msg = f"IDs in {source.name}.{column} are not encoded. They are not int."
+            raise ValueError(msg)
 
         if self.is_pandas:
-            min_id = data[column].min()  # type: ignore
+            min_id = data[column].min()
+        elif self.is_spark:
+            min_id = data.agg(sf.min(column).alias("min_index")).collect()[0][0]
         else:
-            min_id = data.agg(F.min(column).alias("min_index")).collect()[0][0]
+            min_id = data[column].min()
         if min_id < 0:
-            raise ValueError(f"IDs in {source.name}.{column} are not encoded. Min ID is less than 0.")
+            msg = f"IDs in {source.name}.{column} are not encoded. Min ID is less than 0."
+            raise ValueError(msg)
 
         if self.is_pandas:
-            max_id = data[column].max()  # type: ignore
+            max_id = data[column].max()
+        elif self.is_spark:
+            max_id = data.agg(sf.max(column).alias("max_index")).collect()[0][0]
         else:
-            max_id = data.agg(F.max(column).alias("max_index")).collect()[0][0]
+            max_id = data[column].max()
 
         if max_id >= cardinality:
-            raise ValueError(f"IDs in {source.name}.{column} are not encoded. Max ID is more than quantity of IDs.")
+            msg = f"IDs in {source.name}.{column} are not encoded. Max ID is more than quantity of IDs."
+            raise ValueError(msg)
 
     def _check_encoded(self) -> None:
         for feature in self.feature_schema.categorical_features.all_features:
@@ -441,11 +474,11 @@ class Dataset:
                         feature.cardinality,
                     )
             else:
-                data = self._feature_source_map[feature.feature_source]  # type: ignore
+                data = self._feature_source_map[feature.feature_source]
                 self._check_column_encoded(
                     data,
                     feature.column,
-                    feature.feature_source,  # type: ignore
+                    feature.feature_source,
                     feature.cardinality,
                 )
 
@@ -461,7 +494,9 @@ def nunique(data: DataFrameLike, column: str) -> int:
     """
     if isinstance(data, SparkDataFrame):
         return data.select(column).distinct().count()
-    return data[column].nunique()
+    if isinstance(data, PandasDataFrame):
+        return data[column].nunique()
+    return data.select(column).n_unique()
 
 
 def select(data: DataFrameLike, columns: Sequence[str]) -> DataFrameLike:
@@ -475,4 +510,22 @@ def select(data: DataFrameLike, columns: Sequence[str]) -> DataFrameLike:
         return data.select(*columns)
     if isinstance(data, PandasDataFrame):
         return data[columns]
+    if isinstance(data, PolarsDataFrame):
+        return data.select(*columns)
     assert False, "Unknown data frame type"
+
+
+def check_dataframes_types_equal(dataframe: DataFrameLike, other: DataFrameLike):
+    """
+    :param dataframe: dataframe.
+    :param other: dataframe to compare.
+
+    :returns: True if dataframes have same type.
+    """
+    if isinstance(dataframe, PandasDataFrame) and isinstance(other, PandasDataFrame):
+        return True
+    if isinstance(dataframe, SparkDataFrame) and isinstance(other, SparkDataFrame):
+        return True
+    if isinstance(dataframe, PolarsDataFrame) and isinstance(other, PolarsDataFrame):
+        return True
+    return False

@@ -1,10 +1,9 @@
-# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import logging
 
 import pandas as pd
 import pytest
 
-from tests.utils import item_features, long_log_with_features, short_log_with_features, spark, sparkDataFrameEqual
+from tests.utils import sparkDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
@@ -35,13 +34,9 @@ def mapping():
 @pytest.mark.experimental
 def test_read_data_invalid_format(data_preparator):
     with pytest.raises(ValueError, match=r"Invalid value of format_type.*"):
-        data_preparator.read_as_spark_df(
-            path="/test_path", format_type="blabla"
-        )
+        data_preparator.read_as_spark_df(path="/test_path", format_type="blabla")
 
-    with pytest.raises(
-        ValueError, match="Either data or path parameters must not be None"
-    ):
+    with pytest.raises(ValueError, match="Either data or path parameters must not be None"):
         data_preparator.read_as_spark_df(format_type="csv")
 
 
@@ -67,35 +62,24 @@ def test_check_df_errors(data_preparator, long_log_with_features, mapping):
 
 # logging in check_df
 @pytest.mark.experimental
-def test_read_check_df_logger_msg(
-    data_preparator, long_log_with_features, mapping, caplog
-):
+def test_read_check_df_logger_msg(data_preparator, long_log_with_features, mapping, caplog):
     with caplog.at_level(logging.INFO):
         mapping.pop("timestamp")
         data_preparator.check_df(
             dataframe=long_log_with_features.withColumn(
                 "relevance",
-                sf.when(sf.col("user_idx") == 1, None).otherwise(
-                    sf.col("relevance").cast(StringType())
-                ),
+                sf.when(sf.col("user_idx") == 1, None).otherwise(sf.col("relevance").cast(StringType())),
             ).drop("timestamp"),
             columns_mapping=mapping,
         )
         assert (
             "Column `relevance` has NULL values. "
-            "Handle NULL values before the next data preprocessing/model training steps"
-            in caplog.text
+            "Handle NULL values before the next data preprocessing/model training steps" in caplog.text
         )
 
-        assert (
-            "Columns ['timestamp'] are absent, but may be required for models training. "
-            in caplog.text
-        )
+        assert "Columns ['timestamp'] are absent, but may be required for models training. " in caplog.text
 
-        assert (
-            "Relevance column `relevance` should be numeric, but it is StringType"
-            in caplog.text
-        )
+        assert "Relevance column `relevance` should be numeric, but it is StringType" in caplog.text
 
 
 @pytest.mark.experimental
@@ -160,16 +144,8 @@ def test_cat_features_transformer(item_features):
     )
     assert "class" not in transformed.columns
     assert "iq" in transformed.columns and "color" in transformed.columns
-    assert (
-        "ohe_class_dog" not in transformed.columns
-        and "ohe_class_cat" in transformed.columns
-    )
-    assert (
-        transformed.filter(sf.col("item_idx") == 5)
-        .select("ohe_class_mouse")
-        .collect()[0][0]
-        == 1.0
-    )
+    assert "ohe_class_dog" not in transformed.columns and "ohe_class_cat" in transformed.columns
+    assert transformed.filter(sf.col("item_idx") == 5).select("ohe_class_mouse").collect()[0][0] == 1.0
 
 
 @pytest.mark.experimental
@@ -182,10 +158,7 @@ def test_cat_features_transformer_date(
         train=long_log_with_features,
         test=short_log_with_features,
     )
-    assert (
-        "ohe_timestamp_20190101000000" in transformed.columns
-        and "item_idx" in transformed.columns
-    )
+    assert "ohe_timestamp_20190101000000" in transformed.columns and "item_idx" in transformed.columns
 
 
 @pytest.mark.experimental

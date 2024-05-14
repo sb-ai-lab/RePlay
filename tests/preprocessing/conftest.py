@@ -1,8 +1,8 @@
 import pandas as pd
+import polars as pl
 import pytest
 
 from replay.utils import PYSPARK_AVAILABLE
-from tests.utils import spark
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql.functions import col, to_date, unix_timestamp
@@ -36,6 +36,11 @@ def pandas_df_for_labelencoder():
 
 
 @pytest.fixture(scope="module")
+def polars_df_for_labelencoder(pandas_df_for_labelencoder):
+    return pl.from_pandas(pandas_df_for_labelencoder)
+
+
+@pytest.fixture(scope="module")
 def pandas_df_for_labelencoder_modified():
     return pd.DataFrame(
         {"user": ["u1", "u2", "u3"], "item1": ["item_1", "item_2", "item_3"], "item2": ["item_1", "item_2", "item_3"]}
@@ -43,8 +48,23 @@ def pandas_df_for_labelencoder_modified():
 
 
 @pytest.fixture(scope="module")
+def polars_df_for_labelencoder_modified(pandas_df_for_labelencoder_modified):
+    return pl.from_pandas(pandas_df_for_labelencoder_modified)
+
+
+@pytest.fixture(scope="module")
 def pandas_df_for_labelencoder_new_data():
     return pd.DataFrame({"user": ["u4"], "item1": ["item_4"], "item2": ["item_4"]})
+
+
+@pytest.fixture(scope="module")
+def polars_df_for_labelencoder_new_data(pandas_df_for_labelencoder_new_data):
+    return pl.from_pandas(pandas_df_for_labelencoder_new_data)
+
+
+@pytest.fixture()
+def spark_df_for_labelencoder_new_data(pandas_df_for_labelencoder_new_data, spark):
+    return spark.createDataFrame(pandas_df_for_labelencoder_new_data)
 
 
 @pytest.fixture(scope="module")
@@ -812,6 +832,16 @@ def simple_dataframe_pandas(columns):
         (1, 1, 19841),
     ]
     return pd.DataFrame(data, columns=columns)
+
+
+@pytest.fixture(scope="module")
+def simple_dataframe_polars(simple_dataframe_pandas):
+    return pl.from_pandas(simple_dataframe_pandas)
+
+
+@pytest.fixture(scope="module")
+def dataframe_not_implemented(simple_dataframe_pandas):
+    return simple_dataframe_pandas.to_numpy()
 
 
 @pytest.fixture(scope="module")

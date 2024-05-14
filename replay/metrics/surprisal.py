@@ -1,9 +1,10 @@
 from collections import defaultdict
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import numpy as np
+import polars as pl
 
-from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 from .base_metric import Metric, MetricsDataFrameLike, MetricsReturnType
 
@@ -11,13 +12,12 @@ if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
 
 
-# pylint: disable=too-few-public-methods
 class Surprisal(Metric):
     """
     Measures how many surprising rare items are present in recommendations.
 
     .. math::
-        \\textit{Self-Information}(j)= -\log_2 \\frac {u_j}{N}
+        \\textit{Self-Information}(j)= -\\log_2 \\frac {u_j}{N}
 
     :math:`u_j` -- number of users that interacted with item :math:`j`.
     Cold items are treated as if they were rated by 1 user.
@@ -31,12 +31,12 @@ class Surprisal(Metric):
     Recommendation list surprisal is the average surprisal of items in it.
 
     .. math::
-        Surprisal@K(i) = \\frac {\sum_{j=1}^{K}Surprisal(j)} {K}
+        Surprisal@K(i) = \\frac {\\sum_{j=1}^{K}Surprisal(j)} {K}
 
     Final metric is averaged by users.
 
     .. math::
-        Surprisal@K = \\frac {\sum_{i=1}^{N}Surprisal@K(i)}{N}
+        Surprisal@K = \\frac {\\sum_{i=1}^{N}Surprisal@K(i)}{N}
 
     :math:`N` -- the number of users.
 
@@ -82,7 +82,6 @@ class Surprisal(Metric):
     <BLANKLINE>
     """
 
-    # pylint: disable=no-self-use
     def _get_weights(self, train: Dict) -> Dict:
         n_users = len(train.keys())
         items_counter = defaultdict(set)
@@ -101,22 +100,38 @@ class Surprisal(Metric):
             recs_with_weights[user] = [weights.get(i, 1) for i in items]
         return recs_with_weights
 
-    def _get_enriched_recommendations(  # pylint: disable=arguments-renamed
+    def _get_enriched_recommendations(
+        self,
+        recommendations: Union[PolarsDataFrame, SparkDataFrame],
+        train: Union[PolarsDataFrame, SparkDataFrame],
+    ) -> Union[PolarsDataFrame, SparkDataFrame]:
+        if isinstance(recommendations, SparkDataFrame):
+            return self._get_enriched_recommendations_spark(recommendations, train)
+        else:
+            return self._get_enriched_recommendations_polars(recommendations, train)
+
+    def _get_enriched_recommendations_spark(
         self, recommendations: SparkDataFrame, train: SparkDataFrame
     ) -> SparkDataFrame:
         n_users = train.select(self.query_column).distinct().count()
         item_weights = train.groupby(self.item_column).agg(
-            (
-                sf.log2(n_users / sf.countDistinct(self.query_column)) / np.log2(n_users)
-            ).alias("weight")
+            (sf.log2(n_users / sf.countDistinct(self.query_column)) / np.log2(n_users)).alias("weight")
         )
-        recommendations = recommendations.join(
-            item_weights, on=self.item_column, how="left"
-        ).fillna(1.0)
+        recommendations = recommendations.join(item_weights, on=self.item_column, how="left").fillna(1.0)
 
-        sorted_by_score_recommendations = self._get_items_list_per_user(
-            recommendations, "weight"
+        sorted_by_score_recommendations = self._get_items_list_per_user(recommendations, "weight")
+        return self._rearrange_columns(sorted_by_score_recommendations)
+
+    def _get_enriched_recommendations_polars(
+        self, recommendations: PolarsDataFrame, train: PolarsDataFrame
+    ) -> PolarsDataFrame:
+        n_users = train.select(self.query_column).n_unique()
+        item_weights = train.group_by(self.item_column).agg(
+            (np.log2(n_users / pl.col(self.query_column).n_unique()) / np.log2(n_users)).alias("weight")
         )
+        recommendations = recommendations.join(item_weights, on=self.item_column, how="left").fill_nan(1.0)
+
+        sorted_by_score_recommendations = self._get_items_list_per_user(recommendations, "weight")
         return self._rearrange_columns(sorted_by_score_recommendations)
 
     def __call__(
@@ -128,10 +143,12 @@ class Surprisal(Metric):
         Compute metric.
 
         Args:
-            recommendations (PySpark DataFrame or Pandas DataFrame or dict): model predictions.
+            recommendations (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict):
+                model predictions.
                 If DataFrame then it must contains user, item and score columns.
                 If dict then items must be sorted in decreasing order of their scores.
-            train (PySpark DataFrame or Pandas DataFrame or dict, optional): train data.
+            train (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict, optional):
+                train data.
                 If DataFrame then it must contains user and item columns.
 
         Returns:
@@ -142,6 +159,10 @@ class Surprisal(Metric):
             self._check_duplicates_spark(recommendations)
             assert isinstance(train, SparkDataFrame)
             return self._spark_call(recommendations, train)
+        if isinstance(recommendations, PolarsDataFrame):
+            self._check_duplicates_polars(recommendations)
+            assert isinstance(train, PolarsDataFrame)
+            return self._polars_call(recommendations, train)
         is_pandas = isinstance(recommendations, PandasDataFrame)
         recommendations = (
             self._convert_pandas_to_dict_with_score(recommendations)
@@ -149,9 +170,7 @@ class Surprisal(Metric):
             else self._convert_dict_to_dict_with_score(recommendations)
         )
         self._check_duplicates_dict(recommendations)
-        train = (
-            self._convert_pandas_to_dict_without_score(train) if is_pandas else train
-        )
+        train = self._convert_pandas_to_dict_without_score(train) if is_pandas else train
         assert isinstance(train, dict)
 
         weights = self._get_recommendation_weights(recommendations, train)
@@ -162,9 +181,7 @@ class Surprisal(Metric):
         )
 
     @staticmethod
-    def _get_metric_value_by_user(  # pylint: disable=arguments-differ
-        ks: List[int], pred_item_ids: List, pred_weights: List
-    ) -> List[float]:
+    def _get_metric_value_by_user(ks: List[int], pred_item_ids: List, pred_weights: List) -> List[float]:
         if not pred_item_ids:
             return [0.0 for _ in ks]
         res = []

@@ -6,8 +6,8 @@ if TORCH_AVAILABLE:
     from replay.models.nn.sequential.bert4rec import (
         Bert4RecPredictionDataset,
         Bert4RecTrainingDataset,
-        Bert4RecValidationDataset,
         Bert4RecUniformMasker,
+        Bert4RecValidationDataset,
     )
 
 torch = pytest.importorskip("torch")

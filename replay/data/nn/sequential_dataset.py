@@ -2,13 +2,13 @@ import abc
 from typing import Tuple, Union
 
 import numpy as np
+import polars as pl
 from pandas import DataFrame as PandasDataFrame
+from polars import DataFrame as PolarsDataFrame
 
-from replay.data.schema import FeatureType
 from .schema import TensorSchema
 
 
-# pylint: disable=missing-function-docstring
 class SequentialDataset(abc.ABC):
     """
     Abstract base class for sequential dataset
@@ -130,18 +130,8 @@ class PandasSequentialDataset(SequentialDataset):
 
         self._sequences = sequences
 
-        for feature in tensor_schema.all_features:
-            if feature.feature_type == FeatureType.CATEGORICAL:
-                # pylint: disable=protected-access
-                feature._set_cardinality_callback(self.cardinality_callback)
-
     def __len__(self) -> int:
         return len(self._sequences)
-
-    def cardinality_callback(self, column: str) -> int:
-        if self._query_id_column == column:
-            return self._sequences.index.nunique()
-        return len({x for seq in self._sequences[column] for x in seq})
 
     def get_query_id(self, index: int) -> int:
         return self._sequences.index[index]
@@ -179,6 +169,54 @@ class PandasSequentialDataset(SequentialDataset):
 
     @classmethod
     def _check_if_schema_matches_data(cls, tensor_schema: TensorSchema, data: PandasDataFrame) -> None:
-        for tensor_feature_name in tensor_schema.keys():
+        for tensor_feature_name in tensor_schema:
             if tensor_feature_name not in data:
-                raise ValueError("Tensor schema does not match with provided data frame")
+                msg = "Tensor schema does not match with provided data frame"
+                raise ValueError(msg)
+
+
+class PolarsSequentialDataset(PandasSequentialDataset):
+    """
+    Sequential dataset that stores sequences in PolarsDataFrame format.
+    """
+
+    def __init__(
+        self,
+        tensor_schema: TensorSchema,
+        query_id_column: str,
+        item_id_column: str,
+        sequences: PolarsDataFrame,
+    ) -> None:
+        """
+        :param tensor_schema: schema of tensor features.
+        :param query_id_column: The name of the column containing query ids.
+        :param item_id_column: The name of the column containing item ids.
+        :param sequences: PolarsDataFrame with sequences corresponding to the tensor schema.
+        """
+        self._check_if_schema_matches_data(tensor_schema, sequences)
+
+        self._tensor_schema = tensor_schema
+        self._query_id_column = query_id_column
+        self._item_id_column = item_id_column
+
+        self._sequences = sequences.to_pandas()
+        if self._sequences.index.name != query_id_column:
+            self._sequences = self._sequences.set_index(query_id_column)
+
+    def filter_by_query_id(self, query_ids_to_keep: np.ndarray) -> "PolarsSequentialDataset":
+        filtered_sequences = self._sequences.loc[query_ids_to_keep]
+        if filtered_sequences.index.name == self._query_id_column:
+            filtered_sequences = filtered_sequences.reset_index()
+        return PolarsSequentialDataset(
+            tensor_schema=self._tensor_schema,
+            query_id_column=self._query_id_column,
+            item_id_column=self._item_id_column,
+            sequences=pl.from_pandas(filtered_sequences),
+        )
+
+    @classmethod
+    def _check_if_schema_matches_data(cls, tensor_schema: TensorSchema, data: PolarsDataFrame) -> None:
+        for tensor_feature_name in tensor_schema:
+            if tensor_feature_name not in data:
+                msg = "Tensor schema does not match with provided data frame"
+                raise ValueError(msg)

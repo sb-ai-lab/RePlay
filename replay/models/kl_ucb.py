@@ -1,13 +1,15 @@
 import math
-
 from typing import Optional
-from .ucb import UCB
-from replay.utils import PYSPARK_AVAILABLE
+
 from scipy.optimize import root_scalar
 
+from replay.utils import PYSPARK_AVAILABLE
+
+from .ucb import UCB
+
 if PYSPARK_AVAILABLE:
-    from pyspark.sql.types import DoubleType
     from pyspark.sql.functions import udf
+    from pyspark.sql.types import DoubleType
 
 
 class KLUCB(UCB):
@@ -17,7 +19,7 @@ class KLUCB(UCB):
     computes item relevance as an upper confidence bound of true fraction of
     positive interactions.
 
-    In a nutshell, KL-UCB сonsiders the data as the history of interactions
+    In a nutshell, KL-UCB considers the data as the history of interactions
     with items. The interaction may be either positive or negative. For each
     item the model computes empirical frequency of positive interactions
     and estimates the true frequency with an upper confidence bound. The higher
@@ -137,14 +139,11 @@ class KLUCB(UCB):
         super().__init__(exploration_coef, sample, seed)
 
     def _calc_item_popularity(self):
-
-        right_hand_side = math.log(self.full_count) \
-            + self.coef * math.log(math.log(self.full_count))
+        right_hand_side = math.log(self.full_count) + self.coef * math.log(math.log(self.full_count))
         eps = 1e-12
 
         def bernoulli_kl(proba_p, proba_q):  # pragma: no cover
-            return proba_p * math.log(proba_p / proba_q) +\
-                (1 - proba_p) * math.log((1 - proba_p) / (1 - proba_q))
+            return proba_p * math.log(proba_p / proba_q) + (1 - proba_p) * math.log((1 - proba_p) / (1 - proba_q))
 
         @udf(returnType=DoubleType())
         def get_ucb(pos, total):  # pragma: no cover
@@ -152,27 +151,22 @@ class KLUCB(UCB):
 
             if proba == 0:
                 ucb = root_scalar(
-                    f=lambda qq: math.log(1 / (1 - qq)) - right_hand_side,
-                    bracket=[0, 1 - eps],
-                    method='brentq').root
+                    f=lambda qq: math.log(1 / (1 - qq)) - right_hand_side, bracket=[0, 1 - eps], method="brentq"
+                ).root
                 return ucb
 
             if proba == 1:
                 ucb = root_scalar(
-                    f=lambda qq: math.log(1 / qq) - right_hand_side,
-                    bracket=[0 + eps, 1],
-                    method='brentq').root
+                    f=lambda qq: math.log(1 / qq) - right_hand_side, bracket=[0 + eps, 1], method="brentq"
+                ).root
                 return ucb
 
             ucb = root_scalar(
-                f=lambda q: total * bernoulli_kl(proba, q) - right_hand_side,
-                bracket=[proba, 1 - eps],
-                method='brentq').root
+                f=lambda q: total * bernoulli_kl(proba, q) - right_hand_side, bracket=[proba, 1 - eps], method="brentq"
+            ).root
             return ucb
 
-        items_counts = self.items_counts_aggr.withColumn(
-            self.rating_column, get_ucb("pos", "total")
-        )
+        items_counts = self.items_counts_aggr.withColumn(self.rating_column, get_ucb("pos", "total"))
 
         self.item_popularity = items_counts.drop("pos", "total")
 

@@ -3,8 +3,9 @@ from typing import Optional
 from scipy.stats import norm
 
 from replay.data import Dataset
-from .pop_rec import PopRec
 from replay.utils import PYSPARK_AVAILABLE
+
+from .pop_rec import PopRec
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -50,7 +51,6 @@ class Wilson(PopRec):
 
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         alpha=0.05,
@@ -82,9 +82,7 @@ class Wilson(PopRec):
         self.alpha = alpha
         self.sample = sample
         self.seed = seed
-        super().__init__(
-            add_cold_items=add_cold_items, cold_weight=cold_weight
-        )
+        super().__init__(add_cold_items=add_cold_items, cold_weight=cold_weight)
 
     @property
     def _init_args(self):
@@ -100,7 +98,6 @@ class Wilson(PopRec):
         self,
         dataset: Dataset,
     ) -> None:
-
         self._check_rating(dataset)
 
         items_counts = dataset.interactions.groupby(self.item_column).agg(
@@ -111,16 +108,10 @@ class Wilson(PopRec):
         crit = norm.isf(self.alpha / 2.0)
         items_counts = items_counts.withColumn(
             self.rating_column,
-            (sf.col("pos") + sf.lit(0.5 * crit**2))
-            / (sf.col("total") + sf.lit(crit**2))
+            (sf.col("pos") + sf.lit(0.5 * crit**2)) / (sf.col("total") + sf.lit(crit**2))
             - sf.lit(crit)
             / (sf.col("total") + sf.lit(crit**2))
-            * sf.sqrt(
-                (sf.col("total") - sf.col("pos"))
-                * sf.col("pos")
-                / sf.col("total")
-                + crit**2 / 4
-            ),
+            * sf.sqrt((sf.col("total") - sf.col("pos")) * sf.col("pos") / sf.col("total") + crit**2 / 4),
         )
 
         self.item_popularity = items_counts.drop("pos", "total")

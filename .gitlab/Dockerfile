@@ -14,5 +14,5 @@ WORKDIR /root
 RUN pip install --no-cache-dir --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning lightfm==1.17 \
     && python -m poetry config virtualenvs.create false
 COPY . .
-RUN ./poetry_wrapper.sh install
+RUN ./poetry_wrapper.sh --experimental install --all-extras
 RUN rm -rf *

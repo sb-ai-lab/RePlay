@@ -1,16 +1,29 @@
+[build-system]
+requires = [
+    "poetry-core>=1.0.0",
+    "poetry-dynamic-versioning>=1.0.0,<2.0.0",
+]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[tool.black]
+line-length = 120
+target-versions = ["py38", "py39", "py310"]
+
 [tool.poetry]
 name = "replay-rec"
 packages = [{include = "replay"}]
 license = "Apache-2.0"
 description = "RecSys Library"
-authors = ["AI Lab",
-           "Alexey Vasilev",
-           "Anna Volodkevich",
-           "Alexey Grishanov",
-           "Yan-Martin Tamm",
-           "Boris Shminke",
-           "Alexander Sidorenko",
-           "Roza Aysina"]
+authors = [
+    "AI Lab",
+    "Alexey Vasilev",
+    "Anna Volodkevich",
+    "Alexey Grishanov",
+    "Yan-Martin Tamm",
+    "Boris Shminke",
+    "Alexander Sidorenko",
+    "Roza Aysina",
+]
 readme = "README.md"
 homepage = "https://sb-ai-lab.github.io/RePlay/"
 repository = "https://github.com/sb-ai-lab/RePlay"
@@ -36,23 +49,20 @@ version = "0.0.0"
 python = ">=3.8.1, <3.11"
 numpy = ">=1.20.0"
 pandas = "^1.3.5"
+polars = "~0.20.7"
 optuna = "~3.2.0"
 scipy = "~1.8.1"
 psutil = "~5.9.5"
-pyspark = { version = ">=3.0,<3.3", optional = true }
+pyspark = {version = ">=3.0,<3.3", optional = true}
 scikit-learn = "^1.0.2"
 pyarrow = ">=12.0.1, <=14.0.1"
 {% if project == "default" %}
-torch = { version = "^1.8", optional = true }
-lightning = { version = "^2.0.2", optional = true }
-pytorch-ranger = { version = "^0.1.1", optional = true }
+torch = {version = "^1.8", optional = true}
+lightning = {version = "^2.0.2", optional = true}
+pytorch-ranger = {version = "^0.1.1", optional = true}
 {% endif %}
-seaborn = "~0.12.2"
-matplotlib = "^3.5.3"
 nmslib = "2.1.1"
 hnswlib = "0.7.0"
-cached-property = "1.5.2"
-
 {% if project == "experimental" %}
 torch = "^1.8"
 lightning = "^2.0.2"
@@ -61,26 +71,26 @@ lightfm = "1.17"
 lightautoml = "~0.3.1"
 numba = ">=0.50"
 llvmlite = ">=0.32.1"
-obp = { git = "https://github.com/shashist/zr-obp_py310.git", branch = "master"}
+sb-obp = "^0.5.7"
 d3rlpy = "^2.0.4"
 implicit = "~0.7.0"
 gym = "^0.26.0"
 {% endif %}
 
+[tool.poetry.extras]
+spark = ["pyspark"]
+torch = ["torch", "pytorch-ranger", "lightning"]
+all = ["pyspark", "torch", "pytorch-ranger", "lightning"]
+
 [tool.poetry.group.dev.dependencies]
-# visualization
 jupyter = "~1.0.0"
 jupyterlab = "^3.6.0"
-# testing
 pytest = ">=7.1.0"
 pytest-cov = ">=3.0.0"
 statsmodels = "~0.13.5"
-# style
-black = "^23.3"
-pre-commit = ">=2.21.0"
-pylint = "^2.13"
-pycodestyle = "^2.10"
-# docs
+black = ">=23.3.0"
+ruff = ">=0.0.261"
+toml-sort = "^0.23.0"
 sphinx = "5.3.0"
 sphinx-rtd-theme = "1.2.2"
 sphinx-autodoc-typehints = "1.23.0"
@@ -88,26 +98,45 @@ sphinx-enum-extend = "0.1.3"
 myst-parser = "1.0.0"
 ghp-import = "2.1.0"
 docutils = "0.16"
-# stubs
 data-science-types = "0.2.23"
-
-[tool.poetry.extras]
-spark = ["pyspark"]
-torch = ["torch", "pytorch-ranger", "lightning"]
-all = ["pyspark", "torch", "pytorch-ranger", "lightning"]
-
-[build-system]
-requires = [
-    "poetry-core>=1.0.0",
-    "poetry-dynamic-versioning>=1.0.0,<2.0.0",
-]
-build-backend = "poetry_dynamic_versioning.backend"
 
 [tool.poetry-dynamic-versioning]
 enable = true
-format-jinja = """0.15.1{{ env['PACKAGE_SUFFIX'] }}"""
+format-jinja = """0.17.0{{ env['PACKAGE_SUFFIX'] }}"""
 vcs = "git"
 
-[tool.black]
+[tool.ruff]
+exclude = [".git", ".venv", "__pycache__", "env", "venv", "docs", "projects", "examples"]
+extend-select = ["C90", "T10", "T20", "UP004"]
 line-length = 120
-target-versions = ["py38", "py39", "py310"]
+select = ["ARG", "C4", "E", "EM", "ERA", "F", "FLY", "I", "INP", "ISC", "N", "PERF", "PGH", "PIE", "PYI", "Q", "RUF", "SIM", "TID", "W"]
+
+[tool.ruff.flake8-quotes]
+docstring-quotes = "double"
+inline-quotes = "double"
+multiline-quotes = "double"
+
+[tool.ruff.flake8-unused-arguments]
+ignore-variadic-names = false
+
+[tool.ruff.isort]
+combine-as-imports = true
+force-wrap-aliases = true
+
+[tool.ruff.mccabe]
+max-complexity = 13
+
+[tool.ruff.per-file-ignores]
+"*/" = ["PERF203", "RUF001", "RUF002", "RUF012", "E402"]
+"__init__.py" = ["F401"]
+"replay/utils/model_handler.py" = ["F403", "F405"]
+"tests/*" = ["ARG", "E402", "INP", "ISC", "N", "S", "SIM", "F811"]
+"tests/experimental/*" = ["F401", "F811"]
+"replay/experimental/models/extensions/spark_custom_models/als_extension.py" = ["ARG002", "N802", "N803", "N815"]
+
+[tool.tomlsort]
+ignore_case = true
+in_place = true
+no_comments = true
+spaces_indent_inline_array = 4
+trailing_comma_inline_array = true

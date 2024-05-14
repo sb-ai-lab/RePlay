@@ -3,17 +3,16 @@ from typing import List
 from .base_metric import Metric
 
 
-# pylint: disable=too-few-public-methods
 class HitRate(Metric):
     """
     Percentage of users that have at least one correctly recommended item\
         among top-k.
 
     .. math::
-        HitRate@K(i) = \max_{j \in [1..K]}\mathbb{1}_{r_{ij}}
+        HitRate@K(i) = \\max_{j \\in [1..K]}\\mathbb{1}_{r_{ij}}
 
     .. math::
-        HitRate@K = \\frac {\sum_{i=1}^{N}HitRate@K(i)}{N}
+        HitRate@K = \\frac {\\sum_{i=1}^{N}HitRate@K(i)}{N}
 
     :math:`\\mathbb{1}_{r_{ij}}` -- indicator function stating that user :math:`i` interacted with item :math:`j`
 
@@ -63,9 +62,7 @@ class HitRate(Metric):
     """
 
     @staticmethod
-    def _get_metric_value_by_user(  # pylint: disable=arguments-differ
-        ks: List[int], ground_truth: List, pred: List
-    ) -> List[float]:
+    def _get_metric_value_by_user(ks: List[int], ground_truth: List, pred: List) -> List[float]:
         if not ground_truth or not pred:
             return [0.0 for _ in ks]
         set_gt = set(ground_truth)

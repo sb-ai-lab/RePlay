@@ -1,6 +1,4 @@
-# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import, wildcard-import, unused-wildcard-import
 from os.path import dirname, join
-from typing import Optional
 
 import pandas as pd
 import pytest
@@ -8,28 +6,34 @@ import pytest
 pyspark = pytest.importorskip("pyspark")
 
 import replay
-from replay.data import Dataset
+from replay.models import ItemKNN
 from replay.preprocessing.label_encoder import LabelEncoder, LabelEncodingRule
-from replay.splitters import *
-from replay.models import ItemKNN, Recommender
-from replay.utils import SparkDataFrame
+from replay.splitters import (
+    ColdUserRandomSplitter,
+    LastNSplitter,
+    NewUsersSplitter,
+    RandomSplitter,
+    RatioSplitter,
+    TimeSplitter,
+    TwoStageSplitter,
+)
 from replay.utils.model_handler import (
-    save,
     load,
-    load_splitter,
-    save_splitter,
     load_encoder,
+    load_splitter,
+    save,
     save_encoder,
+    save_splitter,
 )
 from replay.utils.spark_utils import convert2spark
-from tests.utils import create_dataset, sparkDataFrameEqual, long_log_with_features, spark
+from tests.utils import create_dataset, sparkDataFrameEqual
 
 
 @pytest.fixture
 def user_features(spark):
-    return spark.createDataFrame(
-        [(1, 20.0, -3.0, 1), (2, 30.0, 4.0, 0), (3, 40.0, 0.0, 1)]
-    ).toDF("user_idx", "age", "mood", "gender")
+    return spark.createDataFrame([(1, 20.0, -3.0, 1), (2, 30.0, 4.0, 0), (3, 40.0, 0.0, 1)]).toDF(
+        "user_idx", "age", "mood", "gender"
+    )
 
 
 @pytest.fixture
@@ -63,15 +67,20 @@ def df():
         (ColdUserRandomSplitter, {"test_size": 0.8, "seed": 123, "query_column": "user_id"}),
         (
             TwoStageSplitter,
-            {"second_divide_size": 1, "first_divide_size": 0.2, "seed": 123, "query_column": "user_id",
-             "first_divide_column": "user_id"},
+            {
+                "second_divide_size": 1,
+                "first_divide_size": 0.2,
+                "seed": 123,
+                "query_column": "user_id",
+                "first_divide_column": "user_id",
+            },
         ),
     ],
 )
 def test_splitter(splitter, init_args, df, tmp_path):
     path = (tmp_path / "splitter").resolve()
     splitter = splitter(**init_args)
-    df = df.withColumnRenamed('user_idx', 'user_id').withColumnRenamed('item_idx', 'item_id')
+    df = df.withColumnRenamed("user_idx", "user_id").withColumnRenamed("item_idx", "item_id")
     save_splitter(splitter, path)
     save_splitter(splitter, path, overwrite=True)
     train, test = splitter.split(df)

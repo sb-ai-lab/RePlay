@@ -1,16 +1,10 @@
-# pylint: disable-all
-
 import pandas as pd
 import pytest
 
 from replay.models import ClusterRec
 from tests.utils import (
     create_dataset,
-    long_log_with_features,
-    short_log_with_features,
-    spark,
     sparkDataFrameEqual,
-    user_features,
 )
 
 pyspark = pytest.importorskip("pyspark")
@@ -24,9 +18,7 @@ def users_features(user_features):
     return user_features.drop("gender")
 
 
-def test_works(
-    long_log_with_features, short_log_with_features, users_features
-):
+def test_works(long_log_with_features, short_log_with_features, users_features):
     model = ClusterRec()
     train_dataset = create_dataset(long_log_with_features, user_features=users_features)
     test_dataset = create_dataset(short_log_with_features, user_features=users_features)
@@ -46,9 +38,7 @@ def test_cold_user(long_log_with_features, users_features):
     train = long_log_with_features.filter("user_idx < 2")
     train_dataset = create_dataset(train, users_features)
     model.fit(train_dataset)
-    res = model.predict(
-        train_dataset, 2, queries=convert2spark(pd.DataFrame({"user_idx": [1]}))
-    )
+    res = model.predict(train_dataset, 2, queries=convert2spark(pd.DataFrame({"user_idx": [1]})))
     assert res.count() == 2
     assert res.select("user_idx").distinct().collect()[0][0] == 1
     assert res.filter(sf.col("relevance").isNull()).count() == 0
@@ -58,9 +48,7 @@ def test_predict_pairs(long_log_with_features, users_features):
     model = ClusterRec()
     train_dataset = create_dataset(long_log_with_features, users_features)
     model.fit(train_dataset)
-    pairs = long_log_with_features.select("user_idx", "item_idx").filter(
-        sf.col("user_idx") == 1
-    )
+    pairs = long_log_with_features.select("user_idx", "item_idx").filter(sf.col("user_idx") == 1)
     res = model.predict_pairs(
         pairs,
         dataset=train_dataset,
@@ -72,16 +60,10 @@ def test_predict_pairs(long_log_with_features, users_features):
 
 def test_raises(long_log_with_features, users_features):
     model = ClusterRec()
-    with pytest.raises(
-        TypeError, match="missing 1 required positional argument"
-    ):
+    with pytest.raises(TypeError, match="missing 1 required positional argument"):
         train_dataset = create_dataset(long_log_with_features, users_features)
         model.fit(train_dataset)
-        model.predict_pairs(
-            long_log_with_features.filter(sf.col("user_idx") == 1).select(
-                "user_idx", "item_idx"
-            )
-        )
+        model.predict_pairs(long_log_with_features.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"))
 
 
 def test_predict_empty_log(long_log_with_features, users_features):
@@ -112,9 +94,7 @@ def test_raise_without_features(long_log_with_features, users_features):
         model = ClusterRec()
         train_dataset = create_dataset(long_log_with_features, user_features=users_features)
         test_dataset = create_dataset(long_log_with_features)
-        pairs = long_log_with_features.select("user_idx", "item_idx").filter(
-            sf.col("user_idx") == 1
-        )
+        pairs = long_log_with_features.select("user_idx", "item_idx").filter(sf.col("user_idx") == 1)
         model.fit(train_dataset)
         model.predict_pairs(
             pairs,

@@ -3,13 +3,12 @@ from typing import Optional
 import numpy as np
 from scipy.sparse import csr_matrix
 
-from replay.utils import DataFrameLike, SparkDataFrame, PYSPARK_AVAILABLE
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
     from replay.utils.spark_utils import spark_to_pandas
 
 
-# pylint: disable=too-few-public-methods
 class CSRConverter:
     """
     Convert input data to csr sparse matrix.
@@ -47,7 +46,6 @@ class CSRConverter:
     <BLANKLINE>
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         first_dim_column: str,
@@ -96,10 +94,7 @@ class CSRConverter:
 
         rows_data = data[self.first_dim_column].values
         cols_data = data[self.second_dim_column].values
-        if self.data_column is not None:
-            data = data[self.data_column].values
-        else:
-            data = np.ones(data.shape[0])
+        data = data[self.data_column].values if self.data_column is not None else np.ones(data.shape[0])
 
         def _get_max(data: np.ndarray) -> int:
             return np.max(data) if data.shape[0] > 0 else 0

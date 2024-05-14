@@ -2,8 +2,9 @@ from collections import defaultdict
 from typing import Dict, List, Union
 
 import numpy as np
+import polars as pl
 
-from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 from .base_metric import (
     Metric,
@@ -15,11 +16,12 @@ from .base_metric import (
 from .descriptors import CalculationDescriptor, Mean
 
 if PYSPARK_AVAILABLE:
-    from pyspark.sql import Window
-    from pyspark.sql import functions as F
+    from pyspark.sql import (
+        Window,
+        functions as sf,
+    )
 
 
-# pylint: disable=too-few-public-methods
 class CategoricalDiversity(Metric):
     """
     Metric calculation is as follows:
@@ -58,7 +60,6 @@ class CategoricalDiversity(Metric):
     <BLANKLINE>
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         topk: Union[List, int],
@@ -87,7 +88,8 @@ class CategoricalDiversity(Metric):
         """
         Compute metric.
 
-        :param recommendations: (PySpark DataFrame or Pandas DataFrame or dict): model predictions.
+        :param recommendations: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict):
+            model predictions.
             If DataFrame then it must contains user, category and score columns.
             If dict then key represents user_ids, value represents list of tuple(category, score).
 
@@ -95,6 +97,8 @@ class CategoricalDiversity(Metric):
         """
         if isinstance(recommendations, SparkDataFrame):
             return self._spark_call(recommendations)
+        if isinstance(recommendations, PolarsDataFrame):
+            return self._polars_call(recommendations)
         is_pandas = isinstance(recommendations, PandasDataFrame)
         recommendations = (
             self._convert_pandas_to_dict_with_score(recommendations)
@@ -104,28 +108,47 @@ class CategoricalDiversity(Metric):
         precalculated_answer = self._precalculate_unique_cats(recommendations)
         return self._dict_call(precalculated_answer)
 
-    # pylint: disable=arguments-differ
     def _get_enriched_recommendations(
-        self, recommendations: SparkDataFrame
-    ) -> SparkDataFrame:
-        window = Window.partitionBy(self.query_column).orderBy(
-            F.col(self.rating_column).desc()
+        self,
+        recommendations: Union[PolarsDataFrame, SparkDataFrame],
+    ) -> Union[PolarsDataFrame, SparkDataFrame]:
+        if isinstance(recommendations, SparkDataFrame):
+            return self._get_enriched_recommendations_spark(recommendations)
+        else:
+            return self._get_enriched_recommendations_polars(recommendations)
+
+    def _get_enriched_recommendations_spark(self, recommendations: SparkDataFrame) -> SparkDataFrame:
+        window = Window.partitionBy(self.query_column).orderBy(sf.col(self.rating_column).desc())
+        sorted_by_score_recommendations = recommendations.withColumn("rank", sf.row_number().over(window))
+        return sorted_by_score_recommendations
+
+    def _get_enriched_recommendations_polars(self, recommendations: PolarsDataFrame) -> PolarsDataFrame:
+        sorted_by_score_recommendations = recommendations.select(
+            pl.all().sort_by(self.rating_column, descending=True).over(self.query_column)
         )
-        sorted_by_score_recommendations = recommendations.withColumn(
-            "rank", F.row_number().over(window)
+        sorted_by_score_recommendations = sorted_by_score_recommendations.with_columns(
+            sorted_by_score_recommendations.select(
+                pl.col(self.query_column).cum_count().over(self.query_column).alias("rank")
+            )
         )
         return sorted_by_score_recommendations
 
     def _spark_compute_per_user(self, recs: SparkDataFrame) -> MetricsPerUserReturnType:
         distribution_per_user = defaultdict(list)
         for k in self.topk:
-            filtered_recs = recs.filter(F.col("rank") <= k)
-            aggreagated_by_user = filtered_recs.groupBy(self.query_column).agg(
-                F.countDistinct(self.category_column)
-            )
-            aggreagated_by_user_dict = (
-                aggreagated_by_user.rdd.collectAsMap()
-            )  # type:ignore
+            filtered_recs = recs.filter(sf.col("rank") <= k)
+            aggreagated_by_user = filtered_recs.groupBy(self.query_column).agg(sf.countDistinct(self.category_column))
+            aggreagated_by_user_dict = aggreagated_by_user.rdd.collectAsMap()
+            for user, metric in aggreagated_by_user_dict.items():
+                distribution_per_user[user].append(metric / k)
+        return self._aggregate_results_per_user(dict(distribution_per_user))
+
+    def _polars_compute_per_user(self, recs: PolarsDataFrame) -> MetricsPerUserReturnType:
+        distribution_per_user = defaultdict(list)
+        for k in self.topk:
+            filtered_recs = recs.filter(pl.col("rank") <= k)
+            aggreagated_by_user = filtered_recs.group_by(self.query_column).agg(pl.col(self.category_column).n_unique())
+            aggreagated_by_user_dict = dict(aggreagated_by_user.iter_rows())
             for user, metric in aggreagated_by_user_dict.items():
                 distribution_per_user[user].append(metric / k)
         return self._aggregate_results_per_user(dict(distribution_per_user))
@@ -133,16 +156,27 @@ class CategoricalDiversity(Metric):
     def _spark_compute_agg(self, recs: SparkDataFrame) -> MetricsMeanReturnType:
         metrics = []
         for k in self.topk:
-            filtered_recs = recs.filter(F.col("rank") <= k)
+            filtered_recs = recs.filter(sf.col("rank") <= k)
             aggregated_by_user = (
                 filtered_recs.groupBy(self.query_column)
-                .agg(F.countDistinct(self.category_column))
+                .agg(sf.countDistinct(self.category_column))
                 .drop(self.query_column)
             )
             metrics.append(self._mode.spark(aggregated_by_user) / k)
         return self._aggregate_results(metrics)
 
-    # pylint: disable=arguments-differ
+    def _polars_compute_agg(self, recs: PolarsDataFrame) -> MetricsMeanReturnType:
+        metrics = []
+        for k in self.topk:
+            filtered_recs = recs.filter(pl.col("rank") <= k)
+            aggregated_by_user = (
+                filtered_recs.group_by(self.query_column)
+                .agg(pl.col(self.category_column).n_unique())
+                .drop(self.query_column)
+            )
+            metrics.append(self._mode.cpu(aggregated_by_user) / k)
+        return self._aggregate_results(metrics)
+
     def _spark_call(self, recommendations: SparkDataFrame) -> MetricsReturnType:
         """
         Implementation for Pyspark DataFrame.
@@ -152,6 +186,15 @@ class CategoricalDiversity(Metric):
             return self._spark_compute_per_user(recs)
         return self._spark_compute_agg(recs)
 
+    def _polars_call(self, recommendations: PolarsDataFrame) -> MetricsReturnType:
+        """
+        Implementation for Polars DataFrame.
+        """
+        recs = self._get_enriched_recommendations(recommendations)
+        if self._mode.__name__ == "PerUser":
+            return self._polars_compute_per_user(recs)
+        return self._polars_compute_agg(recs)
+
     def _convert_pandas_to_dict_with_score(self, data: PandasDataFrame) -> Dict:
         return (
             data.sort_values(by=self.rating_column, ascending=False)
@@ -160,7 +203,6 @@ class CategoricalDiversity(Metric):
             .to_dict()
         )
 
-    # pylint: disable=no-self-use
     def _precalculate_unique_cats(self, recommendations: Dict) -> Dict:
         """
         Precalculate unique categories for each prefix for each user.
@@ -175,24 +217,16 @@ class CategoricalDiversity(Metric):
             answer[user] = unique_len
         return answer
 
-    # pylint: disable=arguments-renamed,arguments-differ
-    def _dict_compute_per_user(
-        self, precalculated_answer: Dict
-    ) -> MetricsPerUserReturnType:  # type:ignore
+    def _dict_compute_per_user(self, precalculated_answer: Dict) -> MetricsPerUserReturnType:
         distribution_per_user = defaultdict(list)
         for k in self.topk:
             for user, unique_cats in precalculated_answer.items():
-                distribution_per_user[user].append(
-                    unique_cats[min(len(unique_cats), k) - 1] / k
-                )
+                distribution_per_user[user].append(unique_cats[min(len(unique_cats), k) - 1] / k)
         return self._aggregate_results_per_user(distribution_per_user)
 
-    # pylint: disable=arguments-renamed
-    def _dict_compute_mean(
-        self, precalculated_answer: Dict
-    ) -> MetricsMeanReturnType:  # type:ignore
+    def _dict_compute_mean(self, precalculated_answer: Dict) -> MetricsMeanReturnType:
         distribution_list = []
-        for _, unique_cats in precalculated_answer.items():
+        for unique_cats in precalculated_answer.values():
             metrics_per_user = []
             for k in self.topk:
                 metric = unique_cats[min(len(unique_cats), k) - 1] / k
@@ -201,12 +235,9 @@ class CategoricalDiversity(Metric):
 
         distribution = np.stack(distribution_list)
         assert distribution.shape[1] == len(self.topk)
-        metrics = []
-        for k in range(distribution.shape[1]):
-            metrics.append(self._mode.cpu(distribution[:, k]))
+        metrics = [self._mode.cpu(distribution[:, k]) for k in range(distribution.shape[1])]
         return self._aggregate_results(metrics)
 
-    # pylint: disable=arguments-differ
     def _dict_call(self, precalculated_answer: Dict) -> MetricsReturnType:
         """
         Calculating metrics in dict format.
@@ -216,7 +247,5 @@ class CategoricalDiversity(Metric):
         return self._dict_compute_mean(precalculated_answer)
 
     @staticmethod
-    def _get_metric_value_by_user(
-        ks: List[int], *args: List
-    ) -> List[float]:  # pragma: no cover
+    def _get_metric_value_by_user(ks: List[int], *args: List) -> List[float]:  # pragma: no cover
         pass

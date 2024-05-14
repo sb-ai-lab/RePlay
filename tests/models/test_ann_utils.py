@@ -1,9 +1,7 @@
-# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import numpy as np
 import pytest
 
 from replay.models.extensions.ann.index_inferers.utils import get_csr_matrix
-from tests.utils import log2, spark
 
 pyspark = pytest.importorskip("pyspark")
 
@@ -27,8 +25,6 @@ def test_get_csr_matrix(spark, log2):
 
     actual_array = csr_matrix.toarray()
 
-    expected_array = np.array(
-        [[3.0, 1.0, 2.0, 0.0], [3.0, 0.0, 0.0, 4.0], [0.0, 3.0, 0.0, 0.0]]
-    )
+    expected_array = np.array([[3.0, 1.0, 2.0, 0.0], [3.0, 0.0, 0.0, 4.0], [0.0, 3.0, 0.0, 0.0]])
 
     assert np.array_equal(actual_array, expected_array)

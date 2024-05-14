@@ -3,7 +3,6 @@ from typing import List
 from .base_metric import Metric
 
 
-# pylint: disable=too-few-public-methods
 class Recall(Metric):
     """
     Recall measures the coverage of the recommended items, and is defined as:
@@ -11,10 +10,10 @@ class Recall(Metric):
     Mean percentage of relevant items, that was shown among top ``K`` recommendations.
 
     .. math::
-        Recall@K(i) = \\frac {\sum_{j=1}^{K}\mathbb{1}_{r_{ij}}}{|Rel_i|}
+        Recall@K(i) = \\frac {\\sum_{j=1}^{K}\\mathbb{1}_{r_{ij}}}{|Rel_i|}
 
     .. math::
-        Recall@K = \\frac {\sum_{i=1}^{N}Recall@K(i)}{N}
+        Recall@K = \\frac {\\sum_{i=1}^{N}Recall@K(i)}{N}
 
     :math:`\\mathbb{1}_{r_{ij}}` -- indicator function showing that user :math:`i` interacted with item :math:`j`
 
@@ -66,9 +65,7 @@ class Recall(Metric):
     """
 
     @staticmethod
-    def _get_metric_value_by_user(  # pylint: disable=arguments-differ
-        ks: List[int], ground_truth: List, pred: List
-    ) -> List[float]:
+    def _get_metric_value_by_user(ks: List[int], ground_truth: List, pred: List) -> List[float]:
         if not ground_truth or not pred:
             return [0.0 for _ in ks]
         set_gt = set(ground_truth)

@@ -1,29 +1,21 @@
-# pylint: disable-all
 from dataclasses import dataclass
-from datetime import datetime
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
 
-from replay.metrics import MAP, MRR, NDCG, Coverage, HitRate, Surprisal
-from replay.metrics.experiment import Experiment
-from replay.experimental.preprocessing.data_preparator import DataPreparator, Indexer
-
-import tests.utils
-from tests.utils import del_files_by_pattern, find_file_by_pattern, spark
-
+from replay.experimental.models.dt4rec.dt4rec import DT4Rec
+from replay.experimental.models.dt4rec.gpt1 import GPT, Block, CausalSelfAttention
 from replay.experimental.models.dt4rec.utils import (
+    ValidateDataset,
     create_dataset as create_dt4rec_dataset,
     fast_create_dataset,
-    ValidateDataset,
-    matrix2df
+    matrix2df,
 )
-from replay.experimental.models.dt4rec.gpt1 import CausalSelfAttention, Block, GPT
-from replay.experimental.models.dt4rec.dt4rec import DT4Rec
+from replay.experimental.preprocessing.data_preparator import DataPreparator, Indexer
 
 
 @dataclass
@@ -166,9 +158,9 @@ def test_matrix2df():
 def test_train():
     df = pd.DataFrame(
         {
-            "timestamp": [i for i in range(60)] + [i for i in range(60)],
+            "timestamp": list(range(60)) + list(range(60)),
             "user_id": [0 for i in range(60)] + [1 for i in range(60)],
-            "item_id": [i for i in range(60)] + [i for i in range(60)],
+            "item_id": list(range(60)) + list(range(60)),
             "rating": [1 for i in range(60)] + [1 for i in range(60)],
         }
     )

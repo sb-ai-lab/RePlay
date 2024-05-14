@@ -6,11 +6,12 @@ from replay.utils.spark_utils import convert2spark
 from .base_metric import RecOnlyMetric, process_k
 
 if PYSPARK_AVAILABLE:
-    from pyspark.sql import Window
-    from pyspark.sql import functions as sf
+    from pyspark.sql import (
+        Window,
+        functions as sf,
+    )
 
 
-# pylint: disable=too-few-public-methods, arguments-differ, unused-argument
 class Coverage(RecOnlyMetric):
     """
     Metric calculation is as follows:
@@ -21,16 +22,12 @@ class Coverage(RecOnlyMetric):
 
     """
 
-    def __init__(
-        self, log: DataFrameLike
-    ):  # pylint: disable=super-init-not-called
+    def __init__(self, log: DataFrameLike):
         """
         :param log: pandas or Spark DataFrame
                     It is important for ``log`` to contain all available items.
         """
-        self.items = (
-            convert2spark(log).select("item_idx").distinct()  # type: ignore
-        )
+        self.items = convert2spark(log).select("item_idx").distinct()
         self.item_count = self.items.count()
 
     @staticmethod
@@ -38,27 +35,24 @@ class Coverage(RecOnlyMetric):
         # not averaged by users
         pass
 
-    # pylint: disable=no-self-use
     def _get_enriched_recommendations(
         self,
         recommendations: DataFrameLike,
-        ground_truth: DataFrameLike,
-        max_k: int,
+        ground_truth: DataFrameLike,  # noqa: ARG002
+        max_k: int,  # noqa: ARG002
         ground_truth_users: Optional[DataFrameLike] = None,
     ) -> SparkDataFrame:
         recommendations = convert2spark(recommendations)
         if ground_truth_users is not None:
             ground_truth_users = convert2spark(ground_truth_users)
-            return recommendations.join(
-                ground_truth_users, on="user_idx", how="inner"
-            )
+            return recommendations.join(ground_truth_users, on="user_idx", how="inner")
         return recommendations
 
     def _conf_interval(
         self,
-        recs: DataFrameLike,
+        recs: DataFrameLike,  # noqa: ARG002
         k_list: IntOrList,
-        alpha: float = 0.95,
+        alpha: float = 0.95,  # noqa: ARG002
     ) -> Union[Dict[int, float], float]:
         if isinstance(k_list, int):
             return 0.0
@@ -77,26 +71,17 @@ class Coverage(RecOnlyMetric):
         recs: SparkDataFrame,
         k_list: list,
     ) -> Union[Dict[int, NumType], NumType]:
-        unknown_item_count = (
-            recs.select("item_idx")  # type: ignore
-            .distinct()
-            .exceptAll(self.items)
-            .count()
-        )
+        unknown_item_count = recs.select("item_idx").distinct().exceptAll(self.items).count()
         if unknown_item_count > 0:
             self.logger.warning(
                 "Recommendations contain items that were not present in the log. "
-                "The resulting metric value can be more than 1.0 ¯\_(ツ)_/¯"
+                r"The resulting metric value can be more than 1.0 ¯\_(ツ)_/¯"
             )
 
         best_positions = (
             recs.withColumn(
                 "row_num",
-                sf.row_number().over(
-                    Window.partitionBy("user_idx").orderBy(
-                        sf.desc("relevance")
-                    )
-                ),
+                sf.row_number().over(Window.partitionBy("user_idx").orderBy(sf.desc("relevance"))),
             )
             .select("item_idx", "row_num")
             .groupBy("item_idx")
@@ -106,12 +91,7 @@ class Coverage(RecOnlyMetric):
 
         res = {}
         for current_k in k_list:
-            res[current_k] = (
-                best_positions.filter(
-                    sf.col("best_position") <= current_k
-                ).count()
-                / self.item_count
-            )
+            res[current_k] = best_positions.filter(sf.col("best_position") <= current_k).count() / self.item_count
 
         best_positions.unpersist()
         return res

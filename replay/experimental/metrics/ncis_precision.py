@@ -3,16 +3,15 @@ import numpy as np
 from .base_metric import NCISMetric
 
 
-# pylint: disable=too-few-public-methods
 class NCISPrecision(NCISMetric):
     """
     Share of relevant items among top ``K`` recommendations with NCIS weighting.
 
     .. math::
-        Precision@K(i) = \\frac {\sum_{j=1}^{K}\mathbb{1}_{r_{ij} w_{ij}}}{\sum_{j=1}^{K} w_{ij}}
+        Precision@K(i) = \\frac {\\sum_{j=1}^{K}\\mathbb{1}_{r_{ij} w_{ij}}}{\\sum_{j=1}^{K} w_{ij}}
 
     .. math::
-        Precision@K = \\frac {\sum_{i=1}^{N}Precision@K(i)}{N}
+        Precision@K = \\frac {\\sum_{i=1}^{N}Precision@K(i)}{N}
 
     :math:`\\mathbb{1}_{r_{ij}}` -- indicator function
         showing that user :math:`i` interacted with item :math:`j`

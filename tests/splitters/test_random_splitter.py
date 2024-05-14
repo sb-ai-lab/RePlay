@@ -1,11 +1,10 @@
-# pylint: disable-all
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 
 from replay.splitters import RandomSplitter
-from replay.utils import PYSPARK_AVAILABLE
-from tests.utils import spark
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
@@ -43,9 +42,7 @@ def spark_dataframe_test(spark):
         (3, 1, "04-01-2020", 6),
         (3, 2, "05-01-2020", 6),
     ]
-    return spark.createDataFrame(data, schema=columns).withColumn(
-        "timestamp", sf.to_date("timestamp", "dd-MM-yyyy")
-    )
+    return spark.createDataFrame(data, schema=columns).withColumn("timestamp", sf.to_date("timestamp", "dd-MM-yyyy"))
 
 
 @pytest.fixture(scope="module")
@@ -76,9 +73,24 @@ def pandas_dataframe_test():
 
 
 @pytest.fixture()
+def polars_dataframe_test(pandas_dataframe_test):
+    return pl.from_pandas(pandas_dataframe_test)
+
+
+@pytest.fixture()
 @pytest.mark.usefixtures("spark")
 def log_spark(spark, log):
     return spark.createDataFrame(log)
+
+
+@pytest.fixture()
+def log_polars(log):
+    return pl.from_pandas(log)
+
+
+@pytest.fixture()
+def log_not_implemented(log):
+    return log.to_numpy()
 
 
 SEED = 7777
@@ -90,7 +102,8 @@ test_sizes = [0.1, 0.3, 0.5, 0.7, 0.9]
     [
         pytest.param("log_spark", marks=pytest.mark.spark),
         pytest.param("log", marks=pytest.mark.core),
-    ]
+        pytest.param("log_polars", marks=pytest.mark.core),
+    ],
 )
 @pytest.mark.parametrize("test_size", test_sizes)
 def test_nothing_is_lost(test_size, dataset_type, request):
@@ -103,7 +116,7 @@ def test_nothing_is_lost(test_size, dataset_type, request):
     )
     train, test = splitter.split(log)
 
-    if isinstance(log, pd.DataFrame):
+    if not isinstance(log, SparkDataFrame):
         real_test_size = test.shape[0] / len(log)
         assert train.shape[0] + test.shape[0] == len(log)
     else:
@@ -123,7 +136,8 @@ def test_bad_test_size():
     [
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
-    ]
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
+    ],
 )
 def test_with_session_ids(dataset_type, request):
     log = request.getfixturevalue(dataset_type)
@@ -135,7 +149,7 @@ def test_with_session_ids(dataset_type, request):
     )
     train, test = splitter.split(log)
 
-    if isinstance(log, pd.DataFrame):
+    if not isinstance(log, SparkDataFrame):
         assert train.shape[0] + test.shape[0] == log.shape[0]
     else:
         assert train.count() + test.count() == log.count()
@@ -146,7 +160,8 @@ def test_with_session_ids(dataset_type, request):
     [
         pytest.param("log_spark", marks=pytest.mark.spark),
         pytest.param("log", marks=pytest.mark.core),
-    ]
+        pytest.param("log_polars", marks=pytest.mark.core),
+    ],
 )
 def test_with_multiple_splitting(dataset_type, request):
     log = request.getfixturevalue(dataset_type)
@@ -158,7 +173,7 @@ def test_with_multiple_splitting(dataset_type, request):
     )
     train, test = splitter.split(log)
 
-    if isinstance(log, pd.DataFrame):
+    if not isinstance(log, SparkDataFrame):
         real_test_size = test.shape[0] / len(log)
         assert train.shape[0] + test.shape[0] == log.shape[0]
     else:
@@ -166,3 +181,9 @@ def test_with_multiple_splitting(dataset_type, request):
         assert train.count() + test.count() == log.count()
 
     assert np.isclose(real_test_size, 0.6, atol=0.015)
+
+
+@pytest.mark.core
+def test_not_implemented_dataframe(log_not_implemented):
+    with pytest.raises(NotImplementedError):
+        RandomSplitter(0.2).split(log_not_implemented)

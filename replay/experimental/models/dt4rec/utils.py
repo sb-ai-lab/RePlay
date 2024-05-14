@@ -1,5 +1,3 @@
-# pylint: disable=invalid-name
-
 import bisect
 import random
 from typing import List, Union
@@ -9,6 +7,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from replay.utils import TORCH_AVAILABLE
+
 if TORCH_AVAILABLE:
     import torch
     from torch.optim import Optimizer
@@ -38,7 +37,6 @@ class StateActionReturnDataset(Dataset):
         self.len = 0
         self.prefix_lens = [0]
         for trajectory in self.user_trajectory:
-            # print(f'{trajectory=}')
             self.len += max(1, len(trajectory["actions"]) - 30 + 1)
             self.prefix_lens.append(self.len)
 
@@ -109,16 +107,16 @@ def pad_sequence(
     if pos == "right":
         padded_sequence = torch.nn.utils.rnn.pad_sequence(sequences, batch_first, padding_value)
     elif pos == "left":
-        sequences = tuple(map(lambda s: s.flip(0), sequences))
+        sequences = tuple(s.flip(0) for s in sequences)
         padded_sequence = torch.nn.utils.rnn.pad_sequence(sequences, batch_first, padding_value)
         _seq_dim = padded_sequence.dim()
         padded_sequence = padded_sequence.flip(-_seq_dim + batch_first)
     else:
-        raise ValueError(f"pos should be either 'right' or 'left', but got {pos}")
+        msg = f"pos should be either 'right' or 'left', but got {pos}"
+        raise ValueError(msg)
     return padded_sequence
 
 
-# pylint: disable=too-few-public-methods
 class Collator:
     """
     Callable class to merge several items to one batch
@@ -153,18 +151,14 @@ def matrix2df(matrix, users=None, items=None):
     """
     Creata DataFrame from matrix
     """
-    HEADER = ["user_idx", "item_idx", "relevance"]
-    if users is None:
-        users = np.arange(matrix.shape[0])
-    else:
-        users = np.array(users.cpu())
+    users = np.arange(matrix.shape[0]) if users is None else np.array(users.cpu())
     if items is None:
         items = np.arange(matrix.shape[1])
     x1 = np.repeat(users, len(items))
     x2 = np.tile(items, len(users))
     x3 = np.array(matrix.cpu()).flatten()
 
-    return pd.DataFrame(np.array([x1, x2, x3]).T, columns=HEADER)
+    return pd.DataFrame(np.array([x1, x2, x3]).T, columns=["user_idx", "item_idx", "relevance"])
 
 
 class WarmUpScheduler(_LRScheduler):
@@ -172,7 +166,6 @@ class WarmUpScheduler(_LRScheduler):
     Implementation of WarmUp
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         optimizer: Optimizer,
@@ -199,7 +192,6 @@ def calc_lr(step, dim_embed, warmup_steps):
     return dim_embed ** (-0.5) * min(step ** (-0.5), step * warmup_steps ** (-1.5))
 
 
-# pylint: disable=too-many-arguments
 def create_dataset(
     df, user_num, item_pad, time_col="timestamp", user_col="user_idx", item_col="item_idx", relevance_col="relevance"
 ):
@@ -233,7 +225,6 @@ def create_dataset(
 
 
 # For debug
-# pylint: disable=too-many-locals
 def fast_create_dataset(
     df,
     user_num,

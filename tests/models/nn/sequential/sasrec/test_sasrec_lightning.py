@@ -4,7 +4,8 @@ from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
     from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
-    from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionDataset, SasRecPredictionBatch
+    from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionBatch, SasRecPredictionDataset
+
 
 torch = pytest.importorskip("torch")
 L = pytest.importorskip("lightning")
@@ -37,9 +38,7 @@ def test_training_sasrec_with_different_losses(
 @pytest.mark.torch
 def test_init_sasrec_with_invalid_loss_type(item_user_sequential_dataset):
     with pytest.raises(NotImplementedError) as exc:
-        SasRec(
-            tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_type=""
-        )
+        SasRec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_type="")
 
     assert str(exc.value) == "Not supported loss_type"
 
@@ -178,14 +177,8 @@ def test_sasrec_get_embeddings(tensor_schema):
     assert id(model_ti_item_embedding) != id(model_ti._model.item_embedder.item_emb)
 
     # Ensure we got same values
-    assert torch.eq(
-        model_item_embedding,
-        model._model.item_embedder.item_emb.weight.data[:-1, :]
-    ).all()
-    assert torch.eq(
-        model_ti_item_embedding,
-        model_ti._model.item_embedder.item_emb.weight.data[:-1, :]
-    ).all()
+    assert torch.eq(model_item_embedding, model._model.item_embedder.item_emb.weight.data[:-1, :]).all()
+    assert torch.eq(model_ti_item_embedding, model_ti._model.item_embedder.item_emb.weight.data[:-1, :]).all()
 
 
 @pytest.mark.torch
@@ -245,6 +238,20 @@ def test_sasrec_fine_tuning_on_new_items_by_appending(fitted_sasrec, new_items_d
 
 
 @pytest.mark.torch
+def test_sasrec_fine_tuning_save_load(fitted_sasrec, new_items_dataset, train_sasrec_loader):
+    model, tokenizer = fitted_sasrec
+    trainer = L.Trainer(max_epochs=1)
+    tokenizer.item_id_encoder.partial_fit(new_items_dataset)
+    new_vocab_size = len(tokenizer.item_id_encoder.mapping["item_id"])
+    model.set_item_embeddings_by_size(new_vocab_size)
+    trainer.fit(model, train_sasrec_loader)
+    trainer.save_checkpoint("test.ckpt")
+    best_model = SasRec.load_from_checkpoint("test.ckpt")
+
+    assert best_model.get_all_embeddings()["item_embedding"].shape[0] == new_vocab_size
+
+
+@pytest.mark.torch
 def test_sasrec_fine_tuning_errors(fitted_sasrec):
     model, _ = fitted_sasrec
 
@@ -268,7 +275,7 @@ def test_sasrec_get_init_parameters(fitted_sasrec):
     params = model.hparams
 
     assert params["tensor_schema"].item().cardinality == 4
-    assert params["max_seq_len"] == 200
+    assert params["max_seq_len"] == 5
     assert params["hidden_size"] == 50
 
 
@@ -276,10 +283,15 @@ def test_predict_step_with_small_seq_len(item_user_num_sequential_dataset, simpl
     item_sequences, padding_mask, _, _ = simple_masks
 
     model = SasRec(
-        tensor_schema=item_user_num_sequential_dataset._tensor_schema, max_seq_len=10, hidden_size=64, loss_sample_count=6
+        tensor_schema=item_user_num_sequential_dataset._tensor_schema,
+        max_seq_len=10,
+        hidden_size=64,
+        loss_sample_count=6,
     )
 
-    batch = SasRecPredictionBatch(torch.arange(0, 4), padding_mask, {"item_id": item_sequences, "num_feature": item_sequences})
+    batch = SasRecPredictionBatch(
+        torch.arange(0, 4), padding_mask, {"item_id": item_sequences, "num_feature": item_sequences}
+    )
     model.predict_step(batch, 0)
 
 

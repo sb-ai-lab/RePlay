@@ -11,7 +11,6 @@ from typing import (
     Set,
     Union,
     ValuesView,
-    Callable
 )
 
 import torch
@@ -23,7 +22,6 @@ TensorMap = Mapping[str, torch.Tensor]
 MutableTensorMap = Dict[str, torch.Tensor]
 
 
-# pylint: disable=too-many-instance-attributes
 class TensorFeatureSource:
     """
     Describes source of a feature
@@ -72,7 +70,6 @@ class TensorFeatureInfo:
     Information about a tensor feature.
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         name: str,
@@ -108,15 +105,18 @@ class TensorFeatureInfo:
         self._is_seq = is_seq
 
         if not isinstance(feature_type, FeatureType):
-            raise ValueError("Unknown feature type")
+            msg = "Unknown feature type"
+            raise ValueError(msg)
         self._feature_type = feature_type
 
         if feature_type == FeatureType.NUMERICAL and (cardinality or embedding_dim):
-            raise ValueError("Cardinality and embedding dimensions are needed only with categorical feature type.")
+            msg = "Cardinality and embedding dimensions are needed only with categorical feature type."
+            raise ValueError(msg)
         self._cardinality = cardinality
 
         if feature_type == FeatureType.CATEGORICAL and tensor_dim:
-            raise ValueError("Tensor dimensions is needed only with numerical feature type.")
+            msg = "Tensor dimensions is needed only with numerical feature type."
+            raise ValueError(msg)
 
         if feature_type == FeatureType.CATEGORICAL:
             default_embedding_dim = 64
@@ -168,7 +168,8 @@ class TensorFeatureInfo:
             return None
 
         if len(source) > 1:
-            raise ValueError("Only one element feature sources can be converted to single feature source.")
+            msg = "Only one element feature sources can be converted to single feature source."
+            raise ValueError(msg)
         assert isinstance(self.feature_sources, list)
         return self.feature_sources[0]
 
@@ -199,25 +200,12 @@ class TensorFeatureInfo:
         :returns: Cardinality of the feature.
         """
         if self.feature_type != FeatureType.CATEGORICAL:
-            raise RuntimeError(
-                f"Can not get cardinality because feature type of {self.name} column is not categorical."
-            )
-        if hasattr(self, "_cardinality_callback") and self._cardinality is None:
-            self._set_cardinality(self._cardinality_callback(self._name))
+            msg = f"Can not get cardinality because feature type of {self.name} column is not categorical."
+            raise RuntimeError(msg)
         return self._cardinality
-
-    # pylint: disable=attribute-defined-outside-init
-    def _set_cardinality_callback(self, callback: Callable) -> None:
-        self._cardinality_callback = callback
 
     def _set_cardinality(self, cardinality: int) -> None:
         self._cardinality = cardinality
-
-    def reset_cardinality(self) -> None:
-        """
-        Reset cardinality of the feature to None.
-        """
-        self._cardinality = None
 
     @property
     def tensor_dim(self) -> Optional[int]:
@@ -225,9 +213,8 @@ class TensorFeatureInfo:
         :returns: Dimensions of the numerical feature.
         """
         if self.feature_type != FeatureType.NUMERICAL:
-            raise RuntimeError(
-                f"Can not get tensor dimensions because feature type of {self.name} feature is not numerical."
-            )
+            msg = f"Can not get tensor dimensions because feature type of {self.name} feature is not numerical."
+            raise RuntimeError(msg)
         return self._tensor_dim
 
     def _set_tensor_dim(self, tensor_dim: int) -> None:
@@ -239,9 +226,8 @@ class TensorFeatureInfo:
         :returns: Embedding dimensions of the feature.
         """
         if self.feature_type != FeatureType.CATEGORICAL:
-            raise RuntimeError(
-                f"Can not get embedding dimensions because feature type of {self.name} feature is not categorical."
-            )
+            msg = f"Can not get embedding dimensions because feature type of {self.name} feature is not categorical."
+            raise RuntimeError(msg)
         return self._embedding_dim
 
     def _set_embedding_dim(self, embedding_dim: int) -> None:
@@ -278,8 +264,9 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
         :returns: Extract single feature from a schema.
         """
         if len(self._tensor_schema) != 1:
-            raise ValueError("Only one element tensor schema can be converted to single feature")
-        return list(self._tensor_schema.values())[0]
+            msg = "Only one element tensor schema can be converted to single feature"
+            raise ValueError(msg)
+        return next(iter(self._tensor_schema.values()))
 
     def items(self) -> ItemsView[str, TensorFeatureInfo]:
         return self._tensor_schema.items()
@@ -290,7 +277,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
     def values(self) -> ValuesView[TensorFeatureInfo]:
         return self._tensor_schema.values()
 
-    def get(  # type: ignore
+    def get(
         self,
         key: str,
         default: Optional[TensorFeatureInfo] = None,
@@ -377,7 +364,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
     @property
     def names(self) -> Sequence[str]:
         """
-       :returns: List of all feature's names.
+        :returns: List of all feature's names.
         """
         return list(self._tensor_schema)
 
@@ -447,7 +434,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
         for filtration_func, filtration_param in zip(filter_functions, filter_parameters):
             filtered_features = list(
                 filter(
-                    lambda x: filtration_func(x, filtration_param),  # type: ignore  # pylint: disable=W0640
+                    lambda x: filtration_func(x, filtration_param),
                     filtered_features,
                 )
             )

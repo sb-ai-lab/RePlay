@@ -3,7 +3,6 @@ import math
 from .base_metric import Metric
 
 
-# pylint: disable=too-few-public-methods
 class NDCG(Metric):
     """
     Normalized Discounted Cumulative Gain is a metric
@@ -13,7 +12,7 @@ class NDCG(Metric):
     whether the item was consumed or not, relevance value is ignored.
 
     .. math::
-        DCG@K(i) = \sum_{j=1}^{K}\\frac{\mathbb{1}_{r_{ij}}}{\log_2 (j+1)}
+        DCG@K(i) = \\sum_{j=1}^{K}\\frac{\\mathbb{1}_{r_{ij}}}{\\log_2 (j+1)}
 
 
     :math:`\\mathbb{1}_{r_{ij}}` -- indicator function showing that user :math:`i` interacted with item :math:`j`
@@ -22,7 +21,7 @@ class NDCG(Metric):
     for user :math:`i` and recommendation length :math:`K`.
 
     .. math::
-        IDCG@K(i) = max(DCG@K(i)) = \sum_{j=1}^{K}\\frac{\mathbb{1}_{j\le|Rel_i|}}{\log_2 (j+1)}
+        IDCG@K(i) = max(DCG@K(i)) = \\sum_{j=1}^{K}\\frac{\\mathbb{1}_{j\\le|Rel_i|}}{\\log_2 (j+1)}
 
     .. math::
         nDCG@K(i) = \\frac {DCG@K(i)}{IDCG@K(i)}
@@ -32,7 +31,7 @@ class NDCG(Metric):
     Metric is averaged by users.
 
     .. math::
-        nDCG@K = \\frac {\sum_{i=1}^{N}nDCG@K(i)}{N}
+        nDCG@K = \\frac {\\sum_{i=1}^{N}nDCG@K(i)}{N}
     """
 
     _scala_udf_name = "getNDCGMetricValue"

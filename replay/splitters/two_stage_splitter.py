@@ -1,17 +1,19 @@
 """
 This splitter split data by two columns.
 """
-from typing import Optional, Union
+from typing import Optional, Tuple
+
+import polars as pl
+
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 from .base_splitter import Splitter, SplitterReturnType
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
     from pyspark.sql import Window
 
 
-# pylint: disable=too-few-public-methods
 class TwoStageSplitter(Splitter):
     """
     Split data by two columns.
@@ -72,11 +74,10 @@ class TwoStageSplitter(Splitter):
         "timestamp_column",
     ]
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
-        first_divide_size: Union[float, int],
-        second_divide_size: Union[float, int],
+        first_divide_size: float,
+        second_divide_size: float,
         first_divide_column: str = "query_id",
         second_divide_column: str = "item_id",
         shuffle=False,
@@ -120,15 +121,18 @@ class TwoStageSplitter(Splitter):
     ) -> DataFrameLike:
         """
         :param interactions: input DataFrame
-        :return: Spark DataFrame with single column `first_divide_column`
+        :return: DataFrame with single column `first_divide_column`
         """
         if isinstance(interactions, SparkDataFrame):
             all_values = interactions.select(self.first_divide_column).distinct()
             user_count = all_values.count()
-        else:
+        elif isinstance(interactions, PandasDataFrame):
             all_values = PandasDataFrame(
                 interactions[self.first_divide_column].unique(), columns=[self.first_divide_column]
             )
+            user_count = len(all_values)
+        else:
+            all_values = interactions.select(self.first_divide_column).unique()
             user_count = len(all_values)
 
         value_error = False
@@ -143,30 +147,25 @@ class TwoStageSplitter(Splitter):
             else:
                 value_error = True
         if value_error:
-            raise ValueError(
-                f"""
-            Invalid value for user_test_size: {self.first_divide_size}
-            """
-            )
+            msg = f"Invalid value for user_test_size: {self.first_divide_size}"
+            raise ValueError(msg)
         if isinstance(interactions, SparkDataFrame):
             test_users = (
                 all_values.withColumn("_rand", sf.rand(self.seed))
-                .withColumn(
-                    "_row_num", sf.row_number().over(Window.orderBy("_rand"))
-                )
+                .withColumn("_row_num", sf.row_number().over(Window.orderBy("_rand")))
                 .filter(f"_row_num <= {test_user_count}")
                 .drop("_rand", "_row_num")
             )
-        else:
+        elif isinstance(interactions, PandasDataFrame):
             test_users = all_values.sample(n=int(test_user_count), random_state=self.seed)
+        else:
+            test_users = all_values.sample(n=int(test_user_count), shuffle=True, seed=self.seed)
 
         return test_users
 
-    def _split_proportion_spark(self, interactions: SparkDataFrame) -> Union[SparkDataFrame, SparkDataFrame]:
+    def _split_proportion_spark(self, interactions: SparkDataFrame) -> Tuple[SparkDataFrame, SparkDataFrame]:
         counts = interactions.groupBy(self.first_divide_column).count()
-        test_users = self._get_test_values(interactions).withColumn(
-            "is_test", sf.lit(True)
-        )
+        test_users = self._get_test_values(interactions).withColumn("is_test", sf.lit(True))
         if self.shuffle:
             res = self._add_random_partition_spark(
                 interactions.join(test_users, how="left", on=self.first_divide_column)
@@ -196,10 +195,10 @@ class TwoStageSplitter(Splitter):
 
         return train, test
 
-    def _split_proportion_pandas(self, interactions: PandasDataFrame) -> Union[PandasDataFrame, PandasDataFrame]:
-        counts = interactions.groupby(self.first_divide_column).agg(
-            count=(self.first_divide_column, "count")
-        ).reset_index()
+    def _split_proportion_pandas(self, interactions: PandasDataFrame) -> Tuple[PandasDataFrame, PandasDataFrame]:
+        counts = (
+            interactions.groupby(self.first_divide_column).agg(count=(self.first_divide_column, "count")).reset_index()
+        )
         test_users = self._get_test_values(interactions)
         test_users["is_test"] = True
         if self.shuffle:
@@ -223,6 +222,32 @@ class TwoStageSplitter(Splitter):
 
         return train, test
 
+    def _split_proportion_polars(self, interactions: PolarsDataFrame) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+        counts = interactions.group_by(self.first_divide_column).count()
+        test_users = self._get_test_values(interactions).with_columns(pl.lit(True).alias("is_test"))
+        if self.shuffle:
+            res = self._add_random_partition_polars(
+                interactions.join(test_users, how="left", on=self.first_divide_column)
+            )
+        else:
+            res = self._add_time_partition_polars(
+                interactions.join(test_users, how="left", on=self.first_divide_column),
+                query_column=self.query_column,
+            )
+
+        res = res.join(counts, on=self.first_divide_column, how="left")
+        res = res.with_columns((pl.col("_row_num") / pl.col("count")).alias("_frac"))
+        res = res.fill_null(False)
+
+        train = res.filter((pl.col("_frac") > self.second_divide_size) | (~pl.col("is_test"))).drop(
+            "_rand", "_row_num", "count", "_frac", "is_test"
+        )
+        test = res.filter((pl.col("_frac") <= self.second_divide_size) & pl.col("is_test")).drop(
+            "_rand", "_row_num", "count", "_frac", "is_test"
+        )
+
+        return train, test
+
     def _split_proportion(self, interactions: DataFrameLike) -> SplitterReturnType:
         """
         Proportionate split
@@ -232,13 +257,16 @@ class TwoStageSplitter(Splitter):
         """
         if isinstance(interactions, SparkDataFrame):
             return self._split_proportion_spark(interactions)
-        else:
+        if isinstance(interactions, PandasDataFrame):
             return self._split_proportion_pandas(interactions)
+        if isinstance(interactions, PolarsDataFrame):
+            return self._split_proportion_polars(interactions)
+
+        msg = f"{self} is not implemented for {type(interactions)}"
+        raise NotImplementedError(msg)
 
     def _split_quantity_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
-        test_users = self._get_test_values(interactions).withColumn(
-            "is_test", sf.lit(True)
-        )
+        test_users = self._get_test_values(interactions).withColumn("is_test", sf.lit(True))
         if self.shuffle:
             res = self._add_random_partition_spark(
                 interactions.join(test_users, how="left", on=self.first_divide_column)
@@ -286,6 +314,28 @@ class TwoStageSplitter(Splitter):
 
         return train, test
 
+    def _split_quantity_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        test_users = self._get_test_values(interactions).with_columns(pl.lit(True).alias("is_test"))
+        if self.shuffle:
+            res = self._add_random_partition_polars(
+                interactions.join(test_users, how="left", on=self.first_divide_column)
+            )
+        else:
+            res = self._add_time_partition_polars(
+                interactions.join(test_users, how="left", on=self.first_divide_column),
+                query_column=self.query_column,
+            )
+
+        res = res.fill_null(False)
+        train = res.filter((pl.col("_row_num") > self.second_divide_size) | (~pl.col("is_test"))).drop(
+            "_row_num", "is_test"
+        )
+        test = res.filter((pl.col("_row_num") <= self.second_divide_size) & pl.col("is_test")).drop(
+            "_row_num", "is_test"
+        )
+
+        return train, test
+
     def _split_quantity(self, interactions: DataFrameLike) -> SplitterReturnType:
         """
         Split by quantity
@@ -295,8 +345,13 @@ class TwoStageSplitter(Splitter):
         """
         if isinstance(interactions, SparkDataFrame):
             return self._split_quantity_spark(interactions)
-        else:
+        if isinstance(interactions, PandasDataFrame):
             return self._split_quantity_pandas(interactions)
+        if isinstance(interactions, PolarsDataFrame):
+            return self._split_quantity_polars(interactions)
+
+        msg = f"{self} is not implemented for {type(interactions)}"
+        raise NotImplementedError(msg)
 
     def _core_split(self, interactions: DataFrameLike) -> SplitterReturnType:
         if 0 <= self.second_divide_size < 1.0:
@@ -304,11 +359,8 @@ class TwoStageSplitter(Splitter):
         elif self.second_divide_size >= 1 and isinstance(self.second_divide_size, int):
             train, test = self._split_quantity(interactions)
         else:
-            raise ValueError(
-                "`test_size` value must be [0, 1) or "
-                "a positive integer; "
-                f"test_size={self.second_divide_size}"
-            )
+            msg = f"`test_size` value must be [0, 1) or a positive integer; test_size={self.second_divide_size}"
+            raise ValueError(msg)
 
         return train, test
 
@@ -322,9 +374,7 @@ class TwoStageSplitter(Splitter):
         dataframe = dataframe.withColumn("_rand", sf.rand(self.seed))
         dataframe = dataframe.withColumn(
             "_row_num",
-            sf.row_number().over(
-                Window.partitionBy(self.first_divide_column).orderBy("_rand")
-            ),
+            sf.row_number().over(Window.partitionBy(self.first_divide_column).orderBy("_rand")),
         )
         return dataframe
 
@@ -334,11 +384,17 @@ class TwoStageSplitter(Splitter):
 
         return res
 
+    def _add_random_partition_polars(self, dataframe: PolarsDataFrame) -> PolarsDataFrame:
+        res = dataframe.sample(fraction=1, shuffle=True, seed=self.seed).with_columns(
+            pl.cum_count(self.first_divide_column).over(self.first_divide_column).alias("_row_num")
+        )
+        return res
+
     @staticmethod
     def _add_time_partition_spark(
-            dataframe: SparkDataFrame,
-            query_column: str = "query_id",
-            date_column: str = "timestamp",
+        dataframe: SparkDataFrame,
+        query_column: str = "query_id",
+        date_column: str = "timestamp",
     ) -> SparkDataFrame:
         """
         Adds user index `_row_num` based on `timestamp`.
@@ -350,21 +406,28 @@ class TwoStageSplitter(Splitter):
         """
         res = dataframe.withColumn(
             "_row_num",
-            sf.row_number().over(
-                Window.partitionBy(query_column).orderBy(
-                    sf.col(date_column).desc()
-                )
-            ),
+            sf.row_number().over(Window.partitionBy(query_column).orderBy(sf.col(date_column).desc())),
         )
         return res
 
     @staticmethod
     def _add_time_partition_pandas(
-            dataframe: PandasDataFrame,
-            query_column: str = "query_id",
-            date_column: str = "timestamp",
+        dataframe: PandasDataFrame,
+        query_column: str = "query_id",
+        date_column: str = "timestamp",
     ) -> PandasDataFrame:
         res = dataframe.copy(deep=True)
         res.sort_values([query_column, date_column], ascending=[True, False], inplace=True)
         res["_row_num"] = res.groupby(query_column, sort=False).cumcount() + 1
+        return res
+
+    @staticmethod
+    def _add_time_partition_polars(
+        dataframe: PolarsDataFrame,
+        query_column: str = "query_id",
+        date_column: str = "timestamp",
+    ) -> PolarsDataFrame:
+        res = dataframe.sort(date_column, descending=True).with_columns(
+            pl.cum_count(query_column).over(query_column).alias("_row_num")
+        )
         return res

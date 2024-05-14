@@ -1,4 +1,3 @@
-# pylint: disable=wildcard-import,invalid-name,unused-wildcard-import,unspecified-encoding
 import json
 import os
 import pickle
@@ -10,8 +9,8 @@ from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.models import *
 from replay.models.base_rec import BaseRecommender
 from replay.splitters import *
-from .session_handler import State
 
+from .session_handler import State
 from .types import PYSPARK_AVAILABLE
 
 if PYSPARK_AVAILABLE:
@@ -26,9 +25,7 @@ if PYSPARK_AVAILABLE:
         :param spark: spark session
         :return:
         """
-        fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(
-            spark._jsc.hadoopConfiguration()
-        )
+        fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration())
         return fs
 
     def get_list_of_paths(spark: SparkSession, dir_path: str):
@@ -44,9 +41,7 @@ if PYSPARK_AVAILABLE:
         return [str(f.getPath()) for f in statuses]
 
 
-def save(
-    model: BaseRecommender, path: Union[str, Path], overwrite: bool = False
-):
+def save(model: BaseRecommender, path: Union[str, Path], overwrite: bool = False):
     """
     Save fitted model to disk as a folder
 
@@ -63,9 +58,8 @@ def save(
     if not overwrite:
         is_exists = fs.exists(spark._jvm.org.apache.hadoop.fs.Path(path))
         if is_exists:
-            raise FileExistsError(
-                f"Path '{path}' already exists. Mode is 'overwrite = False'."
-            )
+            msg = f"Path '{path}' already exists. Mode is 'overwrite = False'."
+            raise FileExistsError(msg)
 
     fs.mkdirs(spark._jvm.org.apache.hadoop.fs.Path(path))
     model._save_model(join(path, "model"))
@@ -74,9 +68,7 @@ def save(
     init_args["_model_name"] = str(model)
     sc = spark.sparkContext
     df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
-    df.coalesce(1).write.mode("overwrite").option(
-        "ignoreNullFields", "false"
-    ).json(join(path, "init_args.json"))
+    df.coalesce(1).write.mode("overwrite").option("ignoreNullFields", "false").json(join(path, "init_args.json"))
 
     dataframes = model._dataframes
     df_path = join(path, "dataframes")
@@ -85,13 +77,9 @@ def save(
             df.write.mode("overwrite").parquet(join(df_path, name))
 
     if hasattr(model, "fit_queries"):
-        model.fit_queries.write.mode("overwrite").parquet(
-            join(df_path, "fit_queries")
-        )
+        model.fit_queries.write.mode("overwrite").parquet(join(df_path, "fit_queries"))
     if hasattr(model, "fit_items"):
-        model.fit_items.write.mode("overwrite").parquet(
-            join(df_path, "fit_items")
-        )
+        model.fit_items.write.mode("overwrite").parquet(join(df_path, "fit_items"))
     if hasattr(model, "study"):
         save_picklable_to_parquet(model.study, join(path, "study"))
 
@@ -104,18 +92,11 @@ def load(path: str, model_type=None) -> BaseRecommender:
     :return: Restored trained model
     """
     spark = State().session
-    args = (
-        spark.read.json(join(path, "init_args.json"))
-        .first()
-        .asDict(recursive=True)
-    )
+    args = spark.read.json(join(path, "init_args.json")).first().asDict(recursive=True)
     name = args["_model_name"]
     del args["_model_name"]
 
-    if model_type is not None:
-        model_class = model_type
-    else:
-        model_class = globals()[name]
+    model_class = model_type if model_type is not None else globals()[name]
 
     model = model_class(**args)
 
@@ -180,9 +161,7 @@ def save_splitter(splitter: Splitter, path: str, overwrite: bool = False):
     sc = spark.sparkContext
     df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
     if overwrite:
-        df.coalesce(1).write.mode("overwrite").json(
-            join(path, "init_args.json")
-        )
+        df.coalesce(1).write.mode("overwrite").json(join(path, "init_args.json"))
     else:
         df.coalesce(1).write.json(join(path, "init_args.json"))
 
