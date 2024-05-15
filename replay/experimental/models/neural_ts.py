@@ -1,9 +1,9 @@
 # pylint: disable=too-many-lines
-import joblib
 import json
 import os
 from typing import Dict, List, Optional
 
+import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -12,13 +12,12 @@ import torch.utils.data as td
 from IPython.display import clear_output
 from pyspark.sql import DataFrame
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
-from torch import nn, Tensor
+from torch import Tensor, nn
 from tqdm import tqdm
 
 from replay.experimental.models.base_rec import HybridRecommender
 from replay.splitters import TimeSplitter
 from replay.utils.spark_utils import convert2spark
-
 
 pd.options.mode.chained_assignment = None
 
@@ -520,7 +519,7 @@ class NeuralTS(HybridRecommender):
                 plt.legend()
                 plt.savefig(plot_dir)
                 plt.show()
-                print("ndcg val =", ndcg)
+                self.logger.info("ndcg val =%.4f", ndcg)
 
     def train_one_epoch_batch_user(self, model, train_dataloader, device, is_warp_loss):
         """
@@ -734,9 +733,11 @@ class NeuralTS(HybridRecommender):
     ) -> None:
         # should not work if user features or item features are unavailable
         if user_features is None:
-            raise ValueError("User features are missing for fitting")
+            msg = "User features are missing for fitting"
+            raise ValueError(msg)
         if item_features is None:
-            raise ValueError("Item features are missing for fitting")
+            msg = "Item features are missing for fitting"
+            raise ValueError(msg)
         # assuming that user_features and item_features are both dataframes
         # common dataframe
         train_spl = TimeSplitter(
@@ -848,16 +849,20 @@ class NeuralTS(HybridRecommender):
 
     def _predict(
         self,
-        log: DataFrame,
-        k: int,
+        log: DataFrame,  # noqa: ARG002
+        k: int,  # noqa: ARG002
         users: DataFrame,
         items: DataFrame,
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
+        filter_seen_items: bool = True,  # noqa: ARG002
     ) -> DataFrame:
-        if user_features is None or item_features is None:
-            raise ValueError("Can not make predict in the Neural TS method")
+        if user_features is None:
+            msg = "User features are missing for predict"
+            raise ValueError(msg)
+        if item_features is None:
+            msg = "Item features are missing for predict"
+            raise ValueError(msg)
 
         pd_users = users.toPandas()
         pd_items = items.toPandas()

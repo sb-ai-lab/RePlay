@@ -1,9 +1,9 @@
 # pylint: disable-all
+import os
 from datetime import datetime
 
 import numpy as np
 import pytest
-import os
 
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
@@ -17,7 +17,6 @@ from replay.experimental.scenarios.two_stages.two_stages_scenario import get_fir
 from replay.experimental.utils.model_handler import save
 from replay.utils.model_handler import load
 from tests.utils import sparkDataFrameEqual
-
 
 SEED = 123
 
@@ -176,3 +175,48 @@ def test_predict_empty_log(model_with_features, user_features, item_features, lo
     model_with_features._predict(
         log.limit(0), 1, users=users, items=items, user_features=user_features, item_features=item_features
     )
+
+
+# @pytest.mark.experimental
+# def test_predict_new_users(long_log_with_features, user_features):
+#     model = LightFMWrap(random_state=SEED, no_components=4)
+#     pred = fit_predict_selected(
+#         model,
+#         train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
+#         inf_log=long_log_with_features,
+#         user_features=user_features.drop("gender"),
+#         users=[0],
+#     )
+#     assert pred.count() == 1
+#     assert pred.collect()[0][0] == 0
+
+
+# @pytest.mark.experimental
+# def test_predict_cold_users(long_log_with_features, user_features):
+#     model = LightFMWrap(random_state=SEED, no_components=4)
+#     pred = fit_predict_selected(
+#         model,
+#         train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
+#         inf_log=long_log_with_features.filter(sf.col("user_idx") != 0),
+#         user_features=user_features.drop("gender"),
+#         users=[0],
+#     )
+#     assert pred.count() == 1
+#     assert pred.collect()[0][0] == 0
+
+
+# @pytest.mark.experimental
+# def test_predict_cold_and_new_filter_out(long_log_with_features):
+#     model = LightFMWrap()
+#     pred = fit_predict_selected(
+#         model,
+#         train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
+#         inf_log=long_log_with_features,
+#         user_features=None,
+#         users=[0, 3],
+#     )
+
+#     if isinstance(model, LightFMWrap) or not model.can_predict_cold_users:
+#         assert pred.count() == 0
+#     else:
+#         assert 1 <= pred.count() <= 2
