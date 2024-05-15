@@ -117,7 +117,7 @@ class MyDatasetreset(torch.utils.data.Dataset):
         union_cols,
         cnt_neg_samples,
         device,
-        target: str = None,
+        target: Optional[str] = None,
     ):
         if cnt_neg_samples is not None:
             self.cnt_neg_samples = cnt_neg_samples
@@ -393,7 +393,7 @@ def w_log_loss(output, target, device):
     count_1 = target.sum().item()
     count_0 = target.shape[0] - count_1
     class_count = np.array([count_0, count_1])
-    if count_1 == 0 or count_0 == 0:
+    if count_1 == 0 or count_0 == 0:  # noqa: SIM108
         weight = np.array([1.0, 1.0])
     else:
         weight = np.max(class_count) / class_count
@@ -435,12 +435,12 @@ class NeuralTS(HybridRecommender):
 
     def __init__(
         self,
-        user_cols: Dict[str, List[str]] = None,
-        item_cols: Dict[str, List[str]] = None,
+        user_cols: Optional[Dict[str, List[str]]] = None,
+        item_cols: Optional[Dict[str, List[str]]] = None,
         dim_head: int = 4,
         deep_out_dim: int = 8,
-        hidden_layers: List[int] = None,
-        embedding_sizes: List[int] = None,
+        hidden_layers: Optional[List[int]] = None,
+        embedding_sizes: Optional[List[int]] = None,
         wide_out_dim: int = 1,
         head_dropout: float = 0.0,
         deep_dropout: float = 0.0,
@@ -448,7 +448,7 @@ class NeuralTS(HybridRecommender):
         opt_lr: float = 3e-4,
         lr_min: float = 1e-5,
         use_gpu: bool = False,
-        plot_dir: str = None,
+        plot_dir: Optional[str] = None,
         is_warp_loss: bool = False,
         cnt_neg_samples: int = 100,
         cnt_samples_for_predict: int = 10,
@@ -597,8 +597,7 @@ class NeuralTS(HybridRecommender):
         with torch.no_grad():
             for wide_part, continuous_part, cat_part, users, items, _ in val_dataloader:
                 preds = model.forward_for_predict(wide_part, continuous_part, cat_part, users, items)
-                for __ in range(cnt_samples_for_predict):
-                    probs.append((model.forward_dropout(preds).squeeze()).tolist())
+                probs.extend(model.forward_dropout(preds).squeeze().tolist() for __ in range(cnt_samples_for_predict))
         return probs
 
     def preproces_features_fit(self, train, item_features, user_features):

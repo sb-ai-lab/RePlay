@@ -2,7 +2,6 @@
 import os
 from datetime import datetime
 
-import numpy as np
 import pytest
 
 pyspark = pytest.importorskip("pyspark")
@@ -12,10 +11,6 @@ from pyspark.sql import functions as sf
 
 from replay.data import get_schema
 from replay.experimental.models import NeuralTS
-from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
-from replay.experimental.scenarios.two_stages.two_stages_scenario import get_first_level_model_features
-from replay.experimental.utils.model_handler import save
-from replay.utils.model_handler import load
 from tests.utils import sparkDataFrameEqual
 
 SEED = 123
@@ -168,55 +163,9 @@ def test_predict_pairs(log, user_features, item_features, model):
 @pytest.mark.experimental
 def test_predict_empty_log(model_with_features, user_features, item_features, log):
     model_with_features.fit(log, user_features=user_features, item_features=item_features)
-    # model_with_features.predict(log.limit(0), 1)
     users = user_features.select("user_idx").distinct()
     items = item_features.select("item_idx").distinct()
 
     model_with_features._predict(
         log.limit(0), 1, users=users, items=items, user_features=user_features, item_features=item_features
     )
-
-
-# @pytest.mark.experimental
-# def test_predict_new_users(long_log_with_features, user_features):
-#     model = LightFMWrap(random_state=SEED, no_components=4)
-#     pred = fit_predict_selected(
-#         model,
-#         train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
-#         inf_log=long_log_with_features,
-#         user_features=user_features.drop("gender"),
-#         users=[0],
-#     )
-#     assert pred.count() == 1
-#     assert pred.collect()[0][0] == 0
-
-
-# @pytest.mark.experimental
-# def test_predict_cold_users(long_log_with_features, user_features):
-#     model = LightFMWrap(random_state=SEED, no_components=4)
-#     pred = fit_predict_selected(
-#         model,
-#         train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
-#         inf_log=long_log_with_features.filter(sf.col("user_idx") != 0),
-#         user_features=user_features.drop("gender"),
-#         users=[0],
-#     )
-#     assert pred.count() == 1
-#     assert pred.collect()[0][0] == 0
-
-
-# @pytest.mark.experimental
-# def test_predict_cold_and_new_filter_out(long_log_with_features):
-#     model = LightFMWrap()
-#     pred = fit_predict_selected(
-#         model,
-#         train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
-#         inf_log=long_log_with_features,
-#         user_features=None,
-#         users=[0, 3],
-#     )
-
-#     if isinstance(model, LightFMWrap) or not model.can_predict_cold_users:
-#         assert pred.count() == 0
-#     else:
-#         assert 1 <= pred.count() <= 2
