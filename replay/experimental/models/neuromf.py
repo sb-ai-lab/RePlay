@@ -257,6 +257,13 @@ class NeuroMF(TorchRecommender):
             "patience": self.patience,
         }
 
+    def save(self, path: str) -> None:
+        pass
+
+    @classmethod
+    def load(cls, path: str) -> "NeuroMF":
+        pass
+
     def _data_loader(self, data: PandasDataFrame, shuffle: bool = True) -> DataLoader:
         user_batch = LongTensor(data["user_idx"].values)
         item_batch = LongTensor(data["item_idx"].values)

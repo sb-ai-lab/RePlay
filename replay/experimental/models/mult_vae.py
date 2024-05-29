@@ -181,6 +181,13 @@ class MultVAE(TorchRecommender):
             "patience": self.patience,
         }
 
+    def save(self, path: str) -> None:
+        pass
+
+    @classmethod
+    def load(cls, path: str) -> "MultVAE":
+        pass
+
     def _get_data_loader(
         self, data: PandasDataFrame, shuffle: bool = True
     ) -> Tuple[csr_matrix, DataLoader, np.ndarray]:

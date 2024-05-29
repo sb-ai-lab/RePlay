@@ -123,6 +123,13 @@ class ADMMSLIM(NeighbourRec):
             "seed": self.seed,
         }
 
+    def save(self, path: str) -> None:
+        pass
+
+    @classmethod
+    def load(cls, path: str) -> "ADMMSLIM":
+        pass
+
     def _fit(
         self,
         log: SparkDataFrame,

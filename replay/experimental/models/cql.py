@@ -259,6 +259,13 @@ class CQL(Recommender):
         mdp_dataset: MDPDataset = self.mdp_dataset_builder.build(log)
         self.model.fit(mdp_dataset, self.n_steps)
 
+    def save(self, path: str) -> None:
+        pass
+
+    @classmethod
+    def load(cls, path: str) -> "CQL":
+        pass
+
     @staticmethod
     def _predict_pairs_inner(
         model: bytes,
