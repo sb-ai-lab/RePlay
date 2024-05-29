@@ -5,6 +5,7 @@ Part of set of abstract classes (from base_rec.py)
 
 from abc import ABC
 from typing import Any, Dict, Iterable, Optional, Union
+from pathlib import Path
 
 from replay.data.dataset import Dataset
 from replay.utils import PYSPARK_AVAILABLE, MissingImportType, SparkDataFrame
@@ -215,3 +216,18 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         super()._load_model(path)
         if self._use_ann:
             self._load_index(path)
+
+    def _save(self, base_path: Path, additional_params: Optional[dict] = None) -> dict:
+        model_dict = super()._save(base_path, additional_params)
+        if self._use_ann:
+            model_dict["index_path"] = str(base_path)
+            self._save_index(str(base_path))
+        return model_dict
+    
+    @classmethod
+    def _load(cls, model_dict: dict) -> "NeighbourRec":
+        model = super()._load(model_dict)
+        if "index_path" in model_dict:
+            model._load_index(model_dict["index_path"])
+        
+        return model

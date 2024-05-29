@@ -1,3 +1,6 @@
+from pathlib import Path
+import json
+
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
@@ -114,3 +117,27 @@ class QueryPopRec(Recommender):
             self.logger.warning("QueryPopRec can't predict new items, recommendations will not be filtered")
 
         return self.query_item_popularity.join(queries, on=self.query_column).join(items, on=self.item_column)
+
+    def save(self, path: str) -> None:
+        """
+        Method for saving object in `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        base_path.mkdir(parents=True, exist_ok=True)
+
+        model_dict = self._save(base_path)
+
+        with open(base_path / "init_args.json", "w+") as file:
+            json.dump(model_dict, file)
+    
+    @classmethod
+    def load(cls, path: str) -> "QueryPopRec":
+        """
+        Method for loading object from `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        with open(base_path / "init_args.json", "r") as file:
+            model_dict = json.loads(file.read())
+        model = cls._load(model_dict)
+
+        return model

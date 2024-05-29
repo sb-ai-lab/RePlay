@@ -3,7 +3,7 @@ import os
 import pickle
 from os.path import join
 from pathlib import Path
-from typing import Union
+from typing import Union, Any
 
 from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.models import *
@@ -179,3 +179,20 @@ def load_splitter(path: str) -> Splitter:
     del args["_splitter_name"]
     splitter = globals()[name]
     return splitter(**args)
+
+
+def load_from_replay(path: Union[str, Path]) -> None:
+    """
+    General function to load RePlay models, splitters and tokenizer.
+
+    :param path: Path to save the object.
+    """
+
+    path = Path(path).with_suffix(".replay").resolve()
+    with open(path / "init_args.json", "r") as file:
+        class_name = json.loads(file.read())["_class_name"]
+
+    obj_type = globals()[class_name]
+    obj = obj_type.load(path)
+
+    return obj

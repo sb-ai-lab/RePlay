@@ -1,5 +1,7 @@
 from os.path import join
 from typing import Optional
+from pathlib import Path
+import json
 
 from replay.data.dataset import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
@@ -126,3 +128,33 @@ class ClusterRec(QueryRecommender):
             self.query_column, self.item_column, self.rating_column
         )
         return pred
+
+    def save(self, path: str) -> None:
+        """
+        Method for saving object in `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        base_path.mkdir(parents=True, exist_ok=True)
+
+        model_dict = self._save(base_path)
+
+        model_path = str(base_path / "model.model")
+        self.model.write().overwrite().save(model_path)
+        model_dict["model_path"] = model_path
+
+        with open(base_path / "init_args.json", "w+") as file:
+            json.dump(model_dict, file)
+    
+    @classmethod
+    def load(cls, path: str) -> "ClusterRec":
+        """
+        Method for loading object from `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        with open(base_path / "init_args.json", "r") as file:
+            model_dict = json.loads(file.read())
+        model = cls._load(model_dict)
+        model.model = KMeansModel.load(model_dict["model_path"])
+
+        return model
+    
