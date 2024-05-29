@@ -35,6 +35,13 @@ class DerivedRec(Recommender):
     ) -> SparkDataFrame:
         return dataset.interactions.select("user_idx", "item_idx", "relevance")
 
+    def save(self, path: str) -> None:
+        pass
+
+    @classmethod
+    def load(cls, path: str) -> "DerivedRec":
+        pass
+
 
 class DummyHybridRec(HybridRecommender):
     @property
@@ -57,6 +64,13 @@ class DummyHybridRec(HybridRecommender):
     ) -> SparkDataFrame:
         return dataset.interactions.select("user_idx", "item_idx", "relevance")
 
+    def save(self, path: str) -> None:
+        pass
+
+    @classmethod
+    def load(cls, path: str) -> "DummyHybridRec":
+        pass
+
 
 class NonPersRec(NonPersonalizedRecommender):
     @property
@@ -78,6 +92,13 @@ class NonPersRec(NonPersonalizedRecommender):
         filter_seen_items: bool = True,
     ) -> SparkDataFrame:
         return dataset.interactions.select("user_idx", "item_idx", "relevance")
+
+    def save(self, path: str) -> None:
+        pass
+
+    @classmethod
+    def load(cls, path: str) -> "NonPersRec":
+        pass
 
 
 @pytest.fixture(scope="class")
