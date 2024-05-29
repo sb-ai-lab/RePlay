@@ -1,6 +1,6 @@
-from typing import Any, Dict, Optional
-from pathlib import Path
 import json
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -146,7 +146,7 @@ class SLIM(NeighbourRec):
 
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(model_dict, file)
-    
+
     @classmethod
     def load(cls, path: str) -> "SLIM":
         """

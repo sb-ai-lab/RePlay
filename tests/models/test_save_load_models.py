@@ -329,18 +329,6 @@ def test_study(df, tmp_path):
     assert loaded_model.study == model.study
 
 
-# @pytest.mark.spark
-# def test_study_inner_save_load(df, tmp_path):
-#     path = (tmp_path / "study").resolve()
-#     dataset = create_dataset(df)
-#     model = PopRec()
-#     model.study = 80083
-#     model.fit(dataset)
-#     model.save(path)
-#     loaded_model = PopRec.load(path)
-#     assert loaded_model.study == model.study
-
-
 @pytest.mark.spark
 def test_ann_word2vec_saving_loading(long_log_with_features, tmp_path):
     model = Word2VecRec(

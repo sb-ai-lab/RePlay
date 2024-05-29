@@ -1,6 +1,6 @@
-from typing import Any, Dict, Iterable, List, Optional, Union
-from pathlib import Path
 import json
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import numpy as np
 
@@ -373,7 +373,7 @@ class AssociationRulesItemRec(NeighbourRec):
 
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(model_dict, file)
-    
+
     @classmethod
     def load(cls, path: str) -> "AssociationRulesItemRec":
         """

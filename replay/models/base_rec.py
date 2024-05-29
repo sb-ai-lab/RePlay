@@ -15,8 +15,8 @@ import logging
 import warnings
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from pathlib import Path
 from os.path import join
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
@@ -75,7 +75,7 @@ class IsSavable(ABC):
         Used for model saving and loading
         """
         return {}
-    
+
     @abstractmethod
     def save(self, path: str) -> None:
         """
@@ -969,7 +969,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
                 path_to_save = str(base_path / "dataframes" / name)
                 df.write.mode("overwrite").parquet(path_to_save)
                 model_dict["dataframes_paths"][name] = path_to_save
-        
+
         if hasattr(self, "fit_queries"):
             path_to_save = str(base_path / "dataframes" / "fit_queries")
             self.fit_queries.write.mode("overwrite").parquet(path_to_save)
@@ -980,7 +980,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             model_dict["dataframes_paths"]["fit_items"] = path_to_save
 
         return model_dict
-    
+
     @classmethod
     def _load(cls, model_dict: dict) -> "BaseRecommender":
         model = cls(**model_dict["init_args"])

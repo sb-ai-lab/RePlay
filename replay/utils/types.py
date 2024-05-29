@@ -1,6 +1,6 @@
-from typing import Iterable, Union, Callable, Any
 import functools
 import warnings
+from typing import Any, Callable, Iterable, Optional, Union
 
 from pandas import DataFrame as PandasDataFrame
 from polars import DataFrame as PolarsDataFrame
@@ -32,7 +32,7 @@ IntOrList = Union[Iterable[int], int]
 NumType = Union[int, float]
 
 
-def deprecation_warning(message: str = None) -> Callable[..., Any]:
+def deprecation_warning(message: Optional[str] = None) -> Callable[..., Any]:
     """
     Decorator that throws deprecation warnings.
 

@@ -1,5 +1,5 @@
-from os.path import join
 import json
+from os.path import join
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -58,7 +58,7 @@ class ALSWrap(Recommender, ItemVectorModel):
             "implicit_prefs": self.implicit_prefs,
             "seed": self._seed,
         }
-    
+
     def save(self, path: str) -> None:
         """
         Method for saving object in `.replay` directory.
@@ -74,7 +74,7 @@ class ALSWrap(Recommender, ItemVectorModel):
 
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(model_dict, file)
-    
+
     @classmethod
     def load(cls, path: str) -> "ALSWrap":
         """
