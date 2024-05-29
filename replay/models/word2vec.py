@@ -1,6 +1,6 @@
-from typing import Any, Dict, Optional
-from pathlib import Path
 import json
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
@@ -255,10 +255,10 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         if self.index_builder:
             model_dict["index_path"] = str(base_path)
             self._save_index(str(base_path))
-        
+
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(model_dict, file)
-    
+
     @classmethod
     def load(cls, path: str) -> "Word2VecRec":
         """

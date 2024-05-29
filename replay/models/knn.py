@@ -1,6 +1,6 @@
-from typing import Any, Dict, Optional
-from pathlib import Path
 import json
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 from replay.data import Dataset
 from replay.optimization.optuna_objective import ItemKNNObjective
@@ -241,7 +241,7 @@ class ItemKNN(NeighbourRec):
 
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(model_dict, file)
-    
+
     @classmethod
     def load(cls, path: str) -> "ItemKNN":
         """

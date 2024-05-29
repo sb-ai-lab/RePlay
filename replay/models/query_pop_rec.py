@@ -1,5 +1,5 @@
-from pathlib import Path
 import json
+from pathlib import Path
 
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
@@ -129,7 +129,7 @@ class QueryPopRec(Recommender):
 
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(model_dict, file)
-    
+
     @classmethod
     def load(cls, path: str) -> "QueryPopRec":
         """

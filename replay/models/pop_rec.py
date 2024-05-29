@@ -1,5 +1,5 @@
-from pathlib import Path
 import json
+from pathlib import Path
 
 from replay.data.dataset import Dataset
 from replay.utils import PYSPARK_AVAILABLE
@@ -149,7 +149,7 @@ class PopRec(NonPersonalizedRecommender):
 
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(model_dict, file)
-    
+
     @classmethod
     def load(cls, path: str) -> "PopRec":
         """

@@ -1,7 +1,7 @@
-import math
-from typing import Any, Dict, List, Optional
-from pathlib import Path
 import json
+import math
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from replay.data.dataset import Dataset
 from replay.metrics import NDCG, Metric
@@ -200,7 +200,7 @@ class UCB(NonPersonalizedRecommender):
 
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(model_dict, file)
-    
+
     @classmethod
     def load(cls, path: str) -> "UCB":
         """

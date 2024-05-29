@@ -263,6 +263,13 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
         if self._use_ann:
             self._load_index(path)
 
+    def save(self, path: str) -> None:
+        pass
+
+    @classmethod
+    def load(cls, path: str) -> "ScalaALSWrap":
+        pass
+
     def _predict(
         self,
         log: Optional[SparkDataFrame],

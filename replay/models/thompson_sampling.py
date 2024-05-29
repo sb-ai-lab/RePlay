@@ -1,6 +1,6 @@
-from typing import Optional
-from pathlib import Path
 import json
+from pathlib import Path
+from typing import Optional
 
 import numpy as np
 
@@ -72,9 +72,9 @@ class ThompsonSampling(NonPersonalizedRecommender):
 
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(model_dict, file)
-    
+
     @classmethod
-    def load(cls, path: str) -> "UCB":
+    def load(cls, path: str) -> "ThompsonSampling":
         """
         Method for loading object from `.replay` directory.
         """

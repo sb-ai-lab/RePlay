@@ -3,7 +3,7 @@ import os
 import pickle
 from os.path import join
 from pathlib import Path
-from typing import Union, Any
+from typing import Union
 
 from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.models import *

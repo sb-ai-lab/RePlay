@@ -1,6 +1,6 @@
+import json
 from os.path import join
 from pathlib import Path
-import json
 from typing import Iterable, Optional, Union
 
 from replay.data import Dataset
@@ -310,7 +310,7 @@ class CatPopRec(IsSavable, RecommenderCommons):
                 path_to_save = str(base_path / "dataframes" / name)
                 df.write.mode("overwrite").parquet(path_to_save)
                 model_dict["dataframes_paths"][name] = path_to_save
-        
+
         if hasattr(self, "fit_queries"):
             path_to_save = str(base_path / "dataframes" / "fit_queries")
             self.fit_queries.write.mode("overwrite").parquet(path_to_save)
@@ -331,7 +331,7 @@ class CatPopRec(IsSavable, RecommenderCommons):
         base_path = Path(path).with_suffix(".replay").resolve()
         with open(base_path / "init_args.json", "r") as file:
             model_dict = json.loads(file.read())
-        
+
         model = cls(**model_dict["init_args"])
         for attr_name, attr_value in model_dict["attributes"].items():
             setattr(model, attr_name, attr_value)
