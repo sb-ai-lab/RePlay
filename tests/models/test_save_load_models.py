@@ -28,6 +28,7 @@ from replay.models.extensions.ann.index_stores.hdfs_index_store import HdfsIndex
 from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
 from replay.preprocessing.label_encoder import LabelEncoder, LabelEncodingRule
 from replay.utils import PYSPARK_AVAILABLE
+from replay.utils.model_handler import load_from_replay
 from tests.utils import create_dataset, sparkDataFrameEqual
 
 if PYSPARK_AVAILABLE:
@@ -92,6 +93,29 @@ def test_equal_preds(long_log_with_features, recommender, tmp_path):
 
 
 @pytest.mark.spark
+@pytest.mark.parametrize(
+    "recommender",
+    [
+        ALSWrap,
+        ItemKNN,
+        PopRec,
+        SLIM,
+        QueryPopRec,
+    ],
+)
+def test_equal_preds_no_pickle(long_log_with_features, recommender, tmp_path):
+    path = (tmp_path / "test_inner").resolve()
+    dataset = create_dataset(long_log_with_features)
+    model = recommender()
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
+    model.save(path)
+    loaded_model = load_from_replay(path)
+    new_pred = loaded_model.predict(dataset, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+@pytest.mark.spark
 def test_random(long_log_with_features, tmp_path):
     path = (tmp_path / "random").resolve()
     model = RandomRec(seed=1)
@@ -100,6 +124,19 @@ def test_random(long_log_with_features, tmp_path):
     base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
+    new_pred = loaded_model.predict(dataset, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+@pytest.mark.spark
+def test_random_no_pickle(long_log_with_features, tmp_path):
+    path = (tmp_path / "random").resolve()
+    model = RandomRec(seed=1)
+    dataset = create_dataset(long_log_with_features)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
+    model.save(path)
+    loaded_model = load_from_replay(path)
     new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
@@ -118,6 +155,19 @@ def test_rules(df, tmp_path):
 
 
 @pytest.mark.spark
+def test_rules_no_pickle(df, tmp_path):
+    path = (tmp_path / "rules").resolve()
+    dataset = create_dataset(df)
+    model = AssociationRulesItemRec(session_column="user_idx")
+    model.fit(dataset)
+    base_pred = model.get_nearest_items([1], 5, metric="lift")
+    model.save(path)
+    loaded_model = load_from_replay(path)
+    new_pred = loaded_model.get_nearest_items([1], 5, metric="lift")
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+@pytest.mark.spark
 def test_word(df, tmp_path):
     path = (tmp_path / "word").resolve()
     dataset = create_dataset(df)
@@ -131,6 +181,19 @@ def test_word(df, tmp_path):
 
 
 @pytest.mark.spark
+def test_word_no_pickle(df, tmp_path):
+    path = (tmp_path / "word").resolve()
+    dataset = create_dataset(df)
+    model = Word2VecRec()
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
+    model.save(path)
+    loaded_model = load_from_replay(path)
+    new_pred = loaded_model.predict(dataset, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+@pytest.mark.spark
 def test_cluster(long_log_with_features, user_features, tmp_path):
     path = (tmp_path / "cluster").resolve()
     dataset = create_dataset(long_log_with_features, user_features)
@@ -139,6 +202,19 @@ def test_cluster(long_log_with_features, user_features, tmp_path):
     base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
+    new_pred = loaded_model.predict(dataset, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+@pytest.mark.spark
+def test_cluster_no_pickle(long_log_with_features, user_features, tmp_path):
+    path = (tmp_path / "cluster").resolve()
+    dataset = create_dataset(long_log_with_features, user_features)
+    model = ClusterRec()
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
+    model.save(path)
+    loaded_model = load_from_replay(path)
     new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
@@ -180,6 +256,42 @@ def test_cat_poprec(cat_tree, cat_log, requested_cats, tmp_path):
 
 
 @pytest.mark.spark
+def test_cat_poprec_no_pickle(cat_tree, cat_log, requested_cats, tmp_path):
+    path = (tmp_path / "cat_poprec").resolve()
+    feature_schema = FeatureSchema(
+        [
+            FeatureInfo(
+                column="user_idx",
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.QUERY_ID,
+            ),
+            FeatureInfo(
+                column="item_idx",
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            FeatureInfo(
+                column="category",
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            FeatureInfo(
+                column="relevance",
+                feature_type=FeatureType.NUMERICAL,
+                feature_hint=FeatureHint.RATING,
+            ),
+        ]
+    )
+    dataset = create_dataset(cat_log, feature_schema=feature_schema)
+    model = CatPopRec(cat_tree=cat_tree)
+    model.fit(dataset)
+    base_pred = model.predict(requested_cats, 5)
+    model.save(path)
+    loaded_model = load_from_replay(path)
+    new_pred = loaded_model.predict(requested_cats, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+@pytest.mark.spark
 @pytest.mark.parametrize("model", [Wilson(), UCB()], ids=["wilson", "ucb"])
 def test_wilson_ucb(model, log_unary, tmp_path):
     path = (tmp_path / "model").resolve()
@@ -188,6 +300,19 @@ def test_wilson_ucb(model, log_unary, tmp_path):
     base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
+    new_pred = loaded_model.predict(dataset, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize("model", [Wilson(), UCB()], ids=["wilson", "ucb"])
+def test_wilson_ucb_no_pickle(model, log_unary, tmp_path):
+    path = (tmp_path / "model").resolve()
+    dataset = create_dataset(log_unary)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
+    model.save(path)
+    loaded_model = load_from_replay(path)
     new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
@@ -202,6 +327,18 @@ def test_study(df, tmp_path):
     save(model, path)
     loaded_model = load(path)
     assert loaded_model.study == model.study
+
+
+# @pytest.mark.spark
+# def test_study_inner_save_load(df, tmp_path):
+#     path = (tmp_path / "study").resolve()
+#     dataset = create_dataset(df)
+#     model = PopRec()
+#     model.study = 80083
+#     model.fit(dataset)
+#     model.save(path)
+#     loaded_model = PopRec.load(path)
+#     assert loaded_model.study == model.study
 
 
 @pytest.mark.spark
@@ -235,6 +372,36 @@ def test_ann_word2vec_saving_loading(long_log_with_features, tmp_path):
 
 
 @pytest.mark.spark
+def test_ann_word2vec_saving_loading_no_pickle(long_log_with_features, tmp_path):
+    model = Word2VecRec(
+        rank=1,
+        window_size=1,
+        use_idf=True,
+        seed=42,
+        min_count=0,
+        index_builder=DriverHnswlibIndexBuilder(
+            index_params=HnswlibParam(
+                space="l2",
+                m=100,
+                ef_c=2000,
+                post=0,
+                ef_s=2000,
+            ),
+            index_store=SharedDiskIndexStore(warehouse_dir=str(tmp_path), index_dir="hnswlib_index"),
+        ),
+    )
+
+    path = (tmp_path / "test").resolve()
+    dataset = create_dataset(long_log_with_features)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
+    model.save(path)
+    loaded_model = load_from_replay(path)
+    new_pred = loaded_model.predict(dataset, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+@pytest.mark.spark
 def test_ann_slim_saving_loading(long_log_with_features, tmp_path):
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
@@ -261,6 +428,37 @@ def test_ann_slim_saving_loading(long_log_with_features, tmp_path):
     base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
+    new_pred = loaded_model.predict(dataset, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+@pytest.mark.spark
+def test_ann_slim_saving_loading_no_pickle(long_log_with_features, tmp_path):
+    nmslib_hnsw_params = NmslibHnswParam(
+        space="negdotprod_sparse",
+        m=10,
+        ef_s=200,
+        ef_c=200,
+        post=0,
+    )
+    model = SLIM(
+        0.0,
+        0.01,
+        seed=42,
+        index_builder=DriverNmslibIndexBuilder(
+            index_params=nmslib_hnsw_params,
+            index_store=SparkFilesIndexStore(),
+        ),
+    )
+
+    path = (tmp_path / "test").resolve()
+    dataset = create_dataset(long_log_with_features)
+    model.fit(dataset)
+    # Do rewriting ann index
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
+    model.save(path)
+    loaded_model = load_from_replay(path)
     new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 
@@ -298,6 +496,38 @@ def test_ann_association_rule_saving_loading(long_log_with_features, tmp_path):
 
 
 @pytest.mark.spark
+def test_ann_association_rule_saving_loading_no_pickle(long_log_with_features, tmp_path):
+    nmslib_hnsw_params = NmslibHnswParam(
+        space="negdotprod_sparse",
+        m=10,
+        ef_s=200,
+        ef_c=200,
+        post=0,
+    )
+    model = AssociationRulesItemRec(
+        min_item_count=1,
+        min_pair_count=0,
+        session_column="user_idx",
+        index_builder=DriverNmslibIndexBuilder(
+            index_params=nmslib_hnsw_params,
+            index_store=SparkFilesIndexStore(),
+        ),
+    )
+
+    path = (tmp_path / "test").resolve()
+    dataset = create_dataset(long_log_with_features)
+    model.fit(dataset)
+    base_items = model.get_nearest_items([1], 5, metric="lift")
+    base_pred = model.predict(dataset, 5)
+    model.save(path)
+    loaded_model = load_from_replay(path)
+    new_items = loaded_model.get_nearest_items([1], 5, metric="lift")
+    new_pred = loaded_model.predict(dataset, 5)
+    sparkDataFrameEqual(base_items, new_items)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+@pytest.mark.spark
 def test_ann_knn_saving_loading(long_log_with_features, tmp_path):
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
@@ -321,6 +551,34 @@ def test_ann_knn_saving_loading(long_log_with_features, tmp_path):
     base_pred = model.predict(dataset, 5)
     save(model, path)
     loaded_model = load(path)
+    new_pred = loaded_model.predict(dataset, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+@pytest.mark.spark
+def test_ann_knn_saving_loading_no_pickle(long_log_with_features, tmp_path):
+    nmslib_hnsw_params = NmslibHnswParam(
+        space="negdotprod_sparse",
+        m=10,
+        ef_s=200,
+        ef_c=200,
+        post=0,
+    )
+    model = ItemKNN(
+        1,
+        weighting=None,
+        index_builder=ExecutorNmslibIndexBuilder(
+            index_params=nmslib_hnsw_params,
+            index_store=SharedDiskIndexStore(warehouse_dir=str(tmp_path), index_dir="nmslib_hnsw_index"),
+        ),
+    )
+
+    path = (tmp_path / "test").resolve()
+    dataset = create_dataset(long_log_with_features)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
+    model.save(path)
+    loaded_model = load_from_replay(path)
     new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)
 

@@ -1,4 +1,6 @@
 from typing import Any, Dict, Optional
+from pathlib import Path
+import json
 
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
@@ -241,3 +243,32 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
 
     def _get_item_vectors(self):
         return self.vectors.withColumnRenamed("vector", "item_vector").withColumnRenamed("item", self.item_column)
+
+    def save(self, path: str) -> None:
+        """
+        Method for saving object in `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        base_path.mkdir(parents=True, exist_ok=True)
+
+        model_dict = self._save(base_path)
+        if self.index_builder:
+            model_dict["index_path"] = str(base_path)
+            self._save_index(str(base_path))
+        
+        with open(base_path / "init_args.json", "w+") as file:
+            json.dump(model_dict, file)
+    
+    @classmethod
+    def load(cls, path: str) -> "Word2VecRec":
+        """
+        Method for loading object from `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        with open(base_path / "init_args.json", "r") as file:
+            model_dict = json.loads(file.read())
+        model = cls._load(model_dict)
+        if model.index_builder:
+            model._load_index(model_dict["index_path"])
+
+        return model

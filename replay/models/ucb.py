@@ -1,5 +1,7 @@
 import math
 from typing import Any, Dict, List, Optional
+from pathlib import Path
+import json
 
 from replay.data.dataset import Dataset
 from replay.metrics import NDCG, Metric
@@ -186,3 +188,27 @@ class UCB(NonPersonalizedRecommender):
         self.item_popularity.cache().count()
 
         self.fill = 1 + math.sqrt(self.coef * math.log(self.full_count))
+
+    def save(self, path: str) -> None:
+        """
+        Method for saving object in `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        base_path.mkdir(parents=True, exist_ok=True)
+
+        model_dict = self._save(base_path, additional_params={"fill": self.fill})
+
+        with open(base_path / "init_args.json", "w+") as file:
+            json.dump(model_dict, file)
+    
+    @classmethod
+    def load(cls, path: str) -> "UCB":
+        """
+        Method for loading object from `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        with open(base_path / "init_args.json", "r") as file:
+            model_dict = json.loads(file.read())
+        model = cls._load(model_dict)
+
+        return model

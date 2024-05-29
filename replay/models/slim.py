@@ -1,4 +1,6 @@
 from typing import Any, Dict, Optional
+from pathlib import Path
+import json
 
 import numpy as np
 import pandas as pd
@@ -132,3 +134,27 @@ class SLIM(NeighbourRec):
             "item_idx_one int, item_idx_two int, similarity double",
         )
         self.similarity.cache().count()
+
+    def save(self, path: str) -> None:
+        """
+        Method for saving object in `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        base_path.mkdir(parents=True, exist_ok=True)
+
+        model_dict = self._save(base_path)
+
+        with open(base_path / "init_args.json", "w+") as file:
+            json.dump(model_dict, file)
+    
+    @classmethod
+    def load(cls, path: str) -> "SLIM":
+        """
+        Method for loading object from `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        with open(base_path / "init_args.json", "r") as file:
+            model_dict = json.loads(file.read())
+        model = cls._load(model_dict)
+
+        return model

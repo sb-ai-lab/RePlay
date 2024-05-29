@@ -1,8 +1,10 @@
 from os.path import join
+from pathlib import Path
+import json
 from typing import Iterable, Optional, Union
 
 from replay.data import Dataset
-from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame, State
 
 from .base_rec import IsSavable, RecommenderCommons
 
@@ -290,3 +292,52 @@ class CatPopRec(IsSavable, RecommenderCommons):
         loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
         for param, value in loaded_params.items():
             setattr(self, param, value)
+
+    def save(self, path: Path) -> None:
+        base_path = Path(path).with_suffix(".replay").resolve()
+        base_path.mkdir(parents=True, exist_ok=True)
+        model_dict = {}
+        model_dict["_class_name"] = self.__class__.__name__
+        model_dict["init_args"] = self._init_args
+        model_dict["attributes"] = {
+            "query_column": self.query_column,
+            "item_column": self.item_column,
+            "rating_column": self.rating_column,
+        }
+        model_dict["dataframes_paths"] = {}
+        for name, df in self._dataframes.items():
+            if df is not None:
+                path_to_save = str(base_path / "dataframes" / name)
+                df.write.mode("overwrite").parquet(path_to_save)
+                model_dict["dataframes_paths"][name] = path_to_save
+        
+        if hasattr(self, "fit_queries"):
+            path_to_save = str(base_path / "dataframes" / "fit_queries")
+            self.fit_queries.write.mode("overwrite").parquet(path_to_save)
+            model_dict["dataframes_paths"]["fit_queries"] = path_to_save
+        if hasattr(self, "fit_items"):
+            path_to_save = str(base_path / "dataframes" / "fit_items")
+            self.fit_items.write.mode("overwrite").parquet(path_to_save)
+            model_dict["dataframes_paths"]["fit_items"] = path_to_save
+
+        with open(base_path / "init_args.json", "w+") as file:
+            json.dump(model_dict, file)
+
+    @classmethod
+    def load(cls, path: str) -> "CatPopRec":
+        """
+        Method for loading object from `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        with open(base_path / "init_args.json", "r") as file:
+            model_dict = json.loads(file.read())
+        
+        model = cls(**model_dict["init_args"])
+        for attr_name, attr_value in model_dict["attributes"].items():
+            setattr(model, attr_name, attr_value)
+        if len(model_dict["dataframes_paths"]) > 0:
+            spark = State().session
+        for df_name, df_path in model_dict["dataframes_paths"].items():
+            setattr(model, df_name, spark.read.parquet(df_path))
+
+        return model

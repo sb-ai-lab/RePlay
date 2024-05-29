@@ -15,6 +15,7 @@ import logging
 import warnings
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from pathlib import Path
 from os.path import join
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
@@ -27,7 +28,7 @@ from optuna.samplers import TPESampler
 from replay.data import Dataset, get_schema
 from replay.metrics import NDCG, Metric
 from replay.optimization.optuna_objective import MainObjective, SplitData
-from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame, deprecation_warning
 from replay.utils.session_handler import State
 from replay.utils.spark_utils import SparkCollectToMasterWarning
 
@@ -74,14 +75,29 @@ class IsSavable(ABC):
         Used for model saving and loading
         """
         return {}
+    
+    @abstractmethod
+    def save(self, path: str) -> None:
+        """
+        Method for saving object in `.replay` directory.
+        """
+
+    @classmethod
+    @abstractmethod
+    def load(cls, path: str) -> None:
+        """
+        Method for loading object from `.replay` directory.
+        """
 
     @abstractmethod
+    @deprecation_warning("with pickle will be removed in future versions")
     def _save_model(self, path: str) -> None:
         """
         Method for dump model attributes to disk
         """
 
     @abstractmethod
+    @deprecation_warning("with pickle will be removed in future versions")
     def _load_model(self, path: str) -> None:
         """
         Method for loading model attributes from disk
@@ -933,6 +949,50 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
         for param, value in loaded_params.items():
             setattr(self, param, value)
+
+    def _save(self, base_path: Path, additional_params: Optional[dict] = None) -> dict:
+        model_dict = {}
+        model_dict["attributes"] = {
+            "query_column": self.query_column,
+            "item_column": self.item_column,
+            "rating_column": self.rating_column,
+            "timestamp_column": self.timestamp_column,
+        }
+        model_dict["attributes"].update(additional_params if additional_params else {})
+
+        model_dict["_class_name"] = self.__class__.__name__
+        model_dict["init_args"] = self._init_args
+        model_dict["dataframes_paths"] = {}
+
+        for name, df in self._dataframes.items():
+            if df is not None:
+                path_to_save = str(base_path / "dataframes" / name)
+                df.write.mode("overwrite").parquet(path_to_save)
+                model_dict["dataframes_paths"][name] = path_to_save
+        
+        if hasattr(self, "fit_queries"):
+            path_to_save = str(base_path / "dataframes" / "fit_queries")
+            self.fit_queries.write.mode("overwrite").parquet(path_to_save)
+            model_dict["dataframes_paths"]["fit_queries"] = path_to_save
+        if hasattr(self, "fit_items"):
+            path_to_save = str(base_path / "dataframes" / "fit_items")
+            self.fit_items.write.mode("overwrite").parquet(path_to_save)
+            model_dict["dataframes_paths"]["fit_items"] = path_to_save
+
+        return model_dict
+    
+    @classmethod
+    def _load(cls, model_dict: dict) -> "BaseRecommender":
+        model = cls(**model_dict["init_args"])
+        for attr_name, attr_value in model_dict["attributes"].items():
+            setattr(model, attr_name, attr_value)
+
+        if len(model_dict["dataframes_paths"]) > 0:
+            spark = State().session
+        for df_name, df_path in model_dict["dataframes_paths"].items():
+            setattr(model, df_name, spark.read.parquet(df_path))
+
+        return model
 
 
 class ItemVectorModel(BaseRecommender):

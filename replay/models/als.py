@@ -1,4 +1,6 @@
 from os.path import join
+import json
+from pathlib import Path
 from typing import Optional, Tuple
 
 from replay.data import Dataset
@@ -56,6 +58,37 @@ class ALSWrap(Recommender, ItemVectorModel):
             "implicit_prefs": self.implicit_prefs,
             "seed": self._seed,
         }
+    
+    def save(self, path: str) -> None:
+        """
+        Method for saving object in `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        base_path.mkdir(parents=True, exist_ok=True)
+
+        model_dict = self._save(base_path)
+
+        model_path = str(base_path / "model.model")
+        self.model.write().overwrite().save(model_path)
+        model_dict["model_path"] = model_path
+
+        with open(base_path / "init_args.json", "w+") as file:
+            json.dump(model_dict, file)
+    
+    @classmethod
+    def load(cls, path: str) -> "ALSWrap":
+        """
+        Method for loading object from `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        with open(base_path / "init_args.json", "r") as file:
+            model_dict = json.loads(file.read())
+        model = cls._load(model_dict)
+        model.model = ALSModel.load(model_dict["model_path"])
+        model.model.itemFactors.cache()
+        model.model.userFactors.cache()
+
+        return model
 
     def _save_model(self, path: str, additional_params: Optional[dict] = None):
         super()._save_model(path, additional_params)

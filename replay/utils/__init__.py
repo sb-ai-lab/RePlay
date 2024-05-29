@@ -9,4 +9,5 @@ from .types import (
     PandasDataFrame,
     PolarsDataFrame,
     SparkDataFrame,
+    deprecation_warning,
 )
