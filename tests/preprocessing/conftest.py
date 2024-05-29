@@ -3,6 +3,7 @@ import polars as pl
 import pytest
 
 from replay.utils import PYSPARK_AVAILABLE
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql.functions import col, to_date, unix_timestamp
@@ -15,7 +16,7 @@ def spark_df_for_labelencoder(spark):
         ("u1", "item_1", "item_1"),
         ("u2", "item_2", "item_2"),
     ]
-    return spark.createDataFrame(data, schema=["user_id", "item1", "item2"])
+    return spark.createDataFrame(data, schema=["user_id", "item1", "item2"]).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -25,7 +26,7 @@ def spark_df_for_labelencoder_modified(spark):
         ("u2", "item_2", "item_2"),
         ("u3", "item_3", "item_3"),
     ]
-    return spark.createDataFrame(data, schema=["user_id", "item1", "item2"])
+    return spark.createDataFrame(data, schema=["user_id", "item1", "item2"]).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -41,7 +42,11 @@ def polars_df_for_labelencoder(pandas_df_for_labelencoder):
 @pytest.fixture(scope="module")
 def pandas_df_for_labelencoder_modified():
     return pd.DataFrame(
-        {"user": ["u1", "u2", "u3"], "item1": ["item_1", "item_2", "item_3"], "item2": ["item_1", "item_2", "item_3"]}
+        {
+            "user_id": ["u1", "u2", "u3"],
+            "item1": ["item_1", "item_2", "item_3"],
+            "item2": ["item_1", "item_2", "item_3"],
+        }
     )
 
 
@@ -62,7 +67,7 @@ def polars_df_for_labelencoder_new_data(pandas_df_for_labelencoder_new_data):
 
 @pytest.fixture(scope="module")
 def spark_df_for_labelencoder_new_data(pandas_df_for_labelencoder_new_data, spark):
-    return spark.createDataFrame(pandas_df_for_labelencoder_new_data)
+    return spark.createDataFrame(pandas_df_for_labelencoder_new_data).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -105,7 +110,7 @@ def dataframe(spark, schema):
         (4, [10, 11, 12], [19844, 19843, 19845]),
         (10, [1], [19841]),
     ]
-    return spark.createDataFrame(data, schema=schema)
+    return spark.createDataFrame(data, schema=schema).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -147,7 +152,7 @@ def dataframe_special(spark, schema):
         (4, [10, 11, 12], [19844, 19843, 19845]),
         (10, [1], [19841]),
     ]
-    return spark.createDataFrame(data_special, schema=schema)
+    return spark.createDataFrame(data_special, schema=schema).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -189,7 +194,7 @@ def dataframe_only_item(spark, schema):
         (4, [10, 11, 12, 0, 0], [19844, 19843, 19845]),
         (10, [1, 0, 0, 0, 0], [19841]),
     ]
-    return spark.createDataFrame(data_only_item, schema=schema)
+    return spark.createDataFrame(data_only_item, schema=schema).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -231,7 +236,7 @@ def dataframe_only_item_none(spark, schema):
         (4, [10, 11, 12, 0, 0, 0], [19844, 19843, 19845]),
         (10, [1, 0, 0, 0, 0, 0], [19841]),
     ]
-    return spark.createDataFrame(data_only_item_none, schema=schema)
+    return spark.createDataFrame(data_only_item_none, schema=schema).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -273,7 +278,7 @@ def dataframe_two_columns_none(spark, schema):
         (4, [10, 11, 12, 0, 0, 0], [19844, 19843, 19845, 0, 0]),
         (10, [1, 0, 0, 0, 0, 0], [19841, 0, 0, 0, 0]),
     ]
-    return spark.createDataFrame(data_two_columns_none, schema=schema)
+    return spark.createDataFrame(data_two_columns_none, schema=schema).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -315,7 +320,7 @@ def dataframe_two_columns(spark, schema):
         (4, [10, 11, 12, 0, 0], [19844, 19843, 19845, -1, -1]),
         (10, [1, 0, 0, 0, 0], [19841, -1, -1, -1, -1]),
     ]
-    return spark.createDataFrame(data_two_columns, schema=schema)
+    return spark.createDataFrame(data_two_columns, schema=schema).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -357,7 +362,7 @@ def dataframe_two_columns_len_two(spark, schema):
         (4, [11, 12], [19843, 19845]),
         (10, [1, 0], [19841, -1]),
     ]
-    return spark.createDataFrame(data_two_columns_len_two, schema=schema)
+    return spark.createDataFrame(data_two_columns_len_two, schema=schema).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -399,7 +404,7 @@ def dataframe_two_columns_zeros(spark, schema):
         (4, [10, 11, 12, 0, 0], [19844, 19843, 19845, 0, 0]),
         (10, [1, 0, 0, 0, 0], [19841, 0, 0, 0, 0]),
     ]
-    return spark.createDataFrame(data_two_columns_zeros, schema=schema)
+    return spark.createDataFrame(data_two_columns_zeros, schema=schema).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -441,7 +446,7 @@ def dataframe_two_columns_cut_left(spark, schema):
         (4, [10, 11, 12, 0, 0], [19844, 19843, 19845, -1, -1]),
         (10, [1, 0, 0, 0, 0], [19841, -1, -1, -1, -1]),
     ]
-    return spark.createDataFrame(data_two_columns_cut_left, schema=schema)
+    return spark.createDataFrame(data_two_columns_cut_left, schema=schema).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -483,7 +488,7 @@ def dataframe_two_columns_no_cut(spark, schema):
         (4, [10, 11, 12, 0, 0], [19844, 19843, 19845, -1, -1]),
         (10, [1, 0, 0, 0, 0], [19841, -1, -1, -1, -1]),
     ]
-    return spark.createDataFrame(data_two_columns_no_cut, schema=schema)
+    return spark.createDataFrame(data_two_columns_no_cut, schema=schema).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -525,7 +530,7 @@ def dataframe_only_item_left(spark, schema):
         (4, [0, 0, 10, 11, 12], [19844, 19843, 19845]),
         (10, [0, 0, 0, 0, 1], [19841]),
     ]
-    return spark.createDataFrame(data_only_item_left, schema=schema)
+    return spark.createDataFrame(data_only_item_left, schema=schema).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -567,7 +572,7 @@ def dataframe_two_columns_left(spark, schema):
         (4, [0, 0, 10, 11, 12], [-1, -1, 19844, 19843, 19845]),
         (10, [0, 0, 0, 0, 1], [-1, -1, -1, -1, 19841]),
     ]
-    return spark.createDataFrame(data_two_columns_left, schema=schema)
+    return spark.createDataFrame(data_two_columns_left, schema=schema).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -609,7 +614,7 @@ def dataframe_string(spark, schema_string):
         (4, ["10", "11", "12", "[PAD]", "[PAD]"], [19844, 19843, 19845]),
         (10, ["1", "[PAD]", "[PAD]", "[PAD]", "[PAD]"], [19841]),
     ]
-    return spark.createDataFrame(data_string, schema=schema_string)
+    return spark.createDataFrame(data_string, schema=schema_string).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -693,7 +698,7 @@ def simple_dataframe(spark, columns):
         (4, 12, 19845),
         (1, 1, 19841),
     ]
-    return spark.createDataFrame(data, schema=columns)
+    return spark.createDataFrame(data, schema=columns).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -715,7 +720,7 @@ def simple_dataframe_array(spark):
         (4, [12, 0], 19845),
         (1, [1, 0], 19841),
     ]
-    return spark.createDataFrame(data_array, schema=columns_array)
+    return spark.createDataFrame(data_array, schema=columns_array).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -737,7 +742,7 @@ def simple_dataframe_additional(spark):
         (4, 12, 19845, 1),
         (1, 1, 19841, 1),
     ]
-    return spark.createDataFrame(data_additional, schema=columns_additional)
+    return spark.createDataFrame(data_additional, schema=columns_additional).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -754,7 +759,7 @@ def simple_dataframe_target(spark, schema_target):
         (2, 4, 19844, [1, 2, 3], [19841, 19842, 19843]),
         (4, 12, 19845, [11], [19843]),
     ]
-    return spark.createDataFrame(data_target, schema=schema_target)
+    return spark.createDataFrame(data_target, schema=schema_target).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -771,7 +776,7 @@ def simple_dataframe_target_ordered(spark, schema_target):
         (2, 4, 19844, [1, 2, 3], [19841, 19842, 19843]),
         (4, 12, 19845, [11], [19843]),
     ]
-    return spark.createDataFrame(data_target_ordered, schema=schema_target)
+    return spark.createDataFrame(data_target_ordered, schema=schema_target).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -788,7 +793,9 @@ def simple_dataframe_target_ordered_list_len(spark, schema_target_list_len):
         (2, 4, 19844, [1, 2, 3], [19841, 19842, 19843], 3),
         (4, 12, 19845, [11], [19843], 1),
     ]
-    return spark.createDataFrame(data_target_ordered_list_len, schema=schema_target_list_len)
+    return spark.createDataFrame(data_target_ordered_list_len, schema=schema_target_list_len).repartition(
+        DEFAULT_SPARK_NUM_PARTITIONS
+    )
 
 
 @pytest.fixture(scope="module")
@@ -938,6 +945,7 @@ def dataframe_sessionizer(spark):
         spark.createDataFrame(data, schema=columns)
         .withColumn("spark_date", to_date(col("timestamp"), "dd-MM-yyyy"))
         .withColumn("timestamp", unix_timestamp(col("spark_date")))
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     )
 
 

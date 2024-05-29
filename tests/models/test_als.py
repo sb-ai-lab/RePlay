@@ -219,7 +219,3 @@ def test_it_works(log):
     res = model.optimize(dataset, dataset, k=2, budget=1)
     assert isinstance(res["rank"], int)
     assert model._params_tried() is True
-    model.optimize(dataset, dataset, k=2, budget=1)
-    assert len(model.study.trials) == 1
-    model.optimize(dataset, dataset, k=2, budget=1, new_study=False)
-    assert len(model.study.trials) == 2

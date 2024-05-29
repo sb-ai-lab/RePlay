@@ -85,7 +85,7 @@ def test_get_nearest_items(model):
     )
 
     assert res.count() == 1
-    assert res.select("confidence_gain").collect()[0][0] == 2.0
+    assert res.select("confidence_gain").first()[0] == 2.0
 
     res = model.get_nearest_items(
         items=[2],

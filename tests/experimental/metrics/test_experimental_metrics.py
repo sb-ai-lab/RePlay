@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from replay.data import get_schema
-from tests.utils import assert_allclose, assertDictAlmostEqual, sparkDataFrameEqual
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, assert_allclose, assertDictAlmostEqual, sparkDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
@@ -71,7 +71,7 @@ def recs(spark):
             [2, 3, 2.0],
         ],
         schema=REC_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -79,7 +79,7 @@ def recs2(spark):
     return spark.createDataFrame(
         data=[[0, 3, 4.0], [0, 4, 5.0]],
         schema=REC_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -87,7 +87,7 @@ def empty_recs(spark):
     return spark.createDataFrame(
         data=[],
         schema=REC_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -102,7 +102,7 @@ def true(spark):
             [2, 1, datetime(2019, 9, 15), 3.0],
         ],
         schema=INTERACTIONS_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -110,7 +110,7 @@ def true_users(spark):
     return spark.createDataFrame(
         data=[[1], [2], [3], [4]],
         schema=StructType([StructField("user_idx", IntegerType())]),
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -123,7 +123,7 @@ def prev_relevance(spark):
             [4, 6, 11.5],
         ],
         schema=REC_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -148,21 +148,25 @@ def duplicate_recs(spark):
             [2, 3, 2.0],
         ],
         schema=REC_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.mark.experimental
 def test_get_enriched_recommendations_true_users(spark, recs, true, true_users):
     enriched = get_enriched_recommendations(recs, true, 2, ground_truth_users=true_users)
-    gt = spark.createDataFrame(
-        data=[
-            [1, ([1, 0]), ([0, 5])],
-            [2, ([0, 3]), ([1])],
-            [3, ([]), ([])],
-            [4, ([]), ([])],
-        ],
-        schema="user_idx int, pred array<int>, ground_truth array<int>",
-    ).withColumnRenamed("relevance", "weight")
+    gt = (
+        spark.createDataFrame(
+            data=[
+                [1, ([1, 0]), ([0, 5])],
+                [2, ([0, 3]), ([1])],
+                [3, ([]), ([])],
+                [4, ([]), ([])],
+            ],
+            schema="user_idx int, pred array<int>, ground_truth array<int>",
+        )
+        .withColumnRenamed("relevance", "weight")
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
     sparkDataFrameEqual(enriched, gt)
 
 

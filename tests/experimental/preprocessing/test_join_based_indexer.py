@@ -6,11 +6,16 @@ torch = pytest.importorskip("torch")
 from pyspark.sql import functions as sf
 
 from replay.experimental.preprocessing.data_preparator import JoinBasedIndexerEstimator, JoinBasedIndexerTransformer
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS
 
 
 @pytest.fixture(scope="module")
 def log(spark):
-    return spark.createDataFrame([(55, 70), (56, 70), (57, 71), (88, 72), (55, 72)]).toDF("user_id", "item_id")
+    return (
+        spark.createDataFrame([(55, 70), (56, 70), (57, 71), (88, 72), (55, 72)])
+        .toDF("user_id", "item_id")
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
 
 
 @pytest.mark.experimental
@@ -19,9 +24,9 @@ def test_indexer(log):
     indexed_df = indexer.transform(log)
     assert "user_idx" in indexed_df.columns and "item_idx" in indexed_df.columns
     assert log.count() == indexed_df.count()
-    assert indexed_df.agg({"user_idx": "max"}).collect()[0][0] < log.count()
-    assert indexed_df.agg({"item_idx": "max"}).collect()[0][0] < log.count()
-    assert indexed_df.select(sf.min("user_idx") + sf.min("item_idx")).collect()[0][0] == 0
+    assert indexed_df.agg({"user_idx": "max"}).first()[0] < log.count()
+    assert indexed_df.agg({"item_idx": "max"}).first()[0] < log.count()
+    assert indexed_df.select(sf.min("user_idx") + sf.min("item_idx")).first()[0] == 0
 
 
 @pytest.mark.experimental

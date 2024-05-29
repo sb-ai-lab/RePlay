@@ -4,7 +4,7 @@ import pytest
 
 from replay.data import FeatureHint, FeatureInfo, FeatureSchema, FeatureType
 from replay.models import CatPopRec
-from tests.utils import create_dataset, sparkDataFrameEqual
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, create_dataset, sparkDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
@@ -21,7 +21,7 @@ def cold_items(spark):
             [3],
         ],
         schema="item_idx int",
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -35,7 +35,7 @@ def test_cat_tree(model):
     mapping.show()
     assert mapping.count() == 8
     assert mapping.filter(sf.col("category") == "healthy_food").count() == 1
-    assert mapping.filter(sf.col("category") == "healthy_food").select("leaf_cat").collect()[0][0] == "healthy_food"
+    assert mapping.filter(sf.col("category") == "healthy_food").select("leaf_cat").first()[0] == "healthy_food"
 
     assert mapping.filter(sf.col("category") == "groceries").count() == 2
     assert sorted(

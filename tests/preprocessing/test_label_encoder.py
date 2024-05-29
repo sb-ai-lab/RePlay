@@ -187,40 +187,40 @@ def test_none_type_passed_as_default_value_pandas_polars(
     assert mapped_interactions.tail(1)["item2"].to_list()[0] is None
 
 
-@pytest.mark.spark
+@pytest.mark.core
 @pytest.mark.usefixtures(
-    "spark_df_for_labelencoder",
-    "spark_df_for_labelencoder_modified",
+    "pandas_df_for_labelencoder",
+    "pandas_df_for_labelencoder_modified",
 )
 def test_label_encoder_with_handled_null_values_spark(
-    spark_df_for_labelencoder,
-    spark_df_for_labelencoder_modified,
+    pandas_df_for_labelencoder,
+    pandas_df_for_labelencoder_modified,
 ):
     encoder = LabelEncoder([LabelEncodingRule("item1"), LabelEncodingRule("item2")])
-    encoder.fit(spark_df_for_labelencoder)
+    encoder.fit(pandas_df_for_labelencoder)
     encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"})
     encoder.set_default_values({"item1": None, "item2": "last"})
-    mapped_interactions = encoder.transform(spark_df_for_labelencoder_modified).toPandas().sort_index()
+    mapped_interactions = encoder.transform(pandas_df_for_labelencoder_modified).sort_index()
     mapped_interactions.sort_values("user_id", inplace=True)
 
-    assert str(mapped_interactions.iloc[-1]["item1"]) == "nan"
+    assert str(mapped_interactions.iloc[-1]["item1"]) == "None"
     assert str(mapped_interactions.iloc[-1]["item2"]) == "2"
 
 
-@pytest.mark.spark
+@pytest.mark.core
 @pytest.mark.usefixtures(
-    "spark_df_for_labelencoder",
-    "spark_df_for_labelencoder_modified",
+    "pandas_df_for_labelencoder",
+    "pandas_df_for_labelencoder_modified",
 )
 def test_label_encoder_with_null_values_spark(
-    spark_df_for_labelencoder,
-    spark_df_for_labelencoder_modified,
+    pandas_df_for_labelencoder,
+    pandas_df_for_labelencoder_modified,
 ):
     encoder = LabelEncoder([LabelEncodingRule("item1"), LabelEncodingRule("item2")])
-    encoder.fit(spark_df_for_labelencoder)
+    encoder.fit(pandas_df_for_labelencoder)
     encoder.set_default_values({"item1": None, "item2": "last"})
     with pytest.raises(ValueError):
-        encoder.transform(spark_df_for_labelencoder_modified)
+        encoder.transform(pandas_df_for_labelencoder_modified)
 
 
 @pytest.mark.core

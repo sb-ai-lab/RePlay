@@ -3,7 +3,7 @@ import logging
 import pandas as pd
 import pytest
 
-from tests.utils import sparkDataFrameEqual
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, sparkDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
@@ -108,7 +108,7 @@ def test_indexer(long_log_with_features):
 def test_indexer_without_renaming():
     indexer = Indexer("user_idx", "item_idx")
     df = pd.DataFrame({"user_idx": [3], "item_idx": [5]})
-    df = convert2spark(df)
+    df = convert2spark(df).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     indexer.fit(df, df)
     res = indexer.transform(df)
     cols = res.columns
@@ -145,7 +145,7 @@ def test_cat_features_transformer(item_features):
     assert "class" not in transformed.columns
     assert "iq" in transformed.columns and "color" in transformed.columns
     assert "ohe_class_dog" not in transformed.columns and "ohe_class_cat" in transformed.columns
-    assert transformed.filter(sf.col("item_idx") == 5).select("ohe_class_mouse").collect()[0][0] == 1.0
+    assert transformed.filter(sf.col("item_idx") == 5).select("ohe_class_mouse").first()[0] == 1.0
 
 
 @pytest.mark.experimental

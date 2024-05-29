@@ -165,7 +165,7 @@ def test_predict_new_users(long_log_with_features, user_features):
         users=[0],
     )
     assert pred.count() == 1
-    assert pred.collect()[0][0] == 0
+    assert pred.first()[0] == 0
 
 
 @pytest.mark.experimental

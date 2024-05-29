@@ -141,7 +141,7 @@ def main():
     print("train info:\n", get_log_info(train))
     print("test info:\n", get_log_info(test))
 
-    test_start = test.agg(sf.min("timestamp")).collect()[0][0]
+    test_start = test.agg(sf.min("timestamp")).first()[0]
 
     # train with both positive and negative feedback
     pos_neg_train = train.withColumn("relevance", sf.lit(1.0)).union(

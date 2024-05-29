@@ -2,6 +2,8 @@ import pandas as pd
 import polars as pl
 import pytest
 
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS
+
 
 @pytest.fixture(scope="module")
 def full_pandas_dataset():
@@ -80,7 +82,7 @@ def full_spark_dataset(spark):
                 "rating": [1.1, 1.2, 1.3, 2, 3, 4],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     users = spark.createDataFrame(
         pd.DataFrame(
@@ -89,11 +91,11 @@ def full_spark_dataset(spark):
                 "gender": [0, 1, 0],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     items = spark.createDataFrame(
         pd.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]})
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     return {
         "interactions": events,
@@ -188,7 +190,7 @@ def full_spark_dataset_cutted_interactions(spark):
                 "feature1": [1.1, 1.2, 1.3, 1.4],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     users = spark.createDataFrame(
         pd.DataFrame(
@@ -197,11 +199,11 @@ def full_spark_dataset_cutted_interactions(spark):
                 "gender": [0, 1, 0],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     items = spark.createDataFrame(
         pd.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature2": [1.1, 1.2, 1.3, 1.4]})
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     return {
         "interactions": events,
@@ -293,7 +295,7 @@ def inconsistent_item_full_spark_dataset(spark):
                 "rating": [1.1, 1.2, 1.3, 2, 3, 4],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     users = spark.createDataFrame(
         pd.DataFrame(
@@ -302,11 +304,11 @@ def inconsistent_item_full_spark_dataset(spark):
                 "gender": [0, 1, 0],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     items = spark.createDataFrame(
         pd.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]})
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     return {
         "interactions": events,
@@ -398,7 +400,7 @@ def inconsistent_user_full_spark_dataset(spark):
                 "rating": [1.1, 1.2, 1.3, 2, 3, 4],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     users = spark.createDataFrame(
         pd.DataFrame(
@@ -407,11 +409,11 @@ def inconsistent_user_full_spark_dataset(spark):
                 "gender": [0, 1, 0],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     items = spark.createDataFrame(
         pd.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]})
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     return {
         "interactions": events,
@@ -481,7 +483,7 @@ def interactions_full_spark_dataset(spark):
                 "rating": [1.1, 1.2, 1.3, 2, 3, 4],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     return {
         "interactions": events,
@@ -544,7 +546,7 @@ def interactions_timestamp_spark_dataset(spark):
                 "timestamp": [0, 1, 2, 3, 4, 5],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     return {
         "interactions": events,
@@ -592,7 +594,7 @@ def interactions_rating_polars_dataset():
 def interactions_rating_spark_dataset(spark):
     events = spark.createDataFrame(
         pd.DataFrame({"user_id": [0, 0, 1, 1, 1, 2], "item_id": [0, 1, 0, 2, 3, 1], "rating": [1.1, 1.2, 1.3, 2, 3, 4]})
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     return {
         "interactions": events,
@@ -613,7 +615,7 @@ def interactions_ids_spark_dataset(spark):
                 "item_id": [0, 1, 0, 2, 3, 1],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     return {
         "interactions": events,
@@ -695,7 +697,7 @@ def interactions_users_spark_dataset(spark):
                 "rating": [1.1, 1.2, 1.3, 2, 3, 4],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     users = spark.createDataFrame(
         pd.DataFrame(
@@ -704,7 +706,7 @@ def interactions_users_spark_dataset(spark):
                 "gender": [0, 1, 0],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     return {
         "interactions": events,
@@ -779,11 +781,11 @@ def interactions_items_spark_dataset(spark):
                 "rating": [1.1, 1.2, 1.3, 2, 3, 4],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     items = spark.createDataFrame(
         pd.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]})
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     return {
         "interactions": events,
@@ -955,7 +957,7 @@ def not_int_user_spark_dataset(spark):
                 "rating": [1.1, 1.2, 1.3, 2, 3, 4],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     return {
         "interactions": events,
@@ -979,7 +981,7 @@ def not_int_item_spark_dataset(spark):
                 "rating": [1.1, 1.2, 1.3, 2, 3, 4],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     return {
         "interactions": events,
@@ -1091,7 +1093,7 @@ def less_than_zero_user_spark_dataset(spark):
                 "rating": [1.1, 1.2, 1.3, 2, 3, 4],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     return {
         "interactions": events,
@@ -1115,7 +1117,7 @@ def less_than_zero_item_spark_dataset(spark):
                 "rating": [1.1, 1.2, 1.3, 2, 3, 4],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     return {
         "interactions": events,
@@ -1227,7 +1229,7 @@ def more_than_count_user_spark_dataset(spark):
                 "rating": [1.1, 1.2, 1.3, 2, 3, 4],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     return {
         "interactions": events,
@@ -1251,7 +1253,7 @@ def more_than_count_item_spark_dataset(spark):
                 "rating": [1.1, 1.2, 1.3, 2, 3, 4],
             }
         )
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     return {
         "interactions": events,

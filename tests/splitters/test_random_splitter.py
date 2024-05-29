@@ -5,6 +5,7 @@ import pytest
 
 from replay.splitters import RandomSplitter
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
@@ -41,7 +42,11 @@ def spark_dataframe_test(spark):
         (3, 1, "04-01-2020", 6),
         (3, 2, "05-01-2020", 6),
     ]
-    return spark.createDataFrame(data, schema=columns).withColumn("timestamp", sf.to_date("timestamp", "dd-MM-yyyy"))
+    return (
+        spark.createDataFrame(data, schema=columns)
+        .withColumn("timestamp", sf.to_date("timestamp", "dd-MM-yyyy"))
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
 
 
 @pytest.fixture(scope="module")
@@ -78,7 +83,7 @@ def polars_dataframe_test(pandas_dataframe_test):
 
 @pytest.fixture(scope="module")
 def log_spark(spark, log):
-    return spark.createDataFrame(log)
+    return spark.createDataFrame(log).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")

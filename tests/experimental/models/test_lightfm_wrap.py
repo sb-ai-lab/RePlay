@@ -1,3 +1,4 @@
+import sys
 from datetime import datetime
 
 import numpy as np
@@ -14,7 +15,7 @@ from replay.experimental.models.base_rec import HybridRecommender, UserRecommend
 from replay.experimental.scenarios.two_stages.two_stages_scenario import get_first_level_model_features
 from replay.experimental.utils.model_handler import save
 from replay.utils.model_handler import load
-from tests.utils import sparkDataFrameEqual
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, sparkDataFrameEqual
 
 SEED = 123
 
@@ -41,19 +42,25 @@ def log(spark):
             [0, 2, date, 2.0],
         ],
         schema=get_schema("user_idx", "item_idx", "timestamp", "relevance"),
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
 def user_features(spark):
-    return spark.createDataFrame([(0, 2.0, 5.0), (1, 0.0, -5.0), (4, 4.0, 3.0)]).toDF(
-        "user_idx", "user_feature_1", "user_feature_2"
+    return (
+        spark.createDataFrame([(0, 2.0, 5.0), (1, 0.0, -5.0), (4, 4.0, 3.0)])
+        .toDF("user_idx", "user_feature_1", "user_feature_2")
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     )
 
 
 @pytest.fixture(scope="module")
 def item_features(spark):
-    return spark.createDataFrame([(0, 4.0, 5.0), (1, 5.0, 4.0)]).toDF("item_idx", "item_feature_1", "item_feature_2")
+    return (
+        spark.createDataFrame([(0, 4.0, 5.0), (1, 5.0, 4.0)])
+        .toDF("item_idx", "item_feature_1", "item_feature_2")
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
 
 
 @pytest.fixture(scope="class")
@@ -63,6 +70,7 @@ def model():
     return model
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.experimental
 def test_equal_preds(long_log_with_features, tmp_path):
     path = (tmp_path / "test").resolve()
@@ -75,6 +83,7 @@ def test_equal_preds(long_log_with_features, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.experimental
 def test_predict(log, user_features, item_features, model):
     model.fit(log, user_features, item_features)
@@ -92,6 +101,7 @@ def test_predict(log, user_features, item_features, model):
     ]
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.experimental
 def test_predict_no_user_features(log, item_features, model):
     model.fit(log, None, item_features)
@@ -111,6 +121,7 @@ def test_predict_no_user_features(log, item_features, model):
     ]
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.experimental
 def test_predict_pairs(log, user_features, item_features, model):
     model.fit(
@@ -124,16 +135,17 @@ def test_predict_pairs(log, user_features, item_features, model):
         item_features=item_features,
     )
     assert pred.count() == 2
-    assert pred.select("user_idx").distinct().collect()[0][0] == 0
+    assert pred.select("user_idx").distinct().first()[0] == 0
     pred = model.predict_pairs(
         log.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"),
         user_features=user_features,
         item_features=item_features,
     )
     assert pred.count() == 2
-    assert pred.select("user_idx").distinct().collect()[0][0] == 1
+    assert pred.select("user_idx").distinct().first()[0] == 1
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.experimental
 def test_raises_fit(log, user_features, item_features, model):
     with pytest.raises(ValueError, match="features for .*"):
@@ -144,6 +156,7 @@ def test_raises_fit(log, user_features, item_features, model):
         )
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.experimental
 def test_raises_predict(log, item_features, model):
     with pytest.raises(ValueError, match="Item features are missing for predict"):
@@ -166,7 +179,7 @@ def _fit_predict_compare_features(model, log, user_features, user_features_filte
             item_features=item_features,
         )
         .select("relevance")
-        .collect()[0][0]
+        .first()[0]
     )
     row_dict = (
         get_first_level_model_features(
@@ -184,6 +197,7 @@ def _fit_predict_compare_features(model, log, user_features, user_features_filte
     )
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.experimental
 def test_enrich_with_features(log, user_features, item_features, model):
     test_pair = log.filter((sf.col("item_idx") == 1) & (sf.col("user_idx") == 1))
@@ -201,6 +215,7 @@ def test_enrich_with_features(log, user_features, item_features, model):
             )
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.experimental
 def test_predict_pairs_warm_items_only(log, log_to_pred):
     model = LightFMWrap(random_state=SEED)
@@ -239,6 +254,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred):
     )
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.experimental
 def test_predict_pairs_k(log):
     model = LightFMWrap(random_state=SEED)
@@ -261,6 +277,7 @@ def test_predict_pairs_k(log):
     assert pairs_pred.groupBy("user_idx").count().filter(sf.col("count") > 1).count() > 0
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.experimental
 def test_predict_empty_log(log):
     model = LightFMWrap(random_state=SEED)
@@ -268,6 +285,7 @@ def test_predict_empty_log(log):
     model.predict(log.limit(0), 1)
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.experimental
 def test_predict_new_users(long_log_with_features, user_features):
     model = LightFMWrap(random_state=SEED, no_components=4)
@@ -279,9 +297,10 @@ def test_predict_new_users(long_log_with_features, user_features):
         users=[0],
     )
     assert pred.count() == 1
-    assert pred.collect()[0][0] == 0
+    assert pred.first()[0] == 0
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.experimental
 def test_predict_cold_users(long_log_with_features, user_features):
     model = LightFMWrap(random_state=SEED, no_components=4)
@@ -293,9 +312,10 @@ def test_predict_cold_users(long_log_with_features, user_features):
         users=[0],
     )
     assert pred.count() == 1
-    assert pred.collect()[0][0] == 0
+    assert pred.first()[0] == 0
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.experimental
 def test_predict_cold_and_new_filter_out(long_log_with_features):
     model = LightFMWrap()

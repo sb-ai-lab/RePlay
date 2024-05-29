@@ -13,11 +13,7 @@ from pytorch_ranger import Ranger
 from replay.data import get_schema
 from replay.experimental.models import DDPG
 from replay.experimental.models.ddpg import ActorDRR, CriticDRR, OUNoise, ReplayBuffer, StateReprModule
-from tests.utils import (
-    del_files_by_pattern,
-    find_file_by_pattern,
-    sparkDataFrameEqual,
-)
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, del_files_by_pattern, find_file_by_pattern, sparkDataFrameEqual
 
 SEED = 123
 INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
@@ -155,7 +151,7 @@ def log(spark):
             (2, 3, date, 1.0),
         ],
         schema=INTERACTIONS_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="class")

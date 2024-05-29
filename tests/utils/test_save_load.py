@@ -5,6 +5,8 @@ import pytest
 
 pyspark = pytest.importorskip("pyspark")
 
+from time import perf_counter
+
 import replay
 from replay.models import ItemKNN
 from replay.preprocessing.label_encoder import LabelEncoder, LabelEncodingRule
@@ -37,6 +39,7 @@ def user_features(spark):
 
 @pytest.fixture(scope="module")
 def df():
+    t1 = perf_counter()
     folder = dirname(replay.__file__)
     res = pd.read_csv(
         join(folder, "../examples/data/ml1m_ratings.dat"),
@@ -50,6 +53,7 @@ def df():
         ]
     )
     res = encoder.fit_transform(res)
+    t1 = perf_counter() - t1
     return res
 
 
@@ -120,15 +124,15 @@ def test_save_raise(long_log_with_features, tmp_path):
         save(model, path)
 
 
-@pytest.mark.spark
-def test_save_load_encoder(long_log_with_features, tmp_path):
+@pytest.mark.core
+def test_save_load_encoder(df, tmp_path):
     encoder = LabelEncoder(
         [
-            LabelEncodingRule("user_idx"),
-            LabelEncodingRule("item_idx"),
+            LabelEncodingRule("user_id"),
+            LabelEncodingRule("item_id"),
         ]
     )
-    encoder.fit(long_log_with_features)
+    encoder.fit(df)
     save_encoder(encoder, tmp_path)
     loaded_encoder = load_encoder(tmp_path)
 

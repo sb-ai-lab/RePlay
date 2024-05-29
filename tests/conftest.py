@@ -7,6 +7,7 @@ import pytest
 from replay.data import get_schema
 from replay.utils import PYSPARK_AVAILABLE
 from replay.utils.session_handler import get_spark_session
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS
 
 if PYSPARK_AVAILABLE:
     INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
@@ -30,7 +31,7 @@ def log_to_pred(spark):
             [4, 1, datetime(2019, 9, 15), 3.0],
         ],
         schema=INTERACTIONS_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="session")
@@ -45,7 +46,7 @@ def log2(spark):
             [2, 1, datetime(2019, 9, 15), 3.0],
         ],
         schema=INTERACTIONS_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="session")
@@ -65,7 +66,7 @@ def log(spark):
             [3, 0, datetime(2019, 8, 26), 1.0],
         ],
         schema=INTERACTIONS_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="session")
@@ -86,8 +87,8 @@ def long_log_with_features(spark):
             [2, 5, datetime(2020, 3, 1), 1.0],
             [2, 6, date, 5.0],
         ],
-        schema=["user_idx", "item_idx", "timestamp", "relevance"],
-    )
+        schema=INTERACTIONS_SCHEMA,
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="session")
@@ -103,31 +104,39 @@ def short_log_with_features(spark):
             [2, 0, date, 2.0],
             [3, 4, date, 5.0],
         ],
-        schema=["user_idx", "item_idx", "timestamp", "relevance"],
-    )
+        schema=INTERACTIONS_SCHEMA,
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="session")
 def user_features(spark):
-    return spark.createDataFrame(
-        [
-            (0, 20.0, -3.0, "M"),
-            (1, 30.0, 4.0, "F"),
-            (2, 75.0, -1.0, "M"),
-        ]
-    ).toDF("user_idx", "age", "mood", "gender")
+    return (
+        spark.createDataFrame(
+            [
+                (0, 20.0, -3.0, "M"),
+                (1, 30.0, 4.0, "F"),
+                (2, 75.0, -1.0, "M"),
+            ]
+        )
+        .toDF("user_idx", "age", "mood", "gender")
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
 
 
 @pytest.fixture(scope="session")
 def all_users_features(spark):
-    return spark.createDataFrame(
-        [
-            (0, 20.0, -3.0, "M"),
-            (1, 30.0, 4.0, "F"),
-            (2, 75.0, -1.0, "M"),
-            (3, 35.0, 42.0, "M"),
-        ]
-    ).toDF("user_idx", "age", "mood", "gender")
+    return (
+        spark.createDataFrame(
+            [
+                (0, 20.0, -3.0, "M"),
+                (1, 30.0, 4.0, "F"),
+                (2, 75.0, -1.0, "M"),
+                (3, 35.0, 42.0, "M"),
+            ]
+        )
+        .toDF("user_idx", "age", "mood", "gender")
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
 
 
 @pytest.fixture(scope="session")

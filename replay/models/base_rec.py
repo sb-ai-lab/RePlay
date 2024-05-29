@@ -401,8 +401,8 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         self.fit_items = sf.broadcast(items)
         self._num_queries = self.fit_queries.count()
         self._num_items = self.fit_items.count()
-        self._query_dim_size = self.fit_queries.agg({self.query_column: "max"}).collect()[0][0] + 1
-        self._item_dim_size = self.fit_items.agg({self.item_column: "max"}).collect()[0][0] + 1
+        self._query_dim_size = self.fit_queries.agg({self.query_column: "max"}).first()[0] + 1
+        self._item_dim_size = self.fit_items.agg({self.item_column: "max"}).first()[0] + 1
         self._fit(dataset)
 
     @abstractmethod
@@ -431,7 +431,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         # count maximal number of items seen by queries
         max_seen = 0
         if num_seen.count() > 0:
-            max_seen = num_seen.select(sf.max("seen_count")).collect()[0][0]
+            max_seen = num_seen.select(sf.max("seen_count")).first()[0]
 
         # crop recommendations to first k + max_seen items for each query
         recs = recs.withColumn(
@@ -708,7 +708,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             setattr(
                 self,
                 dim_size,
-                fit_entities.agg({column: "max"}).collect()[0][0] + 1,
+                fit_entities.agg({column: "max"}).first()[0] + 1,
             )
         return getattr(self, dim_size)
 
@@ -1426,7 +1426,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
         Calculating a fill value a the minimal rating
         calculated during model training multiplied by weight.
         """
-        return item_popularity.select(sf.min(rating_column)).collect()[0][0] * weight
+        return item_popularity.select(sf.min(rating_column)).first()[0] * weight
 
     @staticmethod
     def _check_rating(dataset: Dataset):
@@ -1460,7 +1460,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
                 .agg(sf.countDistinct(item_column).alias("items_count"))
             )
             .select(sf.max("items_count"))
-            .collect()[0][0]
+            .first()[0]
         )
         # all queries have empty history
         if max_hist_len is None:
@@ -1495,7 +1495,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
             queries = queries.join(query_to_num_items, on=self.query_column, how="left")
             queries = queries.fillna(0, "num_items")
             # 'selected_item_popularity' truncation by k + max_seen
-            max_seen = queries.select(sf.coalesce(sf.max("num_items"), sf.lit(0))).collect()[0][0]
+            max_seen = queries.select(sf.coalesce(sf.max("num_items"), sf.lit(0))).first()[0]
             selected_item_popularity = selected_item_popularity.filter(sf.col("rank") <= k + max_seen)
             return queries.join(selected_item_popularity, on=(sf.col("rank") <= k + sf.col("num_items")), how="left")
 

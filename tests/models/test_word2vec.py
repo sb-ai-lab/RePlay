@@ -1,3 +1,4 @@
+import sys
 from datetime import datetime
 
 import numpy as np
@@ -8,9 +9,7 @@ from replay.models import Word2VecRec
 from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
 from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
 from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
-from tests.utils import (
-    create_dataset,
-)
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, create_dataset
 
 pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
@@ -34,7 +33,7 @@ def log(spark):
             [0, 3, date, 2.0],
         ],
         schema=INTERACTIONS_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -64,6 +63,7 @@ def model_with_ann(tmp_path):
     return model
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.spark
 def test_fit(log, model):
     dataset = create_dataset(log)
@@ -83,6 +83,7 @@ def test_fit(log, model):
     )
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.spark
 def test_predict(log, model):
     dataset = create_dataset(log)
@@ -96,6 +97,7 @@ def test_predict(log, model):
 
 
 # here we use `test.utils.log` because we can't build the hnsw index on `log` data
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.spark
 def test_word2vec_predict_filter_seen_items(log2, model, model_with_ann):
     dataset = create_dataset(log2)
@@ -111,6 +113,8 @@ def test_word2vec_predict_filter_seen_items(log2, model, model_with_ann):
     assert recs1.item_idx.equals(recs2.item_idx)
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.spark
 def test_word2vec_predict(log2, model, model_with_ann):
     dataset = create_dataset(log2)

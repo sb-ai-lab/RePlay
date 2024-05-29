@@ -13,7 +13,7 @@ from replay.experimental.models import ADMMSLIM
 from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
 from replay.experimental.utils.model_handler import save
 from replay.utils.model_handler import load
-from tests.utils import sparkDataFrameEqual
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, sparkDataFrameEqual
 
 SEED = 123
 INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
@@ -53,7 +53,7 @@ def simple_log(spark):
             [3, 0, date, 2.0],
         ],
         schema=INTERACTIONS_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -203,4 +203,4 @@ def test_predict_new_users(long_log_with_features, user_features):
         users=[0],
     )
     assert pred.count() == 1
-    assert pred.collect()[0][0] == 0
+    assert pred.first()[0] == 0

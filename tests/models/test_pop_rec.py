@@ -4,7 +4,7 @@ import pytest
 
 from replay.data import get_schema
 from replay.models import PopRec
-from tests.utils import create_dataset
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, create_dataset
 
 pyspark = pytest.importorskip("pyspark")
 
@@ -25,7 +25,7 @@ def log(spark):
             [0, 2, date, 2.0],
         ],
         schema=INTERACTIONS_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")

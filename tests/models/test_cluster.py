@@ -2,10 +2,7 @@ import pandas as pd
 import pytest
 
 from replay.models import ClusterRec
-from tests.utils import (
-    create_dataset,
-    sparkDataFrameEqual,
-)
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, create_dataset, sparkDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
 import pyspark.sql.functions as sf
@@ -40,9 +37,13 @@ def test_cold_user(long_log_with_features, users_features):
     train = long_log_with_features.filter("user_idx < 2")
     train_dataset = create_dataset(train, users_features)
     model.fit(train_dataset)
-    res = model.predict(train_dataset, 2, queries=convert2spark(pd.DataFrame({"user_idx": [1]})))
+    res = model.predict(
+        train_dataset,
+        2,
+        queries=convert2spark(pd.DataFrame({"user_idx": [1]})).repartition(DEFAULT_SPARK_NUM_PARTITIONS),
+    )
     assert res.count() == 2
-    assert res.select("user_idx").distinct().collect()[0][0] == 1
+    assert res.select("user_idx").distinct().first()[0] == 1
     assert res.filter(sf.col("relevance").isNull()).count() == 0
 
 
@@ -58,7 +59,7 @@ def test_predict_pairs(long_log_with_features, users_features):
     )
     sparkDataFrameEqual(res.select("user_idx", "item_idx"), pairs)
     assert res.count() == 4
-    assert res.select("user_idx").collect()[0][0] == 1
+    assert res.select("user_idx").first()[0] == 1
 
 
 @pytest.mark.spark

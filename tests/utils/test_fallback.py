@@ -6,15 +6,15 @@ pyspark = pytest.importorskip("pyspark")
 from replay.models import ItemKNN
 from replay.scenarios import Fallback
 from replay.utils.spark_utils import convert2spark, fallback
-from tests.utils import create_dataset, sparkDataFrameEqual
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, create_dataset, sparkDataFrameEqual
 
 
 @pytest.mark.spark
 def test_fallback():
     base = pd.DataFrame({"user_idx": [1], "item_idx": [1], "relevance": [1]})
     extra = pd.DataFrame({"user_idx": [1, 1, 2], "item_idx": [1, 2, 1], "relevance": [1, 2, 1]})
-    base = convert2spark(base)
-    extra = convert2spark(extra)
+    base = convert2spark(base).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    extra = convert2spark(extra).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     res = fallback(base, extra, 2).toPandas()
     assert len(res) == 3
     assert res.user_idx.nunique() == 2

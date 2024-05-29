@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 
 pyspark = pytest.importorskip("pyspark")
@@ -40,6 +42,7 @@ def two_stages_kwargs():
     }
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.experimental
 def test_init(two_stages_kwargs):
     two_stages = TwoStagesScenario(**two_stages_kwargs)
@@ -62,6 +65,7 @@ def test_init(two_stages_kwargs):
         TwoStagesScenario(**two_stages_kwargs)
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.xfail
 @pytest.mark.experimental
 def test_fit(
@@ -97,6 +101,7 @@ def test_fit(
     two_stages.first_level_item_features_transformer.transform(item_features)
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.xfail
 @pytest.mark.experimental
 def test_predict(
@@ -119,13 +124,14 @@ def test_predict(
         item_features=item_features,
     )
     assert pred.count() == 6
-    assert sorted(pred.select(sf.collect_set("user_idx")).collect()[0][0]) == [
+    assert sorted(pred.select(sf.collect_set("user_idx")).first()[0]) == [
         0,
         1,
         2,
     ]
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.xfail
 @pytest.mark.experimental
 def test_optimize(

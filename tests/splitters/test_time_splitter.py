@@ -8,6 +8,7 @@ import pytest
 
 from replay.splitters import TimeSplitter
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as F
@@ -51,7 +52,11 @@ def spark_dataframe_test(spark):
         (3, 1, "04-01-2020", 6),
         (3, 2, "05-01-2020", 6),
     ]
-    return spark.createDataFrame(data, schema=columns).withColumn("timestamp", F.to_date("timestamp", "dd-MM-yyyy"))
+    return (
+        spark.createDataFrame(data, schema=columns)
+        .withColumn("timestamp", F.to_date("timestamp", "dd-MM-yyyy"))
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
 
 
 @pytest.fixture(scope="module")
@@ -101,7 +106,7 @@ def log(spark):
     return spark.createDataFrame(
         log_data,
         schema=["user_id", "item_id", "timestamp", "relevance"],
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
