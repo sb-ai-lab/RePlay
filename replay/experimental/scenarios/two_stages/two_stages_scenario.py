@@ -231,6 +231,13 @@ class TwoStagesScenario(HybridRecommender):
     def _init_args(self):
         return {}
 
+    def save(self, path: str) -> None:
+        pass
+
+    @classmethod
+    def load(cls, path: str) -> "TwoStagesScenario":
+        pass
+
     def _add_features_for_second_level(
         self,
         log_to_add_features: SparkDataFrame,
