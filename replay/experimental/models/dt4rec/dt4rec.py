@@ -79,6 +79,13 @@ class DT4Rec(Recommender):
     def _init_args(self):
         pass
 
+    def save(self, path: str) -> None:
+        pass
+
+    @classmethod
+    def load(cls, path: str) -> "DT4Rec":
+        pass
+
     def _update_mconf(self, **kwargs):
         self.mconf.update(**kwargs)
 
