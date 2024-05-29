@@ -1,6 +1,7 @@
 """
 This splitter split data by two columns.
 """
+
 from typing import Optional, Tuple
 
 import polars as pl

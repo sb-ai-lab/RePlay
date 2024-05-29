@@ -1,6 +1,7 @@
 """
 ``Dataset`` universal dataset class for manipulating interactions and feed data to models.
 """
+
 from __future__ import annotations
 
 from typing import Callable, Dict, Iterable, List, Optional, Sequence

@@ -1,6 +1,7 @@
 """
 Base classes for quality and diversity metrics.
 """
+
 import logging
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Union

@@ -32,9 +32,9 @@ class NmslibFilterIndexInferer(IndexInferer):
             index = index_store.load_index(
                 init_index=lambda: create_nmslib_index_instance(index_params),
                 load_index=lambda index, path: index.loadIndex(path, load_data=True),
-                configure_index=lambda index: index.setQueryTimeParams({"efSearch": index_params.ef_s})
-                if index_params.ef_s
-                else None,
+                configure_index=lambda index: (
+                    index.setQueryTimeParams({"efSearch": index_params.ef_s}) if index_params.ef_s else None
+                ),
             )
 
             # max number of items to retrieve per batch

@@ -6,6 +6,7 @@ Contains classes for data preparation and categorical features transformation.
 ``ToNumericFeatureTransformer`` leaves only numerical features
 by one-hot encoding of some features and deleting the others.
 """
+
 import json
 import logging
 import string

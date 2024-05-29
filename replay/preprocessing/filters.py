@@ -1,6 +1,7 @@
 """
 Select or remove data by some criteria
 """
+
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import Callable, Optional, Tuple, Union

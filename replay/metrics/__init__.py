@@ -42,6 +42,7 @@ For each metric, a formula for its calculation is given, because this is
 important for the correct comparison of algorithms, as mentioned in our
 `article <https://arxiv.org/abs/2206.12858>`_.
 """
+
 from .base_metric import Metric
 from .categorical_diversity import CategoricalDiversity
 from .coverage import Coverage

@@ -1,6 +1,7 @@
 """
 Using CQL implementation from `d3rlpy` package.
 """
+
 import io
 import logging
 import tempfile
@@ -402,6 +403,7 @@ class MdpDatasetBuilder:
         top_k (int): the number of top user items to learn predicting.
         action_randomization_scale (float): the scale of action randomization gaussian noise.
     """
+
     logger: logging.Logger
     top_k: int
     action_randomization_scale: float
