@@ -45,6 +45,13 @@ class ImplicitWrap(Recommender):
     def _load_model(self, path: str):
         self.model = load_pickled_from_parquet(join(path, "model"))
 
+    def save(self, path: str) -> None:
+        pass
+
+    @classmethod
+    def load(cls, path: str) -> "ImplicitWrap":
+        pass
+
     def _fit(
         self,
         log: SparkDataFrame,
