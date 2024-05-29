@@ -53,6 +53,13 @@ class LightFMWrap(HybridRecommender):
             "random_state": self.random_state,
         }
 
+    def save(self, path: str) -> None:
+        pass
+
+    @classmethod
+    def load(cls, path: str) -> "LightFMWrap":
+        pass
+
     def _save_model(self, path: str):
         save_picklable_to_parquet(self.model, join(path, "model"))
         save_picklable_to_parquet(self.user_feat_scaler, join(path, "user_feat_scaler"))

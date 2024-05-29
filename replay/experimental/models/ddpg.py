@@ -582,6 +582,13 @@ class DDPG(Recommender):
             "exact_embeddings_size": self.exact_embeddings_size,
         }
 
+    def save(self, path: str) -> None:
+        pass
+
+    @classmethod
+    def load(cls, path: str) -> "DDPG":
+        pass
+
     def _batch_pass(self, batch: dict) -> Dict[str, Any]:
         user = batch["user"]
         memory = batch["memory"]
