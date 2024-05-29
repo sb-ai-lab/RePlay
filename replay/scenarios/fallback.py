@@ -38,6 +38,13 @@ class Fallback(BaseRecommender):
     def _init_args(self):
         return {"threshold": self.threshold}
 
+    def save(self, path: str) -> None:
+        pass
+
+    @classmethod
+    def load(cls, path: str) -> "Fallback":
+        pass
+
     def __str__(self):
         return f"Fallback_{self.main_model!s}_{self.fb_model!s}"
 
