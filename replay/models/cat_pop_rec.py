@@ -311,10 +311,6 @@ class CatPopRec(IsSavable, RecommenderCommons):
                 df.write.mode("overwrite").parquet(path_to_save)
                 model_dict["dataframes_paths"][name] = path_to_save
 
-        if hasattr(self, "fit_queries"):
-            path_to_save = str(base_path / "dataframes" / "fit_queries")
-            self.fit_queries.write.mode("overwrite").parquet(path_to_save)
-            model_dict["dataframes_paths"]["fit_queries"] = path_to_save
         if hasattr(self, "fit_items"):
             path_to_save = str(base_path / "dataframes" / "fit_items")
             self.fit_items.write.mode("overwrite").parquet(path_to_save)

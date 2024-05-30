@@ -92,7 +92,7 @@ class LastNSplitter(Splitter):
     _init_arg_names = [
         "N",
         "divide_column",
-        "timestamp_col_format",
+        "time_column_format",
         "strategy",
         "drop_cold_users",
         "drop_cold_items",
@@ -161,9 +161,9 @@ class LastNSplitter(Splitter):
         self.N = N
         self.strategy = strategy
         self.divide_column = divide_column
-        self.timestamp_col_format = None
+        self.time_column_format = None
         if self.strategy == "timedelta":
-            self.timestamp_col_format = time_column_format
+            self.time_column_format = time_column_format
 
     def _add_time_partition(self, interactions: DataFrameLike) -> DataFrameLike:
         if isinstance(interactions, SparkDataFrame):
@@ -223,7 +223,7 @@ class LastNSplitter(Splitter):
         time_column_type = dict(interactions.dtypes)[self.timestamp_column]
         if time_column_type == "date":
             interactions = interactions.withColumn(
-                self.timestamp_column, sf.unix_timestamp(self.timestamp_column, self.timestamp_col_format)
+                self.timestamp_column, sf.unix_timestamp(self.timestamp_column, self.time_column_format)
             )
 
         return interactions
