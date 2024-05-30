@@ -16,6 +16,7 @@ from replay.models import (
     PopRec,
     QueryPopRec,
     RandomRec,
+    ThompsonSampling,
     Wilson,
     Word2VecRec,
 )
@@ -305,8 +306,8 @@ def test_wilson_ucb(model, log_unary, tmp_path):
 
 
 @pytest.mark.spark
-@pytest.mark.parametrize("model", [Wilson(), UCB()], ids=["wilson", "ucb"])
-def test_wilson_ucb_no_pickle(model, log_unary, tmp_path):
+@pytest.mark.parametrize("model", [Wilson(), UCB(), ThompsonSampling()], ids=["wilson", "ucb", "thompson"])
+def test_wilson_ucb_thompson_no_pickle(model, log_unary, tmp_path):
     path = (tmp_path / "model").resolve()
     dataset = create_dataset(log_unary)
     model.fit(dataset)

@@ -38,11 +38,11 @@ class Fallback(BaseRecommender):
     def _init_args(self):
         return {"threshold": self.threshold}
 
-    def save(self, path: str) -> None:
+    def save(self, path: str) -> None:  # pragma: no cover
         pass
 
     @classmethod
-    def load(cls, path: str) -> "Fallback":
+    def load(cls, path: str) -> "Fallback":  # pragma: no cover
         pass
 
     def __str__(self):
