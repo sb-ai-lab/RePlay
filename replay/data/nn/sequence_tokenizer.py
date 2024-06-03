@@ -1,5 +1,7 @@
+import json
 import pickle
 import warnings
+from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
@@ -9,8 +11,9 @@ from polars import DataFrame as PolarsDataFrame
 
 from replay.data import Dataset, FeatureHint, FeatureSchema, FeatureSource, FeatureType
 from replay.data.dataset_utils import DatasetLabelEncoder
-from replay.preprocessing import LabelEncoder
+from replay.preprocessing import LabelEncoder, LabelEncodingRule
 from replay.preprocessing.label_encoder import HandleUnknownStrategies
+from replay.utils.model_handler import deprecation_warning
 
 from .schema import TensorFeatureInfo, TensorFeatureSource, TensorSchema
 from .sequential_dataset import PandasSequentialDataset, PolarsSequentialDataset, SequentialDataset
@@ -400,27 +403,129 @@ class SequenceTokenizer:
             tensor_feature._set_cardinality(dataset_feature.cardinality)
 
     @classmethod
-    def load(cls, path: str) -> "SequenceTokenizer":
+    @deprecation_warning("with `use_pickle` equals to `True` will be deprecated in future versions")
+    def load(cls, path: str, use_pickle: bool = False) -> "SequenceTokenizer":
         """
         Load tokenizer object from the given path.
 
         :param path: Path to load the tokenizer.
+        :param use_pickle: If `False` - tokenizer will be loaded from `.replay` directory.
+            If `True` - tokenizer will be loaded with pickle.
+            Default: `False`.
 
         :returns: Loaded tokenizer object.
         """
-        with open(path, "rb") as file:
-            tokenizer = pickle.load(file)
+        if not use_pickle:
+            base_path = Path(path).with_suffix(".replay").resolve()
+            with open(base_path / "init_args.json", "r") as file:
+                tokenizer_dict = json.loads(file.read())
+
+            # load tensor_schema, tensor_features
+            tensor_schema_data = tokenizer_dict["init_args"]["tensor_schema"]
+            features_list = []
+            for feature_data in tensor_schema_data:
+                feature_data["feature_sources"] = [
+                    TensorFeatureSource(source=FeatureSource[x["source"]], column=x["column"], index=x["index"])
+                    for x in feature_data["feature_sources"]
+                ]
+                f_type = feature_data["feature_type"]
+                f_hint = feature_data["feature_hint"]
+                feature_data["feature_type"] = FeatureType[f_type] if f_type else None
+                feature_data["feature_hint"] = FeatureHint[f_hint] if f_hint else None
+                features_list.append(TensorFeatureInfo(**feature_data))
+            tokenizer_dict["init_args"]["tensor_schema"] = TensorSchema(features_list)
+
+            # Load encoder columns and rules
+            types = list(FeatureHint) + list(FeatureSource)
+            map_types = {x.name: x for x in types}
+            encoder_features_columns = {
+                map_types[key]: value for key, value in tokenizer_dict["encoder"]["features_columns"].items()
+            }
+
+            rules_dict = tokenizer_dict["encoder"]["encoding_rules"]
+            for rule in rules_dict:
+                rule_data = rules_dict[rule]
+                if rule_data["mapping"] and rule_data["is_int"]:
+                    rule_data["mapping"] = {int(key): value for key, value in rule_data["mapping"].items()}
+                    del rule_data["is_int"]
+
+                tokenizer_dict["encoder"]["encoding_rules"][rule] = LabelEncodingRule(**rule_data)
+
+            # Init tokenizer
+            tokenizer = cls(**tokenizer_dict["init_args"])
+            tokenizer._encoder._features_columns = encoder_features_columns
+            tokenizer._encoder._encoding_rules = tokenizer_dict["encoder"]["encoding_rules"]
+        else:
+            with open(path, "rb") as file:
+                tokenizer = pickle.load(file)
 
         return tokenizer
 
-    def save(self, path: str) -> None:
+    @deprecation_warning("with `use_pickle` equals to `True` will be deprecated in future versions")
+    def save(self, path: str, use_pickle: bool = False) -> None:
         """
         Save the tokenizer to the given path.
 
         :param path: Path to save the tokenizer.
+        :param use_pickle: If `False` - tokenizer will be saved in `.replay` directory.
+            If `True` - tokenizer will be saved with pickle.
+            Default: `False`.
         """
-        with open(path, "wb") as file:
-            pickle.dump(self, file)
+        if not use_pickle:
+            tokenizer_dict = {}
+            tokenizer_dict["_class_name"] = self.__class__.__name__
+            tokenizer_dict["init_args"] = {
+                "allow_collect_to_master": self._allow_collect_to_master,
+                "handle_unknown_rule": self._encoder._handle_unknown_rule,
+                "default_value_rule": self._encoder._default_value_rule,
+                "tensor_schema": [],
+            }
+
+            # save tensor schema
+            for feature in list(self._tensor_schema.values()):
+                tokenizer_dict["init_args"]["tensor_schema"].append(
+                    {
+                        "name": feature.name,
+                        "feature_type": feature.feature_type.name,
+                        "is_seq": feature.is_seq,
+                        "feature_hint": feature.feature_hint.name if feature.feature_hint else None,
+                        "feature_sources": [
+                            {"source": x.source.name, "column": x.column, "index": x.index}
+                            for x in feature.feature_sources
+                        ]
+                        if feature.feature_sources
+                        else None,
+                        "cardinality": feature.cardinality if feature.feature_type == FeatureType.CATEGORICAL else None,
+                        "embedding_dim": feature.embedding_dim
+                        if feature.feature_type == FeatureType.CATEGORICAL
+                        else None,
+                        "tensor_dim": feature.tensor_dim if feature.feature_type == FeatureType.NUMERICAL else None,
+                    }
+                )
+
+            # save DatasetLabelEncoder
+            tokenizer_dict["encoder"] = {
+                "features_columns": {key.name: value for key, value in self._encoder._features_columns.items()},
+                "encoding_rules": {
+                    key: {
+                        "column": value.column,
+                        "mapping": value._mapping,
+                        "handle_unknown": value._handle_unknown,
+                        "default_value": value._default_value,
+                        "is_int": isinstance(next(iter(value._mapping.keys())), int),
+                    }
+                    for key, value in self._encoder._encoding_rules.items()
+                },
+            }
+
+            base_path = Path(path).with_suffix(".replay").resolve()
+            base_path.mkdir(parents=True, exist_ok=True)
+
+            with open(base_path / "init_args.json", "w+") as file:
+                json.dump(tokenizer_dict, file)
+        else:
+            with open(path, "wb") as file:
+                pickle.dump(self, file)
 
 
 class _SequenceProcessor:
