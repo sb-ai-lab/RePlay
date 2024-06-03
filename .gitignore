@@ -11,6 +11,9 @@ lightning_logs/
 .checkpoints/
 *.ckpt
 
+# Saved objects
+*.replay
+
 # Poetry (since they are generated from template automatically)
 /poetry.lock
 /pyproject.toml

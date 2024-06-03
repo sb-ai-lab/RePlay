@@ -1,4 +1,6 @@
+import json
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Optional, Tuple
 
 import polars as pl
@@ -67,6 +69,32 @@ class Splitter(ABC):
     @property
     def _init_args(self):
         return {name: getattr(self, name) for name in self._init_arg_names}
+
+    def save(self, path: str) -> None:
+        """
+        Method for saving splitter in `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        base_path.mkdir(parents=True, exist_ok=True)
+
+        splitter_dict = {}
+        splitter_dict["init_args"] = self._init_args
+        splitter_dict["_class_name"] = str(self)
+
+        with open(base_path / "init_args.json", "w+") as file:
+            json.dump(splitter_dict, file)
+
+    @classmethod
+    def load(cls, path: str) -> "Splitter":
+        """
+        Method for loading splitter from `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        with open(base_path / "init_args.json", "r") as file:
+            splitter_dict = json.loads(file.read())
+        splitter = cls(**splitter_dict["init_args"])
+
+        return splitter
 
     def __str__(self):
         return type(self).__name__
