@@ -61,7 +61,7 @@ torch = {version = ">=1.8, <=2.3.0", optional = true}
 lightning = {version = "^2.0.2", optional = true}
 pytorch-ranger = {version = "^0.1.1", optional = true}
 {% endif %}
-nmslib = "2.1.1"
+fixed-install-nmslib = "2.1.2"
 hnswlib = "^0.7.0"
 {% if project == "experimental" %}
 pyspark = {version = ">=3.0,<3.3"}
@@ -72,7 +72,7 @@ lightfm = "1.17"
 lightautoml = "~0.3.1"
 numba = ">=0.50"
 llvmlite = ">=0.32.1"
-# sb-obp = "^0.5.7"
+sb-obp = "^0.5.8"
 d3rlpy = "^2.0.4"
 implicit = "~0.7.0"
 gym = "^0.26.0"
