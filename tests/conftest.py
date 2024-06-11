@@ -84,7 +84,7 @@ def long_log_with_features(spark):
             [2, 5, datetime(2020, 3, 1), 1.0],
             [2, 6, date, 5.0],
         ],
-        schema=["user_idx", "item_idx", "timestamp", "relevance"],
+        schema=INTERACTIONS_SCHEMA,
     )
 
 
@@ -101,7 +101,7 @@ def short_log_with_features(spark):
             [2, 0, date, 2.0],
             [3, 4, date, 5.0],
         ],
-        schema=["user_idx", "item_idx", "timestamp", "relevance"],
+        schema=INTERACTIONS_SCHEMA,
     )
 
 
