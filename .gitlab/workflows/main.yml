@@ -206,7 +206,6 @@ merge-coverage:
     - coverage report --fail-under=100
     - coverage xml
   needs: ["pytest-core", "pytest-torch", "pytest-spark", "pytest-spark-and-torch", "pytest-experimental"]
-  needs: ["pytest-spark-and-torch", "pytest-experimental"]
   tags: 
     - ${RUNNER}
   parallel:
