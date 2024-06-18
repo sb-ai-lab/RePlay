@@ -50,7 +50,7 @@ def save_to_replay(obj: SavableObject, path: Union[str, Path]) -> None:
     obj.save(path)
 
 
-def load_from_replay(path: Union[str, Path]) -> SavableObject:
+def load_from_replay(path: Union[str, Path], **kwargs) -> SavableObject:
     """
     General function to load RePlay models, splitters and tokenizer.
 
@@ -60,6 +60,6 @@ def load_from_replay(path: Union[str, Path]) -> SavableObject:
     with open(path / "init_args.json", "r") as file:
         class_name = json.loads(file.read())["_class_name"]
     obj_type = globals()[class_name]
-    obj = obj_type.load(path)
+    obj = obj_type.load(path, **kwargs)
 
     return obj

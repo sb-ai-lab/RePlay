@@ -404,7 +404,7 @@ class SequenceTokenizer:
 
     @classmethod
     @deprecation_warning("with `use_pickle` equals to `True` will be deprecated in future versions")
-    def load(cls, path: str, use_pickle: bool = False) -> "SequenceTokenizer":
+    def load(cls, path: str, use_pickle: bool = False, **kwargs) -> "SequenceTokenizer":
         """
         Load tokenizer object from the given path.
 

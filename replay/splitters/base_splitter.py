@@ -85,7 +85,7 @@ class Splitter(ABC):
             json.dump(splitter_dict, file)
 
     @classmethod
-    def load(cls, path: str) -> "Splitter":
+    def load(cls, path: str, **kwargs) -> "Splitter":
         """
         Method for loading splitter from `.replay` directory.
         """
