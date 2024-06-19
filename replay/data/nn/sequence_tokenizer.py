@@ -24,7 +24,10 @@ SequenceDataFrameLike = Union[PandasDataFrame, PolarsDataFrame]
 
 class SequenceTokenizer:
     """
-    Data tokenizer for transformers
+    Data tokenizer for transformers;
+    Encodes all categorical features (the ones marked as FeatureType.CATEGORICAL in
+    the FeatureSchema) and stores all data as items sequences (sorted by time if a
+    feature of type FeatureHint.TIMESTAMP is provided, unsorted otherwise).
     """
 
     def __init__(
