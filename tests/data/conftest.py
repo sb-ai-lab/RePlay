@@ -604,6 +604,7 @@ def interactions_rating_spark_dataset(spark):
     return {
         "interactions": events,
         "user_col": "user_id",
+        "item_col": "item_id",
         "ratings_col": "rating",
         "users_cardinality": 3,
         "items_cardinality": 4,
