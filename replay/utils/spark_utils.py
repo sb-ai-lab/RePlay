@@ -33,7 +33,9 @@ class SparkCollectToMasterWarning(Warning):  # pragma: no cover
     """
 
 
-def spark_to_pandas(data: SparkDataFrame, allow_collect_to_master: bool = False) -> pd.DataFrame:  # pragma: no cover
+def spark_to_pandas(
+    data: SparkDataFrame, allow_collect_to_master: bool = False, from_constructor: bool = True
+) -> pd.DataFrame:  # pragma: no cover
     """
     Convert Spark DataFrame to Pandas DataFrame.
 
@@ -42,10 +44,15 @@ def spark_to_pandas(data: SparkDataFrame, allow_collect_to_master: bool = False)
 
     :returns: Converted Pandas DataFrame.
     """
+    warn_msg = "Spark Data Frame is collected to master node, this may lead to OOM exception for larger dataset. "
+    if from_constructor:
+        _msg = "To remove this warning set allow_collect_to_master=True in the recommender constructor."
+    else:
+        _msg = "To remove this warning set allow_collect_to_master=True."
+    warn_msg += _msg
     if not allow_collect_to_master:
         warnings.warn(
-            "Spark Data Frame is collected to master node, this may lead to OOM exception for larger dataset. "
-            "To remove this warning set allow_collect_to_master=True in the recommender constructor.",
+            warn_msg,
             SparkCollectToMasterWarning,
         )
     return data.toPandas()

@@ -1,5 +1,7 @@
 from datetime import datetime
 
+import pandas as pd
+import polars as pl
 import pytest
 
 from replay.data import get_schema
@@ -169,3 +171,35 @@ def fake_fit_queries(spark):
             (3,),
         ]
     ).toDF("user_idx")
+
+
+@pytest.fixture
+def fake_fit_queries_pandas():
+    return pd.DataFrame(
+        {
+            "user_idx": [
+                0,
+                1,
+                2,
+                0,
+                2,
+                3,
+            ]
+        }
+    )
+
+
+@pytest.fixture
+def fake_fit_queries_polars():
+    return pl.DataFrame(
+        {
+            "user_idx": [
+                0,
+                1,
+                2,
+                0,
+                2,
+                3,
+            ]
+        }
+    )

@@ -16,6 +16,7 @@ from pyspark.sql.types import TimestampType
 
 import replay.utils.session_handler
 from replay.utils import spark_utils as utils
+from replay.utils.common import _check_if_dataframe
 from replay.utils.time import get_item_recency
 
 datetime = partial(datetime, tzinfo=timezone.utc)
@@ -191,3 +192,23 @@ def test_sample_top_k(long_log_with_features):
         .withColumn("wrong_rel", sf.col("relevance") != sf.col("predicted_relevance"))
     )
     assert test_rel.selectExpr("any(wrong_rel)").collect()[0][0] is False
+
+
+@pytest.mark.parametrize(
+    "data_dict",
+    [
+        pytest.param("fake_fit_queries", marks=pytest.mark.spark),
+        pytest.param("fake_fit_queries_pandas", marks=pytest.mark.core),
+        pytest.param("fake_fit_queries_polars", marks=pytest.mark.core),
+    ],
+)
+def test_check_if_dataframe_true(data_dict, request):
+    dataframe = request.getfixturevalue(data_dict)
+    _check_if_dataframe(dataframe)
+
+
+@pytest.mark.core
+def test_check_if_dataframe_false():
+    var = "Definitely not a dataframe"
+    with pytest.raises(ValueError):
+        _check_if_dataframe(var)
