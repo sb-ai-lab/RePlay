@@ -58,9 +58,7 @@ class Dataset:
         self._query_features = query_features
         self._item_features = item_features
 
-        self.is_pandas = isinstance(interactions, PandasDataFrame)
-        self.is_spark = isinstance(interactions, SparkDataFrame)
-        self.is_polars = isinstance(interactions, PolarsDataFrame)
+        self._assign_df_type()
 
         self._categorical_encoded = categorical_encoded
 
@@ -85,16 +83,8 @@ class Dataset:
             msg = "Interactions and query features should have the same type."
             raise TypeError(msg)
 
-        self._feature_source_map: Dict[FeatureSource, DataFrameLike] = {
-            FeatureSource.INTERACTIONS: self.interactions,
-            FeatureSource.QUERY_FEATURES: self.query_features,
-            FeatureSource.ITEM_FEATURES: self.item_features,
-        }
-
-        self._ids_feature_map: Dict[FeatureHint, DataFrameLike] = {
-            FeatureHint.QUERY_ID: self.query_features if self.query_features is not None else self.interactions,
-            FeatureHint.ITEM_ID: self.item_features if self.item_features is not None else self.interactions,
-        }
+        self._get_feature_source_map()
+        self._get_ids_source_map()
 
         self._feature_schema = self._fill_feature_schema(feature_schema)
 
@@ -444,6 +434,24 @@ class Dataset:
             categorical_encoded=self._categorical_encoded,
         )
 
+    def _get_feature_source_map(self):
+        self._feature_source_map: Dict[FeatureSource, DataFrameLike] = {
+            FeatureSource.INTERACTIONS: self.interactions,
+            FeatureSource.QUERY_FEATURES: self.query_features,
+            FeatureSource.ITEM_FEATURES: self.item_features,
+        }
+
+    def _get_ids_source_map(self):
+        self._ids_feature_map: Dict[FeatureHint, DataFrameLike] = {
+            FeatureHint.QUERY_ID: self.query_features if self.query_features is not None else self.interactions,
+            FeatureHint.ITEM_ID: self.item_features if self.item_features is not None else self.interactions,
+        }
+
+    def _assign_df_type(self):
+        self.is_pandas = isinstance(self.interactions, PandasDataFrame)
+        self.is_spark = isinstance(self.interactions, SparkDataFrame)
+        self.is_polars = isinstance(self.interactions, PolarsDataFrame)
+
     def _get_cardinality(self, feature: FeatureInfo) -> Callable:
         def callback(column: str) -> int:
             if feature.feature_hint in [FeatureHint.ITEM_ID, FeatureHint.QUERY_ID]:
@@ -654,6 +662,51 @@ class Dataset:
                     feature.feature_source,
                     feature.cardinality,
                 )
+
+    def to_pandas(self) -> None:
+        """
+        Convert internally stored dataframes to pandas.DataFrame.
+        """
+        from replay.utils.common import convert2pandas
+
+        self._interactions = convert2pandas(self._interactions)
+        if self._query_features is not None:
+            self._query_features = convert2pandas(self._query_features)
+        if self._item_features is not None:
+            self._item_features = convert2pandas(self.item_features)
+        self._get_feature_source_map()
+        self._get_ids_source_map()
+        self._assign_df_type()
+
+    def to_spark(self):
+        """
+        Convert internally stored dataframes to pyspark.sql.DataFrame.
+        """
+        from replay.utils.common import convert2spark
+
+        self._interactions = convert2spark(self._interactions)
+        if self._query_features is not None:
+            self._query_features = convert2spark(self._query_features)
+        if self._item_features is not None:
+            self._item_features = convert2spark(self._item_features)
+        self._get_feature_source_map()
+        self._get_ids_source_map()
+        self._assign_df_type()
+
+    def to_polars(self):
+        """
+        Convert internally stored dataframes to polars.DataFrame.
+        """
+        from replay.utils.common import convert2polars
+
+        self._interactions = convert2polars(self._interactions)
+        if self._query_features is not None:
+            self._query_features = convert2polars(self._query_features)
+        if self._item_features is not None:
+            self._item_features = convert2polars(self._item_features)
+        self._get_feature_source_map()
+        self._get_ids_source_map()
+        self._assign_df_type()
 
 
 def nunique(data: DataFrameLike, column: str) -> int:
