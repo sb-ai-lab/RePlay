@@ -2641,9 +2641,9 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.20.3", markers = "python_version < \"3.10\""},
     {version = ">=1.21.0", markers = "python_version >= \"3.10\""},
     {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
+    {version = ">=1.20.3", markers = "python_version < \"3.10\""},
 ]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
@@ -4720,11 +4720,11 @@ doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.linke
 test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more-itertools", "pytest (>=6,!=8.1.*)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-ignore-flaky", "pytest-mypy", "pytest-ruff (>=0.2.1)"]
 
 [extras]
-all = ["lightning", "pyspark", "pytorch-ranger", "torch"]
-spark = ["pyspark"]
+all = ["lightning", "pyspark", "pyspark", "pytorch-ranger", "torch"]
+spark = ["pyspark", "pyspark"]
 torch = ["lightning", "pytorch-ranger", "torch"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1, <3.12"
-content-hash = "9122c7422192f990b864ecc850374611c64cbd1c16900fa71c82c3ec324086ea"
+content-hash = "5ddf474e89ed91ae828068171c30f468a8e0eda13ae9e04e51065418b1fe2922"
