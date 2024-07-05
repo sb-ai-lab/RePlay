@@ -51,7 +51,7 @@ def get_spark_session(
         elif pyspark_version.startswith(("3.2", "3.3")):
             path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.2.0_als_metrics/replay_2.12-3.2.0_als_metrics.jar"
         elif pyspark_version.startswith("3.4"):  # pragma: no cover
-            path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.4.0_als_metrics/replay_2.12-3.4.0_als_metrics.jar"
+            path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_after_fix_2.12/0.1/replay_after_fix_2.12-0.1.jar"
         else:  # pragma: no cover
             path_to_replay_jar = (
                 "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
