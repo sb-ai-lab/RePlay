@@ -170,11 +170,11 @@ def load_indexer(path: str) -> Indexer:
 
     indexer = Indexer(**args)
 
-    user_type = getattr(st, user_type)
-    item_type = getattr(st, item_type)
     if user_type.endswith("()"):
         user_type = user_type[:-2]
         item_type = item_type[:-2]
+    user_type = getattr(st, user_type)
+    item_type = getattr(st, item_type)
     indexer.user_type = user_type()
     indexer.item_type = item_type()
 
