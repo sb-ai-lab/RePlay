@@ -32,7 +32,7 @@ def interactions_pandas():
             ],
         },
     )
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601")
     return df
 
 

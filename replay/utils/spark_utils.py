@@ -176,7 +176,7 @@ if PYSPARK_AVAILABLE:
         <BLANKLINE>
         >>> output_data = input_data.select(vector_dot("one", "two").alias("dot"))
         >>> output_data.schema
-        StructType(List(StructField(dot,DoubleType,true)))
+        StructType([StructField('dot', DoubleType(), True)])
         >>> output_data.show()
         +----+
         | dot|
@@ -214,7 +214,7 @@ if PYSPARK_AVAILABLE:
         <BLANKLINE>
         >>> output_data = input_data.select(vector_mult("one", "two").alias("mult"))
         >>> output_data.schema
-        StructType(List(StructField(mult,VectorUDT,true)))
+        StructType([StructField('mult', VectorUDT(), True)])
         >>> output_data.show()
         +---------+
         |     mult|
@@ -251,7 +251,7 @@ if PYSPARK_AVAILABLE:
         <BLANKLINE>
         >>> output_data = input_data.select(array_mult("one", "two").alias("mult"))
         >>> output_data.schema
-        StructType(List(StructField(mult,ArrayType(DoubleType,true),true)))
+        StructType([StructField('mult', ArrayType(DoubleType(), True), True)])
         >>> output_data.show()
         +----------+
         |      mult|

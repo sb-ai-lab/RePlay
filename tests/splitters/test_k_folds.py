@@ -38,7 +38,7 @@ def test_sum_spark(df_spark):
     res = pd.DataFrame()
     cv = KFolds(n_folds=3, seed=1337, session_id_column="session_id", query_column="user_id")
     for _, test in cv.split(df_spark):
-        res = res.append(test.toPandas(), ignore_index=True)
+        res = pd.concat([res, test.toPandas()], ignore_index=True)
     res = res.sort_values(["user_id", "item_id"]).reset_index(drop=True)
     assert all(res == df_spark)
 
@@ -48,7 +48,7 @@ def test_sum_pandas(df):
     res = pd.DataFrame()
     cv = KFolds(n_folds=3, seed=1337, session_id_column="session_id", query_column="user_id")
     for _, test in cv.split(df):
-        res = res.append(test, ignore_index=True)
+        res = pd.concat([res, test], ignore_index=True)
     res = res.sort_values(["user_id", "item_id"]).reset_index(drop=True)
     assert all(res == df)
 
