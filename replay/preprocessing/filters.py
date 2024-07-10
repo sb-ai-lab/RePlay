@@ -357,7 +357,7 @@ class NumInteractionsFilter(_BaseFilter):
     ...                                   "2020-02-01", "2020-01-01 00:04:15",
     ...                                   "2020-01-02 00:04:14", "2020-01-05 23:59:59"]},
     ...             )
-    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
+    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"], format="ISO8601")
     >>> log_sp = convert2spark(log_pd)
     >>> log_sp.show()
     +-------+-------+------+-------------------+
@@ -499,7 +499,7 @@ class EntityDaysFilter(_BaseFilter):
     ...                                   "2020-02-01", "2020-01-01 00:04:15",
     ...                                   "2020-01-02 00:04:14", "2020-01-05 23:59:59"]},
     ...             )
-    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
+    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"], format="ISO8601")
     >>> log_sp = convert2spark(log_pd)
     >>> log_sp.orderBy('user_id', 'item_id').show()
     +-------+-------+------+-------------------+
@@ -638,7 +638,7 @@ class GlobalDaysFilter(_BaseFilter):
     ...                                   "2020-02-01", "2020-01-01 00:04:15",
     ...                                   "2020-01-02 00:04:14", "2020-01-05 23:59:59"]},
     ...             )
-    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
+    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"], format="ISO8601")
     >>> log_sp = convert2spark(log_pd)
     >>> log_sp.show()
     +-------+-------+------+-------------------+
@@ -740,7 +740,7 @@ class TimePeriodFilter(_BaseFilter):
     ...                                   "2020-02-01", "2020-01-01 00:04:15",
     ...                                   "2020-01-02 00:04:14", "2020-01-05 23:59:59"]},
     ...             )
-    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
+    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"], format="ISO8601")
     >>> log_sp = convert2spark(log_pd)
     >>> log_sp.show()
     +-------+-------+------+-------------------+
