@@ -189,6 +189,8 @@ def small_numerical_dataset(query_features, item_features):
             FeatureInfo("some_user_feature", FeatureType.NUMERICAL, None, FeatureSource.QUERY_FEATURES),
             FeatureInfo("some_item_feature", FeatureType.NUMERICAL, None, FeatureSource.ITEM_FEATURES),
             FeatureInfo("timestamp", FeatureType.NUMERICAL, FeatureHint.TIMESTAMP, FeatureSource.INTERACTIONS),
+            FeatureInfo("num_feature", FeatureType.NUMERICAL, None, FeatureSource.INTERACTIONS),
+            FeatureInfo("num_feature2", FeatureType.NUMERICAL, None, FeatureSource.INTERACTIONS),
         ]
     )
 
@@ -198,6 +200,8 @@ def small_numerical_dataset(query_features, item_features):
             "item_id": [1, 2, 1, 3, 4, 2, 1, 2, 3, 4, 5, 6],
             "feature": [1, 0, 1, 2, 1, 3, 1, 4, 1, 5, 1, 6],
             "timestamp": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+            "num_feature": [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1],
+            "num_feature2": [2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1],
         }
     )
 
@@ -221,6 +225,8 @@ def small_numerical_dataset_polars(query_features, item_features):
             FeatureInfo("some_user_feature", FeatureType.NUMERICAL, None, FeatureSource.QUERY_FEATURES),
             FeatureInfo("some_item_feature", FeatureType.NUMERICAL, None, FeatureSource.ITEM_FEATURES),
             FeatureInfo("timestamp", FeatureType.NUMERICAL, FeatureHint.TIMESTAMP, FeatureSource.INTERACTIONS),
+            FeatureInfo("num_feature", FeatureType.NUMERICAL, None, FeatureSource.INTERACTIONS),
+            FeatureInfo("num_feature2", FeatureType.NUMERICAL, None, FeatureSource.INTERACTIONS),
         ]
     )
 
@@ -230,6 +236,8 @@ def small_numerical_dataset_polars(query_features, item_features):
             "item_id": [1, 2, 1, 3, 4, 2, 1, 2, 3, 4, 5, 6],
             "feature": [1, 0, 1, 2, 1, 3, 1, 4, 1, 5, 1, 6],
             "timestamp": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+            "num_feature": [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1],
+            "num_feature2": [2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1],
         }
     )
 
@@ -397,16 +405,17 @@ def item_id_and_item_feature_schema():
 def sequential_info(scope="package"):
     sequences = pd.DataFrame(
         [
-            (0, [1], [0, 1], [1, 2]),
-            (1, [2], [0, 2, 3], [1, 3, 4]),
-            (2, [3], [1], [2]),
-            (3, [4], [0, 1, 2, 3, 4, 5], [1, 2, 3, 4, 5, 6]),
+            (0, [1], [0, 1], [1, 2], np.array([[1, 2], [1, 2], [1, 2]])),
+            (1, [2], [0, 2, 3], [1, 3, 4], np.array([[1, 2], [1, 2]])),
+            (2, [3], [1], [2], np.array([[1, 2]])),
+            (3, [4], [0, 1, 2, 3, 4, 5], [1, 2, 3, 4, 5, 6], np.array([[1, 2], [1, 2], [1, 2], [1, 2]])),
         ],
         columns=[
             "user_id",
             "some_user_feature",
             "item_id",
             "some_item_feature",
+            "some_tensor_feature",
         ],
     )
 
@@ -427,6 +436,11 @@ def sequential_info(scope="package"):
             cardinality=6,
             is_seq=True,
         )
+        .numerical(
+            "some_tensor_feature",
+            tensor_dim=2,
+            is_seq=True,
+        )
         .build()
     )
 
@@ -440,9 +454,24 @@ def sequential_info(scope="package"):
 
 @pytest.fixture()
 def sequential_info_polars(sequential_info, scope="package"):
+    sequences = pl.from_records(
+        [
+            (0, [1], [0, 1], [1, 2], [[1, 2], [1, 2], [1, 2]]),
+            (1, [2], [0, 2, 3], [1, 3, 4], [[1, 2], [1, 2]]),
+            (2, [3], [1], [2], [[1, 2]]),
+            (3, [4], [0, 1, 2, 3, 4, 5], [1, 2, 3, 4, 5, 6], [[1, 2], [1, 2], [1, 2], [1, 2]]),
+        ],
+        schema=[
+            "user_id",
+            "some_user_feature",
+            "item_id",
+            "some_item_feature",
+            "some_tensor_feature",
+        ],
+    )
     return {
         "tensor_schema": sequential_info["tensor_schema"],
-        "sequences": pl.from_pandas(sequential_info["sequences"]),
+        "sequences": sequences,
         "query_id_column": "user_id",
         "item_id_column": "item_id",
     }

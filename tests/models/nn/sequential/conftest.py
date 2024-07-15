@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 
 from replay.data import FeatureHint
@@ -8,7 +9,7 @@ from replay.utils import TORCH_AVAILABLE
 if TORCH_AVAILABLE:
     import torch
 
-    from replay.data.nn import PandasSequentialDataset
+    from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset
     from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
     from replay.models.nn.sequential.bert4rec import (
         Bert4RecPredictionDataset,
@@ -233,6 +234,48 @@ def item_user_sequential_dataset():
     )
 
     sequential_dataset = PandasSequentialDataset(
+        tensor_schema=schema,
+        query_id_column="user_id",
+        item_id_column="item_id",
+        sequences=sequences,
+    )
+
+    return sequential_dataset
+
+
+@pytest.fixture(scope="package")
+def polars_item_user_sequential_dataset():
+    sequences = pl.from_records(
+        [
+            (0, np.array([0, 1, 1, 1, 2]), np.array([[0.0, 0.0], [1.1, 1.1], [1.1, 1.1], [1.1, 1.1], [2.2, 2.2]])),
+            (1, np.array([0, 1, 3, 1, 2]), np.array([[0.0, 0.0], [1.1, 1.1], [1.1, 1.1], [1.1, 1.1], [2.2, 2.2]])),
+            (2, np.array([0, 2, 3, 1, 2]), np.array([[0.0, 0.0], [1.1, 1.1], [1.1, 1.1], [1.1, 1.1], [2.2, 2.2]])),
+            (3, np.array([1, 2, 0, 1, 2]), np.array([[0.0, 0.0], [1.1, 1.1], [1.1, 1.1], [1.1, 1.1], [2.2, 2.2]])),
+        ],
+        schema=[
+            "user_id",
+            "item_id",
+            "num_feature",
+        ],
+    )
+
+    schema = (
+        TensorSchemaBuilder()
+        .categorical(
+            "item_id",
+            cardinality=6,
+            is_seq=True,
+            feature_hint=FeatureHint.ITEM_ID,
+        )
+        .numerical(
+            "num_feature",
+            tensor_dim=2,
+            is_seq=True,
+        )
+        .build()
+    )
+
+    sequential_dataset = PolarsSequentialDataset(
         tensor_schema=schema,
         query_id_column="user_id",
         item_id_column="item_id",

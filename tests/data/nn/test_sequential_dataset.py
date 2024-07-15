@@ -36,8 +36,14 @@ def test_cannot_create_sequential_dataset_with_invalid_schema(dataset_type, requ
 
 
 @pytest.mark.torch
-def test_can_get_sequence(sequential_info):
-    sequential_dataset = PandasSequentialDataset(**sequential_info)
+@pytest.mark.parametrize("dataset_type", [PandasSequentialDataset, PolarsSequentialDataset])
+def test_can_get_sequence(dataset_type, request):
+    if dataset_type == PandasSequentialDataset:
+        sequential_info = request.getfixturevalue("sequential_info")
+        sequential_dataset = PandasSequentialDataset(**sequential_info)
+    else:
+        sequential_info = request.getfixturevalue("sequential_info_polars")
+        sequential_dataset = PolarsSequentialDataset(**sequential_info)
 
     def compare_sequence(index: int, feature_name: str, expected: List[int]):
         assert (sequential_dataset.get_sequence(index, feature_name) == np.array(expected)).all()
@@ -54,8 +60,14 @@ def test_can_get_sequence(sequential_info):
 
 
 @pytest.mark.torch
-def test_can_get_sequence_length(sequential_info):
-    sequential_dataset = PandasSequentialDataset(**sequential_info)
+@pytest.mark.parametrize("dataset_type", [PandasSequentialDataset, PolarsSequentialDataset])
+def test_can_get_sequence_length(dataset_type, request):
+    if dataset_type == PandasSequentialDataset:
+        sequential_info = request.getfixturevalue("sequential_info")
+        sequential_dataset = PandasSequentialDataset(**sequential_info)
+    else:
+        sequential_info = request.getfixturevalue("sequential_info_polars")
+        sequential_dataset = PolarsSequentialDataset(**sequential_info)
 
     assert sequential_dataset.get_sequence_length(0) == 2
     assert sequential_dataset.get_sequence_length(1) == 3
@@ -65,8 +77,14 @@ def test_can_get_sequence_length(sequential_info):
 
 
 @pytest.mark.torch
-def test_can_get_query_id(sequential_info):
-    sequential_dataset = PandasSequentialDataset(**sequential_info)
+@pytest.mark.parametrize("dataset_type", [PandasSequentialDataset, PolarsSequentialDataset])
+def test_can_get_query_id(dataset_type, request):
+    if dataset_type == PandasSequentialDataset:
+        sequential_info = request.getfixturevalue("sequential_info")
+        sequential_dataset = PandasSequentialDataset(**sequential_info)
+    else:
+        sequential_info = request.getfixturevalue("sequential_info_polars")
+        sequential_dataset = PolarsSequentialDataset(**sequential_info)
 
     assert sequential_dataset.get_query_id(0) == 0
     assert sequential_dataset.get_query_id(1) == 1
@@ -139,8 +157,11 @@ def test_intersection_datasets(dataset_type, request):
 
 
 @pytest.mark.core
-def test_get_sequence_by_query_id(sequential_info):
-    dataset = PandasSequentialDataset(**sequential_info)
-    assert np.array_equal(
-        PandasSequentialDataset.get_sequence_by_query_id(dataset, 10, "some_item_feature"), np.array([], dtype=np.int64)
-    )
+@pytest.mark.parametrize("dataset_type", [PandasSequentialDataset, PolarsSequentialDataset])
+def test_get_sequence_by_query_id(dataset_type, request):
+    if dataset_type == PandasSequentialDataset:
+        sequential_info = request.getfixturevalue("sequential_info")
+    else:
+        sequential_info = request.getfixturevalue("sequential_info_polars")
+    dataset = dataset_type(**sequential_info)
+    assert np.array_equal(dataset.get_sequence_by_query_id(10, "some_item_feature"), np.array([], dtype=np.int64))

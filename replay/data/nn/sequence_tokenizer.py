@@ -281,17 +281,17 @@ class SequenceTokenizer:
         ]
 
         for tensor_feature in tensor_schema.values():
-            source = tensor_feature.feature_source
-            assert source is not None
+            for source in tensor_feature.feature_sources:
+                assert source is not None
 
-            # Some columns already added to encoder, skip them
-            if source.column in features_subset:
-                continue
+                # Some columns already added to encoder, skip them
+                if source.column in features_subset:
+                    continue
 
-            if isinstance(source.source, FeatureSource):
-                features_subset.append(source.column)
-            else:
-                assert False, "Unknown tensor feature source"
+                if isinstance(source.source, FeatureSource):
+                    features_subset.append(source.column)
+                else:
+                    assert False, "Unknown tensor feature source"
 
         return set(features_subset)
 

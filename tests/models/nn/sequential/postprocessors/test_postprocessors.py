@@ -12,6 +12,13 @@ torch = pytest.importorskip("torch")
 
 @pytest.mark.torch
 @pytest.mark.parametrize(
+    "dataset_type",
+    [
+        pytest.param("item_user_sequential_dataset"),
+        pytest.param("polars_item_user_sequential_dataset"),
+    ],
+)
+@pytest.mark.parametrize(
     "query_ids, scores, unseen_items",
     [
         (
@@ -31,8 +38,9 @@ torch = pytest.importorskip("torch")
         ),
     ],
 )
-def test_remove_seen_items_on_predict(item_user_sequential_dataset, query_ids, scores, unseen_items):
-    postprocessor = RemoveSeenItems(item_user_sequential_dataset)
+def test_remove_seen_items_on_predict(dataset_type, query_ids, scores, unseen_items, request):
+    test_dataframe = request.getfixturevalue(dataset_type)
+    postprocessor = RemoveSeenItems(test_dataframe)
     _, scores_pred = postprocessor.on_prediction(query_ids=query_ids, scores=scores)
 
     scores_pred_unseen = scores_pred.flatten() > -np.inf
