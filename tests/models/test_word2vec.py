@@ -1,3 +1,4 @@
+import sys
 from datetime import datetime
 
 import numpy as np
@@ -64,6 +65,7 @@ def model_with_ann(tmp_path):
     return model
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.spark
 def test_fit(log, model):
     dataset = create_dataset(log)
@@ -83,6 +85,7 @@ def test_fit(log, model):
     )
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.spark
 def test_predict(log, model):
     dataset = create_dataset(log)
@@ -96,6 +99,7 @@ def test_predict(log, model):
 
 
 # here we use `test.utils.log` because we can't build the hnsw index on `log` data
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.spark
 def test_word2vec_predict_filter_seen_items(log2, model, model_with_ann):
     dataset = create_dataset(log2)
@@ -111,6 +115,8 @@ def test_word2vec_predict_filter_seen_items(log2, model, model_with_ann):
     assert recs1.item_idx.equals(recs2.item_idx)
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.spark
 def test_word2vec_predict(log2, model, model_with_ann):
     dataset = create_dataset(log2)

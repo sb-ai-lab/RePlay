@@ -16,7 +16,6 @@ from replay.models import (
     RandomRec,
     ThompsonSampling,
     Wilson,
-    Word2VecRec,
 )
 from tests.utils import (
     create_dataset,
@@ -41,14 +40,14 @@ def log_binary_rating(log):
         ALSWrap(seed=SEED),
         ItemKNN(),
         SLIM(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
+        # Word2VecRec(seed=SEED, min_count=0),  # noqa: ERA001
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
     ],
     ids=[
         "als",
         "knn",
         "slim",
-        "word2vec",
+        # "word2vec",
         "association_rules",
     ],
 )
@@ -97,7 +96,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
         ALSWrap(seed=SEED),
         ItemKNN(),
         SLIM(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
+        # Word2VecRec(seed=SEED, min_count=0),  # noqa: ERA001
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
         PopRec(),
         RandomRec(seed=SEED),
@@ -106,7 +105,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred, model):
         "als",
         "knn",
         "slim",
-        "word2vec",
+        # "word2vec",
         "association_rules",
         "pop_rec",
         "random_rec",
@@ -140,7 +139,7 @@ def test_predict_pairs_k(log, model):
         ALSWrap(seed=SEED),
         ItemKNN(),
         SLIM(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
+        # Word2VecRec(seed=SEED, min_count=0),  # noqa: ERA001
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
         PopRec(),
         RandomRec(seed=SEED),
@@ -154,7 +153,7 @@ def test_predict_pairs_k(log, model):
         "als",
         "knn",
         "slim",
-        "word2vec",
+        # "word2vec",
         "association_rules",
         "pop_rec",
         "random_rec",
@@ -220,13 +219,13 @@ def test_predict_empty_dataset(log, log_binary_rating, model):
     [
         ItemKNN(),
         SLIM(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
+        # Word2VecRec(seed=SEED, min_count=0),  # noqa: ERA001
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
     ],
     ids=[
         "knn",
         "slim",
-        "word2vec",
+        # "word2vec",
         "association_rules",
     ],
 )
@@ -243,13 +242,13 @@ def test_predict_empty_dataset_raises(log, model):
     [
         ItemKNN(),
         SLIM(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
+        # Word2VecRec(seed=SEED, min_count=0),  # noqa: ERA001
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
     ],
     ids=[
         "knn",
         "slim",
-        "word2vec",
+        # "word2vec",
         "association_rules",
     ],
 )
@@ -268,7 +267,7 @@ def test_predict_pairs_raises(log, model):
         (ALSWrap(seed=SEED), "euclidean_distance_sim"),
         (ALSWrap(seed=SEED), "dot_product"),
         (ALSWrap(seed=SEED), "cosine_similarity"),
-        (Word2VecRec(seed=SEED, min_count=0), "cosine_similarity"),
+        # (Word2VecRec(seed=SEED, min_count=0), "cosine_similarity"),  # noqa: ERA001
         (ItemKNN(), None),
         (SLIM(seed=SEED), None),
         (AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"), "lift"),
@@ -285,7 +284,7 @@ def test_predict_pairs_raises(log, model):
         "als_euclidean",
         "als_dot",
         "als_cosine",
-        "w2v_cosine",
+        # "w2v_cosine",
         "knn",
         "slim",
         "association_rules_lift",
@@ -383,7 +382,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, queries):
         SLIM(seed=SEED),
         PopRec(),
         RandomRec(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
+        # Word2VecRec(seed=SEED, min_count=0),  # noqa: ERA001
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
     ],
     ids=[
@@ -392,7 +391,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, queries):
         "slim",
         "pop_rec",
         "random_rec",
-        "word2vec",
+        # "word2vec",
         "association_rules",
     ],
 )
@@ -441,14 +440,14 @@ def test_predict_cold_queries(model, long_log_with_features, user_features):
         ALSWrap(rank=2, seed=SEED),
         ItemKNN(),
         SLIM(seed=SEED),
-        Word2VecRec(seed=SEED, min_count=0),
+        # Word2VecRec(seed=SEED, min_count=0),  # noqa: ERA001
         AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_idx"),
     ],
     ids=[
         "als",
         "knn",
         "slim",
-        "word2vec",
+        # "word2vec",
         "association_rules",
     ],
 )

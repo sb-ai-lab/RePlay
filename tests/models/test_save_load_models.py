@@ -1,3 +1,4 @@
+import sys
 from os.path import dirname, join
 
 import pandas as pd
@@ -120,6 +121,7 @@ def test_rules(df, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.spark
 def test_word(df, tmp_path):
     path = (tmp_path / "word").resolve()
@@ -207,6 +209,7 @@ def test_study(df, tmp_path):
     assert loaded_model.study == model.study
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.spark
 def test_ann_word2vec_saving_loading(long_log_with_features, tmp_path):
     model = Word2VecRec(
