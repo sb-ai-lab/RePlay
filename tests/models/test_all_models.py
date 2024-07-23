@@ -404,7 +404,7 @@ def test_predict_new_queries(model, long_log_with_features, user_features):
         queries=[0],
     )
     assert pred.count() == 1
-    assert pred.first()[0][0] == 0
+    assert pred.first()[0] == 0
 
 
 @pytest.mark.spark
@@ -576,7 +576,7 @@ def test_add_cold_items_for_nonpersonalized(model, add_cold_items, predict_cold_
     if isinstance(model, UCB) or add_cold_items:
         assert pred.count() == min(k, items.count())
         if predict_cold_only:
-            assert pred.select(sf.min("item_idx")).first()[0][0] >= num_warm
+            assert pred.select(sf.min("item_idx")).first()[0] >= num_warm
             # for RandomRec relevance of an item is equal to its inverse position in the list
             if not isinstance(model, RandomRec):
                 assert pred.select("relevance").distinct().count() == 1
@@ -585,7 +585,7 @@ def test_add_cold_items_for_nonpersonalized(model, add_cold_items, predict_cold_
             assert pred.count() == 0
         else:
             # ucb always adds cold items to prediction
-            assert pred.select(sf.max("item_idx")).first()[0][0] < num_warm
+            assert pred.select(sf.max("item_idx")).first()[0] < num_warm
             assert pred.count() == min(
                 k,
                 train_log.select("item_idx").distinct().join(items, on="item_idx").count(),
