@@ -239,7 +239,7 @@ class TwoStageSplitter(Splitter):
         res = res.join(counts, on=self.first_divide_column, how="left")
         res = res.with_columns((pl.col("_row_num") / pl.col("count")).alias("_frac"))
         res = res.fill_null(False)
-        print(res.schema)
+
         train = res.filter((pl.col("_frac") > self.second_divide_size) | (~pl.col("is_test"))).drop(
             "_row_num", "count", "_frac", "is_test"
         )
