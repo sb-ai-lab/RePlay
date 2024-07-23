@@ -115,7 +115,7 @@ class ALSWrap(Recommender, ItemVectorModel):
                     .groupBy(self.query_column)
                     .agg(sf.count(self.query_column).alias("num_seen"))
                     .select(sf.max("num_seen"))
-                    .collect()[0][0]
+                    .first()[0]
                 )
                 max_seen = max_seen_in_interactions if max_seen_in_interactions is not None else 0
 

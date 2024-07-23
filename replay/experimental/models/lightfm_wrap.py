@@ -98,12 +98,12 @@ class LightFMWrap(HybridRecommender):
         fit_dim = getattr(self, f"_{entity}_dim")
         matrix_height = max(
             fit_dim,
-            log_ids_list.select(sf.max(idx_col_name)).collect()[0][0] + 1,
+            log_ids_list.select(sf.max(idx_col_name)).first()[0] + 1,
         )
         if not feature_table.rdd.isEmpty():
             matrix_height = max(
                 matrix_height,
-                feature_table.select(sf.max(idx_col_name)).collect()[0][0] + 1,
+                feature_table.select(sf.max(idx_col_name)).first()[0] + 1,
             )
 
         features_np = (

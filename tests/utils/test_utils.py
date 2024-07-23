@@ -190,4 +190,4 @@ def test_sample_top_k(long_log_with_features):
         .join(long_log_with_features, on=["user_idx", "item_idx"])
         .withColumn("wrong_rel", sf.col("relevance") != sf.col("predicted_relevance"))
     )
-    assert test_rel.selectExpr("any(wrong_rel)").collect()[0][0] is False
+    assert test_rel.selectExpr("any(wrong_rel)").first()[0] is False

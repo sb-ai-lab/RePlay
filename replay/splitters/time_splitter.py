@@ -193,7 +193,7 @@ class TimeSplitter(Splitter):
             )
             test_start = int(dates.count() * (1 - threshold)) + 1
             test_start = (
-                dates.filter(sf.col("_row_number_by_ts") == test_start).select(self.timestamp_column).collect()[0][0]
+                dates.filter(sf.col("_row_number_by_ts") == test_start).select(self.timestamp_column).first()[0]
             )
             res = interactions.withColumn("is_test", sf.col(self.timestamp_column) >= test_start)
         else:

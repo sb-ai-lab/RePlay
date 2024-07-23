@@ -129,14 +129,14 @@ def test_predict_pairs(log, user_features, item_features, model):
         item_features=item_features,
     )
     assert pred.count() == 2
-    assert pred.select("user_idx").distinct().collect()[0][0] == 0
+    assert pred.select("user_idx").distinct().first()[0] == 0
     pred = model.predict_pairs(
         log.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"),
         user_features=user_features,
         item_features=item_features,
     )
     assert pred.count() == 2
-    assert pred.select("user_idx").distinct().collect()[0][0] == 1
+    assert pred.select("user_idx").distinct().first()[0] == 1
 
 
 @pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
@@ -173,7 +173,7 @@ def _fit_predict_compare_features(model, log, user_features, user_features_filte
             item_features=item_features,
         )
         .select("relevance")
-        .collect()[0][0]
+        .first()[0]
     )
     row_dict = (
         get_first_level_model_features(
@@ -291,7 +291,7 @@ def test_predict_new_users(long_log_with_features, user_features):
         users=[0],
     )
     assert pred.count() == 1
-    assert pred.collect()[0][0] == 0
+    assert pred.first()[0] == 0
 
 
 @pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
@@ -306,7 +306,7 @@ def test_predict_cold_users(long_log_with_features, user_features):
         users=[0],
     )
     assert pred.count() == 1
-    assert pred.collect()[0][0] == 0
+    assert pred.first()[0] == 0
 
 
 @pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")

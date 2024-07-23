@@ -19,9 +19,9 @@ def test_indexer(log):
     indexed_df = indexer.transform(log)
     assert "user_idx" in indexed_df.columns and "item_idx" in indexed_df.columns
     assert log.count() == indexed_df.count()
-    assert indexed_df.agg({"user_idx": "max"}).collect()[0][0] < log.count()
-    assert indexed_df.agg({"item_idx": "max"}).collect()[0][0] < log.count()
-    assert indexed_df.select(sf.min("user_idx") + sf.min("item_idx")).collect()[0][0] == 0
+    assert indexed_df.agg({"user_idx": "max"}).first()[0] < log.count()
+    assert indexed_df.agg({"item_idx": "max"}).first()[0] < log.count()
+    assert indexed_df.select(sf.min("user_idx") + sf.min("item_idx")).first()[0] == 0
 
 
 @pytest.mark.experimental

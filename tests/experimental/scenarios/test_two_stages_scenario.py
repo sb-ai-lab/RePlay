@@ -124,7 +124,7 @@ def test_predict(
         item_features=item_features,
     )
     assert pred.count() == 6
-    assert sorted(pred.select(sf.collect_set("user_idx")).collect()[0][0]) == [
+    assert sorted(pred.select(sf.collect_set("user_idx")).first()[0]) == [
         0,
         1,
         2,

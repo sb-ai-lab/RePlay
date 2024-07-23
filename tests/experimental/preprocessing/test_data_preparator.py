@@ -145,7 +145,7 @@ def test_cat_features_transformer(item_features):
     assert "class" not in transformed.columns
     assert "iq" in transformed.columns and "color" in transformed.columns
     assert "ohe_class_dog" not in transformed.columns and "ohe_class_cat" in transformed.columns
-    assert transformed.filter(sf.col("item_idx") == 5).select("ohe_class_mouse").collect()[0][0] == 1.0
+    assert transformed.filter(sf.col("item_idx") == 5).select("ohe_class_mouse").first()[0] == 1.0
 
 
 @pytest.mark.experimental

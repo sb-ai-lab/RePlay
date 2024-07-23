@@ -40,7 +40,7 @@ def test_cold_user(long_log_with_features, users_features):
     model.fit(train_dataset)
     res = model.predict(train_dataset, 2, queries=convert2spark(pd.DataFrame({"user_idx": [1]})))
     assert res.count() == 2
-    assert res.select("user_idx").distinct().collect()[0][0] == 1
+    assert res.select("user_idx").distinct().first()[0] == 1
     assert res.filter(sf.col("relevance").isNull()).count() == 0
 
 
@@ -55,7 +55,7 @@ def test_predict_pairs(long_log_with_features, users_features):
     )
     sparkDataFrameEqual(res.select("user_idx", "item_idx"), pairs)
     assert res.count() == 4
-    assert res.select("user_idx").collect()[0][0] == 1
+    assert res.select("user_idx").first()[0] == 1
 
 
 def test_raises(long_log_with_features, users_features):

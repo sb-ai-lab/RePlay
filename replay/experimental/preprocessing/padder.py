@@ -179,7 +179,7 @@ class Padder:
         self, df_transformed: SparkDataFrame, col: str, pad_value: Union[str, float, List, None]
     ) -> SparkDataFrame:
         if self.array_size == -1:
-            max_array_size = df_transformed.agg(sf.max(sf.size(col)).alias("max_array_len")).collect()[0][0]
+            max_array_size = df_transformed.agg(sf.max(sf.size(col)).alias("max_array_len")).first()[0]
         else:
             max_array_size = self.array_size
 

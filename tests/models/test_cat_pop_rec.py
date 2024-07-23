@@ -75,7 +75,7 @@ def test_cat_tree(model):
     mapping.show()
     assert mapping.count() == 8
     assert mapping.filter(sf.col("category") == "healthy_food").count() == 1
-    assert mapping.filter(sf.col("category") == "healthy_food").select("leaf_cat").collect()[0][0] == "healthy_food"
+    assert mapping.filter(sf.col("category") == "healthy_food").select("leaf_cat").first()[0] == "healthy_food"
 
     assert mapping.filter(sf.col("category") == "groceries").count() == 2
     assert sorted(
