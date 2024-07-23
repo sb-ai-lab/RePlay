@@ -430,7 +430,7 @@ def test_predict_cold_queries(model, long_log_with_features, user_features):
         queries=[0],
     )
     assert pred.count() == 1
-    assert pred.first()[0][0] == 0
+    assert pred.first()[0] == 0
 
 
 @pytest.mark.spark
