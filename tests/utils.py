@@ -3,6 +3,7 @@ import re
 from typing import Dict, List, Optional
 
 import numpy as np
+import pandas as pd
 from numpy.testing import assert_allclose
 
 from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType, get_schema
@@ -11,7 +12,6 @@ from replay.utils.spark_utils import convert2spark
 
 if PYSPARK_AVAILABLE:
     from pyspark.ml.linalg import DenseVector
-    from pyspark.testing import assertDataFrameEqual
 
     INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
@@ -41,8 +41,7 @@ def unify_dataframe(data_frame: SparkDataFrame):
 
 
 def sparkDataFrameEqual(df1: SparkDataFrame, df2: SparkDataFrame):
-    return assertDataFrameEqual(df1, df2)
-    # return pd.testing.assert_frame_equal(unify_dataframe(df1), unify_dataframe(df2), check_like=True)  # noqa: ERA001
+    return pd.testing.assert_frame_equal(unify_dataframe(df1), unify_dataframe(df2), check_like=True)
 
 
 def sparkDataFrameNotEqual(df1: SparkDataFrame, df2: SparkDataFrame):
