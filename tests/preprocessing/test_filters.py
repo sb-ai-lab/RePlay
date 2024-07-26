@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Counter
 
 import pandas as pd
 import polars as pl
@@ -10,6 +11,7 @@ from replay.preprocessing.filters import (
     LowRatingFilter,
     MinCountFilter,
     NumInteractionsFilter,
+    QuantileItemsFilter,
     TimePeriodFilter,
 )
 from replay.utils import PandasDataFrame, PolarsDataFrame, get_spark_session
@@ -225,6 +227,80 @@ def test_timeperiod_filter(dataset_type, start, end, answer, item_ids, request):
 
     assert items_count == answer
     assert len(item_list) == item_ids
+
+
+@pytest.mark.parametrize(
+    "dataset_type",
+    [
+        pytest.param("simple_data_to_filter_spark", marks=pytest.mark.spark),
+        pytest.param("simple_data_to_filter_pandas", marks=pytest.mark.core),
+        pytest.param("simple_data_to_filter_polars", marks=pytest.mark.core),
+    ],
+)
+def test_quantile_items_filter(dataset_type, request):
+    test_dataframe = request.getfixturevalue(dataset_type)
+    filtered_dataframe = QuantileItemsFilter(0.7).transform(test_dataframe)
+
+    if isinstance(test_dataframe, PandasDataFrame):
+        users_init = test_dataframe["query_id"].tolist()
+        users_filtered = filtered_dataframe["query_id"].tolist()
+        items_init = set(test_dataframe["item_id"].unique().tolist())
+        items_filtered = set(filtered_dataframe["item_id"].unique().tolist())
+        items_distribution_init = test_dataframe.groupby("item_id").size()
+        items_distribution_filtered = filtered_dataframe.groupby("item_id").size()
+    elif isinstance(test_dataframe, PolarsDataFrame):
+        users_init = test_dataframe["query_id"].to_list()
+        users_filtered = filtered_dataframe["query_id"].to_list()
+        items_init = set(test_dataframe["item_id"].unique().to_list())
+        items_filtered = set(filtered_dataframe["item_id"].unique().to_list())
+        items_distribution_init_df = test_dataframe.group_by("item_id").count()
+        items_distribution_filtered_df = filtered_dataframe.group_by("item_id").count()
+        items_distribution_init = dict(
+            zip(items_distribution_init_df["item_id"].to_list(), items_distribution_init_df["count"].to_list())
+        )
+        items_distribution_filtered = dict(
+            zip(items_distribution_filtered_df["item_id"].to_list(), items_distribution_filtered_df["count"].to_list())
+        )
+    else:
+        users_init = [x.query_id for x in test_dataframe.select("query_id").collect()]
+        users_filtered = [x.query_id for x in filtered_dataframe.select("query_id").collect()]
+        items_init = {x.item_id for x in test_dataframe.select("item_id").distinct().collect()}
+        items_filtered = {x.item_id for x in filtered_dataframe.select("item_id").distinct().collect()}
+        items_distribution_init_df = test_dataframe.groupBy("item_id").count()
+        items_distribution_filtered_df = filtered_dataframe.groupBy("item_id").count()
+        items_distribution_init = dict(
+            zip(
+                [x.item_id for x in items_distribution_init_df.select("item_id").collect()],
+                [x["count"] for x in items_distribution_init_df.select("count").collect()],
+            )
+        )
+        items_distribution_filtered = dict(
+            zip(
+                [x.item_id for x in items_distribution_filtered_df.select("item_id").collect()],
+                [x["count"] for x in items_distribution_filtered_df.select("count").collect()],
+            )
+        )
+
+    users_init = Counter(users_init)
+    users_filtered = Counter(users_filtered)
+    assert users_init[0] == users_filtered[0] + 3
+    for key in [1, 2, 3, 4, 5]:
+        assert users_init[key] == users_filtered[key]
+
+    assert items_init == items_filtered
+    assert items_distribution_init[12] == items_distribution_filtered[12]
+    assert items_distribution_init[13] == items_distribution_filtered[13]
+    assert items_distribution_init[14] == items_distribution_filtered[14]
+    assert items_distribution_init[15] == items_distribution_filtered[15]
+    assert items_distribution_init[10] == items_distribution_filtered[10] + 1
+    assert items_distribution_init[11] == items_distribution_filtered[11] + 2
+
+
+@pytest.mark.core
+@pytest.mark.parametrize("quantile, items_proportion", [(2, 0.5), (0.5, -1)])
+def test_quantile_filter_error(quantile, items_proportion):
+    with pytest.raises(ValueError):
+        QuantileItemsFilter(quantile, items_proportion=items_proportion)
 
 
 @pytest.mark.core

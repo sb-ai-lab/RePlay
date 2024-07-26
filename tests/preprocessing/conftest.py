@@ -1020,3 +1020,53 @@ def session_dataset_pandas():
 @pytest.fixture()
 def session_dataset_spark(spark, session_dataset_pandas):
     return spark.createDataFrame(session_dataset_pandas)
+
+
+@pytest.fixture
+def simple_data_to_filter_pandas():
+    df = pd.DataFrame(
+        {
+            "query_id": [0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 3, 3, 4, 5, 5, 5, 5, 5, 1, 0, 2, 2],
+            "item_id": [
+                10,
+                10,
+                11,
+                12,
+                15,
+                10,
+                11,
+                11,
+                13,
+                14,
+                15,
+                13,
+                10,
+                11,
+                11,
+                14,
+                10,
+                12,
+                13,
+                15,
+                15,
+                11,
+                11,
+                10,
+                11,
+            ],
+            "timestamp": [0, 1, 1, 2, 0, 2, 2, 3, 1, 1, 1, 1, 0, 2, 1, 3, 1, 0, 0, 0, 0, 2, 3, 3, 1],
+        }
+    )
+    return df
+
+
+@pytest.fixture
+def simple_data_to_filter_polars(simple_data_to_filter_pandas):
+    df = pl.DataFrame(simple_data_to_filter_pandas)
+    return df
+
+
+@pytest.fixture
+def simple_data_to_filter_spark(simple_data_to_filter_pandas, spark):
+    df = spark.createDataFrame(simple_data_to_filter_pandas)
+    return df
