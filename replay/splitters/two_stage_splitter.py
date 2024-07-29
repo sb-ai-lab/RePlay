@@ -240,10 +240,10 @@ class TwoStageSplitter(Splitter):
         res = res.fill_null(False)
 
         train = res.filter((pl.col("_frac") > self.second_divide_size) | (~pl.col("is_test"))).drop(
-            "_rand", "_row_num", "count", "_frac", "is_test"
+            "_row_num", "count", "_frac", "is_test"
         )
         test = res.filter((pl.col("_frac") <= self.second_divide_size) & pl.col("is_test")).drop(
-            "_rand", "_row_num", "count", "_frac", "is_test"
+            "_row_num", "count", "_frac", "is_test"
         )
 
         return train, test

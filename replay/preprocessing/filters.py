@@ -482,7 +482,7 @@ class NumInteractionsFilter(_BaseFilter):
 
         return (
             interactions.sort(sorting_columns, descending=descending)
-            .with_columns(pl.col(self.query_column).cumcount().over(self.query_column).alias("temp_rank"))
+            .with_columns(pl.col(self.query_column).cum_count().over(self.query_column).alias("temp_rank"))
             .filter(pl.col("temp_rank") <= self.num_interactions)
             .drop("temp_rank")
         )
