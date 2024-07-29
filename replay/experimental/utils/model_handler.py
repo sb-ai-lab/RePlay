@@ -170,8 +170,13 @@ def load_indexer(path: str) -> Indexer:
 
     indexer = Indexer(**args)
 
-    indexer.user_type = getattr(st, user_type)()
-    indexer.item_type = getattr(st, item_type)()
+    if user_type.endswith("()"):
+        user_type = user_type[:-2]
+        item_type = item_type[:-2]
+    user_type = getattr(st, user_type)
+    item_type = getattr(st, item_type)
+    indexer.user_type = user_type()
+    indexer.item_type = item_type()
 
     indexer.user_indexer = StringIndexerModel.load(join(path, "user_indexer"))
     indexer.item_indexer = StringIndexerModel.load(join(path, "item_indexer"))
