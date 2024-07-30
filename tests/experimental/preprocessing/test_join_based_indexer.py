@@ -6,11 +6,16 @@ torch = pytest.importorskip("torch")
 from pyspark.sql import functions as sf
 
 from replay.experimental.preprocessing.data_preparator import JoinBasedIndexerEstimator, JoinBasedIndexerTransformer
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS
 
 
 @pytest.fixture
 def log(spark):
-    return spark.createDataFrame([(55, 70), (56, 70), (57, 71), (88, 72), (55, 72)]).toDF("user_id", "item_id")
+    return (
+        spark.createDataFrame([(55, 70), (56, 70), (57, 71), (88, 72), (55, 72)])
+        .toDF("user_id", "item_id")
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
 
 
 @pytest.mark.experimental

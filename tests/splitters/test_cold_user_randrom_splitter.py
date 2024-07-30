@@ -4,6 +4,7 @@ import polars as pl
 import pytest
 
 from replay.splitters import ColdUserRandomSplitter
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS
 
 
 @pytest.fixture()
@@ -21,7 +22,7 @@ def log():
 @pytest.fixture()
 @pytest.mark.usefixtures("spark")
 def log_spark(spark, log):
-    return spark.createDataFrame(log)
+    return spark.createDataFrame(log).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture()

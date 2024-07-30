@@ -18,6 +18,7 @@ from replay.models import (
     Wilson,
 )
 from tests.utils import (
+    DEFAULT_SPARK_NUM_PARTITIONS,
     create_dataset,
     sparkDataFrameEqual,
 )
@@ -30,7 +31,9 @@ SEED = 123
 
 @pytest.fixture
 def log_binary_rating(log):
-    return log.withColumn("relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0))
+    return log.withColumn("relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)).repartition(
+        DEFAULT_SPARK_NUM_PARTITIONS
+    )
 
 
 @pytest.mark.spark

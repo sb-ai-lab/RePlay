@@ -9,9 +9,7 @@ from replay.models import Word2VecRec
 from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
 from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
 from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
-from tests.utils import (
-    create_dataset,
-)
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, create_dataset
 
 pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
@@ -35,7 +33,7 @@ def log(spark):
             [0, 3, date, 2.0],
         ],
         schema=INTERACTIONS_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture

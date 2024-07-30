@@ -4,7 +4,7 @@ import pytest
 
 from replay.data import FeatureHint, FeatureInfo, FeatureSchema, FeatureType
 from replay.models import CatPopRec
-from tests.utils import create_dataset, sparkDataFrameEqual
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, create_dataset, sparkDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
@@ -22,7 +22,7 @@ def cat_tree(spark):
             ["apples", "red_apples"],
         ],
         schema="parent_cat string, category string",
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture
@@ -36,7 +36,7 @@ def cat_log(spark):
             [3, 1, "bananas", 2],
         ],
         schema="user_idx int, item_idx int, category string, relevance int",
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture
@@ -48,7 +48,7 @@ def requested_cats(spark):
             ["red_apples"],
         ],
         schema="category string",
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture
@@ -62,7 +62,7 @@ def cold_items(spark):
             [3],
         ],
         schema="item_idx int",
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture

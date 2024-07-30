@@ -12,7 +12,7 @@ from replay.preprocessing import LabelEncoder, LabelEncodingRule
 from replay.splitters import RatioSplitter
 from replay.utils import PandasDataFrame, SparkDataFrame
 from replay.utils.spark_utils import convert2spark
-from tests.utils import create_dataset
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, create_dataset
 
 recs_data = [
     (1, 3, 0.6),
@@ -69,7 +69,7 @@ base_recs_data = [
 @pytest.mark.usefixtures("spark")
 @pytest.fixture()
 def predict_spark(spark):
-    return spark.createDataFrame(recs_data, schema=["uid", "iid", "scores"])
+    return spark.createDataFrame(recs_data, schema=["uid", "iid", "scores"]).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -116,7 +116,7 @@ def fake_train_dict():
 @pytest.mark.usefixtures("spark")
 @pytest.fixture()
 def gt_spark(spark):
-    return spark.createDataFrame(gt_data, schema=["uid", "iid"])
+    return spark.createDataFrame(gt_data, schema=["uid", "iid"]).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture(scope="module")
@@ -146,7 +146,9 @@ def gt_dict():
 @pytest.mark.usefixtures("spark")
 @pytest.fixture()
 def base_recs_spark(spark):
-    return spark.createDataFrame(base_recs_data, schema=["uid", "iid", "scores"])
+    return spark.createDataFrame(base_recs_data, schema=["uid", "iid", "scores"]).repartition(
+        DEFAULT_SPARK_NUM_PARTITIONS
+    )
 
 
 @pytest.fixture(scope="module")
@@ -189,7 +191,7 @@ def random_train_test_recs() -> Tuple[PandasDataFrame, PandasDataFrame, PandasDa
         sep="\t",
         names=["user_idx", "item_idx", "relevance", "timestamp"],
     )
-    ml_1m = convert2spark(ml_1m)
+    ml_1m = convert2spark(ml_1m).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     encoded_data = encode_data(ml_1m)
     train, test = split_data(encoded_data)
 

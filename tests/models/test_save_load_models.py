@@ -29,7 +29,7 @@ from replay.models.extensions.ann.index_stores.hdfs_index_store import HdfsIndex
 from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
 from replay.preprocessing.label_encoder import LabelEncoder, LabelEncodingRule
 from replay.utils import PYSPARK_AVAILABLE
-from tests.utils import create_dataset, sparkDataFrameEqual
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, create_dataset, sparkDataFrameEqual
 
 from .test_cat_pop_rec import cat_log, cat_tree, requested_cats  # noqa: F401
 
@@ -43,13 +43,17 @@ if PYSPARK_AVAILABLE:
 
 @pytest.fixture
 def log_unary(long_log_with_features):
-    return long_log_with_features.withColumn("relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0))
+    return long_log_with_features.withColumn("relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)).repartition(
+        DEFAULT_SPARK_NUM_PARTITIONS
+    )
 
 
 @pytest.fixture
 def user_features(spark):
-    return spark.createDataFrame([(1, 20.0, -3.0, 1), (2, 30.0, 4.0, 0), (3, 40.0, 0.0, 1)]).toDF(
-        "user_idx", "age", "mood", "gender"
+    return (
+        spark.createDataFrame([(1, 20.0, -3.0, 1), (2, 30.0, 4.0, 0), (3, 40.0, 0.0, 1)])
+        .toDF("user_idx", "age", "mood", "gender")
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     )
 
 
@@ -61,7 +65,7 @@ def df():
         sep="\t",
         names=["user_idx", "item_idx", "relevance", "timestamp"],
     ).head(1000)
-    res = convert2spark(res)
+    res = convert2spark(res).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     encoder = LabelEncoder(
         [
             LabelEncodingRule("user_idx"),

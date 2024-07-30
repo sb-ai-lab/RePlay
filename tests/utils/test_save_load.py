@@ -26,13 +26,15 @@ from replay.utils.model_handler import (
     save_splitter,
 )
 from replay.utils.spark_utils import convert2spark
-from tests.utils import create_dataset, sparkDataFrameEqual
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, create_dataset, sparkDataFrameEqual
 
 
 @pytest.fixture
 def user_features(spark):
-    return spark.createDataFrame([(1, 20.0, -3.0, 1), (2, 30.0, 4.0, 0), (3, 40.0, 0.0, 1)]).toDF(
-        "user_idx", "age", "mood", "gender"
+    return (
+        spark.createDataFrame([(1, 20.0, -3.0, 1), (2, 30.0, 4.0, 0), (3, 40.0, 0.0, 1)])
+        .toDF("user_idx", "age", "mood", "gender")
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     )
 
 
@@ -44,7 +46,7 @@ def df():
         sep="\t",
         names=["user_id", "item_id", "relevance", "timestamp"],
     ).head(1000)
-    res = convert2spark(res)
+    res = convert2spark(res).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     encoder = LabelEncoder(
         [
             LabelEncodingRule("user_id"),

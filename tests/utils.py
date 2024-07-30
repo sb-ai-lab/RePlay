@@ -15,6 +15,8 @@ if PYSPARK_AVAILABLE:
 
     INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
+DEFAULT_SPARK_NUM_PARTITIONS = 4
+
 
 def assertDictAlmostEqual(d1: Dict, d2: Dict) -> None:
     assert set(d1.keys()) == set(d2.keys())

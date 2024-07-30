@@ -13,6 +13,7 @@ from replay.preprocessing.filters import (
     TimePeriodFilter,
 )
 from replay.utils import PandasDataFrame, PolarsDataFrame, get_spark_session
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS
 
 
 @pytest.fixture
@@ -38,7 +39,7 @@ def interactions_pandas():
 
 @pytest.fixture
 def interactions_spark(interactions_pandas):
-    return get_spark_session().createDataFrame(interactions_pandas)
+    return get_spark_session().createDataFrame(interactions_pandas).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture

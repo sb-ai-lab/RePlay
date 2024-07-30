@@ -15,7 +15,7 @@ from replay.experimental.models.base_rec import HybridRecommender, UserRecommend
 from replay.experimental.scenarios.two_stages.two_stages_scenario import get_first_level_model_features
 from replay.experimental.utils.model_handler import save
 from replay.utils.model_handler import load
-from tests.utils import sparkDataFrameEqual
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, sparkDataFrameEqual
 
 SEED = 123
 
@@ -42,19 +42,25 @@ def log(spark):
             [0, 2, date, 2.0],
         ],
         schema=get_schema("user_idx", "item_idx", "timestamp", "relevance"),
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture
 def user_features(spark):
-    return spark.createDataFrame([(0, 2.0, 5.0), (1, 0.0, -5.0), (4, 4.0, 3.0)]).toDF(
-        "user_idx", "user_feature_1", "user_feature_2"
+    return (
+        spark.createDataFrame([(0, 2.0, 5.0), (1, 0.0, -5.0), (4, 4.0, 3.0)])
+        .toDF("user_idx", "user_feature_1", "user_feature_2")
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     )
 
 
 @pytest.fixture
 def item_features(spark):
-    return spark.createDataFrame([(0, 4.0, 5.0), (1, 5.0, 4.0)]).toDF("item_idx", "item_feature_1", "item_feature_2")
+    return (
+        spark.createDataFrame([(0, 4.0, 5.0), (1, 5.0, 4.0)])
+        .toDF("item_idx", "item_feature_1", "item_feature_2")
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
 
 
 @pytest.fixture

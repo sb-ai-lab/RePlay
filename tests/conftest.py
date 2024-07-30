@@ -5,6 +5,7 @@ import pytest
 from replay.data import get_schema
 from replay.utils import PYSPARK_AVAILABLE
 from replay.utils.session_handler import get_spark_session
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS
 
 if PYSPARK_AVAILABLE:
     INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
@@ -28,7 +29,7 @@ def log_to_pred(spark):
             [4, 1, datetime(2019, 9, 15), 3.0],
         ],
         schema=INTERACTIONS_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture
@@ -43,7 +44,7 @@ def log2(spark):
             [2, 1, datetime(2019, 9, 15), 3.0],
         ],
         schema=INTERACTIONS_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture
@@ -63,7 +64,7 @@ def log(spark):
             [3, 0, datetime(2019, 8, 26), 1.0],
         ],
         schema=INTERACTIONS_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture
@@ -85,7 +86,7 @@ def long_log_with_features(spark):
             [2, 6, date, 5.0],
         ],
         schema=INTERACTIONS_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture
@@ -102,70 +103,90 @@ def short_log_with_features(spark):
             [3, 4, date, 5.0],
         ],
         schema=INTERACTIONS_SCHEMA,
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture
 def user_features(spark):
-    return spark.createDataFrame(
-        [
-            (0, 20.0, -3.0, "M"),
-            (1, 30.0, 4.0, "F"),
-            (2, 75.0, -1.0, "M"),
-        ]
-    ).toDF("user_idx", "age", "mood", "gender")
+    return (
+        spark.createDataFrame(
+            [
+                (0, 20.0, -3.0, "M"),
+                (1, 30.0, 4.0, "F"),
+                (2, 75.0, -1.0, "M"),
+            ]
+        )
+        .toDF("user_idx", "age", "mood", "gender")
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
 
 
 @pytest.fixture
 def all_users_features(spark):
-    return spark.createDataFrame(
-        [
-            (0, 20.0, -3.0, "M"),
-            (1, 30.0, 4.0, "F"),
-            (2, 75.0, -1.0, "M"),
-            (3, 35.0, 42.0, "M"),
-        ]
-    ).toDF("user_idx", "age", "mood", "gender")
+    return (
+        spark.createDataFrame(
+            [
+                (0, 20.0, -3.0, "M"),
+                (1, 30.0, 4.0, "F"),
+                (2, 75.0, -1.0, "M"),
+                (3, 35.0, 42.0, "M"),
+            ]
+        )
+        .toDF("user_idx", "age", "mood", "gender")
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
 
 
 @pytest.fixture
 def item_features(spark):
-    return spark.createDataFrame(
-        [
-            (0, 4.0, "cat", "black"),
-            (1, 10.0, "dog", "green"),
-            (2, 7.0, "mouse", "yellow"),
-            (3, -1.0, "cat", "yellow"),
-            (4, 11.0, "dog", "white"),
-            (5, 0.0, "mouse", "yellow"),
-        ]
-    ).toDF("item_idx", "iq", "class", "color")
+    return (
+        spark.createDataFrame(
+            [
+                (0, 4.0, "cat", "black"),
+                (1, 10.0, "dog", "green"),
+                (2, 7.0, "mouse", "yellow"),
+                (3, -1.0, "cat", "yellow"),
+                (4, 11.0, "dog", "white"),
+                (5, 0.0, "mouse", "yellow"),
+            ]
+        )
+        .toDF("item_idx", "iq", "class", "color")
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
 
 
 @pytest.fixture
 def fake_fit_items(spark):
-    return spark.createDataFrame(
-        [
-            (0,),
-            (1,),
-            (1,),
-            (2,),
-            (3,),
-            (4,),
-            (5,),
-        ]
-    ).toDF("item_idx")
+    return (
+        spark.createDataFrame(
+            [
+                (0,),
+                (1,),
+                (1,),
+                (2,),
+                (3,),
+                (4,),
+                (5,),
+            ]
+        )
+        .toDF("item_idx")
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
 
 
 @pytest.fixture
 def fake_fit_queries(spark):
-    return spark.createDataFrame(
-        [
-            (0,),
-            (1,),
-            (2,),
-            (0,),
-            (2,),
-            (3,),
-        ]
-    ).toDF("user_idx")
+    return (
+        spark.createDataFrame(
+            [
+                (0,),
+                (1,),
+                (2,),
+                (0,),
+                (2,),
+                (3,),
+            ]
+        )
+        .toDF("user_idx")
+        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )

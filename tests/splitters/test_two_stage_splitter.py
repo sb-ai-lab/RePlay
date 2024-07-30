@@ -7,6 +7,7 @@ import pytest
 
 from replay.splitters import TwoStageSplitter
 from replay.utils import PandasDataFrame
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS
 
 log_data = [
     [0, 3, datetime(2019, 9, 12), 1.0, 1],
@@ -27,7 +28,7 @@ def log(spark):
     return spark.createDataFrame(
         log_data,
         schema=["user_id", "item_id", "timestamp", "relevance", "session_id"],
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture
@@ -129,7 +130,7 @@ def big_log(spark):
     return spark.createDataFrame(
         big_log_data,
         schema=["user_id", "item_id", "timestamp", "relevance", "session_id"],
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture
@@ -243,7 +244,7 @@ def log2(spark):
     return spark.createDataFrame(
         log2_data,
         schema=["user_id", "item_id", "timestamp", "relevance", "session_id"],
-    )
+    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
 @pytest.fixture
