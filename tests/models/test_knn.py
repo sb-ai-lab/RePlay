@@ -159,7 +159,7 @@ def test_bm25(weighting_log, bm25_model):
     )
     upd_dataset = Dataset(
         train_dataset.feature_schema,
-        convert2spark(log),
+        convert2spark(log).repartition(DEFAULT_SPARK_NUM_PARTITIONS),
     )
     bm25_model.fit(upd_dataset)
     recs = bm25_model.predict(upd_dataset, k=1, queries=[0, 1]).toPandas()

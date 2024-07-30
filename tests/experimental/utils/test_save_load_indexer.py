@@ -41,7 +41,7 @@ def df():
 def test_indexer(df, tmp_path):
     path = (tmp_path / "indexer").resolve()
     indexer = Indexer("user_idx", "item_idx")
-    df = convert2spark(df)
+    df = convert2spark(df).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     indexer.fit(df, df)
     save_indexer(indexer, path)
     i = load_indexer(path)

@@ -9,9 +9,7 @@ from replay.models import RandomRec
 from replay.models.base_rec import HybridRecommender, NonPersonalizedRecommender, Recommender
 from replay.utils import SparkDataFrame
 from replay.utils.spark_utils import convert2spark
-from tests.utils import (
-    create_dataset,
-)
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, create_dataset
 
 
 class DerivedRec(Recommender):
@@ -121,8 +119,8 @@ def test_str(model):
 @pytest.mark.spark
 @pytest.mark.parametrize("sample", [True, False])
 def test_predict_proba(log, sample, n_users=2, n_actions=5, K=3):
-    users = convert2spark(pd.DataFrame({"user_idx": np.arange(n_users)}))
-    items = convert2spark(pd.DataFrame({"item_idx": np.arange(n_actions)}))
+    users = convert2spark(pd.DataFrame({"user_idx": np.arange(n_users)})).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    items = convert2spark(pd.DataFrame({"item_idx": np.arange(n_actions)})).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     model = RandomRec(seed=42)
     model.sample = sample

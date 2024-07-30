@@ -3,7 +3,7 @@ import logging
 import pandas as pd
 import pytest
 
-from tests.utils import sparkDataFrameEqual
+from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, sparkDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
@@ -108,7 +108,7 @@ def test_indexer(long_log_with_features):
 def test_indexer_without_renaming():
     indexer = Indexer("user_idx", "item_idx")
     df = pd.DataFrame({"user_idx": [3], "item_idx": [5]})
-    df = convert2spark(df)
+    df = convert2spark(df).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     indexer.fit(df, df)
     res = indexer.transform(df)
     cols = res.columns

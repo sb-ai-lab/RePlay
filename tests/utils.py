@@ -76,11 +76,11 @@ def find_file_by_pattern(directory: str, pattern: str) -> Optional[str]:
 
 
 def create_dataset(log, user_features=None, item_features=None, feature_schema=None):
-    log = convert2spark(log)
+    log = convert2spark(log).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     if user_features is not None:
-        user_features = convert2spark(user_features)
+        user_features = convert2spark(user_features).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     if item_features is not None:
-        item_features = convert2spark(item_features)
+        item_features = convert2spark(item_features).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
     if feature_schema is None:
         feature_schema = FeatureSchema(
