@@ -11,14 +11,14 @@ if PYSPARK_AVAILABLE:
     INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def spark():
     session = get_spark_session()
     session.sparkContext.setLogLevel("ERROR")
     return session
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def log_to_pred(spark):
     return spark.createDataFrame(
         data=[
@@ -32,7 +32,7 @@ def log_to_pred(spark):
     ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def log2(spark):
     return spark.createDataFrame(
         data=[
@@ -47,7 +47,7 @@ def log2(spark):
     ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def log(spark):
     return spark.createDataFrame(
         data=[
@@ -67,7 +67,7 @@ def log(spark):
     ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def long_log_with_features(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -89,7 +89,7 @@ def long_log_with_features(spark):
     ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def short_log_with_features(spark):
     date = datetime(2021, 1, 1)
     return spark.createDataFrame(
@@ -106,7 +106,7 @@ def short_log_with_features(spark):
     ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def user_features(spark):
     return (
         spark.createDataFrame(
@@ -121,7 +121,7 @@ def user_features(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def all_users_features(spark):
     return (
         spark.createDataFrame(
@@ -137,7 +137,7 @@ def all_users_features(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def item_features(spark):
     return (
         spark.createDataFrame(
@@ -155,7 +155,7 @@ def item_features(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def fake_fit_items(spark):
     return (
         spark.createDataFrame(
@@ -174,7 +174,7 @@ def fake_fit_items(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def fake_fit_queries(spark):
     return (
         spark.createDataFrame(

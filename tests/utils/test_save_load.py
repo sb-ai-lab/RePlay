@@ -25,20 +25,10 @@ from replay.utils.model_handler import (
     save_encoder,
     save_splitter,
 )
-from replay.utils.spark_utils import convert2spark
-from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, create_dataset, sparkDataFrameEqual
+from tests.utils import create_dataset, sparkDataFrameEqual
 
 
-@pytest.fixture
-def user_features(spark):
-    return (
-        spark.createDataFrame([(1, 20.0, -3.0, 1), (2, 30.0, 4.0, 0), (3, 40.0, 0.0, 1)])
-        .toDF("user_idx", "age", "mood", "gender")
-        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
-    )
-
-
-@pytest.fixture
+@pytest.fixture(scope="module")
 def df():
     folder = dirname(replay.__file__)
     res = pd.read_csv(
@@ -46,7 +36,6 @@ def df():
         sep="\t",
         names=["user_id", "item_id", "relevance", "timestamp"],
     ).head(1000)
-    res = convert2spark(res).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     encoder = LabelEncoder(
         [
             LabelEncodingRule("user_id"),
@@ -57,7 +46,7 @@ def df():
     return res
 
 
-@pytest.mark.spark
+@pytest.mark.core
 @pytest.mark.parametrize(
     "splitter, init_args",
     [
@@ -82,7 +71,6 @@ def df():
 def test_splitter(splitter, init_args, df, tmp_path):
     path = (tmp_path / "splitter").resolve()
     splitter = splitter(**init_args)
-    df = df.withColumnRenamed("user_idx", "user_id").withColumnRenamed("item_idx", "item_id")
     save_splitter(splitter, path)
     save_splitter(splitter, path, overwrite=True)
     train, test = splitter.split(df)
@@ -90,8 +78,8 @@ def test_splitter(splitter, init_args, df, tmp_path):
     for arg_, value_ in init_args.items():
         assert getattr(restored_splitter, arg_) == value_
     new_train, new_test = restored_splitter.split(df)
-    assert new_train.count() == train.count()
-    assert new_test.count() == test.count()
+    assert new_train.shape == train.shape
+    assert new_test.shape == test.shape
 
 
 @pytest.mark.spark
@@ -118,15 +106,15 @@ def test_save_raise(long_log_with_features, tmp_path):
         save(model, path)
 
 
-@pytest.mark.spark
-def test_save_load_encoder(long_log_with_features, tmp_path):
+@pytest.mark.core
+def test_save_load_encoder(df, tmp_path):
     encoder = LabelEncoder(
         [
-            LabelEncodingRule("user_idx"),
-            LabelEncodingRule("item_idx"),
+            LabelEncodingRule("user_id"),
+            LabelEncodingRule("item_id"),
         ]
     )
-    encoder.fit(long_log_with_features)
+    encoder.fit(df)
     save_encoder(encoder, tmp_path)
     loaded_encoder = load_encoder(tmp_path)
 

@@ -11,7 +11,7 @@ if PYSPARK_AVAILABLE:
 
 
 @pytest.mark.usefixtures("spark")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def spark_df_for_labelencoder(spark):
     data = [
         ("u1", "item_1", "item_1"),
@@ -21,7 +21,7 @@ def spark_df_for_labelencoder(spark):
 
 
 @pytest.mark.usefixtures("spark")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def spark_df_for_labelencoder_modified(spark):
     data = [
         ("u1", "item_1", "item_1"),
@@ -44,7 +44,11 @@ def polars_df_for_labelencoder(pandas_df_for_labelencoder):
 @pytest.fixture(scope="module")
 def pandas_df_for_labelencoder_modified():
     return pd.DataFrame(
-        {"user": ["u1", "u2", "u3"], "item1": ["item_1", "item_2", "item_3"], "item2": ["item_1", "item_2", "item_3"]}
+        {
+            "user_id": ["u1", "u2", "u3"],
+            "item1": ["item_1", "item_2", "item_3"],
+            "item2": ["item_1", "item_2", "item_3"],
+        }
     )
 
 
@@ -1021,6 +1025,6 @@ def session_dataset_pandas():
 
 
 @pytest.mark.usefixtures("spark")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def session_dataset_spark(spark, session_dataset_pandas):
     return spark.createDataFrame(session_dataset_pandas).repartition(DEFAULT_SPARK_NUM_PARTITIONS)

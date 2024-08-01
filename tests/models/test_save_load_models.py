@@ -57,7 +57,7 @@ def user_features(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(score="module")
 def df():
     folder = dirname(replay.__file__)
     res = pd.read_csv(
