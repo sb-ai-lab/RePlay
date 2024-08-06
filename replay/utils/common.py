@@ -41,7 +41,7 @@ SavableObject = Union[
 ]
 
 if TORCH_AVAILABLE:
-    from replay.data.nn import SequenceTokenizer
+    from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset, SequenceTokenizer
 
     SavableObject = Union[
         ColdUserRandomSplitter,
@@ -53,6 +53,8 @@ if TORCH_AVAILABLE:
         TimeSplitter,
         TwoStageSplitter,
         SequenceTokenizer,
+        PandasSequentialDataset,
+        PolarsSequentialDataset,
     ]
 
 

@@ -408,6 +408,48 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
             return None
         return rating_features.item().name
 
+    def _get_object_args(self) -> Dict:
+        """
+        Returns list of features represented as dictionaries.
+        """
+        features = [
+            {
+                "name": feature.name,
+                "feature_type": feature.feature_type.name,
+                "is_seq": feature.is_seq,
+                "feature_hint": feature.feature_hint.name if feature.feature_hint else None,
+                "feature_sources": [
+                    {"source": x.source.name, "column": x.column, "index": x.index} for x in feature.feature_sources
+                ]
+                if feature.feature_sources
+                else None,
+                "cardinality": feature.cardinality if feature.feature_type == FeatureType.CATEGORICAL else None,
+                "embedding_dim": feature.embedding_dim if feature.feature_type == FeatureType.CATEGORICAL else None,
+                "tensor_dim": feature.tensor_dim if feature.feature_type == FeatureType.NUMERICAL else None,
+            }
+            for feature in self.all_features
+        ]
+        return features
+
+    @classmethod
+    def _create_object_by_args(cls, args: Dict) -> "TensorSchema":
+        features_list = []
+        for feature_data in args:
+            feature_data["feature_sources"] = (
+                [
+                    TensorFeatureSource(source=FeatureSource[x["source"]], column=x["column"], index=x["index"])
+                    for x in feature_data["feature_sources"]
+                ]
+                if feature_data["feature_sources"]
+                else None
+            )
+            f_type = feature_data["feature_type"]
+            f_hint = feature_data["feature_hint"]
+            feature_data["feature_type"] = FeatureType[f_type] if f_type else None
+            feature_data["feature_hint"] = FeatureHint[f_hint] if f_hint else None
+            features_list.append(TensorFeatureInfo(**feature_data))
+        return TensorSchema(features_list)
+
     def filter(
         self,
         name: Optional[str] = None,
