@@ -5,6 +5,8 @@ import pytest
 
 pyspark = pytest.importorskip("pyspark")
 
+from time import perf_counter
+
 import replay
 from replay.models import ItemKNN
 from replay.preprocessing.label_encoder import LabelEncoder, LabelEncodingRule
@@ -30,6 +32,7 @@ from tests.utils import create_dataset, sparkDataFrameEqual
 
 @pytest.fixture(scope="module")
 def df():
+    t1 = perf_counter()
     folder = dirname(replay.__file__)
     res = pd.read_csv(
         join(folder, "../examples/data/ml1m_ratings.dat"),
@@ -43,6 +46,7 @@ def df():
         ]
     )
     res = encoder.fit_transform(res)
+    t1 = perf_counter() - t1
     return res
 
 

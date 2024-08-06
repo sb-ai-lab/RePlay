@@ -65,7 +65,6 @@ def df():
         sep="\t",
         names=["user_idx", "item_idx", "relevance", "timestamp"],
     ).head(1000)
-    res = convert2spark(res).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     encoder = LabelEncoder(
         [
             LabelEncodingRule("user_idx"),
@@ -73,6 +72,7 @@ def df():
         ]
     )
     res = encoder.fit_transform(res)
+    res = convert2spark(res).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
     return res
 
 
