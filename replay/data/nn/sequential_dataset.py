@@ -1,7 +1,10 @@
 import abc
+import json
+from pathlib import Path
 from typing import Tuple, Union
 
 import numpy as np
+import pandas as pd
 import polars as pl
 from pandas import DataFrame as PandasDataFrame
 from polars import DataFrame as PolarsDataFrame
@@ -100,6 +103,23 @@ class SequentialDataset(abc.ABC):
         rhs_filtered = rhs.filter_by_query_id(common_queries)
         return lhs_filtered, rhs_filtered
 
+    def save(self, path: str) -> None:
+        base_path = Path(path).with_suffix(".replay").resolve()
+        base_path.mkdir(parents=True, exist_ok=True)
+
+        sequential_dict = {}
+        sequential_dict["_class_name"] = self.__class__.__name__
+        self._sequences.reset_index().to_json(base_path / "sequences.json")
+        sequential_dict["init_args"] = {
+            "tensor_schema": self._tensor_schema._get_object_args(),
+            "query_id_column": self._query_id_column,
+            "item_id_column": self._item_id_column,
+            "sequences_path": "sequences.json",
+        }
+
+        with open(base_path / "init_args.json", "w+") as file:
+            json.dump(sequential_dict, file)
+
 
 class PandasSequentialDataset(SequentialDataset):
     """
@@ -174,6 +194,25 @@ class PandasSequentialDataset(SequentialDataset):
                 msg = "Tensor schema does not match with provided data frame"
                 raise ValueError(msg)
 
+    @classmethod
+    def load(cls, path: str, **kwargs) -> "PandasSequentialDataset":
+        """
+        Method for loading PandasSequentialDataset object from `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        with open(base_path / "init_args.json", "r") as file:
+            sequential_dict = json.loads(file.read())
+
+        sequences = pd.read_json(base_path / sequential_dict["init_args"]["sequences_path"])
+        dataset = cls(
+            tensor_schema=TensorSchema._create_object_by_args(sequential_dict["init_args"]["tensor_schema"]),
+            query_id_column=sequential_dict["init_args"]["query_id_column"],
+            item_id_column=sequential_dict["init_args"]["item_id_column"],
+            sequences=sequences,
+        )
+
+        return dataset
+
 
 class PolarsSequentialDataset(PandasSequentialDataset):
     """
@@ -236,3 +275,22 @@ class PolarsSequentialDataset(PandasSequentialDataset):
             if tensor_feature_name not in data:
                 msg = "Tensor schema does not match with provided data frame"
                 raise ValueError(msg)
+
+    @classmethod
+    def load(cls, path: str, **kwargs) -> "PandasSequentialDataset":
+        """
+        Method for loading PandasSequentialDataset object from `.replay` directory.
+        """
+        base_path = Path(path).with_suffix(".replay").resolve()
+        with open(base_path / "init_args.json", "r") as file:
+            sequential_dict = json.loads(file.read())
+
+        sequences = pl.DataFrame(pd.read_json(base_path / sequential_dict["init_args"]["sequences_path"]))
+        dataset = cls(
+            tensor_schema=TensorSchema._create_object_by_args(sequential_dict["init_args"]["tensor_schema"]),
+            query_id_column=sequential_dict["init_args"]["query_id_column"],
+            item_id_column=sequential_dict["init_args"]["item_id_column"],
+            sequences=sequences,
+        )
+
+        return dataset

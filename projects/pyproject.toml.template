@@ -135,6 +135,7 @@ max-complexity = 13
 "replay/experimental/models/extensions/spark_custom_models/als_extension.py" = ["ARG002", "N802", "N803", "N815"]
 "replay/data/nn/sequence_tokenizer.py" = ["ARG003"]
 "replay/splitters/base_splitter.py" = ["ARG003"]
+"replay/data/nn/sequential_dataset.py" = ["ARG003"]
 
 [tool.tomlsort]
 ignore_case = true

@@ -425,18 +425,7 @@ class SequenceTokenizer:
 
             # load tensor_schema, tensor_features
             tensor_schema_data = tokenizer_dict["init_args"]["tensor_schema"]
-            features_list = []
-            for feature_data in tensor_schema_data:
-                feature_data["feature_sources"] = [
-                    TensorFeatureSource(source=FeatureSource[x["source"]], column=x["column"], index=x["index"])
-                    for x in feature_data["feature_sources"]
-                ]
-                f_type = feature_data["feature_type"]
-                f_hint = feature_data["feature_hint"]
-                feature_data["feature_type"] = FeatureType[f_type] if f_type else None
-                feature_data["feature_hint"] = FeatureHint[f_hint] if f_hint else None
-                features_list.append(TensorFeatureInfo(**feature_data))
-            tokenizer_dict["init_args"]["tensor_schema"] = TensorSchema(features_list)
+            tokenizer_dict["init_args"]["tensor_schema"] = TensorSchema._create_object_by_args(tensor_schema_data)
 
             # Load encoder columns and rules
             types = list(FeatureHint) + list(FeatureSource)
@@ -450,7 +439,7 @@ class SequenceTokenizer:
                 rule_data = rules_dict[rule]
                 if rule_data["mapping"] and rule_data["is_int"]:
                     rule_data["mapping"] = {int(key): value for key, value in rule_data["mapping"].items()}
-                    del rule_data["is_int"]
+                del rule_data["is_int"]
 
                 tokenizer_dict["encoder"]["encoding_rules"][rule] = LabelEncodingRule(**rule_data)
 
@@ -481,30 +470,8 @@ class SequenceTokenizer:
                 "allow_collect_to_master": self._allow_collect_to_master,
                 "handle_unknown_rule": self._encoder._handle_unknown_rule,
                 "default_value_rule": self._encoder._default_value_rule,
-                "tensor_schema": [],
+                "tensor_schema": self._tensor_schema._get_object_args(),
             }
-
-            # save tensor schema
-            for feature in list(self._tensor_schema.values()):
-                tokenizer_dict["init_args"]["tensor_schema"].append(
-                    {
-                        "name": feature.name,
-                        "feature_type": feature.feature_type.name,
-                        "is_seq": feature.is_seq,
-                        "feature_hint": feature.feature_hint.name if feature.feature_hint else None,
-                        "feature_sources": [
-                            {"source": x.source.name, "column": x.column, "index": x.index}
-                            for x in feature.feature_sources
-                        ]
-                        if feature.feature_sources
-                        else None,
-                        "cardinality": feature.cardinality if feature.feature_type == FeatureType.CATEGORICAL else None,
-                        "embedding_dim": feature.embedding_dim
-                        if feature.feature_type == FeatureType.CATEGORICAL
-                        else None,
-                        "tensor_dim": feature.tensor_dim if feature.feature_type == FeatureType.NUMERICAL else None,
-                    }
-                )
 
             # save DatasetLabelEncoder
             tokenizer_dict["encoder"] = {

@@ -9,6 +9,7 @@ pytest.importorskip("torch")
 
 from replay.data import FeatureHint
 from replay.utils import TORCH_AVAILABLE
+from replay.utils.common import load_from_replay, save_to_replay
 
 if TORCH_AVAILABLE:
     from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset
@@ -165,3 +166,27 @@ def test_get_sequence_by_query_id(dataset_type, request):
         sequential_info = request.getfixturevalue("sequential_info_polars")
     dataset = dataset_type(**sequential_info)
     assert np.array_equal(dataset.get_sequence_by_query_id(10, "some_item_feature"), np.array([], dtype=np.int64))
+
+
+@pytest.mark.core
+@pytest.mark.parametrize("dataset", ["sequential_info", "sequential_info_polars"])
+def test_save_and_load_sequential_dataset(dataset, request, tmp_path):
+    data = request.getfixturevalue(dataset)
+
+    if isinstance(data["sequences"], pd.DataFrame):
+        obj_type = PandasSequentialDataset
+    else:
+        obj_type = PolarsSequentialDataset
+
+    sequential_dataset = obj_type(**data)
+    save_to_replay(sequential_dataset, tmp_path)
+    loaded_sequential_dataset = load_from_replay(tmp_path)
+
+    assert sequential_dataset._query_id_column == loaded_sequential_dataset._query_id_column
+    assert sequential_dataset._item_id_column == loaded_sequential_dataset._item_id_column
+    assert (
+        sequential_dataset._tensor_schema._get_object_args()
+        == loaded_sequential_dataset._tensor_schema._get_object_args()
+    )
+    assert all(sequential_dataset._sequences.columns == loaded_sequential_dataset._sequences.columns)
+    assert sequential_dataset._sequences.equals(loaded_sequential_dataset._sequences)
