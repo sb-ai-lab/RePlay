@@ -5,12 +5,15 @@ import os
 
 from typing import Any, Dict, List, Optional
 
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as sf
+from replay.data.dataset import Dataset
+from replay.metrics import NDCG, Metric
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
-from replay.metrics import Metric, NDCG
-from replay.models.base_rec import HybridRecommender
-from replay.utils import convert2spark
+from .base_rec import HybridRecommender
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+
 
 #Object for interactions with a single arm in a UCB disjoint framework
 class linucb_disjoint_arm():
@@ -74,12 +77,12 @@ class LinUCB(HybridRecommender):
     # pylint: disable=too-many-arguments
     def optimize(
         self,
-        train: DataFrame,
-        test: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        train_dataset: Dataset,
+        test_dataset: Dataset,
+        user_features: Optional[Dataset] = None,
+        item_features: Optional[Dataset] = None,
         param_borders: Optional[Dict[str, List[Any]]] = None,
-        criterion: Metric = NDCG(),
+        criterion: Metric = NDCG,
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,
@@ -107,9 +110,9 @@ class LinUCB(HybridRecommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        dataset: Dataset,
+        user_features: Optional[Dataset] = None,
+        item_features: Optional[Dataset] = None,
     ) -> None:
         #should not work if user features or item features are unavailable 
         if user_features is None:
@@ -142,15 +145,15 @@ class LinUCB(HybridRecommender):
         return 
         
     def _predict(
-        self,
-        log: DataFrame,
+        self,   
+        dataset: Dataset,
         k: int,
         users: DataFrame,
         items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        user_features: Optional[Dataset] = None,
+        item_features: Optional[Dataset] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         #create a large vectorized numpy array with inverse matrices:
         arr = [self.linucb_arms[i].A_inv for i in range(self._num_items)]
         num_user_pred = users.count() #assuming it is a pyspark dataset
@@ -174,4 +177,4 @@ class LinUCB(HybridRecommender):
         predict_rels = rel_matrix[rows_inds,topk_indices].ravel()
         #return everything in a PySpark template
         res_df = pd.DataFrame({'user_idx': predict_inds, 'item_idx': predict_items,'relevance': predict_rels})
-        return convert2spark(res_df)
+        # return convert2spark(res_df)
