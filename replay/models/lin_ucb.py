@@ -14,6 +14,8 @@ from .base_rec import HybridRecommender
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
 
+from replay.utils.spark_utils import convert2spark
+
 
 #Object for interactions with a single arm in a UCB disjoint framework
 class linucb_disjoint_arm():
@@ -148,8 +150,8 @@ class LinUCB(HybridRecommender):
         self,   
         dataset: Dataset,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
+        users: SparkDataFrame,
+        items: SparkDataFrame,
         user_features: Optional[Dataset] = None,
         item_features: Optional[Dataset] = None,
         filter_seen_items: bool = True,
@@ -177,4 +179,4 @@ class LinUCB(HybridRecommender):
         predict_rels = rel_matrix[rows_inds,topk_indices].ravel()
         #return everything in a PySpark template
         res_df = pd.DataFrame({'user_idx': predict_inds, 'item_idx': predict_items,'relevance': predict_rels})
-        # return convert2spark(res_df)
+        return convert2spark(res_df)
