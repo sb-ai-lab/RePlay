@@ -126,20 +126,20 @@ class LinUCB(HybridRecommender):
         item_features = dataset.item_features.toPandas()
         self._num_items = len(item_features.columns)
         #check that the dataframe contains uer indexes
-        if not 'user_id' in user_features.columns:
-            raise VaueError("User indices are missing in user features dataframe")
+        if not 'user_idx' in user_features.columns:
+            raise ValueError("User indices are missing in user features dataframe")
         self._user_dim_size = len(user_features.columns) - 1
         #now initialize an arm object for each potential arm instance
         self.linucb_arms = [linucb_disjoint_arm(arm_index = i, d = self._user_dim_size, eps = self.eps, alpha = self.alpha) for i in range(self._num_items)]
         #now we work with pandas
         for i in range(self._num_items):
-            B = log.loc[log['item_id'] == i]
-            id_list = B['user_id'].values
-            rel_list = B['rating'].values
+            B = log.loc[log['item_idx'] == i]
+            idxs_list = B['user_idx'].values
+            rel_list = B['relevance'].values
             if not B.empty:
                 #if we have at least one user interacting with the hand i
-                cur_usrs = user_features.query("user_id in @id_list").drop(columns=['user_id'])
-                self.linucb_arms[i].feature_update(cur_usrs.to_numpy(),rel_list)
+                cur_usrs = user_features.query("user_idx in @idxs_list").drop(columns=['user_idx'])
+                self.linucb_arms[i].feature_update(cur_usrs.to_numpy(), rel_list)
         condit_number = [self.linucb_arms[i].cond_number for i in range(self._num_items)]
         #finished
         return 
@@ -156,11 +156,12 @@ class LinUCB(HybridRecommender):
         arr = [self.linucb_arms[i].A_inv for i in range(self._num_items)]
         num_user_pred = users.count() #assuming it is a pyspark dataset
         users = users.toPandas()
-        user_features = user_features.toPandas()
-        id_list = users['user_id'].values
+        user_features = dataset.query_features.toPandas()
+        item_features = dataset.item_features.toPandas()
+        idxs_list = users['user_idx'].values
         if user_features is None:
             raise ValueError("Can not make predict in the Lin UCB method")
-        usrs_feat = user_features.query("user_id in @id_list").drop(columns=['user_id']).to_numpy()
+        usrs_feat = user_features.query("user_idx in @idxs_list").drop(columns=['user_idx']).to_numpy()
         rel_matrix = np.zeros((num_user_pred,self._num_items),dtype = float)
         #fill in relevance matrix
         for i in range(self._num_items):
@@ -170,9 +171,9 @@ class LinUCB(HybridRecommender):
         topk_indices = np.argpartition(rel_matrix, -big_k, axis=1)[:, -big_k:]
         rows_inds,_ = np.indices((num_user_pred, big_k))
         #result df
-        predict_inds = np.repeat(id_list, big_k)
+        predict_inds = np.repeat(idxs_list, big_k)
         predict_items = topk_indices.ravel()
         predict_rels = rel_matrix[rows_inds,topk_indices].ravel()
         #return everything in a PySpark template
-        res_df = pd.DataFrame({'user_id': predict_inds, 'item_id': predict_items,'relevance': predict_rels})
+        res_df = pd.DataFrame({'user_idx': predict_inds, 'item_idx': predict_items,'relevance': predict_rels})
         return convert2spark(res_df)
