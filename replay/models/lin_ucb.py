@@ -124,7 +124,7 @@ class LinUCB(HybridRecommender):
         log = dataset.interactions.toPandas()
         user_features = dataset.query_features.toPandas()
         item_features = dataset.item_features.toPandas()
-        self._num_items = len(item_features.columns)
+        self._num_items = item_features.shape[0]
         #check that the dataframe contains uer indexes
         if not 'user_idx' in user_features.columns:
             raise ValueError("User indices are missing in user features dataframe")
