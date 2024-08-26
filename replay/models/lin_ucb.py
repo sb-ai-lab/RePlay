@@ -16,6 +16,10 @@ if PYSPARK_AVAILABLE:
 
 from replay.utils.spark_utils import convert2spark
 
+#import for parameter optimization
+from optuna import create_study
+from optuna.samplers import TPESampler
+
 
 #Object for interactions with a single arm in a UCB disjoint framework
 class linucb_disjoint_arm():
@@ -69,6 +73,15 @@ class LinUCB(HybridRecommender):
         cpu_count = os.cpu_count()
         self.num_threads = cpu_count if cpu_count is not None else 1
 
+
+        self._study = None #field required for proper optuna's optimization
+        self._search_space = {
+        "eps": {"type": "uniform", "args": [-10.0, 10.0]},
+        "alpha": {"type": "uniform", "args": [0.001, 10.0]},
+        }
+        #self._objective = MainObjective
+
+
     @property
     def _init_args(self):
         return {
@@ -81,14 +94,12 @@ class LinUCB(HybridRecommender):
         self,
         train_dataset: Dataset,
         test_dataset: Dataset,
-        user_features: Optional[Dataset] = None,
-        item_features: Optional[Dataset] = None,
         param_borders: Optional[Dict[str, List[Any]]] = None,
         criterion: Metric = NDCG,
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,
-    ) -> None:
+    ) -> Optional[Dict[str, Any]]:
         """
         Searches best parameters with optuna.
 
@@ -106,14 +117,55 @@ class LinUCB(HybridRecommender):
         :param new_study: keep searching with previous study or start a new study
         :return: dictionary with best parameters
         """
-        self.logger.warning(
-            "Not implemented yet error, be careful"
+
+        # self.logger.warning(
+        #     "The UCB model has only exploration coefficient parameter, which cannot not be directly optimized"
+        # )
+
+
+        self.query_column = train_dataset.feature_schema.query_id_column
+        self.item_column = train_dataset.feature_schema.item_id_column
+        self.rating_column = train_dataset.feature_schema.interactions_rating_column
+        self.timestamp_column = train_dataset.feature_schema.interactions_timestamp_column
+
+        self.criterion = criterion(
+            topk=k,
+            query_column=self.query_column,
+            item_column=self.item_column,
+            rating_column=self.rating_column,
         )
+
+        if self._search_space is None:
+            self.logger.warning("%s has no hyper parameters to optimize", str(self))
+            return None
+
+        if self.study is None or new_study:
+            self.study = create_study(direction="maximize", sampler=TPESampler())
+
+        search_space = self._prepare_param_borders(param_borders)
+        if self._init_params_in_search_space(search_space) and not self._params_tried():
+            self.study.enqueue_trial(self._init_args)
+
+        split_data = self._prepare_split_data(train_dataset, test_dataset)
+        objective = self._objective(
+            search_space=search_space,
+            split_data=split_data,
+            recommender=self,
+            criterion=self.criterion,
+            k=k,
+        )
+
+        self.study.optimize(objective, budget)
+        best_params = self.study.best_params
+        self.set_params(**best_params)
+        return best_params
+    
 
     def _fit(
         self,
         dataset: Dataset,
     ) -> None:
+        feature_schema = dataset.feature_schema
         #should not work if user features or item features are unavailable 
         if dataset.query_features is None:
             raise ValueError("User features are missing for fitting")
@@ -125,7 +177,7 @@ class LinUCB(HybridRecommender):
         user_features = dataset.query_features.toPandas()
         item_features = dataset.item_features.toPandas()
         #check that the dataframe contains uer indexes
-        if not 'user_idx' in user_features.columns:
+        if not feature_schema.query_id_column in user_features.columns:
             raise ValueError("User indices are missing in user features dataframe")
         self._num_items = item_features.shape[0]
         self._user_dim_size = user_features.shape[1] - 1
@@ -133,16 +185,16 @@ class LinUCB(HybridRecommender):
         self.linucb_arms = [linucb_disjoint_arm(arm_index = i, d = self._user_dim_size, eps = self.eps, alpha = self.alpha) for i in range(self._num_items)]
         #now we work with pandas
         for i in range(self._num_items):
-            B = log.loc[log['item_idx'] == i]
-            idxs_list = B['user_idx'].values
-            rel_list = B['relevance'].values
+            B = log.loc[log[feature_schema.item_id_column] == i]
+            idxs_list = B[feature_schema.query_id_column].values
+            rel_list = B[feature_schema.interactions_rating_column].values
             if not B.empty:
                 #if we have at least one user interacting with the hand i
-                cur_usrs = user_features.query("user_idx in @idxs_list").drop(columns=['user_idx'])
+                cur_usrs = user_features.query(f"{feature_schema.query_id_column} in @idxs_list").drop(columns=[feature_schema.query_id_column])
                 self.linucb_arms[i].feature_update(cur_usrs.to_numpy(), rel_list)
         condit_number = [self.linucb_arms[i].cond_number for i in range(self._num_items)]
         #finished
-        return 
+        return
         
     def _predict(
         self,   
@@ -152,16 +204,15 @@ class LinUCB(HybridRecommender):
         items: SparkDataFrame = None,
         filter_seen_items: bool = True,
     ) -> SparkDataFrame:
-        #create a large vectorized numpy array with inverse matrices:
-        arr = [self.linucb_arms[i].A_inv for i in range(self._num_items)]
+        feature_schema = dataset.feature_schema
         num_user_pred = users.count() #assuming it is a pyspark dataset
         users = users.toPandas()
         user_features = dataset.query_features.toPandas()
         item_features = dataset.item_features.toPandas()
-        idxs_list = users['user_idx'].values
+        idxs_list = users[feature_schema.query_id_column].values
         if user_features is None:
             raise ValueError("Can not make predict in the Lin UCB method")
-        usrs_feat = user_features.query("user_idx in @idxs_list").drop(columns=['user_idx']).to_numpy()
+        usrs_feat = user_features.query(f"{feature_schema.query_id_column} in @idxs_list").drop(columns=[feature_schema.query_id_column]).to_numpy()
         rel_matrix = np.zeros((num_user_pred,self._num_items),dtype = float)
         #fill in relevance matrix
         for i in range(self._num_items):
@@ -175,5 +226,5 @@ class LinUCB(HybridRecommender):
         predict_items = topk_indices.ravel()
         predict_rels = rel_matrix[rows_inds,topk_indices].ravel()
         #return everything in a PySpark template
-        res_df = pd.DataFrame({'user_idx': predict_inds, 'item_idx': predict_items,'relevance': predict_rels})
+        res_df = pd.DataFrame({feature_schema.query_id_column: predict_inds, feature_schema.item_id_column: predict_items, feature_schema.interactions_rating_column: predict_rels})
         return convert2spark(res_df)
