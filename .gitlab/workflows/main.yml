@@ -48,6 +48,7 @@ stages:
   - test_torch
   - test_spark
   - test_spark_torch
+  - test_models
   - test_experimental
   - merge coverage
   - examples
