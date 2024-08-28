@@ -22,40 +22,40 @@ log_data = [
 ]
 
 
-@pytest.fixture
-def log(spark):
+@pytest.fixture(scope="module")
+def log_to_split(spark):
     return spark.createDataFrame(
         log_data,
         schema=["user_id", "item_id", "timestamp", "relevance", "session_id"],
     )
 
 
-@pytest.fixture
-def log_pandas():
+@pytest.fixture(scope="module")
+def log_to_split_pandas():
     return PandasDataFrame(log_data, columns=["user_id", "item_id", "timestamp", "relevance", "session_id"])
 
 
-@pytest.fixture
-def log_polars(log_pandas):
-    return pl.from_pandas(log_pandas)
+@pytest.fixture(scope="module")
+def log_to_split_polars(log_to_split_pandas):
+    return pl.from_pandas(log_to_split_pandas)
 
 
-@pytest.fixture
-def log_not_implemented(log_pandas):
-    return log_pandas.to_numpy()
+@pytest.fixture(scope="module")
+def log_to_split_not_implemented(log_to_split_pandas):
+    return log_to_split_pandas.to_numpy()
 
 
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        pytest.param("log", marks=pytest.mark.spark),
-        pytest.param("log_pandas", marks=pytest.mark.core),
-        pytest.param("log_polars", marks=pytest.mark.core),
+        pytest.param("log_to_split", marks=pytest.mark.spark),
+        pytest.param("log_to_split_pandas", marks=pytest.mark.core),
+        pytest.param("log_to_split_polars", marks=pytest.mark.core),
     ],
 )
 @pytest.mark.parametrize("fraction", [3, 0.6])
 def test_get_test_values(dataset_type, request, fraction):
-    log = request.getfixturevalue(dataset_type)
+    data = request.getfixturevalue(dataset_type)
     splitter = TwoStageSplitter(
         first_divide_size=fraction,
         second_divide_size=1,
@@ -65,11 +65,11 @@ def test_get_test_values(dataset_type, request, fraction):
         drop_cold_users=False,
         seed=1234,
     )
-    test_users = splitter._get_test_values(log)
-    if isinstance(log, pd.DataFrame):
+    test_users = splitter._get_test_values(data)
+    if isinstance(data, pd.DataFrame):
         assert test_users.shape[0] == 3
         assert np.isin([0, 1, 4], test_users["user_id"]).all()
-    elif isinstance(log, pl.DataFrame):
+    elif isinstance(data, pl.DataFrame):
         assert test_users.shape[0] == 3
     else:
         assert test_users.count() == 3
@@ -79,9 +79,9 @@ def test_get_test_values(dataset_type, request, fraction):
 @pytest.mark.parametrize(
     "dataset_type",
     [
-        pytest.param("log", marks=pytest.mark.spark),
-        pytest.param("log_pandas", marks=pytest.mark.core),
-        pytest.param("log_polars", marks=pytest.mark.core),
+        pytest.param("log_to_split", marks=pytest.mark.spark),
+        pytest.param("log_to_split_pandas", marks=pytest.mark.core),
+        pytest.param("log_to_split_polars", marks=pytest.mark.core),
     ],
 )
 @pytest.mark.parametrize("fraction", [5, 1.0])
@@ -124,7 +124,7 @@ big_log_data = [
 ]
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def big_log(spark):
     return spark.createDataFrame(
         big_log_data,
@@ -132,12 +132,12 @@ def big_log(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def big_log_pandas():
     return PandasDataFrame(big_log_data, columns=["user_id", "item_id", "timestamp", "relevance", "session_id"])
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def big_log_polars(big_log_pandas):
     return pl.from_pandas(big_log_pandas)
 
@@ -238,7 +238,7 @@ log2_data = [
 ]
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log2(spark):
     return spark.createDataFrame(
         log2_data,
@@ -246,12 +246,12 @@ def log2(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log2_pandas():
     return PandasDataFrame(log2_data, columns=["user_id", "item_id", "timestamp", "relevance", "session_id"])
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log2_polars(log2_pandas):
     return pl.from_pandas(log2_pandas)
 
@@ -318,15 +318,15 @@ def test_split_proportion(dataset_type, request):
 
 
 @pytest.mark.core
-def test_not_implemented_dataframe(log_not_implemented):
+def test_not_implemented_dataframe(log_to_split_not_implemented):
     with pytest.raises(NotImplementedError):
         TwoStageSplitter(
             first_divide_size=1,
             second_divide_size=0.4,
-        ).split(log_not_implemented)
+        ).split(log_to_split_not_implemented)
 
     with pytest.raises(NotImplementedError):
         TwoStageSplitter(
             first_divide_size=1,
             second_divide_size=2,
-        ).split(log_not_implemented)
+        ).split(log_to_split_not_implemented)

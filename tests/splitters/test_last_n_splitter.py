@@ -30,8 +30,7 @@ def _check_assert(user_ids, item_ids, user_answer, item_answer):
         assert sorted(user_ids[idx]) == sorted(user_answer[idx])
 
 
-@pytest.fixture()
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def spark_dataframe_test(spark):
     columns = ["user_id", "item_id", "timestamp", "session_id"]
     data = [
@@ -91,6 +90,7 @@ def dataframe_not_implemented(pandas_dataframe_test):
     return pandas_dataframe_test.to_numpy()
 
 
+@pytest.mark.core
 @pytest.mark.parametrize("strategy", ["interacitons", "INTERACTIONS", "interaction", "second"])
 def test_lastnsplitter_wrong_strategy(strategy):
     with pytest.raises(ValueError):

@@ -29,8 +29,7 @@ def _check_assert(user_ids, item_ids, user_answer, item_answer):
         assert sorted(user_ids[idx]) == sorted(user_answer[idx])
 
 
-@pytest.fixture()
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def spark_dataframe_test(spark):
     columns = ["user_id", "item_id", "timestamp", "session_id"]
     data = [
@@ -394,6 +393,7 @@ def test_ratio_splitter_without_drops_with_sessions(
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
 
+@pytest.mark.core
 def test_original_dataframe_not_change(pandas_dataframe_test):
     original_dataframe = pandas_dataframe_test.copy(deep=True)
 

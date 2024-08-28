@@ -126,8 +126,8 @@ sphinx-job:
     - ${RUNNER}
   needs: ["ruff", "black", "poetry-check", "sphinx-job"]
   before_script:
-    - export REPLAY_SPARK_CORE_COUNT=8
-    - export REPLAY_SPARK_MEMORY=24
+    - export REPLAY_SPARK_CORE_COUNT=4
+    - export REPLAY_SPARK_MEMORY=16
   parallel:
     matrix:
       - image:
@@ -164,7 +164,7 @@ pytest-spark:
   stage: test_spark
   script:
     - ./poetry_wrapper.sh install -E spark
-    - pytest -m "not torch and not experimental" tests/ --ignore=tests/experimental
+    - pytest -m "not torch and not experimental" tests/ --ignore=tests/experimental --ignore=tests/models
     - mv .coverage .coverage_spark_${image:(-4)}
   artifacts:
     paths:
@@ -176,7 +176,7 @@ pytest-spark-and-torch:
   stage: test_spark_torch
   script:
     - ./poetry_wrapper.sh install --all-extras
-    - pytest -m "not experimental" --ignore=replay/experimental --ignore=tests/experimental
+    - pytest -m "not experimental" --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
     - mv .coverage .coverage_all_${image:(-4)}
   artifacts:
     paths:

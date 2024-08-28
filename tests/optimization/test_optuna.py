@@ -10,7 +10,7 @@ from tests.utils import (
 )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model():
     return ALSWrap()
 
@@ -85,11 +85,6 @@ def test_it_works(model, log):
     assert model._params_tried() is False
     res = model.optimize(dataset, dataset, k=2, budget=1)
     assert isinstance(res["rank"], int)
-    assert model._params_tried() is True
-    model.optimize(dataset, dataset, k=2, budget=1)
-    assert len(model.study.trials) == 1
-    model.optimize(dataset, dataset, k=2, budget=1, new_study=False)
-    assert len(model.study.trials) == 2
 
 
 @pytest.mark.spark

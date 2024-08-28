@@ -10,7 +10,7 @@ if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def log():
     return pd.DataFrame(
         {
@@ -21,8 +21,7 @@ def log():
     )
 
 
-@pytest.fixture()
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def spark_dataframe_test(spark):
     columns = ["user_id", "item_id", "timestamp", "session_id"]
     data = [
@@ -72,23 +71,22 @@ def pandas_dataframe_test():
     return dataframe
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def polars_dataframe_test(pandas_dataframe_test):
     return pl.from_pandas(pandas_dataframe_test)
 
 
-@pytest.fixture()
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def log_spark(spark, log):
     return spark.createDataFrame(log)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def log_polars(log):
     return pl.from_pandas(log)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def log_not_implemented(log):
     return log.to_numpy()
 
@@ -126,6 +124,7 @@ def test_nothing_is_lost(test_size, dataset_type, request):
     assert np.isclose(real_test_size, test_size, atol=0.01)
 
 
+@pytest.mark.core
 def test_bad_test_size():
     with pytest.raises(ValueError):
         RandomSplitter(1.2)

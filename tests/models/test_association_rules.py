@@ -8,7 +8,7 @@ pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model(log):
     dataset = create_dataset(log)
     model = AssociationRulesItemRec(min_item_count=1, min_pair_count=1, session_column="user_idx")
@@ -16,6 +16,7 @@ def model(log):
     return model
 
 
+@pytest.mark.spark
 def test_invalid_metric_raises(log, model):
     with pytest.raises(
         ValueError,
@@ -24,6 +25,7 @@ def test_invalid_metric_raises(log, model):
         model.get_nearest_items(log.select("item_idx"), k=1, metric="invalid")
 
 
+@pytest.mark.spark
 def test_works(model):
     assert hasattr(model, "similarity")
     model.similarity.count()
@@ -37,6 +39,7 @@ def check_formulas(count_ant, count_cons, pair_count, num_sessions, test_row):
     assert test_row["confidence_gain"][0] == confidence_ant_con / confidence_not_ant_con
 
 
+@pytest.mark.spark
 def test_calculation(model, log):
     pairs_metrics = model.get_similarity
     # recalculate for item_3 as antecedent and item_2 as consequent
@@ -50,6 +53,7 @@ def test_calculation(model, log):
     )
 
 
+@pytest.mark.spark
 def test_calculation_with_weights(model, log):
     model = AssociationRulesItemRec(
         min_item_count=1,
@@ -71,6 +75,7 @@ def test_calculation_with_weights(model, log):
     )
 
 
+@pytest.mark.spark
 def test_get_nearest_items(model):
     res = model.get_nearest_items(
         items=[2],
@@ -92,6 +97,7 @@ def test_get_nearest_items(model):
     model._clear_cache()
 
 
+@pytest.mark.spark
 def test_metric(log, log_to_pred, model):
     dataset = create_dataset(log)
     model.fit(dataset)
@@ -124,6 +130,7 @@ def test_metric(log, log_to_pred, model):
     sparkDataFrameNotEqual(p_pred_metr_from_user_conf, p_pred_metr_from_user_lift)
 
 
+@pytest.mark.spark
 def test_similarity_metric_raises(log, model):
     with pytest.raises(ValueError, match="Select one of the valid metrics for predict:.*"):
         dataset = create_dataset(log)
