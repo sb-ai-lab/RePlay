@@ -177,10 +177,23 @@ pytest-spark-and-torch:
   script:
     - ./poetry_wrapper.sh install --all-extras
     - pytest -m "not experimental" --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
-    - mv .coverage .coverage_all_${image:(-4)}
+    - mv .coverage .coverage_spark_and_torch_${image:(-4)}
   artifacts:
     paths:
-      - .coverage_all_${image:(-4)}
+      - .coverage_spark_and_torch_${image:(-4)}
+    expire_in: 1 day
+
+pytest-models:
+  <<: *pytest_template
+  stage: test_models
+  script:
+    - ./poetry_wrapper.sh install --all-extras
+    - pytest -m "not experimental" tests/models --ignore=replay/experimental --ignore=tests/experimental
+    - mv .coverage .coverage_models_${image:(-4)}
+  needs: ["pytest-core", "pytest-torch", "pytest-spark", "pytest-spark-and-torch"]
+  artifacts:
+    paths:
+      - .coverage_models_${image:(-4)}
     expire_in: 1 day
 
 pytest-experimental:
@@ -201,10 +214,10 @@ merge-coverage:
     - *setup_env
     - ./poetry_wrapper.sh install --only dev
   script:
-    - coverage combine .coverage_core_${image:(-4)} .coverage_spark_${image:(-4)} .coverage_torch_${image:(-4)} .coverage_all_${image:(-4)} .coverage_experimental_${image:(-4)}
+    - coverage combine .coverage_core_${image:(-4)} .coverage_spark_${image:(-4)} .coverage_torch_${image:(-4)} .coverage_spark_and_torch_${image:(-4)} .coverage_models_${image:(-4)} .coverage_experimental_${image:(-4)}
     - coverage report --fail-under=100
     - coverage xml
-  needs: ["pytest-core", "pytest-torch", "pytest-spark", "pytest-spark-and-torch", "pytest-experimental"]
+  needs: ["pytest-core", "pytest-torch", "pytest-spark", "pytest-spark-and-torch", "pytest-models", "pytest-experimental"]
   tags: 
     - ${RUNNER}
   parallel:
