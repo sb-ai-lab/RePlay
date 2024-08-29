@@ -27,7 +27,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
     return model.predict(log=inf_log, users=users, k=1, **kwargs)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="class")
 def model():
     model = ALSWrap(2, implicit_prefs=False)
     model._seed = 42

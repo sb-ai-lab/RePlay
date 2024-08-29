@@ -4,7 +4,7 @@ import sys
 import numpy as np
 import pytest
 
-if sys.version_info > (3, 9):
+if sys.version_info >= (3, 10):
     pytest.skip(
         reason="obp does't support 3.10",
         allow_module_level=True,
@@ -56,7 +56,7 @@ def test_logger():
     _ = get_logger("replay", logging.INFO)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="class")
 def replay_obp_learner(model, bandit_feedback):
     learner = OBPOfflinePolicyLearner(n_actions=2, replay_model=model, len_list=1)
 
