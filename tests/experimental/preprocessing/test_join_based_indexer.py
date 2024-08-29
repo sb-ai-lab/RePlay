@@ -8,7 +8,7 @@ from pyspark.sql import functions as sf
 from replay.experimental.preprocessing.data_preparator import JoinBasedIndexerEstimator, JoinBasedIndexerTransformer
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log(spark):
     return spark.createDataFrame([(55, 70), (56, 70), (57, 71), (88, 72), (55, 72)]).toDF("user_id", "item_id")
 

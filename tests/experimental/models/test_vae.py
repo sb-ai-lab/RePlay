@@ -24,7 +24,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
     return model.predict(log=inf_log, users=users, k=1, **kwargs)
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def fix_seeds():
     torch.manual_seed(7)
     torch.backends.cudnn.deterministic = True
@@ -32,7 +32,7 @@ def fix_seeds():
     np.random.seed(0)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model(log):
     params = {
         "learning_rate": 0.5,

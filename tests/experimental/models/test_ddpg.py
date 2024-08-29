@@ -74,7 +74,7 @@ DF_CASES = [
 ]
 
 
-@pytest.fixture(params=DDPG_PARAMS)
+@pytest.fixture(params=DDPG_PARAMS, scope="class")
 def ddpg_critic_param(request):
     param = request.param
     return (
@@ -89,7 +89,7 @@ def ddpg_critic_param(request):
     )
 
 
-@pytest.fixture(params=DDPG_PARAMS)
+@pytest.fixture(params=DDPG_PARAMS, scope="class")
 def ddpg_actor_param(request):
     param = request.param
     return (
@@ -107,7 +107,7 @@ def ddpg_actor_param(request):
     )
 
 
-@pytest.fixture(params=DDPG_PARAMS)
+@pytest.fixture(params=DDPG_PARAMS, scope="class")
 def ddpg_state_repr_param(request):
     param = request.param
     return (
@@ -124,7 +124,7 @@ def ddpg_state_repr_param(request):
 BATCH_SIZES = [1, 2, 3, 10, 15]
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="class", autouse=True)
 def fix_seeds():
     torch.manual_seed(7)
     torch.backends.cudnn.deterministic = True
@@ -132,7 +132,7 @@ def fix_seeds():
     np.random.seed(0)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -158,8 +158,8 @@ def log(spark):
     )
 
 
-@pytest.fixture
-def model(log):
+@pytest.fixture(scope="class")
+def model():
     model = DDPG(user_num=5, item_num=5)
     model.batch_size = 1
     return model
