@@ -13,7 +13,7 @@ if TORCH_AVAILABLE:
     from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def pandas_interactions():
     interactions = pd.DataFrame(
         {
@@ -26,7 +26,7 @@ def pandas_interactions():
     return interactions
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def query_features():
     return pd.DataFrame(
         {
@@ -36,7 +36,7 @@ def query_features():
     )
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def item_features():
     return pd.DataFrame(
         {
@@ -46,7 +46,7 @@ def item_features():
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def fake_schema():
     schema = (
         TensorSchemaBuilder()
@@ -99,7 +99,7 @@ def fake_schema():
     return schema
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def fake_small_dataset(pandas_interactions):
     feature_schema = FeatureSchema(
         [
@@ -117,7 +117,7 @@ def fake_small_dataset(pandas_interactions):
     return dataset
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def fake_small_dataset_polars(pandas_interactions):
     feature_schema = FeatureSchema(
         [
@@ -135,7 +135,7 @@ def fake_small_dataset_polars(pandas_interactions):
     return dataset
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def small_dataset(pandas_interactions, query_features, item_features):
     feature_schema = FeatureSchema(
         [
@@ -157,7 +157,7 @@ def small_dataset(pandas_interactions, query_features, item_features):
     return dataset
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def small_dataset_polars(pandas_interactions, query_features, item_features):
     feature_schema = FeatureSchema(
         [
@@ -179,7 +179,7 @@ def small_dataset_polars(pandas_interactions, query_features, item_features):
     return dataset
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def small_numerical_dataset(query_features, item_features):
     feature_schema = FeatureSchema(
         [
@@ -215,7 +215,7 @@ def small_numerical_dataset(query_features, item_features):
     return dataset
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def small_numerical_dataset_polars(query_features, item_features):
     feature_schema = FeatureSchema(
         [
@@ -251,7 +251,7 @@ def small_numerical_dataset_polars(query_features, item_features):
     return dataset
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def small_dataset_no_features(pandas_interactions):
     feature_schema = FeatureSchema(
         [
@@ -269,7 +269,7 @@ def small_dataset_no_features(pandas_interactions):
     return dataset
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def small_dataset_no_features_polars(pandas_interactions):
     feature_schema = FeatureSchema(
         [
@@ -287,7 +287,7 @@ def small_dataset_no_features_polars(pandas_interactions):
     return dataset
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def small_dataset_no_timestamp():
     feature_schema = FeatureSchema(
         [
@@ -311,7 +311,7 @@ def small_dataset_no_timestamp():
     return dataset
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def small_dataset_no_timestamp_polars():
     feature_schema = FeatureSchema(
         [
@@ -335,7 +335,7 @@ def small_dataset_no_timestamp_polars():
     return dataset
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def only_item_id_schema():
     schema = (
         TensorSchemaBuilder()
@@ -351,7 +351,7 @@ def only_item_id_schema():
     return schema
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def item_id_and_timestamp_schema():
     schema = (
         TensorSchemaBuilder()
@@ -379,7 +379,7 @@ def item_id_and_timestamp_schema():
     return schema
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def item_id_and_item_feature_schema():
     schema = (
         TensorSchemaBuilder()
@@ -401,8 +401,8 @@ def item_id_and_item_feature_schema():
     return schema
 
 
-@pytest.fixture
-def sequential_info(scope="package"):
+@pytest.fixture(scope="class")
+def sequential_info():
     sequences = pd.DataFrame(
         [
             (0, [1], [0, 1], [1, 2], [[1, 2], [1, 2], [1, 2]]),
@@ -452,8 +452,8 @@ def sequential_info(scope="package"):
     }
 
 
-@pytest.fixture()
-def sequential_info_polars(sequential_info, scope="package"):
+@pytest.fixture(scope="class")
+def sequential_info_polars(sequential_info):
     sequences = pl.from_records(
         [
             (0, [1], [0, 1], [1, 2], [[1, 2], [1, 2], [1, 2]]),
@@ -477,7 +477,7 @@ def sequential_info_polars(sequential_info, scope="package"):
     }
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def some_num_feature():
     return TensorFeatureInfo(
         name="num_feature",
@@ -491,7 +491,7 @@ def some_num_feature():
     )
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def some_cat_feature():
     return TensorFeatureInfo(
         name="cat_feature",
@@ -503,17 +503,17 @@ def some_cat_feature():
     )
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def some_num_tensor_feature(some_num_feature):
     return some_num_feature
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def some_cat_tensor_feature(some_cat_feature):
     return some_cat_feature
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def wrong_sequential_dataset():
     sequences = pd.DataFrame(
         [
@@ -561,7 +561,7 @@ def wrong_sequential_dataset():
     return sequential_dataset
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def sequential_dataset():
     sequences = pd.DataFrame(
         [
@@ -609,7 +609,7 @@ def sequential_dataset():
     return sequential_dataset
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def tensor_schema():
     schema = (
         TensorSchemaBuilder()
@@ -652,7 +652,7 @@ def tensor_schema():
     return schema
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def simple_masks():
     item_sequences = torch.tensor(
         [
@@ -697,7 +697,7 @@ def simple_masks():
     return item_sequences, padding_mask, tokens_mask, timestamp_sequences
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def item_user_sequential_dataset():
     sequences = pd.DataFrame(
         [

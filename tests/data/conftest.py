@@ -3,7 +3,7 @@ import polars as pl
 import pytest
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def full_pandas_dataset():
     events = pd.DataFrame(
         {
@@ -36,7 +36,7 @@ def full_pandas_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def full_polars_dataset():
     events = pl.DataFrame(
         {
@@ -69,8 +69,7 @@ def full_polars_dataset():
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def full_spark_dataset(spark):
     events = spark.createDataFrame(
         pd.DataFrame(
@@ -109,7 +108,7 @@ def full_spark_dataset(spark):
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def full_pandas_dataset_cutted_interactions():
     events = pd.DataFrame(
         {
@@ -143,7 +142,7 @@ def full_pandas_dataset_cutted_interactions():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def full_polars_dataset_cutted_interactions():
     events = pl.DataFrame(
         {
@@ -177,8 +176,7 @@ def full_polars_dataset_cutted_interactions():
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def full_spark_dataset_cutted_interactions(spark):
     events = spark.createDataFrame(
         pd.DataFrame(
@@ -218,7 +216,7 @@ def full_spark_dataset_cutted_interactions(spark):
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def inconsistent_item_full_pandas_dataset():
     events = pd.DataFrame(
         {
@@ -251,7 +249,7 @@ def inconsistent_item_full_pandas_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def inconsistent_item_full_polars_dataset():
     events = pl.DataFrame(
         {
@@ -284,8 +282,7 @@ def inconsistent_item_full_polars_dataset():
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def inconsistent_item_full_spark_dataset(spark):
     events = spark.createDataFrame(
         pd.DataFrame(
@@ -324,7 +321,7 @@ def inconsistent_item_full_spark_dataset(spark):
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def inconsistent_user_full_pandas_dataset():
     events = pd.DataFrame(
         {
@@ -357,7 +354,7 @@ def inconsistent_user_full_pandas_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def inconsistent_user_full_polars_dataset():
     events = pl.DataFrame(
         {
@@ -390,8 +387,7 @@ def inconsistent_user_full_polars_dataset():
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def inconsistent_user_full_spark_dataset(spark):
     events = spark.createDataFrame(
         pd.DataFrame(
@@ -430,7 +426,7 @@ def inconsistent_user_full_spark_dataset(spark):
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def interactions_full_pandas_dataset():
     events = pd.DataFrame(
         {
@@ -452,7 +448,7 @@ def interactions_full_pandas_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def interactions_full_polars_dataset():
     events = pl.DataFrame(
         {
@@ -474,8 +470,7 @@ def interactions_full_polars_dataset():
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def interactions_full_spark_dataset(spark):
     events = spark.createDataFrame(
         pd.DataFrame(
@@ -499,7 +494,7 @@ def interactions_full_spark_dataset(spark):
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def interactions_timestamp_pandas_dataset():
     events = pd.DataFrame(
         {
@@ -519,7 +514,7 @@ def interactions_timestamp_pandas_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def interactions_timestamp_polars_dataset():
     events = pl.DataFrame(
         {
@@ -539,8 +534,7 @@ def interactions_timestamp_polars_dataset():
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def interactions_timestamp_spark_dataset(spark):
     events = spark.createDataFrame(
         pd.DataFrame(
@@ -562,7 +556,7 @@ def interactions_timestamp_spark_dataset(spark):
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def interactions_rating_pandas_dataset():
     events = pd.DataFrame(
         {"user_id": [0, 0, 1, 1, 1, 2], "item_id": [0, 1, 0, 2, 3, 1], "rating": [1.1, 1.2, 1.3, 2, 3, 4]}
@@ -578,7 +572,7 @@ def interactions_rating_pandas_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def interactions_rating_polars_dataset():
     events = pl.DataFrame(
         {"user_id": [0, 0, 1, 1, 1, 2], "item_id": [0, 1, 0, 2, 3, 1], "rating": [1.1, 1.2, 1.3, 2, 3, 4]}
@@ -594,8 +588,7 @@ def interactions_rating_polars_dataset():
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def interactions_rating_spark_dataset(spark):
     events = spark.createDataFrame(
         pd.DataFrame({"user_id": [0, 0, 1, 1, 1, 2], "item_id": [0, 1, 0, 2, 3, 1], "rating": [1.1, 1.2, 1.3, 2, 3, 4]})
@@ -611,8 +604,7 @@ def interactions_rating_spark_dataset(spark):
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def interactions_ids_spark_dataset(spark):
     events = spark.createDataFrame(
         pd.DataFrame(
@@ -632,7 +624,7 @@ def interactions_ids_spark_dataset(spark):
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def interactions_users_pandas_dataset():
     events = pd.DataFrame(
         {
@@ -662,7 +654,7 @@ def interactions_users_pandas_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def interactions_users_polars_dataset():
     events = pl.DataFrame(
         {
@@ -692,8 +684,7 @@ def interactions_users_polars_dataset():
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def interactions_users_spark_dataset(spark):
     events = spark.createDataFrame(
         pd.DataFrame(
@@ -727,7 +718,7 @@ def interactions_users_spark_dataset(spark):
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def interactions_items_pandas_dataset():
     events = pd.DataFrame(
         {
@@ -752,7 +743,7 @@ def interactions_items_pandas_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def interactions_items_polars_dataset():
     events = pl.DataFrame(
         {
@@ -777,8 +768,7 @@ def interactions_items_polars_dataset():
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def interactions_items_spark_dataset(spark):
     events = spark.createDataFrame(
         pd.DataFrame(
@@ -807,8 +797,7 @@ def interactions_items_spark_dataset(spark):
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def wrong_user_pandas_dataset(spark):
     events = pd.DataFrame(
         {
@@ -840,8 +829,7 @@ def wrong_user_pandas_dataset(spark):
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def wrong_item_pandas_dataset(spark):
     events = pd.DataFrame(
         {
@@ -868,7 +856,7 @@ def wrong_item_pandas_dataset(spark):
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def not_int_user_pandas_dataset():
     events = pd.DataFrame(
         {
@@ -890,7 +878,7 @@ def not_int_user_pandas_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def not_int_item_pandas_dataset():
     events = pd.DataFrame(
         {
@@ -912,7 +900,7 @@ def not_int_item_pandas_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def not_int_user_polars_dataset():
     events = pl.DataFrame(
         {
@@ -934,7 +922,7 @@ def not_int_user_polars_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def not_int_item_polars_dataset():
     events = pl.DataFrame(
         {
@@ -956,8 +944,7 @@ def not_int_item_polars_dataset():
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def not_int_user_spark_dataset(spark):
     events = spark.createDataFrame(
         pd.DataFrame(
@@ -981,8 +968,7 @@ def not_int_user_spark_dataset(spark):
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def not_int_item_spark_dataset(spark):
     events = spark.createDataFrame(
         pd.DataFrame(
@@ -1006,7 +992,7 @@ def not_int_item_spark_dataset(spark):
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def less_than_zero_user_pandas_dataset():
     events = pd.DataFrame(
         {
@@ -1028,7 +1014,7 @@ def less_than_zero_user_pandas_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def less_than_zero_item_pandas_dataset():
     events = pd.DataFrame(
         {
@@ -1050,7 +1036,7 @@ def less_than_zero_item_pandas_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def less_than_zero_user_polars_dataset():
     events = pl.DataFrame(
         {
@@ -1072,7 +1058,7 @@ def less_than_zero_user_polars_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def less_than_zero_item_polars_dataset():
     events = pl.DataFrame(
         {
@@ -1094,8 +1080,7 @@ def less_than_zero_item_polars_dataset():
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def less_than_zero_user_spark_dataset(spark):
     events = spark.createDataFrame(
         pd.DataFrame(
@@ -1119,8 +1104,7 @@ def less_than_zero_user_spark_dataset(spark):
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def less_than_zero_item_spark_dataset(spark):
     events = spark.createDataFrame(
         pd.DataFrame(
@@ -1144,7 +1128,7 @@ def less_than_zero_item_spark_dataset(spark):
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def more_than_count_user_pandas_dataset():
     events = pd.DataFrame(
         {
@@ -1166,7 +1150,7 @@ def more_than_count_user_pandas_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def more_than_count_item_pandas_dataset():
     events = pd.DataFrame(
         {
@@ -1188,7 +1172,7 @@ def more_than_count_item_pandas_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def more_than_count_user_polars_dataset():
     events = pl.DataFrame(
         {
@@ -1210,7 +1194,7 @@ def more_than_count_user_polars_dataset():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def more_than_count_item_polars_dataset():
     events = pl.DataFrame(
         {
@@ -1232,8 +1216,7 @@ def more_than_count_item_polars_dataset():
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def more_than_count_user_spark_dataset(spark):
     events = spark.createDataFrame(
         pd.DataFrame(
@@ -1257,8 +1240,7 @@ def more_than_count_user_spark_dataset(spark):
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def more_than_count_item_spark_dataset(spark):
     events = spark.createDataFrame(
         pd.DataFrame(
@@ -1282,7 +1264,7 @@ def more_than_count_item_spark_dataset(spark):
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def full_pandas_dataset_nonunique_columns():
     events = pd.DataFrame(
         {
@@ -1322,7 +1304,7 @@ def full_pandas_dataset_nonunique_columns():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def users_pandas_dataset_different_columns():
     events = pd.DataFrame(
         {
@@ -1353,7 +1335,7 @@ def users_pandas_dataset_different_columns():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def items_pandas_dataset_different_columns():
     events = pd.DataFrame(
         {
@@ -1385,7 +1367,7 @@ def items_pandas_dataset_different_columns():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def full_polars_dataset_nonunique_columns():
     events = pl.DataFrame(
         {
@@ -1425,7 +1407,7 @@ def full_polars_dataset_nonunique_columns():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def users_polars_dataset_different_columns():
     events = pl.DataFrame(
         {
@@ -1456,7 +1438,7 @@ def users_polars_dataset_different_columns():
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def items_polars_dataset_different_columns():
     events = pl.DataFrame(
         {

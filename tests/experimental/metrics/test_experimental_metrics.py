@@ -44,19 +44,19 @@ REC_SCHEMA = get_schema(
 )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def one_user():
     df = pd.DataFrame({"user_idx": [1], "item_idx": [1], "relevance": [1]})
     return df
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def two_users():
     df = pd.DataFrame({"user_idx": [1, 2], "item_idx": [1, 2], "relevance": [1, 1]})
     return df
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def recs(spark):
     return spark.createDataFrame(
         data=[
@@ -74,7 +74,7 @@ def recs(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def recs2(spark):
     return spark.createDataFrame(
         data=[[0, 3, 4.0], [0, 4, 5.0]],
@@ -82,7 +82,7 @@ def recs2(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def empty_recs(spark):
     return spark.createDataFrame(
         data=[],
@@ -90,7 +90,7 @@ def empty_recs(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def true(spark):
     return spark.createDataFrame(
         data=[
@@ -105,7 +105,7 @@ def true(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def true_users(spark):
     return spark.createDataFrame(
         data=[[1], [2], [3], [4]],
@@ -113,7 +113,7 @@ def true_users(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def prev_relevance(spark):
     return spark.createDataFrame(
         data=[
@@ -126,12 +126,12 @@ def prev_relevance(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def quality_metrics():
     return [NDCG(), HitRate(), Precision(), Recall(), MAP(), MRR(), RocAuc()]
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def duplicate_recs(spark):
     return spark.createDataFrame(
         data=[

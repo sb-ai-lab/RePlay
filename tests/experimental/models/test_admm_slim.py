@@ -39,7 +39,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
     return model.predict(log=inf_log, users=users, k=1, **kwargs)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def simple_log(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -56,7 +56,7 @@ def simple_log(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model():
     return ADMMSLIM(1, 10, 42)
 

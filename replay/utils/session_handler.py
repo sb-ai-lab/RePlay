@@ -83,7 +83,7 @@ def get_spark_session(
         .config("spark.driver.maxResultSize", "4g")
         .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.driver.host", "localhost")
-        .config("spark.sql.execution.arrow.pyspark.enabled", "true")
+        .config("spark.sql.execution.arrow.enabled", "true")
         .config("spark.kryoserializer.buffer.max", "256m")
         .config("spark.files.overwrite", "true")
         .master(f"local[{'*' if core_count == -1 else core_count}]")

@@ -30,8 +30,6 @@ from replay.preprocessing.label_encoder import LabelEncoder, LabelEncodingRule
 from replay.utils import PYSPARK_AVAILABLE
 from tests.utils import create_dataset, sparkDataFrameEqual
 
-from .test_cat_pop_rec import cat_log, cat_tree, requested_cats  # noqa: F401
-
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
 
@@ -40,19 +38,19 @@ if PYSPARK_AVAILABLE:
     from replay.utils.spark_utils import convert2spark
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log_unary(long_log_with_features):
     return long_log_with_features.withColumn("relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0))
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def user_features(spark):
     return spark.createDataFrame([(1, 20.0, -3.0, 1), (2, 30.0, 4.0, 0), (3, 40.0, 0.0, 1)]).toDF(
         "user_idx", "age", "mood", "gender"
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def df():
     folder = dirname(replay.__file__)
     res = pd.read_csv(
@@ -60,7 +58,6 @@ def df():
         sep="\t",
         names=["user_idx", "item_idx", "relevance", "timestamp"],
     ).head(1000)
-    res = convert2spark(res)
     encoder = LabelEncoder(
         [
             LabelEncodingRule("user_idx"),
@@ -68,7 +65,7 @@ def df():
         ]
     )
     res = encoder.fit_transform(res)
-    return res
+    return convert2spark(res)
 
 
 @pytest.mark.spark

@@ -243,7 +243,6 @@ def test_wrong_features_type(data_dict, request):
 
 
 @pytest.mark.core
-@pytest.mark.usefixtures("interactions_full_pandas_dataset")
 def test_type_pandas(interactions_full_pandas_dataset):
     dataset = create_dataset(interactions_full_pandas_dataset, check_consistency=True, categorical_encoded=False)
     assert dataset.is_pandas
@@ -253,7 +252,6 @@ def test_type_pandas(interactions_full_pandas_dataset):
 
 
 @pytest.mark.core
-@pytest.mark.usefixtures("interactions_full_polars_dataset")
 def test_type_polars(interactions_full_polars_dataset):
     dataset = create_dataset(interactions_full_polars_dataset, check_consistency=True, categorical_encoded=False)
     assert dataset.is_polars
@@ -263,7 +261,6 @@ def test_type_polars(interactions_full_polars_dataset):
 
 
 @pytest.mark.spark
-@pytest.mark.usefixtures("interactions_full_spark_dataset")
 def test_type_spark(interactions_full_spark_dataset):
     dataset = create_dataset(interactions_full_spark_dataset)
     assert not dataset.is_pandas
@@ -973,7 +970,6 @@ def test_reset_feature_info_cardinality():
 
 
 @pytest.mark.core
-@pytest.mark.usefixtures("interactions_full_pandas_dataset")
 def test_feature_schema_schema_copy(interactions_full_pandas_dataset):
     feature_list = get_features(interactions_full_pandas_dataset)
     feature_list_copy = feature_list.copy()
@@ -1028,7 +1024,6 @@ def test_feature_schema_check_naming(data_dict, feature_schema_getter, error_msg
 
 
 @pytest.mark.core
-@pytest.mark.usefixtures("interactions_full_pandas_dataset")
 def test_feature_schema_schema_item_error(interactions_full_pandas_dataset):
     with pytest.raises(ValueError) as exc:
         get_features(interactions_full_pandas_dataset).item()
@@ -1037,7 +1032,6 @@ def test_feature_schema_schema_item_error(interactions_full_pandas_dataset):
 
 
 @pytest.mark.core
-@pytest.mark.usefixtures("interactions_full_pandas_dataset")
 def test_feature_schema_schema_empty_properties(interactions_full_pandas_dataset):
     feature_list = get_features(interactions_full_pandas_dataset).subset(["user_id"])
 
@@ -1053,7 +1047,6 @@ def test_feature_schema_schema_empty_properties(interactions_full_pandas_dataset
         (["rating", "item_id"], "Query id column is not set."),
     ],
 )
-@pytest.mark.usefixtures("interactions_full_pandas_dataset")
 def test_interactions_dataset_init_exceptions(interactions_full_pandas_dataset, subset, error_msg):
     with pytest.raises(ValueError) as exc:
         Dataset(

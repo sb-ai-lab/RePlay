@@ -4,7 +4,7 @@ import sys
 import numpy as np
 import pytest
 
-if sys.version_info > (3, 9):
+if sys.version_info >= (3, 10):
     pytest.skip(
         reason="obp does't support 3.10",
         allow_module_level=True,
@@ -19,7 +19,7 @@ from replay.experimental.utils.logger import get_logger
 from replay.models import RandomRec
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def bandit_feedback():
     return {
         "n_rounds": 3,
@@ -34,8 +34,7 @@ def bandit_feedback():
     }
 
 
-@pytest.fixture
-@pytest.mark.usefixtures("spark", "LOG_SCHEMA")
+@pytest.fixture(scope="module")
 def bandit_log(spark, LOG_SCHEMA):
     return spark.createDataFrame(
         data=[
@@ -47,16 +46,17 @@ def bandit_log(spark, LOG_SCHEMA):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model():
     return RandomRec(seed=42)
 
 
+@pytest.mark.experimental
 def test_logger():
     _ = get_logger("replay", logging.INFO)
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def replay_obp_learner(model, bandit_feedback):
     learner = OBPOfflinePolicyLearner(n_actions=2, replay_model=model, len_list=1)
 
@@ -75,6 +75,7 @@ def replay_obp_learner(model, bandit_feedback):
     return learner
 
 
+@pytest.mark.experimental
 def test_fit(model, bandit_feedback, replay_obp_learner):
     n_rounds = bandit_feedback["n_rounds"]
 
@@ -87,6 +88,7 @@ def test_fit(model, bandit_feedback, replay_obp_learner):
     assert val["n_rounds"] == n_rounds - n_rounds_train
 
 
+@pytest.mark.experimental
 @pytest.mark.parametrize("context", [[[1, 1, 1]], [[0.5, 1, 1]]])
 def test_predict(context, replay_obp_learner):
     n_rounds = 1
@@ -98,6 +100,7 @@ def test_predict(context, replay_obp_learner):
     assert np.allclose(pred.sum(1), np.ones(shape=(n_rounds, replay_obp_learner.len_list)))
 
 
+@pytest.mark.experimental
 @pytest.mark.parametrize("val_size,criterion", [(0.3, "ipw"), (0.3, "dm"), (0.3, "dr")])
 def test_optimize(bandit_feedback, replay_obp_learner, val_size, criterion):
     best_params = replay_obp_learner.optimize(bandit_feedback, val_size, budget=2, criterion=criterion)

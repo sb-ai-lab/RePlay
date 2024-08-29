@@ -17,7 +17,7 @@ if PYSPARK_AVAILABLE:
     INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -31,7 +31,7 @@ def log(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log_2items_per_user(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -47,7 +47,7 @@ def log_2items_per_user(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def weighting_log(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -62,13 +62,13 @@ def weighting_log(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model():
     model = ItemKNN(1, weighting=None)
     return model
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model_with_ann():
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
@@ -84,13 +84,13 @@ def model_with_ann():
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def tf_idf_model():
     model = ItemKNN(1, weighting="tf_idf")
     return model
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def bm25_model():
     model = ItemKNN(1, weighting="bm25")
     return model

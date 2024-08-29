@@ -31,8 +31,7 @@ def _check_assert(user_ids, item_ids, user_answer, item_answer):
         assert sorted(user_ids[idx]) == sorted(user_answer[idx])
 
 
-@pytest.fixture()
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def spark_dataframe_test(spark):
     columns = ["user_id", "item_id", "timestamp", "session_id"]
     data = [
@@ -97,8 +96,7 @@ log_data = [
 ]
 
 
-@pytest.fixture()
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def log(spark):
     return spark.createDataFrame(
         log_data,
@@ -106,17 +104,17 @@ def log(spark):
     )
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def log_pandas():
     return PandasDataFrame(log_data, columns=["user_id", "item_id", "timestamp", "relevance"])
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def log_polars(log_pandas):
     return pl.from_pandas(log_pandas)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def log_not_implemented(log_pandas):
     return log_pandas.to_numpy()
 
@@ -331,6 +329,7 @@ def test_time_splitter_without_drops_with_sessions(
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
 
+@pytest.mark.core
 def test_original_dataframe_not_change(pandas_dataframe_test):
     original_dataframe = pandas_dataframe_test.copy(deep=True)
 
@@ -339,7 +338,7 @@ def test_original_dataframe_not_change(pandas_dataframe_test):
     assert original_dataframe.equals(pandas_dataframe_test)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def split_date():
     return datetime(2019, 9, 15)
 
@@ -353,14 +352,14 @@ def split_date():
     ],
 )
 def test_split(dataset_type, request, split_date):
-    log = request.getfixturevalue(dataset_type)
+    df = request.getfixturevalue(dataset_type)
     splitter = TimeSplitter(
         split_date,
         drop_cold_items=False,
         drop_cold_users=False,
         query_column="user_id",
     )
-    train, test = splitter.split(log)
+    train, test = splitter.split(df)
 
     if dataset_type in ["log_pandas", "log_polars"]:
         train_max_date = train["timestamp"].max()
@@ -382,14 +381,14 @@ def test_split(dataset_type, request, split_date):
     ],
 )
 def test_string(dataset_type, request, split_date):
-    log = request.getfixturevalue(dataset_type)
+    df = request.getfixturevalue(dataset_type)
     splitter = TimeSplitter(
         split_date,
         drop_cold_items=False,
         drop_cold_users=False,
         query_column="user_id",
     )
-    train_by_date, test_by_date = splitter.split(log)
+    train_by_date, test_by_date = splitter.split(df)
 
     str_date = split_date.strftime("%Y-%m-%d")
     splitter = TimeSplitter(
@@ -399,15 +398,16 @@ def test_string(dataset_type, request, split_date):
         time_column_format="%Y-%m-%d",
         query_column="user_id",
     )
-    train_by_str, test_by_str = splitter.split(log)
+    train_by_str, test_by_str = splitter.split(df)
 
     int_date = int(split_date.timestamp())
     if dataset_type == "log_pandas":
+        log = df.copy()
         log["timestamp"] = (log["timestamp"] - pd.Timestamp("1970-01-01")) // pd.Timedelta("1s")
     elif dataset_type == "log_polars":
-        log = log.with_columns(pl.col("timestamp").dt.epoch("s"))
+        log = df.with_columns(pl.col("timestamp").dt.epoch("s"))
     else:
-        log = log.withColumn("timestamp", log["timestamp"].cast("bigint"))
+        log = df.withColumn("timestamp", df["timestamp"].cast("bigint"))
     splitter = TimeSplitter(int_date, drop_cold_items=False, drop_cold_users=False, query_column="user_id")
     train_by_int, test_by_int = splitter.split(log)
 
@@ -512,6 +512,7 @@ def test_drop_cold_users(dataset_type, request, split_date):
     assert np.isin(test_users, train_users).all()
 
 
+@pytest.mark.core
 def test_proportion_splitting_out_of_range():
     with pytest.raises(ValueError):
         TimeSplitter(

@@ -11,7 +11,7 @@ from pyspark.sql import functions as sf
 from replay.utils.spark_utils import convert2spark
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model():
     model = Wilson()
     return model

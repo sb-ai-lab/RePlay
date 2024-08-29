@@ -23,7 +23,7 @@ if TORCH_AVAILABLE:
     )
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def wrong_sequential_dataset():
     sequences = pd.DataFrame(
         [
@@ -71,7 +71,7 @@ def wrong_sequential_dataset():
     return sequential_dataset
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def sequential_dataset():
     sequences = pd.DataFrame(
         [
@@ -119,7 +119,7 @@ def sequential_dataset():
     return sequential_dataset
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def tensor_schema():
     schema = (
         TensorSchemaBuilder()
@@ -162,7 +162,7 @@ def tensor_schema():
     return schema
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def simple_masks():
     item_sequences = torch.tensor(
         [
@@ -207,7 +207,7 @@ def simple_masks():
     return item_sequences, padding_mask, tokens_mask, timestamp_sequences
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def item_user_sequential_dataset():
     sequences = pd.DataFrame(
         [
@@ -243,7 +243,7 @@ def item_user_sequential_dataset():
     return sequential_dataset
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def polars_item_user_sequential_dataset():
     sequences = pl.from_records(
         [
@@ -285,7 +285,7 @@ def polars_item_user_sequential_dataset():
     return sequential_dataset
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def item_user_num_sequential_dataset():
     sequences = pd.DataFrame(
         [

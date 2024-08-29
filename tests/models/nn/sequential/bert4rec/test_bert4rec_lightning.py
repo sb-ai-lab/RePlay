@@ -297,6 +297,7 @@ def test_bert4rec_fine_tuning_errors(fitted_bert4rec):
         model.append_item_embeddings(torch.rand(1, 1))
 
 
+@pytest.mark.torch
 def test_predict_step_with_small_seq_len(item_user_num_sequential_dataset, simple_masks):
     item_sequences, padding_mask, tokens_mask, _ = simple_masks
 

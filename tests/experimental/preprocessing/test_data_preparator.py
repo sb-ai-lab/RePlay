@@ -15,12 +15,12 @@ from replay.experimental.preprocessing.data_preparator import CatFeaturesTransfo
 from replay.utils.spark_utils import convert2spark
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def data_preparator():
     return DataPreparator()
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def mapping():
     return {
         "user_id": "user_idx",
