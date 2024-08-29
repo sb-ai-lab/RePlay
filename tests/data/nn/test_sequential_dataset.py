@@ -27,9 +27,10 @@ def test_can_create_sequential_dataset_with_valid_schema(sequential_info, sequen
 def test_cannot_create_sequential_dataset_with_invalid_schema(dataset_type, request):
     if dataset_type == PandasSequentialDataset:
         sequential_info = request.getfixturevalue("sequential_info")
+        corrupted_sequences = sequential_info["sequences"].drop(columns=["some_item_feature"])
     else:
         sequential_info = request.getfixturevalue("sequential_info_polars")
-    corrupted_sequences = sequential_info["sequences"].drop(columns=["some_item_feature"])
+        corrupted_sequences = sequential_info["sequences"].drop("some_item_feature")
     sequential_info["sequences"] = corrupted_sequences
 
     with pytest.raises(ValueError):
