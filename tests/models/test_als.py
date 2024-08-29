@@ -3,9 +3,7 @@ import pytest
 
 from replay.models import ALSWrap, AssociationRulesItemRec
 from replay.utils import PYSPARK_AVAILABLE
-from tests.utils import (
-    create_dataset,
-)
+from tests.utils import create_dataset
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
