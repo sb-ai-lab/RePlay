@@ -192,7 +192,6 @@ pytest-models:
     - ./poetry_wrapper.sh install --all-extras
     - pytest -m "not experimental" tests/models --ignore=replay/experimental --ignore=tests/experimental
     - mv .coverage .coverage_models_${image:(-4)}
-  needs: ["pytest-core", "pytest-torch", "pytest-spark", "pytest-spark-and-torch"]
   artifacts:
     paths:
       - .coverage_models_${image:(-4)}
