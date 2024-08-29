@@ -34,7 +34,7 @@ def model():
     return model
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def model_with_ann(tmp_path):
     model = ALSWrap(
         rank=2,
