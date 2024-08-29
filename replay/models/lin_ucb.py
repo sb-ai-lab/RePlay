@@ -252,8 +252,8 @@ class LinUCB(HybridRecommender):
                     usr_itm_features = np.kron(cur_usrs, cur_itm)
                     delta_A_0, delta_b_0 = self.linucb_arms[i].feature_update(cur_usrs, usr_itm_features, rel_list)
             
-                self.A_0 += delta_A_0
-                self.b_0 += delta_b_0
+                    self.A_0 += delta_A_0
+                    self.b_0 += delta_b_0
             
             self.beta = np.linalg.lstsq(self.A_0, self.b_0, rcond = 1.0)[0]
             self.A_0_inv = np.linalg.inv(self.A_0)
@@ -306,7 +306,6 @@ class LinUCB(HybridRecommender):
             items = items.toPandas()
             user_features = dataset.query_features.toPandas()
             item_features = dataset.item_features.toPandas()
-            print(item_features.shape)
             usr_idxs_list = users[feature_schema.query_id_column].values
             itm_idxs_list = items[feature_schema.item_id_column].values
 
@@ -322,16 +321,16 @@ class LinUCB(HybridRecommender):
 
             #fill in relevance matrix
             for i in range(self._num_items):
-                rel_matrix[:,i] = usrs_feat @ self.linucb_arms[i].theta  
+                rel_matrix[:,i] = usrs_feat @ self.linucb_arms[i].theta
 
             for i in tqdm(range(num_user_pred)):
                 for j in range(self._num_items):
                     z = np.kron(usrs_feat[i], itm_feat[j])
                     rel_matrix[i][j] += z @ self.beta
                     s = z @ (self.A_0_inv @ z)
-                    s -= 2 * (z @ self.A_0_inv) @ self.linucb_arms[i].B.T @ (self.linucb_arms[i].A_inv @ usrs_feat[i])
-                    s += usrs_feat[i] @ (self.linucb_arms[i].A_inv @ usrs_feat[i])
-                    s += (usrs_feat[i] @ self.linucb_arms[i].A_inv) @ self.linucb_arms[i].B @ self.A_0_inv @ self.linucb_arms[i].B.T @ (self.linucb_arms[i].A_inv @ usrs_feat[i])
+                    s -= 2 * (z @ self.A_0_inv) @ self.linucb_arms[j].B.T @ (self.linucb_arms[j].A_inv @ usrs_feat[i])
+                    s += usrs_feat[i] @ (self.linucb_arms[j].A_inv @ usrs_feat[i])
+                    s += (usrs_feat[i] @ self.linucb_arms[j].A_inv) @ self.linucb_arms[j].B @ self.A_0_inv @ self.linucb_arms[j].B.T @ (self.linucb_arms[j].A_inv @ usrs_feat[i])
                     rel_matrix[i][j] += self.eps * np.sqrt(s)
             #select top k predictions from each row (unsorted ones)
             big_k = 20*k
