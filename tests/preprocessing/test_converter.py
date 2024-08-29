@@ -2,7 +2,6 @@ import pytest
 
 from replay.preprocessing import CSRConverter
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame
-from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
@@ -22,7 +21,7 @@ def interactions_pandas():
 @pytest.mark.usefixtures("spark")
 @pytest.fixture()
 def interactions_spark(spark, interactions_pandas):
-    return spark.createDataFrame(interactions_pandas).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    return spark.createDataFrame(interactions_pandas)
 
 
 @pytest.fixture(scope="module")

@@ -42,7 +42,7 @@ from tests.preprocessing.conftest import (
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        pytest.param("dataframe", "dataframe_only_item", marks=pytest.mark.xfail),
+        pytest.param("dataframe", "dataframe_only_item"),
         pytest.param("dataframe_pandas", "dataframe_only_item_pandas"),
     ],
 )
@@ -53,7 +53,7 @@ def test_padder_only_item(pad_columns, padding_value, array_size, request, datas
 
     padder = Padder(pad_columns=pad_columns, padding_value=padding_value, array_size=array_size)
     padder_interactions = padder.transform(dataframe)
-    columns = padder_interactions.first().asDict().keys() if is_spark else padder_interactions.columns
+    columns = padder_interactions.collect()[0].asDict().keys() if is_spark else padder_interactions.columns
     assert "user_id" in columns
     assert "item_id" in columns
     assert "timestamp" in columns
@@ -69,7 +69,7 @@ def test_padder_only_item(pad_columns, padding_value, array_size, request, datas
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        pytest.param("dataframe", "dataframe_two_columns_zeros", marks=pytest.mark.xfail),
+        pytest.param("dataframe", "dataframe_two_columns_zeros"),
         pytest.param("dataframe_pandas", "dataframe_two_columns_zeros_pandas"),
     ],
 )
@@ -183,7 +183,7 @@ def test_padder_two_columns_no_cut(pad_columns, padding_value, array_size, cut_a
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        pytest.param("dataframe", "dataframe_only_item_left", marks=pytest.mark.xfail),
+        pytest.param("dataframe", "dataframe_only_item_left"),
         pytest.param("dataframe_pandas", "dataframe_only_item_left_pandas"),
     ],
 )
@@ -215,7 +215,7 @@ def test_padder_only_item_left(pad_columns, padding_value, array_size, padding_s
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        pytest.param("dataframe", "dataframe_two_columns_left", marks=pytest.mark.xfail),
+        pytest.param("dataframe", "dataframe_two_columns_left"),
         pytest.param("dataframe_pandas", "dataframe_two_columns_left_pandas"),
     ],
 )
@@ -245,7 +245,7 @@ def test_padder_two_columns_left(pad_columns, padding_value, array_size, padding
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        pytest.param("dataframe", "dataframe_string", marks=pytest.mark.xfail),
+        pytest.param("dataframe", "dataframe_string"),
         pytest.param("dataframe_pandas", "dataframe_string_pandas"),
     ],
 )
@@ -273,7 +273,7 @@ def test_padder_only_item_string(pad_columns, padding_value, array_size, dataset
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        pytest.param("dataframe", "dataframe_two_columns_len_two", marks=pytest.mark.xfail),
+        pytest.param("dataframe", "dataframe_two_columns_len_two"),
         pytest.param("dataframe_pandas", "dataframe_two_columns_len_two_pandas"),
     ],
 )
@@ -301,7 +301,7 @@ def test_padder_two_columns_len_two(pad_columns, padding_value, array_size, data
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        pytest.param("dataframe", "dataframe_only_item_none", marks=pytest.mark.xfail),
+        pytest.param("dataframe", "dataframe_only_item_none"),
         pytest.param("dataframe_pandas", "dataframe_only_item_none_pandas"),
     ],
 )
@@ -329,7 +329,7 @@ def test_padder_only_item_none(pad_columns, padding_value, array_size, dataset, 
 @pytest.mark.parametrize(
     "dataset, result",
     [
-        pytest.param("dataframe_special", "dataframe_two_columns_none", marks=pytest.mark.xfail),
+        pytest.param("dataframe_special", "dataframe_two_columns_none"),
         pytest.param("dataframe_special_pandas", "dataframe_two_columns_none_pandas"),
     ],
 )

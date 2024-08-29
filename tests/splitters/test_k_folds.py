@@ -3,7 +3,6 @@ import polars as pl
 import pytest
 
 from replay.splitters import KFolds
-from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS
 
 
 @pytest.fixture(scope="module")
@@ -21,7 +20,7 @@ def df():
 
 @pytest.fixture(scope="module")
 def df_spark(spark, df):
-    return spark.createDataFrame(df).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    return spark.createDataFrame(df)
 
 
 @pytest.fixture(scope="module")

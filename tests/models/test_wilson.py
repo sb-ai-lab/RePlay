@@ -3,7 +3,7 @@ import pytest
 from statsmodels.stats.proportion import proportion_confint
 
 from replay.models import Wilson
-from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, create_dataset, sparkDataFrameEqual
+from tests.utils import create_dataset, sparkDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
@@ -38,7 +38,7 @@ def calc_wilson_interval(log):
     total = np.array(data_frame["total"].values)
     data_frame["relevance"] = proportion_confint(pos, total, method="wilson")[0]
     data_frame = data_frame.drop(["pos", "total"], axis=1)
-    return convert2spark(data_frame).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    return convert2spark(data_frame)
 
 
 @pytest.mark.spark
@@ -57,4 +57,4 @@ def test_predict(log, model):
     model.fit(dataset)
     recs = model.predict(dataset, k=1, queries=[1, 0], items=[3, 2])
     assert recs.count() == 2
-    assert recs.select(sf.sum(sf.col("user_idx").isin([1, 0]).astype("int"))).first()[0] == 2
+    assert recs.select(sf.sum(sf.col("user_idx").isin([1, 0]).astype("int"))).collect()[0][0] == 2

@@ -3,7 +3,6 @@ import pytest
 
 from replay.preprocessing.filters import InteractionEntriesFilter
 from replay.utils import PandasDataFrame, PolarsDataFrame
-from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS
 
 
 @pytest.fixture
@@ -16,7 +15,7 @@ def interactions_pandas():
 @pytest.fixture
 @pytest.mark.usefixtures("spark")
 def interactions_spark(spark, interactions_pandas):
-    return spark.createDataFrame(interactions_pandas).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    return spark.createDataFrame(interactions_pandas)
 
 
 @pytest.fixture

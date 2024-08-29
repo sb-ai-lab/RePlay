@@ -8,7 +8,7 @@ workflow:
 image: "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
 
 variables:
-  VERSION: "0.0.10"
+  VERSION: "0.0.9"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   RUNNER: amazme-1
 
@@ -125,6 +125,7 @@ sphinx-job:
   image: ${image}
   tags: 
     - ${RUNNER}
+  needs: ["ruff", "black", "poetry-check", "sphinx-job"]
   before_script:
     - export REPLAY_SPARK_CORE_COUNT=4
     - export REPLAY_SPARK_MEMORY=16
@@ -143,7 +144,6 @@ pytest-core:
     - ./poetry_wrapper.sh install
     - pytest -m core tests/ --ignore=tests/experimental
     - mv .coverage .coverage_core_${image:(-4)}
-  needs: ["ruff", "black", "poetry-check", "sphinx-job"]
   artifacts:
     paths:
       - .coverage_core_${image:(-4)}
@@ -156,7 +156,6 @@ pytest-torch:
     - ./poetry_wrapper.sh install -E torch
     - pytest -m "not spark and not experimental" tests/ --ignore=tests/experimental
     - mv .coverage .coverage_torch_${image:(-4)}
-  needs: ["pytest-core"]
   artifacts:
     paths:
       - .coverage_torch_${image:(-4)}
@@ -169,7 +168,6 @@ pytest-spark:
     - ./poetry_wrapper.sh install -E spark
     - pytest -m "not torch and not experimental" tests/ --ignore=tests/experimental --ignore=tests/models
     - mv .coverage .coverage_spark_${image:(-4)}
-  needs: ["pytest-torch"]
   artifacts:
     paths:
       - .coverage_spark_${image:(-4)}
@@ -207,7 +205,6 @@ pytest-experimental:
     - ./poetry_wrapper.sh --experimental install --all-extras
     - pytest -m "experimental"
     - mv .coverage .coverage_experimental_${image:(-4)}
-  needs: ["pytest-spark-and-torch"]
   artifacts:
     paths:
       - .coverage_experimental_${image:(-4)}

@@ -10,7 +10,7 @@ from replay.preprocessing.history_based_fp import (
     LogStatFeaturesProcessor,
 )
 from replay.utils import PYSPARK_AVAILABLE
-from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, sparkDataFrameEqual
+from tests.utils import sparkDataFrameEqual
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -42,24 +42,20 @@ def log_for_feature_gen(spark):
             ["u3", "i4", datetime(2020, 3, 1), 1.0],
         ],
         schema=["user_idx", "item_idx", "timestamp", "relevance"],
-    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
 
 
 @pytest.fixture
 def user_features(spark):
-    return (
-        spark.createDataFrame([("u1", 2.0, 3.0, "M"), ("u2", 1.0, 4.0, "F")])
-        .toDF("user_idx", "user_feature_1", "user_feature_2", "gender")
-        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    return spark.createDataFrame([("u1", 2.0, 3.0, "M"), ("u2", 1.0, 4.0, "F")]).toDF(
+        "user_idx", "user_feature_1", "user_feature_2", "gender"
     )
 
 
 @pytest.fixture
 def item_features(spark):
-    return (
-        spark.createDataFrame([("i1", 4.0, "cat"), ("i2", 10.0, "dog"), ("i4", 0.0, "cat")])
-        .toDF("item_idx", "item_feature_1", "class")
-        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    return spark.createDataFrame([("i1", 4.0, "cat"), ("i2", 10.0, "dog"), ("i4", 0.0, "cat")]).toDF(
+        "item_idx", "item_feature_1", "class"
     )
 
 

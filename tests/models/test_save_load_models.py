@@ -1,4 +1,3 @@
-import sys
 from os.path import dirname, join
 
 import pandas as pd
@@ -29,7 +28,7 @@ from replay.models.extensions.ann.index_stores.hdfs_index_store import HdfsIndex
 from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
 from replay.preprocessing.label_encoder import LabelEncoder, LabelEncodingRule
 from replay.utils import PYSPARK_AVAILABLE
-from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, create_dataset, sparkDataFrameEqual
+from tests.utils import create_dataset, sparkDataFrameEqual
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -41,17 +40,13 @@ if PYSPARK_AVAILABLE:
 
 @pytest.fixture(scope="module")
 def log_unary(long_log_with_features):
-    return long_log_with_features.withColumn("relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)).repartition(
-        DEFAULT_SPARK_NUM_PARTITIONS
-    )
+    return long_log_with_features.withColumn("relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0))
 
 
 @pytest.fixture(scope="module")
 def user_features(spark):
-    return (
-        spark.createDataFrame([(1, 20.0, -3.0, 1), (2, 30.0, 4.0, 0), (3, 40.0, 0.0, 1)])
-        .toDF("user_idx", "age", "mood", "gender")
-        .repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    return spark.createDataFrame([(1, 20.0, -3.0, 1), (2, 30.0, 4.0, 0), (3, 40.0, 0.0, 1)]).toDF(
+        "user_idx", "age", "mood", "gender"
     )
 
 
@@ -122,7 +117,6 @@ def test_rules(df, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
-@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.spark
 def test_word(df, tmp_path):
     path = (tmp_path / "word").resolve()
@@ -210,7 +204,6 @@ def test_study(df, tmp_path):
     assert loaded_model.study == model.study
 
 
-@pytest.mark.skipif(sys.version_info >= (3, 10), reason="python 3.10 or higher slows down the algorithm")
 @pytest.mark.spark
 def test_ann_word2vec_saving_loading(long_log_with_features, tmp_path):
     model = Word2VecRec(

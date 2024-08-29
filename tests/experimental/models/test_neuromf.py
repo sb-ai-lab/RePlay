@@ -13,7 +13,7 @@ from replay.experimental.models import NeuroMF
 from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
 from replay.experimental.utils.model_handler import save
 from replay.utils.model_handler import load
-from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS, sparkDataFrameEqual
+from tests.utils import sparkDataFrameEqual
 
 SEED = 123
 INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
@@ -58,7 +58,7 @@ def log(spark):
             (2, 3, date, 1.0),
         ],
         schema=INTERACTIONS_SCHEMA,
-    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
 
 
 @pytest.fixture(scope="module")

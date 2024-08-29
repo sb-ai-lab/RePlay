@@ -7,7 +7,6 @@ import pytest
 
 from replay.splitters import NewUsersSplitter
 from replay.utils import PandasDataFrame
-from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS
 
 log_data = [
     [1, 3, datetime(2019, 9, 14), 3.0, 1],
@@ -27,7 +26,7 @@ def log(spark):
     return spark.createDataFrame(
         log_data,
         schema=["user_id", "item_id", "timestamp", "relevance", "session_id"],
-    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
 
 
 @pytest.fixture(scope="module")

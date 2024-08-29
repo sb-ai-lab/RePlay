@@ -62,4 +62,4 @@ def test_predict(preprocessed_log, model):
     model.fit(dataset)
     recs = model.predict(dataset, k=1, queries=[1, 0], items=[3, 2])
     assert recs.count() == 2
-    assert recs.select(sf.sum(sf.col("user_idx").isin([1, 0]).astype("int"))).first()[0] == 2
+    assert recs.select(sf.sum(sf.col("user_idx").isin([1, 0]).astype("int"))).collect()[0][0] == 2

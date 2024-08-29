@@ -11,7 +11,6 @@ from replay.models.extensions.ann.index_inferers.nmslib_filter_index_inferer imp
 from replay.models.extensions.ann.index_inferers.nmslib_index_inferer import NmslibIndexInferer
 from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
 from replay.utils import PYSPARK_AVAILABLE
-from tests.utils import DEFAULT_SPARK_NUM_PARTITIONS
 
 if PYSPARK_AVAILABLE:
     from replay.models.extensions.ann.index_stores.spark_files_index_store import SparkFilesIndexStore
@@ -28,7 +27,7 @@ def vectors(spark):
             [4, [0.1, 0.1, 0.1, 0.5]],
         ],
         schema=["item_idx", "features"],
-    ).repartition(DEFAULT_SPARK_NUM_PARTITIONS)
+    )
 
 
 @pytest.fixture(scope="module")
