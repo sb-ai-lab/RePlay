@@ -6,7 +6,7 @@ import pytest
 from replay.splitters import ColdUserRandomSplitter
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def log():
     return pd.DataFrame(
         {
@@ -18,18 +18,17 @@ def log():
     )
 
 
-@pytest.fixture()
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def log_spark(spark, log):
     return spark.createDataFrame(log)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def log_polars(log):
     return pl.from_pandas(log)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def log_not_implemented(log):
     return log.to_numpy()
 

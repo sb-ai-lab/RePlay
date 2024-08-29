@@ -27,7 +27,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
     return model.predict(log=inf_log, users=users, k=1, **kwargs)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -44,19 +44,19 @@ def log(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def user_features(spark):
     return spark.createDataFrame([(0, 2.0, 5.0), (1, 0.0, -5.0), (4, 4.0, 3.0)]).toDF(
         "user_idx", "user_feature_1", "user_feature_2"
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def item_features(spark):
     return spark.createDataFrame([(0, 4.0, 5.0), (1, 5.0, 4.0)]).toDF("item_idx", "item_feature_1", "item_feature_2")
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def model():
     model = LightFMWrap(no_components=1, random_state=42, loss="bpr")
     model.num_threads = 1

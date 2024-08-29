@@ -20,7 +20,7 @@ from replay.utils.spark_utils import vector_dot
 INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -37,12 +37,12 @@ def log(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model():
     return Word2VecRec(rank=1, window_size=1, use_idf=True, seed=42, min_count=0)
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def model_with_ann(tmp_path):
     model = Word2VecRec(
         rank=1,

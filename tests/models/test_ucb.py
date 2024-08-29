@@ -9,17 +9,17 @@ pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log_ucb(log):
     return log.withColumn("relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0))
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log_ucb2(log2):
     return log2.withColumn("relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0))
 
 
-@pytest.fixture(params=[UCB(), KLUCB()])
+@pytest.fixture(params=[UCB(), KLUCB()], scope="module")
 def fitted_model(request, log_ucb):
     dataset = create_dataset(log_ucb)
     model = request.param

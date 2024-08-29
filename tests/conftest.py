@@ -12,14 +12,14 @@ if PYSPARK_AVAILABLE:
     INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def spark():
     session = get_spark_session()
     session.sparkContext.setLogLevel("ERROR")
     return session
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def log_to_pred(spark):
     return spark.createDataFrame(
         data=[
@@ -33,7 +33,7 @@ def log_to_pred(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def log2(spark):
     return spark.createDataFrame(
         data=[
@@ -48,7 +48,7 @@ def log2(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def log(spark):
     return spark.createDataFrame(
         data=[
@@ -68,7 +68,7 @@ def log(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def long_log_with_features(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -90,7 +90,7 @@ def long_log_with_features(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def short_log_with_features(spark):
     date = datetime(2021, 1, 1)
     return spark.createDataFrame(
@@ -107,7 +107,7 @@ def short_log_with_features(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def user_features(spark):
     return spark.createDataFrame(
         [
@@ -118,7 +118,7 @@ def user_features(spark):
     ).toDF("user_idx", "age", "mood", "gender")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def all_users_features(spark):
     return spark.createDataFrame(
         [
@@ -130,7 +130,7 @@ def all_users_features(spark):
     ).toDF("user_idx", "age", "mood", "gender")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def item_features(spark):
     return spark.createDataFrame(
         [
@@ -144,7 +144,7 @@ def item_features(spark):
     ).toDF("item_idx", "iq", "class", "color")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def fake_fit_items(spark):
     return spark.createDataFrame(
         [
@@ -159,7 +159,7 @@ def fake_fit_items(spark):
     ).toDF("item_idx")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def fake_fit_queries(spark):
     return spark.createDataFrame(
         [
@@ -173,33 +173,11 @@ def fake_fit_queries(spark):
     ).toDF("user_idx")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def fake_fit_queries_pandas():
-    return pd.DataFrame(
-        {
-            "user_idx": [
-                0,
-                1,
-                2,
-                0,
-                2,
-                3,
-            ]
-        }
-    )
+    return pd.DataFrame({"user_idx": [0, 1, 2, 0, 2, 3]})
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def fake_fit_queries_polars():
-    return pl.DataFrame(
-        {
-            "user_idx": [
-                0,
-                1,
-                2,
-                0,
-                2,
-                3,
-            ]
-        }
-    )
+    return pl.DataFrame({"user_idx": [0, 1, 2, 0, 2, 3]})

@@ -41,7 +41,6 @@ if PYSPARK_AVAILABLE:
         pytest.param("simple_dataframe_pandas", "simple_dataframe_target_pandas"),
     ],
 )
-@pytest.mark.usefixtures("columns_target")
 def test_target(groupby_column, transform_columns, len_window, label_prefix, columns_target, dataset, result, request):
     simple_dataframe = request.getfixturevalue(dataset)
     simple_dataframe_target = request.getfixturevalue(result)
@@ -76,7 +75,6 @@ def test_target(groupby_column, transform_columns, len_window, label_prefix, col
         pytest.param("simple_dataframe_pandas", "simple_dataframe_target_ordered_pandas"),
     ],
 )
-@pytest.mark.usefixtures("columns_target")
 def test_target_ordered(
     groupby_column,
     orderby_column,
@@ -123,7 +121,6 @@ def test_target_ordered(
         pytest.param("simple_dataframe_pandas", "simple_dataframe_target_ordered_list_len_pandas"),
     ],
 )
-@pytest.mark.usefixtures("columns_target_list_len")
 def test_target_ordered_list_len(
     groupby_column,
     orderby_column,
@@ -313,7 +310,6 @@ def test_return_column_names(
 
 
 @pytest.mark.experimental
-@pytest.mark.usefixtures("columns")
 @pytest.mark.parametrize(
     "is_spark",
     [

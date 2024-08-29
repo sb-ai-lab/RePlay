@@ -12,7 +12,7 @@ if TORCH_AVAILABLE:
     from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecTrainingDataset
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def feature_schema_for_bert4rec():
     schema = FeatureSchema(
         [
@@ -32,7 +32,7 @@ def feature_schema_for_bert4rec():
     return schema
 
 
-@pytest.fixture()
+@pytest.fixture(scope="class")
 def fitted_bert4rec(feature_schema_for_bert4rec):
     data = pd.DataFrame(
         {
@@ -68,7 +68,7 @@ def fitted_bert4rec(feature_schema_for_bert4rec):
     return model, tokenizer
 
 
-@pytest.fixture()
+@pytest.fixture(scope="class")
 def fitted_bert4rec_enable_embedding_tying(feature_schema_for_bert4rec):
     data = pd.DataFrame(
         {
@@ -104,7 +104,7 @@ def fitted_bert4rec_enable_embedding_tying(feature_schema_for_bert4rec):
     return model, tokenizer
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def new_items_dataset():
     data = pd.DataFrame(
         {

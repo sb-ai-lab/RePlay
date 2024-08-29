@@ -20,6 +20,7 @@ from pyspark.sql import functions as sf
         "popular_based_seed",
         "relevance_seed",
     ],
+    scope="module",
 )
 def fitted_model(request, log):
     model = RandomRec(**request.param)

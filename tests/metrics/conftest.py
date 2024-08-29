@@ -2,17 +2,15 @@ from os.path import dirname, join
 from random import shuffle
 from typing import Tuple
 
+import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
 
 import replay
-from replay.models import PopRec
 from replay.preprocessing import LabelEncoder, LabelEncodingRule
 from replay.splitters import RatioSplitter
-from replay.utils import PandasDataFrame, SparkDataFrame
-from replay.utils.spark_utils import convert2spark
-from tests.utils import create_dataset
+from replay.utils import PandasDataFrame
 
 recs_data = [
     (1, 3, 0.6),
@@ -66,8 +64,7 @@ base_recs_data = [
 ]
 
 
-@pytest.mark.usefixtures("spark")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def predict_spark(spark):
     return spark.createDataFrame(recs_data, schema=["uid", "iid", "scores"])
 
@@ -113,8 +110,7 @@ def fake_train_dict():
     return converted_dict
 
 
-@pytest.mark.usefixtures("spark")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def gt_spark(spark):
     return spark.createDataFrame(gt_data, schema=["uid", "iid"])
 
@@ -143,8 +139,7 @@ def gt_dict():
     return converted_dict
 
 
-@pytest.mark.usefixtures("spark")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def base_recs_spark(spark):
     return spark.createDataFrame(base_recs_data, schema=["uid", "iid", "scores"])
 
@@ -171,12 +166,12 @@ def base_recs_dict():
     return converted_dict
 
 
-def encode_data(data: SparkDataFrame) -> SparkDataFrame:
+def encode_data(data: PandasDataFrame) -> PandasDataFrame:
     encoder = LabelEncoder([LabelEncodingRule("user_idx"), LabelEncodingRule("item_idx")])
     return encoder.fit_transform(data)
 
 
-def split_data(data: SparkDataFrame) -> Tuple[SparkDataFrame, SparkDataFrame]:
+def split_data(data: PandasDataFrame) -> Tuple[PandasDataFrame, PandasDataFrame]:
     train, test = RatioSplitter(test_size=0.3, query_column="user_idx", divide_column="user_idx").split(data)
     return train, test
 
@@ -189,12 +184,18 @@ def random_train_test_recs() -> Tuple[PandasDataFrame, PandasDataFrame, PandasDa
         sep="\t",
         names=["user_idx", "item_idx", "relevance", "timestamp"],
     )
-    ml_1m = convert2spark(ml_1m)
     encoded_data = encode_data(ml_1m)
     train, test = split_data(encoded_data)
 
-    model = PopRec()
-    model.fit(create_dataset(train))
-    recs = model.predict(create_dataset(test), 20)
+    unique_users = test["user_idx"].unique()
+    max_item_idx = train["item_idx"].max()
+    rng = np.random.default_rng()
+    recs = pd.DataFrame(
+        {
+            "user_idx": unique_users,
+            "item_idx": [rng.choice(max_item_idx + 1, size=20, replace=False) for _ in range(unique_users.shape[0])],
+            "relevance": [rng.random(20) for _ in range(unique_users.shape[0])],
+        }
+    ).explode(["item_idx", "relevance"])
 
-    return train.toPandas(), test.toPandas(), recs.toPandas()
+    return train, test, recs

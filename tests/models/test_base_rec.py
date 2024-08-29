@@ -80,17 +80,17 @@ class NonPersRec(NonPersonalizedRecommender):
         return dataset.interactions.select("user_idx", "item_idx", "relevance")
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def model():
     return DerivedRec()
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def hybrid_model():
     return DummyHybridRec()
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def dataset(log, all_users_features, item_features):
     return create_dataset(log, all_users_features, item_features)
 

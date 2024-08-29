@@ -27,14 +27,14 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
     return model.predict(log=inf_log, users=users, k=1, **kwargs)
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def model():
     model = ALSWrap(2, implicit_prefs=False)
     model._seed = 42
     return model
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def model_with_ann(tmp_path):
     model = ALSWrap(
         rank=2,

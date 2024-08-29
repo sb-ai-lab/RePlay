@@ -5,7 +5,7 @@ import pytest
 from replay.splitters import KFolds
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def df():
     df = pd.DataFrame(
         {
@@ -18,17 +18,17 @@ def df():
     return df
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def df_spark(spark, df):
     return spark.createDataFrame(df)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def df_polars(df):
     return pl.from_pandas(df)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def df_not_implemented(df):
     return df.to_numpy()
 

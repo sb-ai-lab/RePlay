@@ -8,18 +8,18 @@ if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def preprocessed_log(log):
     return log.withColumn("relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1))
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model():
     model = ThompsonSampling(seed=42)
     return model
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def fitted_model(preprocessed_log, model):
     dataset = create_dataset(preprocessed_log)
     model.fit(dataset)

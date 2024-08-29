@@ -3,6 +3,7 @@ This splitter split data by two columns.
 """
 from typing import Optional, Tuple
 
+import numpy as np
 import polars as pl
 
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
@@ -125,14 +126,15 @@ class TwoStageSplitter(Splitter):
         """
         if isinstance(interactions, SparkDataFrame):
             all_values = interactions.select(self.first_divide_column).distinct()
+            all_values = interactions.select(self.first_divide_column).distinct().sort(self.first_divide_column)
             user_count = all_values.count()
         elif isinstance(interactions, PandasDataFrame):
             all_values = PandasDataFrame(
-                interactions[self.first_divide_column].unique(), columns=[self.first_divide_column]
+                np.sort(interactions[self.first_divide_column].unique()), columns=[self.first_divide_column]
             )
             user_count = len(all_values)
         else:
-            all_values = interactions.select(self.first_divide_column).unique()
+            all_values = interactions.select(self.first_divide_column).unique().sort(self.first_divide_column)
             user_count = len(all_values)
 
         value_error = False
@@ -152,7 +154,7 @@ class TwoStageSplitter(Splitter):
         if isinstance(interactions, SparkDataFrame):
             test_users = (
                 all_values.withColumn("_rand", sf.rand(self.seed))
-                .withColumn("_row_num", sf.row_number().over(Window.orderBy("_rand")))
+                .withColumn("_row_num", sf.row_number().over(Window.partitionBy(sf.lit(0)).orderBy("_rand")))
                 .filter(f"_row_num <= {test_user_count}")
                 .drop("_rand", "_row_num")
             )
@@ -240,10 +242,10 @@ class TwoStageSplitter(Splitter):
         res = res.fill_null(False)
 
         train = res.filter((pl.col("_frac") > self.second_divide_size) | (~pl.col("is_test"))).drop(
-            "_rand", "_row_num", "count", "_frac", "is_test"
+            "_row_num", "count", "_frac", "is_test"
         )
         test = res.filter((pl.col("_frac") <= self.second_divide_size) & pl.col("is_test")).drop(
-            "_rand", "_row_num", "count", "_frac", "is_test"
+            "_row_num", "count", "_frac", "is_test"
         )
 
         return train, test

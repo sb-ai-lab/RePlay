@@ -3,9 +3,7 @@ import pytest
 
 from replay.models import ALSWrap, AssociationRulesItemRec
 from replay.utils import PYSPARK_AVAILABLE
-from tests.utils import (
-    create_dataset,
-)
+from tests.utils import create_dataset
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -22,7 +20,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
     return model.predict(pred_dataset)
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def model():
     model = ALSWrap(2, implicit_prefs=False)
     model._seed = 42
