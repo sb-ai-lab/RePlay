@@ -84,7 +84,7 @@ class linucb_hybrid_arm():
         self.B += np.dot(usr_features.T, usr_itm_features)
         self.b += usr_features.T @ relevances
 
-        delta_A_0 = np.dot(usr_itm_features.T, usr_itm_features) - self.B.T @ self.A_inv @ self.B
+        delta_A_0 = np.dot(usr_itm_features.T, usr_itm_features) - self.B.T @ self.A_inv @ self.B   
         delta_b_0 = usr_itm_features.T @ relevances - self.B.T @ (self.A_inv @ self.b)
         return delta_A_0, delta_b_0
 
@@ -321,13 +321,15 @@ class LinUCB(HybridRecommender):
 
             #fill in relevance matrix
             for i in tqdm(range(self._num_items)):
-                rel_matrix[:,i] = usrs_feat @ self.linucb_arms[i].theta
-                rel_matrix[:,i] += np.kron(usrs_feat, itm_feat[i]) @ self.beta
                 z = np.kron(usrs_feat, itm_feat[i])
+                rel_matrix[:,i] = usrs_feat @ self.linucb_arms[i].theta
+                rel_matrix[:,i] += z @ self.beta
+
                 s = (usrs_feat.dot(self.linucb_arms[i].A_inv)*usrs_feat).sum(axis=1)
                 s += (z.dot(self.A_0_inv)*z).sum(axis=1)
-                s -= 2*(z.dot(self.A_0_inv @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv)*usrs_feat).sum(axis=1)
-                s += (usrs_feat.dot(self.linucb_arms[i].A_inv @ self.linucb_arms[i].B @ self.A_0_inv @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv)*usrs_feat).sum(axis=1)
+                M = self.A_0_inv @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv
+                s -= 2*(z.dot(M)*usrs_feat).sum(axis=1)
+                s += (usrs_feat.dot(M.T @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv)*usrs_feat).sum(axis=1)
                 rel_matrix[:, i] += self.eps * np.sqrt(s)
             #select top k predictions from each row (unsorted ones)
             big_k = 20*k
