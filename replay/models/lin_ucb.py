@@ -21,6 +21,7 @@ from optuna import create_study
 from optuna.samplers import TPESampler
 
 from tqdm import tqdm
+import scipy.sparse as scs
 
 
 #Object for interactions with a single arm in a UCB disjoint framework
@@ -63,9 +64,9 @@ class linucb_hybrid_arm():
         self.eps = eps
         self.alpha = alpha
         # Inverse of feature matrix for ridge regression
-        self.A = self.alpha*np.identity(d)
-        self.A_inv = (1./self.alpha)*np.identity(d)
-        self.B = np.zeros((d, k))
+        self.A = scs.csr_matrix(self.alpha*np.identity(d))
+        self.A_inv = scs.csr_matrix((1./self.alpha)*np.identity(d))
+        self.B = scs.csr_matrix(np.zeros((d, k)))
         self.b = np.zeros(d, dtype = float)
         # right-hand side of the regression
         self.cond_number = 1.0
@@ -79,13 +80,12 @@ class linucb_hybrid_arm():
             relevances = np.array(d) - rating of i-th user, who rated this particular arm (movie);
         """
 
-        self.A += np.dot(usr_features.T, usr_features)
-        self.A_inv = np.linalg.inv(self.A)
-        self.B += np.dot(usr_features.T, usr_itm_features)
-        self.b += usr_features.T @ relevances
-
-        delta_A_0 = np.dot(usr_itm_features.T, usr_itm_features) - self.B.T @ self.A_inv @ self.B   
-        delta_b_0 = usr_itm_features.T @ relevances - self.B.T @ (self.A_inv @ self.b)
+        self.A += (usr_features.T).dot(usr_features)
+        self.A_inv = scs.linalg.inv(self.A)
+        self.B += (usr_features.T).dot(usr_itm_features)
+        self.b += (usr_features.T).dot(relevances)
+        delta_A_0 = np.dot(usr_itm_features.T, usr_itm_features) - self.B.T @ self.A_inv @ self.B
+        delta_b_0 = (usr_itm_features.T).dot(relevances) - (self.B.T).dot(self.A_inv.dot(self.b))
         return delta_A_0, delta_b_0
 
 
@@ -236,7 +236,7 @@ class LinUCB(HybridRecommender):
 
         elif self.regr_type == 'hybrid':
             k = self._user_dim_size * self._item_dim_size
-            self.A_0 = np.identity(k)
+            self.A_0 = scs.csr_matrix(np.identity(k))
             self.b_0 = np.zeros(k, dtype = float)
             self.linucb_arms = [linucb_hybrid_arm(arm_index = i, d = self._user_dim_size, k = k, eps = self.eps, alpha = self.alpha) for i in range(self._num_items)]
 
@@ -247,19 +247,19 @@ class LinUCB(HybridRecommender):
                 rel_list = B[feature_schema.interactions_rating_column].values
                 if not B.empty:
                     #if we have at least one user interacting with the hand i
-                    cur_usrs = user_features.query(f"{feature_schema.query_id_column} in @idxs_list").drop(columns=[feature_schema.query_id_column]).to_numpy()
-                    cur_itm = item_features.iloc[i].drop(labels=[feature_schema.item_id_column]).to_numpy()
-                    usr_itm_features = np.kron(cur_usrs, cur_itm)
+                    cur_usrs = scs.csr_matrix(user_features.query(f"{feature_schema.query_id_column} in @idxs_list").drop(columns=[feature_schema.query_id_column]).to_numpy())
+                    cur_itm = scs.csr_matrix(item_features.iloc[i].drop(labels=[feature_schema.item_id_column]).to_numpy())
+                    usr_itm_features = scs.kron(cur_usrs, cur_itm)
                     delta_A_0, delta_b_0 = self.linucb_arms[i].feature_update(cur_usrs, usr_itm_features, rel_list)
             
                     self.A_0 += delta_A_0
                     self.b_0 += delta_b_0
             
-            self.beta = np.linalg.lstsq(self.A_0, self.b_0, rcond = 1.0)[0]
-            self.A_0_inv = np.linalg.inv(self.A_0)
+            self.beta = scs.linalg.spsolve(self.A_0, self.b_0)
+            self.A_0_inv = scs.linalg.inv(self.A_0)
 
             for i in range(self._num_items):
-                self.linucb_arms[i].theta = np.linalg.lstsq(self.linucb_arms[i].A, self.linucb_arms[i].b - self.linucb_arms[i].B @ self.beta, rcond = 1.0)[0]
+                self.linucb_arms[i].theta = scs.linalg.spsolve(self.linucb_arms[i].A, self.linucb_arms[i].b - self.linucb_arms[i].B @ self.beta)
 
 
         else:
@@ -311,26 +311,28 @@ class LinUCB(HybridRecommender):
 
             if user_features is None:
                 raise ValueError("Can not make predict in the Lin UCB method")
-            usrs_feat = user_features.query(f"{feature_schema.query_id_column} in @usr_idxs_list").drop(columns=[feature_schema.query_id_column]).to_numpy()
+            usrs_feat = scs.csr_matrix(user_features.query(f"{feature_schema.query_id_column} in @usr_idxs_list").drop(columns=[feature_schema.query_id_column]).to_numpy())
 
             if item_features is None:
                 raise ValueError("Can not make predict in the Lin UCB method")
-            itm_feat = item_features.query(f"{feature_schema.item_id_column} in @itm_idxs_list").drop(columns=[feature_schema.item_id_column]).to_numpy()
+            itm_feat = scs.csr_matrix(item_features.query(f"{feature_schema.item_id_column} in @itm_idxs_list").drop(columns=[feature_schema.item_id_column]).to_numpy())
             rel_matrix = np.zeros((num_user_pred, self._num_items),dtype = float)
 
 
             #fill in relevance matrix
             for i in tqdm(range(self._num_items)):
-                z = np.kron(usrs_feat, itm_feat[i])
-                rel_matrix[:,i] = usrs_feat @ self.linucb_arms[i].theta
-                rel_matrix[:,i] += z @ self.beta
+                z = scs.kron(usrs_feat, itm_feat[i])
+                rel_matrix[:,i] = usrs_feat.dot(self.linucb_arms[i].theta)
+                rel_matrix[:,i] += z.dot(self.beta)
 
-                s = (usrs_feat.dot(self.linucb_arms[i].A_inv)*usrs_feat).sum(axis=1)
-                s += (z.dot(self.A_0_inv)*z).sum(axis=1)
+                s = (usrs_feat.dot(self.linucb_arms[i].A_inv).multiply(usrs_feat)).sum(axis=1)
+                s += (z.dot(self.A_0_inv).multiply(z)).sum(axis=1)
                 M = self.A_0_inv @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv
-                s -= 2*(z.dot(M)*usrs_feat).sum(axis=1)
-                s += (usrs_feat.dot(M.T @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv)*usrs_feat).sum(axis=1)
-                rel_matrix[:, i] += self.eps * np.sqrt(s)
+                s -= 2*(z.dot(M).multiply(usrs_feat)).sum(axis=1)
+                s += (usrs_feat.dot(M.T @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv).multiply(usrs_feat)).sum(axis=1)
+
+                rel_matrix[:, i] += np.array(self.eps * np.sqrt(s))[:, 0]
+
             #select top k predictions from each row (unsorted ones)
             big_k = 20*k
             topk_indices = np.argpartition(rel_matrix, -big_k, axis=1)[:, -big_k:]
