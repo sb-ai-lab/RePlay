@@ -2,10 +2,12 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-from pyspark.sql import DataFrame
 
 from replay.models.base_rec import HybridRecommender
-from replay.utils import convert2spark
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from replay.utils.spark_utils import convert2spark
 
 
 class ULinUCB(HybridRecommender):
@@ -37,9 +39,9 @@ class ULinUCB(HybridRecommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: DataFrame,
-        item_features: DataFrame,
+        log: SparkDataFrame,
+        user_features: SparkDataFrame,
+        item_features: SparkDataFrame,
     ) -> None:
         # prepare data
         log = log.drop("timestamp").toPandas()
@@ -63,14 +65,14 @@ class ULinUCB(HybridRecommender):
 
     def _predict(
         self,
-        log: DataFrame,  # noqa: ARG002
+        log: SparkDataFrame,  # noqa: ARG002
         k: int,
-        users: DataFrame,
-        items: Optional[DataFrame] = None,  # noqa: ARG002
-        user_features: Optional[DataFrame] = None,  # noqa: ARG002
-        item_features: Optional[DataFrame] = None,  # noqa: ARG002
+        users: SparkDataFrame,
+        items: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
         filter_seen_items: bool = True,  # noqa: ARG002
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         extended_k = 10 * k
 
         user_idx = users.toPandas()["user_idx"].astype(int).to_numpy()
@@ -108,5 +110,5 @@ class ULinUCB(HybridRecommender):
             )
         )
 
-    def get_relevance(self, user_idx):  # counts ucb as relevance
+    def get_relevance(self, user_idx):
         return self._ucb[user_idx]

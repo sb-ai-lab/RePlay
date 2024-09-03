@@ -2,13 +2,14 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-from pandas import DataFrame as PandasDataFrame
-from pyspark.sql import DataFrame
 from tqdm import tqdm
 
 from replay.models.base_rec import HybridRecommender
 from replay.models.u_lin_ucb import uLinUCB
-from replay.utils import convert2spark
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    from replay.utils.spark_utils import convert2spark
 
 
 class HierarchicalRecommender(HybridRecommender):
@@ -83,9 +84,9 @@ class HierarchicalRecommender(HybridRecommender):
 
     def _fit(
         self,
-        log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        log: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
     ) -> None:
         self.logger.debug("Clustering...")
         self.root._procreate(item_features.toPandas())
@@ -95,14 +96,14 @@ class HierarchicalRecommender(HybridRecommender):
 
     def _predict(
         self,
-        log: DataFrame,
+        log: SparkDataFrame,
         k: int,
-        users: DataFrame,
-        items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        users: SparkDataFrame,
+        items: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
         filter_seen_items: bool = True,
-    ) -> DataFrame:
+    ) -> SparkDataFrame:
         self.logger.debug("Predicting...")
         pred = self.root._predict(
             log.toPandas(),
@@ -198,8 +199,8 @@ class Node:
         k: int,
         users: PandasDataFrame,
         items: PandasDataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
         filter_seen_items: bool = True,
     ) -> PandasDataFrame:
         pred = pd.DataFrame(columns=["user_idx", "item_idx", "relevance"])
