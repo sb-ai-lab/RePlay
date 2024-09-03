@@ -5,7 +5,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from replay.models.base_rec import HybridRecommender
-from replay.models.u_lin_ucb import uLinUCB
+from replay.models.u_lin_ucb import ULinUCB
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
@@ -55,7 +55,7 @@ class HierarchicalRecommender(HybridRecommender):
         self,
         depth,
         cluster_model,
-        recommender_class=uLinUCB,
+        recommender_class=ULinUCB,
         recommender_params={},
     ):
         """
