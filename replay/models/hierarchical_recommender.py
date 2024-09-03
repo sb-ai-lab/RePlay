@@ -146,12 +146,13 @@ class Node:
         self.tree = tree
         self.is_leaf = False
 
-        if parent is not None:
+        if parent is None:
+            self.level = 0
+            assert tree is not None
+        else:
             self.tree = self.parent.tree
             self.level = self.parent.level + 1
-        else:
-            self.level = 0
-            assert tree != None
+            
 
         if self.level == (self.tree.depth - 1):
             self.is_leaf = True
