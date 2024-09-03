@@ -5,7 +5,36 @@ torch = pytest.importorskip("torch")
 
 from replay.experimental.preprocessing import Padder
 from replay.utils import SparkDataFrame
-from tests.preprocessing.conftest import *
+from tests.preprocessing.conftest import (
+    dataframe,
+    dataframe_only_item,
+    dataframe_only_item_left,
+    dataframe_only_item_left_pandas,
+    dataframe_only_item_none,
+    dataframe_only_item_none_pandas,
+    dataframe_only_item_pandas,
+    dataframe_pandas,
+    dataframe_special,
+    dataframe_special_pandas,
+    dataframe_string,
+    dataframe_string_pandas,
+    dataframe_two_columns,
+    dataframe_two_columns_cut_left,
+    dataframe_two_columns_cut_left_pandas,
+    dataframe_two_columns_left,
+    dataframe_two_columns_left_pandas,
+    dataframe_two_columns_len_two,
+    dataframe_two_columns_len_two_pandas,
+    dataframe_two_columns_no_cut,
+    dataframe_two_columns_no_cut_pandas,
+    dataframe_two_columns_none,
+    dataframe_two_columns_none_pandas,
+    dataframe_two_columns_pandas,
+    dataframe_two_columns_zeros,
+    dataframe_two_columns_zeros_pandas,
+    schema,
+    schema_string,
+)
 
 
 @pytest.mark.experimental
@@ -325,7 +354,6 @@ def test_padder_two_columns_none(pad_columns, padding_value, array_size, dataset
 
 @pytest.mark.experimental
 @pytest.mark.parametrize("pad_columns, padding_side", [(["item_id", "timestamp"], "smth")])
-@pytest.mark.usefixtures("dataframe")
 def test_wrong_padding_side(pad_columns, padding_side, dataframe):
     with pytest.raises(ValueError):
         padder = Padder(pad_columns=pad_columns, padding_side=padding_side)
@@ -334,7 +362,6 @@ def test_wrong_padding_side(pad_columns, padding_side, dataframe):
 
 @pytest.mark.experimental
 @pytest.mark.parametrize("pad_columns, padding_value", [(["item_id", "timestamp"], [0, 1, 0])])
-@pytest.mark.usefixtures("dataframe")
 def test_different_pad_columns_padding_value(pad_columns, padding_value, dataframe):
     with pytest.raises(ValueError):
         padder = Padder(pad_columns=pad_columns, padding_value=padding_value)
@@ -346,7 +373,6 @@ def test_different_pad_columns_padding_value(pad_columns, padding_value, datafra
     "pad_columns, array_size",
     [(["item_id", "timestamp"], -1), (["item_id", "timestamp"], 0), (["item_id", "timestamp"], 0.25)],
 )
-@pytest.mark.usefixtures("dataframe")
 def test_wrong_array_size(pad_columns, array_size, dataframe):
     with pytest.raises(ValueError):
         padder = Padder(pad_columns=pad_columns, array_size=array_size)
@@ -355,7 +381,6 @@ def test_wrong_array_size(pad_columns, array_size, dataframe):
 
 @pytest.mark.experimental
 @pytest.mark.parametrize("pad_columns", [("smth")])
-@pytest.mark.usefixtures("dataframe")
 def test_unknown_column(pad_columns, dataframe):
     with pytest.raises(ValueError):
         padder = Padder(pad_columns=pad_columns)
@@ -364,7 +389,6 @@ def test_unknown_column(pad_columns, dataframe):
 
 @pytest.mark.experimental
 @pytest.mark.parametrize("pad_columns", [("user_id")])
-@pytest.mark.usefixtures("dataframe")
 def test_not_array_column(pad_columns, dataframe):
     with pytest.raises(ValueError):
         padder = Padder(pad_columns=pad_columns)
@@ -373,7 +397,6 @@ def test_not_array_column(pad_columns, dataframe):
 
 @pytest.mark.experimental
 @pytest.mark.parametrize("pad_columns", [("user_id")])
-@pytest.mark.usefixtures("dataframe_pandas")
 def test_invalid_column_dtype_pandas(pad_columns, dataframe_pandas):
     with pytest.raises(ValueError):
         Padder(pad_columns=pad_columns).transform(dataframe_pandas)

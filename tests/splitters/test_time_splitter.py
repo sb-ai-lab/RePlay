@@ -3,11 +3,11 @@ from typing import List
 
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 
 from replay.splitters import TimeSplitter
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame
-from tests.utils import spark
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as F
@@ -21,14 +21,17 @@ def _get_column_list_pandas(data, column: str) -> List[List]:
     return [dataframe[column].tolist() for dataframe in data]
 
 
+def _get_column_list_polars(data, column: str) -> List[List]:
+    return [dataframe[column].to_list() for dataframe in data]
+
+
 def _check_assert(user_ids, item_ids, user_answer, item_answer):
     for idx, item_id in enumerate(item_ids):
         assert sorted(item_id) == sorted(item_answer[idx])
         assert sorted(user_ids[idx]) == sorted(user_answer[idx])
 
 
-@pytest.fixture()
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def spark_dataframe_test(spark):
     columns = ["user_id", "item_id", "timestamp", "session_id"]
     data = [
@@ -48,9 +51,7 @@ def spark_dataframe_test(spark):
         (3, 1, "04-01-2020", 6),
         (3, 2, "05-01-2020", 6),
     ]
-    return spark.createDataFrame(data, schema=columns).withColumn(
-        "timestamp", F.to_date("timestamp", "dd-MM-yyyy")
-    )
+    return spark.createDataFrame(data, schema=columns).withColumn("timestamp", F.to_date("timestamp", "dd-MM-yyyy"))
 
 
 @pytest.fixture(scope="module")
@@ -80,6 +81,11 @@ def pandas_dataframe_test():
     return dataframe
 
 
+@pytest.fixture(scope="module")
+def polars_dataframe_test(pandas_dataframe_test):
+    return pl.from_pandas(pandas_dataframe_test)
+
+
 log_data = [
     [0, 0, datetime(2019, 9, 12), 1.0],
     [0, 1, datetime(2019, 9, 13), 2.0],
@@ -90,8 +96,7 @@ log_data = [
 ]
 
 
-@pytest.fixture()
-@pytest.mark.usefixtures("spark")
+@pytest.fixture(scope="module")
 def log(spark):
     return spark.createDataFrame(
         log_data,
@@ -99,9 +104,19 @@ def log(spark):
     )
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def log_pandas():
     return PandasDataFrame(log_data, columns=["user_id", "item_id", "timestamp", "relevance"])
+
+
+@pytest.fixture(scope="module")
+def log_polars(log_pandas):
+    return pl.from_pandas(log_pandas)
+
+
+@pytest.fixture(scope="module")
+def log_not_implemented(log_pandas):
+    return log_pandas.to_numpy()
 
 
 @pytest.mark.parametrize(
@@ -119,6 +134,7 @@ def log_pandas():
     [
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_time_splitter_without_drops(time_threshold, user_answer, item_answer, dataset_type, request):
@@ -134,6 +150,9 @@ def test_time_splitter_without_drops(time_threshold, user_answer, item_answer, d
     if dataset_type == "pandas_dataframe_test":
         item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
         user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+    elif dataset_type == "polars_dataframe_test":
+        item_ids = _get_column_list_polars(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_polars(filtered_dataframe, "user_id")
     else:
         item_ids = _get_column_list(filtered_dataframe, "item_id")
         user_ids = _get_column_list(filtered_dataframe, "user_id")
@@ -156,6 +175,7 @@ def test_time_splitter_without_drops(time_threshold, user_answer, item_answer, d
     [
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_time_splitter_drop_users(time_threshold, user_answer, item_answer, dataset_type, request):
@@ -171,6 +191,9 @@ def test_time_splitter_drop_users(time_threshold, user_answer, item_answer, data
     if dataset_type == "pandas_dataframe_test":
         item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
         user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+    elif dataset_type == "polars_dataframe_test":
+        item_ids = _get_column_list_polars(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_polars(filtered_dataframe, "user_id")
     else:
         item_ids = _get_column_list(filtered_dataframe, "item_id")
         user_ids = _get_column_list(filtered_dataframe, "user_id")
@@ -193,6 +216,7 @@ def test_time_splitter_drop_users(time_threshold, user_answer, item_answer, data
     [
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_time_splitter_drop_items(time_threshold, user_answer, item_answer, dataset_type, request):
@@ -208,6 +232,9 @@ def test_time_splitter_drop_items(time_threshold, user_answer, item_answer, data
     if dataset_type == "pandas_dataframe_test":
         item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
         user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+    elif dataset_type == "polars_dataframe_test":
+        item_ids = _get_column_list_polars(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_polars(filtered_dataframe, "user_id")
     else:
         item_ids = _get_column_list(filtered_dataframe, "item_id")
         user_ids = _get_column_list(filtered_dataframe, "user_id")
@@ -230,6 +257,7 @@ def test_time_splitter_drop_items(time_threshold, user_answer, item_answer, data
     [
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_time_splitter_drop_both(time_threshold, user_answer, item_answer, dataset_type, request):
@@ -245,6 +273,9 @@ def test_time_splitter_drop_both(time_threshold, user_answer, item_answer, datas
     if dataset_type == "pandas_dataframe_test":
         item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
         user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+    elif dataset_type == "polars_dataframe_test":
+        item_ids = _get_column_list_polars(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_polars(filtered_dataframe, "user_id")
     else:
         item_ids = _get_column_list(filtered_dataframe, "item_id")
         user_ids = _get_column_list(filtered_dataframe, "user_id")
@@ -268,6 +299,7 @@ def test_time_splitter_drop_both(time_threshold, user_answer, item_answer, datas
     [
         pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
         pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
     ],
 )
 def test_time_splitter_without_drops_with_sessions(
@@ -287,6 +319,9 @@ def test_time_splitter_without_drops_with_sessions(
     if dataset_type == "pandas_dataframe_test":
         item_ids = _get_column_list_pandas(filtered_dataframe, "item_id")
         user_ids = _get_column_list_pandas(filtered_dataframe, "user_id")
+    elif dataset_type == "polars_dataframe_test":
+        item_ids = _get_column_list_polars(filtered_dataframe, "item_id")
+        user_ids = _get_column_list_polars(filtered_dataframe, "user_id")
     else:
         item_ids = _get_column_list(filtered_dataframe, "item_id")
         user_ids = _get_column_list(filtered_dataframe, "user_id")
@@ -294,17 +329,16 @@ def test_time_splitter_without_drops_with_sessions(
     _check_assert(user_ids, item_ids, user_answer, item_answer)
 
 
+@pytest.mark.core
 def test_original_dataframe_not_change(pandas_dataframe_test):
     original_dataframe = pandas_dataframe_test.copy(deep=True)
 
-    TimeSplitter(datetime.strptime("06-01-2020", "%d-%m-%Y"), query_column="user_id").split(
-        original_dataframe
-    )
+    TimeSplitter(datetime.strptime("06-01-2020", "%d-%m-%Y"), query_column="user_id").split(original_dataframe)
 
     assert original_dataframe.equals(pandas_dataframe_test)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def split_date():
     return datetime(2019, 9, 15)
 
@@ -314,16 +348,20 @@ def split_date():
     [
         pytest.param("log", marks=pytest.mark.spark),
         pytest.param("log_pandas", marks=pytest.mark.core),
+        pytest.param("log_polars", marks=pytest.mark.core),
     ],
 )
 def test_split(dataset_type, request, split_date):
-    log = request.getfixturevalue(dataset_type)
+    df = request.getfixturevalue(dataset_type)
     splitter = TimeSplitter(
-        split_date, drop_cold_items=False, drop_cold_users=False, query_column="user_id",
+        split_date,
+        drop_cold_items=False,
+        drop_cold_users=False,
+        query_column="user_id",
     )
-    train, test = splitter.split(log)
+    train, test = splitter.split(df)
 
-    if "_pandas" in dataset_type:
+    if dataset_type in ["log_pandas", "log_polars"]:
         train_max_date = train["timestamp"].max()
         test_min_date = test["timestamp"].min()
     else:
@@ -339,14 +377,18 @@ def test_split(dataset_type, request, split_date):
     [
         pytest.param("log", marks=pytest.mark.spark),
         pytest.param("log_pandas", marks=pytest.mark.core),
+        pytest.param("log_polars", marks=pytest.mark.core),
     ],
 )
 def test_string(dataset_type, request, split_date):
-    log = request.getfixturevalue(dataset_type)
+    df = request.getfixturevalue(dataset_type)
     splitter = TimeSplitter(
-        split_date, drop_cold_items=False, drop_cold_users=False, query_column="user_id",
+        split_date,
+        drop_cold_items=False,
+        drop_cold_users=False,
+        query_column="user_id",
     )
-    train_by_date, test_by_date = splitter.split(log)
+    train_by_date, test_by_date = splitter.split(df)
 
     str_date = split_date.strftime("%Y-%m-%d")
     splitter = TimeSplitter(
@@ -356,19 +398,20 @@ def test_string(dataset_type, request, split_date):
         time_column_format="%Y-%m-%d",
         query_column="user_id",
     )
-    train_by_str, test_by_str = splitter.split(log)
+    train_by_str, test_by_str = splitter.split(df)
 
     int_date = int(split_date.timestamp())
-    if "_pandas" in dataset_type:
-        log["timestamp"] = (log["timestamp"] - pd.Timestamp("1970-01-01")) // pd.Timedelta('1s')
+    if dataset_type == "log_pandas":
+        log = df.copy()
+        log["timestamp"] = (log["timestamp"] - pd.Timestamp("1970-01-01")) // pd.Timedelta("1s")
+    elif dataset_type == "log_polars":
+        log = df.with_columns(pl.col("timestamp").dt.epoch("s"))
     else:
-        log = log.withColumn("timestamp", log["timestamp"].cast('bigint'))
-    splitter = TimeSplitter(
-        int_date, drop_cold_items=False, drop_cold_users=False, query_column="user_id"
-    )
+        log = df.withColumn("timestamp", df["timestamp"].cast("bigint"))
+    splitter = TimeSplitter(int_date, drop_cold_items=False, drop_cold_users=False, query_column="user_id")
     train_by_int, test_by_int = splitter.split(log)
 
-    if "_pandas" in dataset_type:
+    if dataset_type in ["log_pandas", "log_polars"]:
         assert train_by_date.shape[0] == train_by_str.shape[0]
         assert test_by_date.shape[0] == test_by_str.shape[0]
 
@@ -387,15 +430,19 @@ def test_string(dataset_type, request, split_date):
     [
         pytest.param("log", marks=pytest.mark.spark),
         pytest.param("log_pandas", marks=pytest.mark.core),
+        pytest.param("log_polars", marks=pytest.mark.core),
     ],
 )
 def test_proportion(dataset_type, request):
     log = request.getfixturevalue(dataset_type)
     test_size = 0.15
-    splitter = TimeSplitter(test_size, query_column="user_id",)
+    splitter = TimeSplitter(
+        test_size,
+        query_column="user_id",
+    )
     train, test = splitter.split(log)
 
-    if "_pandas" in dataset_type:
+    if dataset_type in ["log_pandas", "log_polars"]:
         train_max_date = train["timestamp"].max()
         test_min_date = test["timestamp"].min()
     else:
@@ -406,7 +453,7 @@ def test_proportion(dataset_type, request):
 
     assert train_max_date < split_date
     assert test_min_date >= split_date
-    if "_pandas" in dataset_type:
+    if dataset_type in ["log_pandas", "log_polars"]:
         proportion = test.shape[0] / log.shape[0]
     else:
         proportion = test.count() / log.count()
@@ -419,16 +466,15 @@ def test_proportion(dataset_type, request):
     [
         pytest.param("log", marks=pytest.mark.spark),
         pytest.param("log_pandas", marks=pytest.mark.core),
+        pytest.param("log_polars", marks=pytest.mark.core),
     ],
 )
 def test_drop_cold_items(dataset_type, request, split_date):
     log = request.getfixturevalue(dataset_type)
-    splitter = TimeSplitter(
-        split_date, drop_cold_items=True, drop_cold_users=False, query_column="user_id"
-    )
+    splitter = TimeSplitter(split_date, drop_cold_items=True, drop_cold_users=False, query_column="user_id")
     train, test = splitter.split(log)
 
-    if "_pandas" in dataset_type:
+    if dataset_type in ["log_pandas", "log_polars"]:
         train_items = train["item_id"]
         test_items = test["item_id"]
     else:
@@ -443,16 +489,20 @@ def test_drop_cold_items(dataset_type, request, split_date):
     [
         pytest.param("log", marks=pytest.mark.spark),
         pytest.param("log_pandas", marks=pytest.mark.core),
+        pytest.param("log_polars", marks=pytest.mark.core),
     ],
 )
 def test_drop_cold_users(dataset_type, request, split_date):
     log = request.getfixturevalue(dataset_type)
     splitter = TimeSplitter(
-        split_date, drop_cold_items=False, drop_cold_users=True, query_column="user_id",
+        split_date,
+        drop_cold_items=False,
+        drop_cold_users=True,
+        query_column="user_id",
     )
     train, test = splitter.split(log)
 
-    if "_pandas" in dataset_type:
+    if dataset_type in ["log_pandas", "log_polars"]:
         train_users = train["user_id"]
         test_users = test["user_id"]
     else:
@@ -462,9 +512,13 @@ def test_drop_cold_users(dataset_type, request, split_date):
     assert np.isin(test_users, train_users).all()
 
 
+@pytest.mark.core
 def test_proportion_splitting_out_of_range():
     with pytest.raises(ValueError):
-        TimeSplitter(1.2, query_column="user_id",)
+        TimeSplitter(
+            1.2,
+            query_column="user_id",
+        )
 
 
 @pytest.mark.parametrize(
@@ -472,13 +526,18 @@ def test_proportion_splitting_out_of_range():
     [
         pytest.param("log", marks=pytest.mark.spark),
         pytest.param("log_pandas", marks=pytest.mark.core),
+        pytest.param("log_polars", marks=pytest.mark.core),
     ],
 )
 def test_wrong_threshold_format_passed(dataset_type, request, split_date):
     log = request.getfixturevalue(dataset_type)
     str_date = split_date.strftime("%Y-%m-%d")
-    splitter = TimeSplitter(
-        str_date, drop_cold_items=False, drop_cold_users=False, query_column="user_id"
-    )
+    splitter = TimeSplitter(str_date, drop_cold_items=False, drop_cold_users=False, query_column="user_id")
     with pytest.raises(ValueError):
         splitter.split(log)
+
+
+@pytest.mark.core
+def test_not_implemented_dataframe(log_not_implemented):
+    with pytest.raises(NotImplementedError):
+        TimeSplitter(0.5).split(log_not_implemented)

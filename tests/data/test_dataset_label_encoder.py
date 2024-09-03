@@ -88,7 +88,6 @@ def create_dataset(data_dict, check_consistency=True, categorical_encoded=True):
         (["category_id"], True, True),
     ],
 )
-@pytest.mark.usefixtures("full_pandas_dataset")
 def test_label_encoder_fit(full_pandas_dataset, features, is_query_features, is_item_features):
     encoder = DatasetLabelEncoder()
     user_item_features = ["user_id", "item_id"]
@@ -115,7 +114,6 @@ def test_label_encoder_fit(full_pandas_dataset, features, is_query_features, is_
         (["category_id"], True, True),
     ],
 )
-@pytest.mark.usefixtures("full_pandas_dataset")
 def test_label_encoder_transform(full_pandas_dataset, features, is_query_features, is_item_features):
     encoder = DatasetLabelEncoder()
     user_item_features = ["user_id", "item_id"]
@@ -152,7 +150,6 @@ def test_label_encoder_transform(full_pandas_dataset, features, is_query_feature
         (["category_id"], True, True),
     ],
 )
-@pytest.mark.usefixtures("full_pandas_dataset")
 def test_label_encoder_fit_transform(full_pandas_dataset, features, is_query_features, is_item_features):
     encoder = DatasetLabelEncoder()
     user_item_features = ["user_id", "item_id"]
@@ -170,7 +167,6 @@ def test_label_encoder_fit_transform(full_pandas_dataset, features, is_query_fea
 
 
 @pytest.mark.core
-@pytest.mark.usefixtures("full_pandas_dataset")
 def test_label_encoder_transform_unknown_feature(full_pandas_dataset):
     encoder = DatasetLabelEncoder()
     user_item_features = ["user_id", "item_id"]
@@ -181,7 +177,7 @@ def test_label_encoder_transform_unknown_feature(full_pandas_dataset):
     encoder.fit(dataset_for_fit)
 
     dataset_for_transform = Dataset(
-        feature_schema=get_features(full_pandas_dataset).subset(user_item_features + ["timestamp"]),
+        feature_schema=get_features(full_pandas_dataset).subset([*user_item_features, "timestamp"]),
         interactions=full_pandas_dataset["interactions"],
     )
 
@@ -192,7 +188,6 @@ def test_label_encoder_transform_unknown_feature(full_pandas_dataset):
 
 
 @pytest.mark.core
-@pytest.mark.usefixtures("full_pandas_dataset")
 def test_not_initialized_encoding_rules(full_pandas_dataset):
     with pytest.raises(ValueError) as exc:
         DatasetLabelEncoder().transform(create_dataset(full_pandas_dataset))
@@ -209,7 +204,6 @@ def test_not_initialized_encoding_rules(full_pandas_dataset):
         ["item_id", "user_id"],
     ],
 )
-@pytest.mark.usefixtures("full_pandas_dataset")
 def test_get_encoder(full_pandas_dataset, feature_source):
     encoder = DatasetLabelEncoder()
     user_item_features = ["user_id", "item_id"]
@@ -224,7 +218,6 @@ def test_get_encoder(full_pandas_dataset, feature_source):
 
 
 @pytest.mark.core
-@pytest.mark.usefixtures("full_pandas_dataset")
 def test_get_encoder_empty_rules_list(full_pandas_dataset):
     encoder = DatasetLabelEncoder()
     user_item_features = ["user_id", "item_id"]

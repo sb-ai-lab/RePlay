@@ -12,16 +12,17 @@ from replay.utils.session_handler import State
 from replay.utils.spark_utils import convert2spark, get_top_k_recs
 
 if PYSPARK_AVAILABLE:
-    from pyspark.sql import Column, Window
-    from pyspark.sql import functions as sf
-    from pyspark.sql import types as st
+    from pyspark.sql import (
+        Column,
+        Window,
+        functions as sf,
+        types as st,
+    )
     from pyspark.sql.column import _to_java_column, _to_seq
     from pyspark.sql.types import DataType
 
 
-def fill_na_with_empty_array(
-    df: SparkDataFrame, col_name: str, element_type: DataType
-) -> SparkDataFrame:
+def fill_na_with_empty_array(df: SparkDataFrame, col_name: str, element_type: DataType) -> SparkDataFrame:
     """
     Fill empty values in array column with empty array of `element_type` values.
     :param df: dataframe with `col_name` column of ArrayType(`element_type`)
@@ -51,13 +52,9 @@ def preprocess_gt(
     ground_truth = convert2spark(ground_truth)
     ground_truth_users = convert2spark(ground_truth_users)
 
-    true_items_by_users = ground_truth.groupby("user_idx").agg(
-        sf.collect_set("item_idx").alias("ground_truth")
-    )
+    true_items_by_users = ground_truth.groupby("user_idx").agg(sf.collect_set("item_idx").alias("ground_truth"))
     if ground_truth_users is not None:
-        true_items_by_users = true_items_by_users.join(
-            ground_truth_users, on="user_idx", how="right"
-        )
+        true_items_by_users = true_items_by_users.join(ground_truth_users, on="user_idx", how="right")
         true_items_by_users = fill_na_with_empty_array(
             true_items_by_users,
             "ground_truth",
@@ -68,23 +65,20 @@ def preprocess_gt(
 
 
 def drop_duplicates(recommendations: DataFrameLike) -> SparkDataFrame:
-
     """
     Filter duplicated predictions by choosing the most relevant
     """
     return (
         recommendations.withColumn(
             "_num",
-            sf.row_number().over(
-                Window.partitionBy("user_idx", "item_idx").orderBy(sf.col("relevance").desc())
-            ),
+            sf.row_number().over(Window.partitionBy("user_idx", "item_idx").orderBy(sf.col("relevance").desc())),
         )
         .where(sf.col("_num") == 1)
         .drop("_num")
     )
 
 
-def filter_sort(recommendations: SparkDataFrame, extra_column: str = None) -> SparkDataFrame:
+def filter_sort(recommendations: SparkDataFrame, extra_column: Optional[str] = None) -> SparkDataFrame:
     """
     Filters duplicated predictions by choosing items with the highest relevance,
     Sorts items in predictions by its relevance,
@@ -102,24 +96,19 @@ def filter_sort(recommendations: SparkDataFrame, extra_column: str = None) -> Sp
     recommendations = drop_duplicates(recommendations)
 
     recommendations = (
-        recommendations
-        .groupby("user_idx")
+        recommendations.groupby("user_idx")
         .agg(
-            sf.collect_list(
-                sf.struct(*[c for c in ["relevance", "item_idx", extra_column] if c is not None]))
-            .alias("pred_list"))
+            sf.collect_list(sf.struct(*[c for c in ["relevance", "item_idx", extra_column] if c is not None])).alias(
+                "pred_list"
+            )
+        )
         .withColumn("pred_list", sf.reverse(sf.array_sort("pred_list")))
     )
 
-    selection = [
-        "user_idx",
-        sf.col("pred_list.item_idx")
-        .cast(st.ArrayType(item_type, True)).alias("pred")
-    ]
+    selection = ["user_idx", sf.col("pred_list.item_idx").cast(st.ArrayType(item_type, True)).alias("pred")]
     if extra_column:
         selection.append(
-            sf.col(f"pred_list.{extra_column}")
-            .cast(st.ArrayType(extra_column_type, True)).alias(extra_column)
+            sf.col(f"pred_list.{extra_column}").cast(st.ArrayType(extra_column_type, True)).alias(extra_column)
         )
 
     recommendations = recommendations.select(*selection)
@@ -152,23 +141,16 @@ def get_enriched_recommendations(
     recommendations = get_top_k_recs(recommendations, k=max_k)
 
     true_items_by_users = preprocess_gt(ground_truth, ground_truth_users)
-    joined = filter_sort(recommendations).join(
-        true_items_by_users, how="right", on=["user_idx"]
-    )
+    joined = filter_sort(recommendations).join(true_items_by_users, how="right", on=["user_idx"])
 
-    return fill_na_with_empty_array(
-        joined, "pred", recommendations.schema["item_idx"].dataType
-    )
+    return fill_na_with_empty_array(joined, "pred", recommendations.schema["item_idx"].dataType)
 
 
 def process_k(func):
     """Decorator that converts k to list and unpacks result"""
 
     def wrap(self, recs: SparkDataFrame, k: IntOrList, *args):
-        if isinstance(k, int):
-            k_list = [k]
-        else:
-            k_list = k
+        k_list = [k] if isinstance(k, int) else k
 
         res = func(self, recs, k_list, *args)
 
@@ -203,7 +185,8 @@ class Metric(ABC):
         if self._scala_udf_name:
             return self._scala_udf_name
         else:
-            raise NotImplementedError(f"Scala UDF not implemented for {type(self).__name__} class!")
+            msg = f"Scala UDF not implemented for {type(self).__name__} class!"
+            raise NotImplementedError(msg)
 
     def __str__(self):
         return type(self).__name__
@@ -264,9 +247,7 @@ class Metric(ABC):
         res = {}
         for k in k_list:
             distribution = self._get_metric_distribution(recs, k)
-            value = distribution.agg(
-                sf.expr("percentile_approx(value, 0.5)").alias("value")
-            ).first()["value"]
+            value = distribution.agg(sf.expr("percentile_approx(value, 0.5)").alias("value")).first()["value"]
             res[k] = value
         return res
 
@@ -275,9 +256,7 @@ class Metric(ABC):
         res = {}
         for k in k_list:
             distribution = self._get_metric_distribution(recs, k)
-            value = distribution.agg(sf.avg("value").alias("value")).first()[
-                "value"
-            ]
+            value = distribution.agg(sf.avg("value").alias("value")).first()["value"]
             res[k] = value
         return res
 
@@ -288,18 +267,13 @@ class Metric(ABC):
         :return: metric distribution for different cut-offs and users
         """
         if self._use_scala_udf:
-            metric_value_col = self.get_scala_udf(
-                self.scala_udf_name, [sf.lit(k).alias("k"), *recs.columns[1:]]
-            ).alias("value")
+            metric_value_col = self.get_scala_udf(self.scala_udf_name, [sf.lit(k).alias("k"), *recs.columns[1:]]).alias(
+                "value"
+            )
             return recs.select("user_idx", metric_value_col)
 
         cur_class = self.__class__
-        distribution = recs.rdd.flatMap(
-            # pylint: disable=protected-access
-            lambda x: [
-                (x[0], float(cur_class._get_metric_value_by_user(k, *x[1:])))
-            ]
-        ).toDF(
+        distribution = recs.rdd.flatMap(lambda x: [(x[0], float(cur_class._get_metric_value_by_user(k, *x[1:])))]).toDF(
             f"user_idx {recs.schema['user_idx'].dataType.typeName()}, value double"
         )
         return distribution
@@ -316,7 +290,6 @@ class Metric(ABC):
         :return: metric value for current user
         """
 
-    # pylint: disable=too-many-arguments
     def user_distribution(
         self,
         log: DataFrameLike,
@@ -352,16 +325,11 @@ class Metric(ABC):
                 max_k=k if isinstance(k, int) else max(k),
                 ground_truth_users=ground_truth_users,
             )
-        if isinstance(k, int):
-            k_list = [k]
-        else:
-            k_list = k
+        k_list = [k] if isinstance(k, int) else k
         res = PandasDataFrame()
         for cut_off in k_list:
             dist = self._get_metric_distribution(recs, cut_off)
-            val = count.join(dist, on="user_idx", how="right").fillna(
-                0, subset="count"
-            )
+            val = count.join(dist, on="user_idx", how="right").fillna(0, subset="count")
             val = (
                 val.groupBy("count")
                 .agg(sf.avg("value").alias("value"))
@@ -381,22 +349,18 @@ class Metric(ABC):
         :param params: list of UDF params in right order
         :return: column expression
         """
-        sc = State().session.sparkContext  # pylint: disable=invalid-name
-        scala_udf = getattr(
-            sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs, udf_name
-        )()
+        sc = State().session.sparkContext
+        scala_udf = getattr(sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs, udf_name)()
         return Column(scala_udf.apply(_to_seq(sc, params, _to_java_column)))
 
 
-# pylint: disable=too-few-public-methods
 class RecOnlyMetric(Metric):
     """Base class for metrics that do not need holdout data"""
 
     @abstractmethod
-    def __init__(self, log: DataFrameLike, *args, **kwargs):  # pylint: disable=super-init-not-called
+    def __init__(self, log: DataFrameLike, *args, **kwargs):
         pass
 
-    # pylint: disable=no-self-use
     @abstractmethod
     def _get_enriched_recommendations(
         self,
@@ -458,18 +422,18 @@ class NCISMetric(Metric):
     Normalization weight for recommended item is calculated as follows:
 
     .. math::
-        w_{ui} = \\frac{f(\pi^t_ui, pi^t_u)}{f(\pi^p_ui, pi^p_u)}
+        w_{ui} = \\frac{f(\\pi^t_ui, pi^t_u)}{f(\\pi^p_ui, pi^p_u)}
 
     Where:
 
-    :math:`\pi^t_{ui}` - current policy value (predicted relevance) of the user-item interaction
+    :math:`\\pi^t_{ui}` - current policy value (predicted relevance) of the user-item interaction
 
-    :math:`\pi^p_{ui}` - previous policy value (historical relevance) of the user-item interaction.
+    :math:`\\pi^p_{ui}` - previous policy value (historical relevance) of the user-item interaction.
     Only values for user-item pairs present in current recommendations are used for calculation.
 
-    :math:`\pi_u` - all predicted /historical policy values for selected user :math:`u`
+    :math:`\\pi_u` - all predicted /historical policy values for selected user :math:`u`
 
-    :math:`f(\pi_{ui}, \pi_u)` - activation function applied to policy values (optional)
+    :math:`f(\\pi_{ui}, \\pi_u)` - activation function applied to policy values (optional)
 
     :math:`w_{ui}` - weight of user-item interaction for normalized metric calculation before clipping
 
@@ -477,12 +441,12 @@ class NCISMetric(Metric):
     Calculated weights are clipped as follows:
 
     .. math::
-        \hat{w_{ui}} = min(max(\\frac{1}{threshold}, w_{ui}), threshold)
+        \\hat{w_{ui}} = min(max(\\frac{1}{threshold}, w_{ui}), threshold)
 
     Normalization metric value for a user is calculated as follows:
 
     .. math::
-        R_u = \\frac{r_{ui} \hat{w_{ui}}}{\sum_{i}\hat{w_{ui}}}
+        R_u = \\frac{r_{ui} \\hat{w_{ui}}}{\\sum_{i}\\hat{w_{ui}}}
 
     Where:
 
@@ -499,7 +463,7 @@ class NCISMetric(Metric):
         threshold: float = 10.0,
         activation: Optional[str] = None,
         use_scala_udf: bool = False,
-    ):  # pylint: disable=super-init-not-called
+    ):
         """
         :param prev_policy_weights: historical item of user-item relevance (previous policy values)
         :threshold: capping threshold, applied after activation,
@@ -508,21 +472,20 @@ class NCISMetric(Metric):
             "logit"/"sigmoid", "softmax" or None
         """
         self._use_scala_udf = use_scala_udf
-        self.prev_policy_weights = convert2spark(
-            prev_policy_weights
-        ).withColumnRenamed("relevance", "prev_relevance")
+        self.prev_policy_weights = convert2spark(prev_policy_weights).withColumnRenamed("relevance", "prev_relevance")
         self.threshold = threshold
         if activation is None or activation in ("logit", "sigmoid", "softmax"):
             self.activation = activation
             if activation == "softmax":
                 self.logger.info(
-                    "For accurate softmax calculation pass only one `k` value "
-                    "in the NCISMetric metrics `call`"
+                    "For accurate softmax calculation pass only one `k` value in the NCISMetric metrics `call`"
                 )
         else:
-            raise ValueError(f"Unexpected `activation` - {activation}")
+            msg = f"Unexpected `activation` - {activation}"
+            raise ValueError(msg)
         if threshold <= 0:
-            raise ValueError("Threshold should be positive real number")
+            msg = "Threshold should be positive real number"
+            raise ValueError(msg)
 
     @staticmethod
     def _softmax_by_user(df: SparkDataFrame, col_name: str) -> SparkDataFrame:
@@ -535,13 +498,10 @@ class NCISMetric(Metric):
                 "_min_rel_user",
                 sf.min(col_name).over(Window.partitionBy("user_idx")),
             )
-            .withColumn(
-                col_name, sf.exp(sf.col(col_name) - sf.col("_min_rel_user"))
-            )
+            .withColumn(col_name, sf.exp(sf.col(col_name) - sf.col("_min_rel_user")))
             .withColumn(
                 col_name,
-                sf.col(col_name)
-                / sf.sum(col_name).over(Window.partitionBy("user_idx")),
+                sf.col(col_name) / sf.sum(col_name).over(Window.partitionBy("user_idx")),
             )
             .drop("_min_rel_user")
         )
@@ -551,9 +511,7 @@ class NCISMetric(Metric):
         """
         Apply sigmoid/logistic function to column `col_name`
         """
-        return df.withColumn(
-            col_name, sf.lit(1.0) / (sf.lit(1.0) + sf.exp(-sf.col(col_name)))
-        )
+        return df.withColumn(col_name, sf.lit(1.0) / (sf.lit(1.0) + sf.exp(-sf.col(col_name))))
 
     @staticmethod
     def _weigh_and_clip(
@@ -574,12 +532,8 @@ class NCISMetric(Metric):
             .withColumn(
                 "weight",
                 sf.when(sf.col(prev_policy_col) == sf.lit(0.0), sf.lit(upper))
-                .when(
-                    sf.col("weight_unbounded") < sf.lit(lower), sf.lit(lower)
-                )
-                .when(
-                    sf.col("weight_unbounded") > sf.lit(upper), sf.lit(upper)
-                )
+                .when(sf.col("weight_unbounded") < sf.lit(lower), sf.lit(lower))
+                .when(sf.col("weight_unbounded") > sf.lit(upper), sf.lit(upper))
                 .otherwise(sf.col("weight_unbounded")),
             )
             .select("user_idx", "item_idx", "relevance", "weight")
@@ -587,19 +541,11 @@ class NCISMetric(Metric):
 
     def _reweighing(self, recommendations):
         if self.activation == "softmax":
-            recommendations = self._softmax_by_user(
-                recommendations, col_name="prev_relevance"
-            )
-            recommendations = self._softmax_by_user(
-                recommendations, col_name="relevance"
-            )
+            recommendations = self._softmax_by_user(recommendations, col_name="prev_relevance")
+            recommendations = self._softmax_by_user(recommendations, col_name="relevance")
         elif self.activation in ["logit", "sigmoid"]:
-            recommendations = self._sigmoid(
-                recommendations, col_name="prev_relevance"
-            )
-            recommendations = self._sigmoid(
-                recommendations, col_name="relevance"
-            )
+            recommendations = self._sigmoid(recommendations, col_name="prev_relevance")
+            recommendations = self._sigmoid(recommendations, col_name="relevance")
 
         return self._weigh_and_clip(recommendations, self.threshold)
 
@@ -626,18 +572,16 @@ class NCISMetric(Metric):
         ground_truth = convert2spark(ground_truth)
         ground_truth_users = convert2spark(ground_truth_users)
 
-        true_items_by_users = ground_truth.groupby("user_idx").agg(
-            sf.collect_set("item_idx").alias("ground_truth")
-        )
+        true_items_by_users = ground_truth.groupby("user_idx").agg(sf.collect_set("item_idx").alias("ground_truth"))
 
         group_on = ["item_idx"]
         if "user_idx" in self.prev_policy_weights.columns:
             group_on.append("user_idx")
         recommendations = get_top_k_recs(recommendations, k=max_k)
 
-        recommendations = recommendations.join(
-            self.prev_policy_weights, on=group_on, how="left"
-        ).na.fill(0.0, subset=["prev_relevance"])
+        recommendations = recommendations.join(self.prev_policy_weights, on=group_on, how="left").na.fill(
+            0.0, subset=["prev_relevance"]
+        )
 
         recommendations = self._reweighing(recommendations)
 
@@ -647,13 +591,9 @@ class NCISMetric(Metric):
         recommendations = filter_sort(recommendations, "weight")
 
         if ground_truth_users is not None:
-            true_items_by_users = true_items_by_users.join(
-                ground_truth_users, on="user_idx", how="right"
-            )
+            true_items_by_users = true_items_by_users.join(ground_truth_users, on="user_idx", how="right")
 
-        recommendations = recommendations.join(
-            true_items_by_users, how="right", on=["user_idx"]
-        )
+        recommendations = recommendations.join(true_items_by_users, how="right", on=["user_idx"])
         return fill_na_with_empty_array(
             fill_na_with_empty_array(recommendations, "pred", item_type),
             "weight",

@@ -31,6 +31,7 @@ class DatasetLabelEncoder:
             When set to ``error`` an error will be raised in case an unknown label is present during transform.
             When set to ``use_default_value``, the encoded value of unknown label will be set
             to the value given for the parameter default_value.
+            When set to ``drop``, the unknown labels will be dropped.
             Default: ``error``.
         :param default_value: Default value that will fill the unknown labels after transform.
             When the parameter handle_unknown is set to ``use_default_value``,
@@ -105,7 +106,7 @@ class DatasetLabelEncoder:
         for column, feature_info in dataset.feature_schema.categorical_features.items():
             if column not in self._encoding_rules:
                 warnings.warn(
-                    f"Cannot transform feature '{column}' " "as it was not present at the fit stage",
+                    f"Cannot transform feature '{column}' as it was not present at the fit stage",
                     LabelEncoderTransformWarning,
                 )
                 continue
@@ -157,10 +158,7 @@ class DatasetLabelEncoder:
         self._check_if_initialized()
 
         columns_set: Set[str]
-        if isinstance(columns, str):
-            columns_set = set([columns])
-        else:
-            columns_set = set(columns)
+        columns_set = {columns} if isinstance(columns, str) else {*columns}
 
         def get_encoding_rules() -> Iterator[LabelEncodingRule]:
             for column, rule in self._encoding_rules.items():
@@ -200,7 +198,7 @@ class DatasetLabelEncoder:
         """
         query_id_column = self._features_columns[FeatureHint.QUERY_ID]
         item_id_column = self._features_columns[FeatureHint.ITEM_ID]
-        encoder = self.get_encoder(query_id_column + item_id_column)  # type: ignore
+        encoder = self.get_encoder(query_id_column + item_id_column)
         assert encoder is not None
         return encoder
 
@@ -231,7 +229,8 @@ class DatasetLabelEncoder:
 
     def _check_if_initialized(self) -> None:
         if not self._encoding_rules:
-            raise ValueError("Encoder is not initialized")
+            msg = "Encoder is not initialized"
+            raise ValueError(msg)
 
     def _fill_features_columns(self, feature_info: FeatureSchema) -> None:
         self._features_columns = {

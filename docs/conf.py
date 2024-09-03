@@ -1,4 +1,3 @@
-# pylint: skip-file
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -13,6 +12,10 @@
 #
 import os
 import sys
+from replay.utils import PYSPARK_AVAILABLE, TORCH_AVAILABLE
+
+if not PYSPARK_AVAILABLE or not TORCH_AVAILABLE:
+    raise RuntimeError("Documentation must be collected with all installed extras")
 
 sys.path.insert(0, os.path.abspath(".."))
 
@@ -32,6 +35,7 @@ author = "Sber AI Lab"
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx_autodoc_typehints",
+    "sphinx_enum_extend",
     "myst_parser",
 ]
 source_suffix = [".rst", ".md"]

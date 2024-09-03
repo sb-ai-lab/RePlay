@@ -6,8 +6,6 @@ from .base_metric import Metric, MetricsDataFrameLike
 from .offline_metrics import OfflineMetrics
 
 
-# pylint: disable=too-many-instance-attributes
-# pylint: disable=too-few-public-methods
 class Experiment:
     """
     The class is designed for calculating, storing and comparing metrics
@@ -102,15 +100,12 @@ class Experiment:
     <BLANKLINE>
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         metrics: List[Metric],
         ground_truth: MetricsDataFrameLike,
         train: Optional[MetricsDataFrameLike] = None,
-        base_recommendations: Optional[
-            Union[MetricsDataFrameLike, Dict[str, MetricsDataFrameLike]]
-        ] = None,
+        base_recommendations: Optional[Union[MetricsDataFrameLike, Dict[str, MetricsDataFrameLike]]] = None,
         query_column: str = "query_id",
         item_column: str = "item_id",
         rating_column: str = "rating",
@@ -118,14 +113,17 @@ class Experiment:
     ):
         """
         :param metrics: (list of metrics): List of metrics to be calculated.
-        :param ground_truth: (PySpark DataFrame or Pandas DataFrame or dict): test data.
+        :param ground_truth: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict):
+            test data.
             If DataFrame then it must contains user and item columns.
             If dict then key represents user_ids, value represents list of item_ids.
-        :param train: (PySpark DataFrame or Pandas DataFrame or dict, optional): train data.
+        :param train: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict, optional):
+            train data.
             If DataFrame then it must contains user and item columns.
             If dict then key represents user_ids, value represents list of item_ids.
             Default: ``None``.
-        :param base_recommendations: (PySpark DataFrame or Pandas DataFrame or dict or Dict[str, DataFrameLike]):
+        :param base_recommendations: (PySpark DataFrame or Polars DataFrame or
+            Pandas DataFrame or dict or Dict[str, DataFrameLike]):
             predictions from baseline model.
             If DataFrame then it must contains user, item and score columns.
             If dict then key represents user_ids, value represents list of tuple(item_id, score).
@@ -168,7 +166,8 @@ class Experiment:
         Calculate metrics for predictions
 
         :param name: name of the run to store in the resulting DataFrame
-        :param recommendations: (PySpark DataFrame or Pandas DataFrame or dict): model predictions.
+        :param recommendations: (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict):
+            model predictions.
             If DataFrame then it must contains user, item and score columns.
             If dict then key represents user_ids, value represents list of tuple(item_id, score).
         """
@@ -178,7 +177,6 @@ class Experiment:
         for metric, value in cur_metrics.items():
             self.results.at[name, metric] = value
 
-    # pylint: disable=not-an-iterable
     def compare(self, name: str) -> pd.DataFrame:
         """
         Show results as a percentage difference to record ``name``.
@@ -187,7 +185,8 @@ class Experiment:
         :return: results table in a percentage format
         """
         if name not in self.results.index:
-            raise ValueError(f"No results for model {name}")
+            msg = f"No results for model {name}"
+            raise ValueError(msg)
         columns = [column for column in self.results.columns if column[-1].isdigit()]
         data_frame = self.results[columns].copy()
         baseline = data_frame.loc[name]

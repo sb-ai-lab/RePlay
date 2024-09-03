@@ -3,19 +3,23 @@ Select or remove data by some criteria
 """
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Callable, Optional, Union, Tuple
+from typing import Callable, Optional, Tuple, Union
 
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
+import numpy as np
+import pandas as pd
+import polars as pl
 
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
-    from pyspark.sql import Window
-    from pyspark.sql import functions as sf
+    from pyspark.sql import (
+        Window,
+        functions as sf,
+    )
     from pyspark.sql.functions import col
     from pyspark.sql.types import TimestampType
 
 
-# pylint: disable=too-few-public-methods
 class _BaseFilter(ABC):
     def transform(self, interactions: DataFrameLike) -> DataFrameLike:
         r"""Filter interactions.
@@ -26,7 +30,13 @@ class _BaseFilter(ABC):
         """
         if isinstance(interactions, SparkDataFrame):
             return self._filter_spark(interactions)
-        return self._filter_pandas(interactions)
+        elif isinstance(interactions, PandasDataFrame):
+            return self._filter_pandas(interactions)
+        elif isinstance(interactions, PolarsDataFrame):
+            return self._filter_polars(interactions)
+        else:
+            msg = f"{self.__class__.__name__} is not implemented for {type(interactions)}"
+            raise NotImplementedError(msg)
 
     @abstractmethod
     def _filter_spark(self, interactions: SparkDataFrame):  # pragma: no cover
@@ -36,8 +46,11 @@ class _BaseFilter(ABC):
     def _filter_pandas(self, interactions: PandasDataFrame):  # pragma: no cover
         pass
 
+    @abstractmethod
+    def _filter_polars(self, interactions: PolarsDataFrame):  # pragma: no cover
+        pass
 
-# pylint: disable=too-few-public-methods, too-many-instance-attributes
+
 class InteractionEntriesFilter(_BaseFilter):
     """
     Remove interactions less than minimum constraint value and greater
@@ -71,7 +84,6 @@ class InteractionEntriesFilter(_BaseFilter):
     <BLANKLINE>
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         query_column: str = "user_id",
@@ -130,6 +142,10 @@ class InteractionEntriesFilter(_BaseFilter):
         interaction_count = len(interactions)
         return self._iterative_filter(interactions, interaction_count, self._filter_column_pandas)
 
+    def _filter_polars(self, interactions: PolarsDataFrame):
+        interaction_count = len(interactions)
+        return self._iterative_filter(interactions, interaction_count, self._filter_column_polars)
+
     def _iterative_filter(self, interactions: DataFrameLike, interaction_count: int, filter_func: Callable):
         is_dropped_user_item = [True, True]
         current_index = 0
@@ -152,11 +168,10 @@ class InteractionEntriesFilter(_BaseFilter):
                     interactions, interaction_count, agg_column, non_agg_column, min_inter, max_inter
                 )
             is_dropped_user_item[current_index] = bool(dropped_interact)
-            current_index = (current_index + 1) % 2     # current_index only in (0, 1)
+            current_index = (current_index + 1) % 2  # current_index only in (0, 1)
 
         return interactions
 
-    # pylint: disable=no-self-use
     def _filter_column_pandas(
         self,
         interactions: PandasDataFrame,
@@ -182,7 +197,6 @@ class InteractionEntriesFilter(_BaseFilter):
 
         return filtered_interactions, different_len, end_len_dataframe
 
-    # pylint: disable=no-self-use
     def _filter_column_spark(
         self,
         interactions: SparkDataFrame,
@@ -201,10 +215,33 @@ class InteractionEntriesFilter(_BaseFilter):
             filtered_interactions = filtered_interactions.filter(sf.col("count") <= max_inter)
         filtered_interactions = filtered_interactions.drop("count")
 
-        if self.allow_caching is True:
+        if self.allow_caching:
             filtered_interactions.cache()
             interactions.unpersist()
         end_len_dataframe = filtered_interactions.count()
+        different_len = interaction_count - end_len_dataframe
+
+        return filtered_interactions, different_len, end_len_dataframe
+
+    def _filter_column_polars(
+        self,
+        interactions: PolarsDataFrame,
+        interaction_count: int,
+        agg_column: str,
+        non_agg_column: str,
+        min_inter: Optional[int] = None,
+        max_inter: Optional[int] = None,
+    ) -> Tuple[PolarsDataFrame, int, int]:
+        filtered_interactions = interactions.with_columns(
+            pl.col(non_agg_column).count().over(pl.col(agg_column)).alias("count")
+        )
+        if min_inter:
+            filtered_interactions = filtered_interactions.filter(pl.col("count") >= min_inter)
+        if max_inter:
+            filtered_interactions = filtered_interactions.filter(pl.col("count") <= max_inter)
+        filtered_interactions = filtered_interactions.drop("count")
+
+        end_len_dataframe = len(filtered_interactions)
         different_len = interaction_count - end_len_dataframe
 
         return filtered_interactions, different_len, end_len_dataframe
@@ -255,14 +292,20 @@ class MinCountFilter(_BaseFilter):
 
     def _filter_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
         filtered_interactions = interactions.copy(deep=True)
-        filtered_interactions["count"] = (
-            filtered_interactions
-            .groupby(self.groupby_column)[self.groupby_column]
-            .transform(len)
+        filtered_interactions["count"] = filtered_interactions.groupby(self.groupby_column)[
+            self.groupby_column
+        ].transform(len)
+        return filtered_interactions[filtered_interactions["count"] >= self.num_entries].drop(columns=["count"])
+
+    def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        filtered_interactions = interactions.clone()
+        count_by_group = (
+            filtered_interactions.group_by(self.groupby_column)
+            .agg(pl.col(self.groupby_column).count().alias(f"{self.groupby_column}_temp_count"))
+            .filter(pl.col(f"{self.groupby_column}_temp_count") >= self.num_entries)
         )
-        return (
-            filtered_interactions[filtered_interactions["count"] >= self.num_entries]
-            .drop(columns=["count"])
+        return filtered_interactions.join(count_by_group, on=self.groupby_column).drop(
+            f"{self.groupby_column}_temp_count"
         )
 
 
@@ -299,6 +342,9 @@ class LowRatingFilter(_BaseFilter):
     def _filter_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
         return interactions[interactions[self.rating_column] >= self.value]
 
+    def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        return interactions.filter(pl.col(self.rating_column) >= self.value)
+
 
 class NumInteractionsFilter(_BaseFilter):
     """
@@ -313,7 +359,7 @@ class NumInteractionsFilter(_BaseFilter):
     ...                                   "2020-02-01", "2020-01-01 00:04:15",
     ...                                   "2020-01-02 00:04:14", "2020-01-05 23:59:59"]},
     ...             )
-    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
+    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"], format="ISO8601")
     >>> log_sp = convert2spark(log_pd)
     >>> log_sp.show()
     +-------+-------+------+-------------------+
@@ -363,7 +409,6 @@ class NumInteractionsFilter(_BaseFilter):
     <BLANKLINE>
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         num_interactions: int = 10,
@@ -420,14 +465,26 @@ class NumInteractionsFilter(_BaseFilter):
         ascending = [self.first] * len(sorting_columns)
 
         filtered_interactions["temp_rank"] = (
-            filtered_interactions
-            .sort_values(sorting_columns, ascending=ascending)
+            filtered_interactions.sort_values(sorting_columns, ascending=ascending)
             .groupby(self.query_column)
             .cumcount()
         )
+        return filtered_interactions[filtered_interactions["temp_rank"] < self.num_interactions].drop(
+            columns=["temp_rank"]
+        )
+
+    def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        sorting_columns = [self.timestamp_column]
+        if self.item_column is not None:
+            sorting_columns.append(self.item_column)
+
+        descending = not self.first
+
         return (
-            filtered_interactions[filtered_interactions["temp_rank"] < self.num_interactions]
-            .drop(columns=["temp_rank"])
+            interactions.sort(sorting_columns, descending=descending)
+            .with_columns(pl.col(self.query_column).cumcount().over(self.query_column).alias("temp_rank"))
+            .filter(pl.col("temp_rank") <= self.num_interactions)
+            .drop("temp_rank")
         )
 
 
@@ -444,7 +501,7 @@ class EntityDaysFilter(_BaseFilter):
     ...                                   "2020-02-01", "2020-01-01 00:04:15",
     ...                                   "2020-01-02 00:04:14", "2020-01-05 23:59:59"]},
     ...             )
-    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
+    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"], format="ISO8601")
     >>> log_sp = convert2spark(log_pd)
     >>> log_sp.orderBy('user_id', 'item_id').show()
     +-------+-------+------+-------------------+
@@ -519,18 +576,13 @@ class EntityDaysFilter(_BaseFilter):
         if self.first:
             filtered_interactions = (
                 interactions.withColumn("min_date", sf.min(col(self.timestamp_column)).over(window))
-                .filter(
-                    col(self.timestamp_column)
-                    < col("min_date") + sf.expr(f"INTERVAL {self.days} days")
-                )
+                .filter(col(self.timestamp_column) < col("min_date") + sf.expr(f"INTERVAL {self.days} days"))
                 .drop("min_date")
             )
         else:
             filtered_interactions = (
                 interactions.withColumn("max_date", sf.max(col(self.timestamp_column)).over(window))
-                .filter(
-                    col(self.timestamp_column) > col("max_date") - sf.expr(f"INTERVAL {self.days} days")
-                )
+                .filter(col(self.timestamp_column) > col("max_date") - sf.expr(f"INTERVAL {self.days} days"))
                 .drop("max_date")
             )
         return filtered_interactions
@@ -539,33 +591,39 @@ class EntityDaysFilter(_BaseFilter):
         filtered_interactions = interactions.copy(deep=True)
 
         if self.first:
-            filtered_interactions["min_date"] = (
-                filtered_interactions
-                .groupby(self.entity_column)[self.timestamp_column]
-                .transform(min)
-            )
+            filtered_interactions["min_date"] = filtered_interactions.groupby(self.entity_column)[
+                self.timestamp_column
+            ].transform(min)
+            return filtered_interactions[
+                (filtered_interactions[self.timestamp_column] - filtered_interactions["min_date"]).dt.days < self.days
+            ].drop(columns=["min_date"])
+        filtered_interactions["max_date"] = filtered_interactions.groupby(self.entity_column)[
+            self.timestamp_column
+        ].transform(max)
+        return filtered_interactions[
+            (filtered_interactions["max_date"] - filtered_interactions[self.timestamp_column]).dt.days < self.days
+        ].drop(columns=["max_date"])
+
+    def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        if self.first:
             return (
-                filtered_interactions[
+                interactions.with_columns(
                     (
-                        filtered_interactions[self.timestamp_column]
-                        - filtered_interactions["min_date"]
-                    ).dt.days < self.days
-                ]
-                .drop(columns=["min_date"])
+                        pl.col(self.timestamp_column).min().over(pl.col(self.entity_column))
+                        + pl.duration(days=self.days)
+                    ).alias("min_date")
+                )
+                .filter(pl.col(self.timestamp_column) < pl.col("min_date"))
+                .drop("min_date")
             )
-        filtered_interactions["max_date"] = (
-            filtered_interactions
-            .groupby(self.entity_column)[self.timestamp_column]
-            .transform(max)
-        )
         return (
-            filtered_interactions[
+            interactions.with_columns(
                 (
-                    filtered_interactions["max_date"]
-                    - filtered_interactions[self.timestamp_column]
-                ).dt.days < self.days
-            ]
-            .drop(columns=["max_date"])
+                    pl.col(self.timestamp_column).max().over(pl.col(self.entity_column)) - pl.duration(days=self.days)
+                ).alias("max_date")
+            )
+            .filter(pl.col(self.timestamp_column) > pl.col("max_date"))
+            .drop("max_date")
         )
 
 
@@ -582,7 +640,7 @@ class GlobalDaysFilter(_BaseFilter):
     ...                                   "2020-02-01", "2020-01-01 00:04:15",
     ...                                   "2020-01-02 00:04:14", "2020-01-05 23:59:59"]},
     ...             )
-    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
+    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"], format="ISO8601")
     >>> log_sp = convert2spark(log_pd)
     >>> log_sp.show()
     +-------+-------+------+-------------------+
@@ -643,15 +701,11 @@ class GlobalDaysFilter(_BaseFilter):
     def _filter_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
         if self.first:
             start_date = interactions.agg(sf.min(self.timestamp_column)).first()[0]
-            end_date = sf.lit(start_date).cast(TimestampType()) + sf.expr(
-                f"INTERVAL {self.days} days"
-            )
+            end_date = sf.lit(start_date).cast(TimestampType()) + sf.expr(f"INTERVAL {self.days} days")
             return interactions.filter(col(self.timestamp_column) < end_date)
 
         end_date = interactions.agg(sf.max(self.timestamp_column)).first()[0]
-        start_date = sf.lit(end_date).cast(TimestampType()) - sf.expr(
-            f"INTERVAL {self.days} days"
-        )
+        start_date = sf.lit(end_date).cast(TimestampType()) - sf.expr(f"INTERVAL {self.days} days")
         return interactions.filter(col(self.timestamp_column) > start_date)
 
     def _filter_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
@@ -659,16 +713,19 @@ class GlobalDaysFilter(_BaseFilter):
 
         if self.first:
             start_date = filtered_interactions[self.timestamp_column].min()
-            return (
-                filtered_interactions[
-                    (filtered_interactions[self.timestamp_column] - start_date).dt.days < self.days
-                ]
-            )
-        end_date = filtered_interactions[self.timestamp_column].max()
-        return (
-            filtered_interactions[
-                (end_date - filtered_interactions[self.timestamp_column]).dt.days < self.days
+            return filtered_interactions[
+                (filtered_interactions[self.timestamp_column] - start_date).dt.days < self.days
             ]
+        end_date = filtered_interactions[self.timestamp_column].max()
+        return filtered_interactions[(end_date - filtered_interactions[self.timestamp_column]).dt.days < self.days]
+
+    def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        if self.first:
+            return interactions.filter(
+                pl.col(self.timestamp_column) < (pl.col(self.timestamp_column).min() + pl.duration(days=self.days))
+            )
+        return interactions.filter(
+            pl.col(self.timestamp_column) > (pl.col(self.timestamp_column).max() - pl.duration(days=self.days))
         )
 
 
@@ -685,7 +742,7 @@ class TimePeriodFilter(_BaseFilter):
     ...                                   "2020-02-01", "2020-01-01 00:04:15",
     ...                                   "2020-01-02 00:04:14", "2020-01-05 23:59:59"]},
     ...             )
-    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
+    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"], format="ISO8601")
     >>> log_sp = convert2spark(log_pd)
     >>> log_sp.show()
     +-------+-------+------+-------------------+
@@ -700,7 +757,10 @@ class TimePeriodFilter(_BaseFilter):
     +-------+-------+------+-------------------+
     <BLANKLINE>
 
-    >>> TimePeriodFilter(start_date="2020-01-01 14:00:00", end_date=datetime(2020, 1, 3, 0, 0, 0)).transform(log_sp).show()
+    >>> TimePeriodFilter(
+    ...    start_date="2020-01-01 14:00:00",
+    ...    end_date=datetime(2020, 1, 3, 0, 0, 0)
+    ... ).transform(log_sp).show()
     +-------+-------+------+-------------------+
     |user_id|item_id|rating|          timestamp|
     +-------+-------+------+-------------------+
@@ -715,41 +775,216 @@ class TimePeriodFilter(_BaseFilter):
         start_date: Optional[Union[str, datetime]] = None,
         end_date: Optional[Union[str, datetime]] = None,
         timestamp_column: str = "timestamp",
+        time_column_format: str = "%Y-%m-%d %H:%M:%S",
     ):
         r"""
-        :param start_date: datetime or str with format "yyyy-MM-dd HH:mm:ss".
+        :param start_date: datetime or str with format ``time_column_format``.
             default: `None`.
-        :param end_date: datetime or str with format "yyyy-MM-dd HH:mm:ss".
+        :param end_date: datetime or str with format ``time_column_format``.
             default: `None`.
         :param timestamp_column: timestamp column.
             default: ``timestamp``.
         """
-        self.start_date = start_date
-        self.end_date = end_date
+        self.start_date = self._format_datetime(start_date, time_column_format)
+        self.end_date = self._format_datetime(end_date, time_column_format)
         self.timestamp_column = timestamp_column
+
+    def _format_datetime(self, date: Optional[Union[str, datetime]], time_format: str) -> datetime:
+        if isinstance(date, str):
+            date = datetime.strptime(date, time_format)
+        return date
 
     def _filter_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
         if self.start_date is None:
             self.start_date = interactions.agg(sf.min(self.timestamp_column)).first()[0]
         if self.end_date is None:
-            self.end_date = interactions.agg(sf.max(self.timestamp_column)).first()[0] + timedelta(
-                seconds=1
-            )
+            self.end_date = interactions.agg(sf.max(self.timestamp_column)).first()[0] + timedelta(seconds=1)
 
         return interactions.filter(
-            (col(self.timestamp_column) >= sf.lit(self.start_date).cast(TimestampType()))
-            & (col(self.timestamp_column) < sf.lit(self.end_date).cast(TimestampType()))
+            (col(self.timestamp_column) >= sf.lit(self.start_date))
+            & (col(self.timestamp_column) < sf.lit(self.end_date))
         )
 
     def _filter_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
         if self.start_date is None:
             self.start_date = interactions[self.timestamp_column].min()
         if self.end_date is None:
-            self.end_date = interactions[self.timestamp_column].max() + timedelta(
-                seconds=1
-            )
+            self.end_date = interactions[self.timestamp_column].max() + timedelta(seconds=1)
 
         return interactions[
             (interactions[self.timestamp_column] >= self.start_date)
             & (interactions[self.timestamp_column] < self.end_date)
         ]
+
+    def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        if self.start_date is None:
+            self.start_date = interactions.select(self.timestamp_column).min()[0, 0]
+        if self.end_date is None:
+            self.end_date = interactions.select(self.timestamp_column).max()[0, 0] + pl.duration(seconds=1)
+
+        return interactions.filter(
+            pl.col(self.timestamp_column).is_between(self.start_date, self.end_date, closed="left")
+        )
+
+
+class QuantileItemsFilter(_BaseFilter):
+    """
+    Filter is aimed on undersampling the interactions dataset.
+
+    Filter algorithm performs undersampling by removing `items_proportion` of interactions
+    for each items counts that exceeds the `alpha_quantile` value in distribution. Filter firstly
+    removes popular items (items that have most interactions). Filter also keeps the original
+    relation of items popularity among each other by removing interactions only in range of
+    current item count and quantile count (specified by `alpha_quantile`).
+
+    >>> import pandas as pd
+    >>> from replay.utils.spark_utils import convert2spark
+    >>> log_pd = pd.DataFrame({
+    ...        "user_id": [0, 0, 1, 2, 2, 2, 2],
+    ...        "item_id": [0, 2, 1, 1, 2, 2, 2]
+    ... })
+    >>> log_spark = convert2spark(log_pd)
+    >>> log_spark.show()
+    +-------+-------+
+    |user_id|item_id|
+    +-------+-------+
+    |      0|      0|
+    |      0|      2|
+    |      1|      1|
+    |      2|      1|
+    |      2|      2|
+    |      2|      2|
+    |      2|      2|
+    +-------+-------+
+    <BLANKLINE>
+
+    >>> QuantileItemsFilter(query_column="user_id").transform(log_spark).show()
+    +-------+-------+
+    |user_id|item_id|
+    +-------+-------+
+    |      0|      0|
+    |      1|      1|
+    |      2|      1|
+    |      2|      2|
+    |      2|      2|
+    |      0|      2|
+    +-------+-------+
+    <BLANKLINE>
+    """
+
+    def __init__(
+        self,
+        alpha_quantile: float = 0.99,
+        items_proportion: float = 0.5,
+        query_column: str = "query_id",
+        item_column: str = "item_id",
+    ) -> None:
+        """
+        :param alpha_quantile: Quantile value of items counts distribution to keep unchanged.
+            Every items count that exceeds this value will be undersampled.
+            Default: ``0.99``.
+        :param items_proportion: proportion of items counts to remove for items that
+            exceeds `alpha_quantile` value in range of current item count and quantile count
+            to make sure we keep original relation between items unchanged.
+            Default: ``0.5``.
+        :param query_column: query column name.
+            Default: ``query_id``.
+        :param item_column: item column name.
+            Default: ``item_id``.
+        """
+        if not 0 < alpha_quantile < 1:
+            msg = "`alpha_quantile` value must be in (0, 1)"
+            raise ValueError(msg)
+        if not 0 < items_proportion < 1:
+            msg = "`items_proportion` value must be in (0, 1)"
+            raise ValueError(msg)
+
+        self.alpha_quantile = alpha_quantile
+        self.items_proportion = items_proportion
+        self.query_column = query_column
+        self.item_column = item_column
+
+    def _filter_pandas(self, df: pd.DataFrame):
+        items_distribution = df.groupby(self.item_column).size().reset_index().rename(columns={0: "counts"})
+        users_distribution = df.groupby(self.query_column).size().reset_index().rename(columns={0: "counts"})
+        count_threshold = items_distribution.loc[:, "counts"].quantile(self.alpha_quantile, interpolation="midpoint")
+        df_with_counts = df.merge(items_distribution, how="left", on=self.item_column).merge(
+            users_distribution, how="left", on=self.query_column, suffixes=["_items", "_users"]
+        )
+        long_tail = df_with_counts.loc[df_with_counts["counts_items"] <= count_threshold]
+        short_tail = df_with_counts.loc[df_with_counts["counts_items"] > count_threshold]
+        short_tail["num_items_to_delete"] = self.items_proportion * (
+            short_tail["counts_items"] - long_tail["counts_items"].max()
+        )
+        short_tail["num_items_to_delete"] = short_tail["num_items_to_delete"].astype("int")
+        short_tail = short_tail.sort_values("counts_users", ascending=False)
+
+        def get_mask(x):
+            mask = np.ones_like(x)
+            threshold = x.iloc[0]
+            mask[:threshold] = 0
+            return mask
+
+        mask = short_tail.groupby(self.item_column)["num_items_to_delete"].transform(get_mask).astype(bool)
+        return pd.concat([long_tail[df.columns], short_tail.loc[mask][df.columns]])
+
+    def _filter_polars(self, df: pl.DataFrame):
+        items_distribution = df.group_by(self.item_column).len()
+        users_distribution = df.group_by(self.query_column).len()
+        count_threshold = items_distribution.select("len").quantile(self.alpha_quantile, "midpoint")["len"][0]
+        df_with_counts = (
+            df.join(items_distribution, how="left", on=self.item_column).join(
+                users_distribution, how="left", on=self.query_column
+            )
+        ).rename({"len": "counts_items", "len_right": "counts_users"})
+        long_tail = df_with_counts.filter(pl.col("counts_items") <= count_threshold)
+        short_tail = df_with_counts.filter(pl.col("counts_items") > count_threshold)
+        max_long_tail_count = long_tail["counts_items"].max()
+        items_to_delete = (
+            short_tail.select(
+                self.query_column,
+                self.item_column,
+                self.items_proportion * (pl.col("counts_items") - max_long_tail_count),
+            )
+            .with_columns(pl.col("literal").cast(pl.Int64).alias("num_items_to_delete"))
+            .select(self.item_column, "num_items_to_delete")
+            .unique(maintain_order=True)
+        )
+        short_tail = short_tail.join(items_to_delete, how="left", on=self.item_column).sort(
+            "counts_users", descending=True
+        )
+        short_tail = short_tail.with_columns(index=pl.int_range(short_tail.shape[0]))
+        grouped = short_tail.group_by(self.item_column, maintain_order=True).agg(
+            pl.col("index"), pl.col("num_items_to_delete")
+        )
+        grouped = grouped.with_columns(
+            pl.col("num_items_to_delete").list.get(0),
+            (pl.col("index").list.len() - pl.col("num_items_to_delete").list.get(0)).alias("tail"),
+        )
+        grouped = grouped.with_columns(pl.col("index").list.tail(pl.col("tail")))
+        grouped = grouped.explode("index").select("index")
+        short_tail = grouped.join(short_tail, how="left", on="index")
+        return pl.concat([long_tail.select(df.columns), short_tail.select(df.columns)])
+
+    def _filter_spark(self, df: SparkDataFrame):
+        items_distribution = df.groupBy(self.item_column).agg(sf.count(self.query_column).alias("counts_items"))
+        users_distribution = df.groupBy(self.query_column).agg(sf.count(self.item_column).alias("counts_users"))
+        count_threshold = items_distribution.toPandas().loc[:, "counts_items"].quantile(self.alpha_quantile, "midpoint")
+        df_with_counts = df.join(items_distribution, on=self.item_column).join(users_distribution, on=self.query_column)
+        long_tail = df_with_counts.filter(sf.col("counts_items") <= count_threshold)
+        short_tail = df_with_counts.filter(sf.col("counts_items") > count_threshold)
+        max_long_tail_count = long_tail.agg({"counts_items": "max"}).collect()[0][0]
+        items_to_delete = (
+            short_tail.withColumn(
+                "num_items_to_delete",
+                (self.items_proportion * (sf.col("counts_items") - max_long_tail_count)).cast("int"),
+            )
+            .select(self.item_column, "num_items_to_delete")
+            .distinct()
+        )
+        short_tail = short_tail.join(items_to_delete, on=self.item_column, how="left")
+        short_tail = short_tail.withColumn(
+            "index", sf.row_number().over(Window.partitionBy(self.item_column).orderBy(sf.col("counts_users").desc()))
+        )
+        short_tail = short_tail.filter(sf.col("index") > sf.col("num_items_to_delete"))
+        return long_tail.select(df.columns).union(short_tail.select(df.columns))

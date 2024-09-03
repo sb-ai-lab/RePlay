@@ -27,7 +27,6 @@ class Bert4RecTrainingBatch(NamedTuple):
     labels: torch.LongTensor
 
 
-# pylint: disable=too-few-public-methods
 class Bert4RecMasker(abc.ABC):
     """
     Interface for a token masking strategy during BERT model training
@@ -44,7 +43,6 @@ class Bert4RecMasker(abc.ABC):
         """
 
 
-# pylint: disable=too-few-public-methods
 class Bert4RecUniformMasker(Bert4RecMasker):
     """
     Token masking strategy that mask random token with uniform distribution.
@@ -90,7 +88,6 @@ class Bert4RecTrainingDataset(TorchDataset):
     Dataset that generates samples to train BERT-like model
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         sequential: SequentialDataset,
@@ -121,13 +118,16 @@ class Bert4RecTrainingDataset(TorchDataset):
         super().__init__()
         if label_feature_name:
             if label_feature_name not in sequential.schema:
-                raise ValueError("Label feature name not found in provided schema")
+                msg = "Label feature name not found in provided schema"
+                raise ValueError(msg)
 
             if not sequential.schema[label_feature_name].is_cat:
-                raise ValueError("Label feature must be categorical")
+                msg = "Label feature must be categorical"
+                raise ValueError(msg)
 
             if not sequential.schema[label_feature_name].is_seq:
-                raise ValueError("Label feature must be sequential")
+                msg = "Label feature must be sequential"
+                raise ValueError(msg)
 
         self._max_sequence_length = max_sequence_length
         self._label_feature_name = label_feature_name or sequential.schema.item_id_feature_name
@@ -230,7 +230,6 @@ class Bert4RecValidationDataset(TorchDataset):
     Dataset that generates samples to infer and validate BERT-like model
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         sequential: SequentialDataset,

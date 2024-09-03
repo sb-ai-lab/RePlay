@@ -1,15 +1,23 @@
 from datetime import datetime
 from typing import List, Optional, Tuple, Union
 
-from replay.splitters.base_splitter import Splitter
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
+import polars as pl
+
+from replay.utils import (
+    PYSPARK_AVAILABLE,
+    DataFrameLike,
+    PandasDataFrame,
+    PolarsDataFrame,
+    SparkDataFrame,
+)
+
+from .base_splitter import Splitter
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
     from pyspark.sql import Window
 
 
-# pylint: disable=too-few-public-methods
 class TimeSplitter(Splitter):
     """
     Split interactions by time.
@@ -77,6 +85,7 @@ class TimeSplitter(Splitter):
     14        3        2 2020-01-05
     <BLANKLINE>
     """
+
     _init_arg_names = [
         "time_threshold",
         "drop_cold_users",
@@ -89,10 +98,9 @@ class TimeSplitter(Splitter):
         "time_column_format",
     ]
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
-        time_threshold: Union[datetime, str, int, float],
+        time_threshold: Union[datetime, str, float],
         query_column: str = "query_id",
         drop_cold_users: bool = False,
         drop_cold_items: bool = False,
@@ -103,7 +111,11 @@ class TimeSplitter(Splitter):
         time_column_format: str = "%Y-%m-%d %H:%M:%S",
     ):
         """
-        :param time_threshold: Array of test threshold.
+        :param time_threshold: Test threshold, can be datetime, string, int or float.
+            datetime is in case of splitting by datetime,
+            int      is in case of splitting by datetime (Unix format),
+            string   will be converted to datetime using ``time_column_format``,
+            float    is in case of splitting by ratio, the value must be between 0 and 1.
         :param query_column: Name of user interaction column.
         :param drop_cold_users: Drop users from test DataFrame.
             which are not in train DataFrame, default: False.
@@ -132,7 +144,8 @@ class TimeSplitter(Splitter):
         self._precision = 3
         self.time_column_format = time_column_format
         if isinstance(time_threshold, float) and (time_threshold < 0 or time_threshold > 1):
-            raise ValueError("test_size must between 0 and 1")
+            msg = "time_threshold must be between 0 and 1"
+            raise ValueError(msg)
         self.time_threshold = time_threshold
 
     def _partial_split(
@@ -140,10 +153,16 @@ class TimeSplitter(Splitter):
     ) -> Tuple[DataFrameLike, DataFrameLike]:
         if isinstance(threshold, str):
             threshold = datetime.strptime(threshold, self.time_column_format)
+
         if isinstance(interactions, SparkDataFrame):
             return self._partial_split_spark(interactions, threshold)
+        if isinstance(interactions, PandasDataFrame):
+            return self._partial_split_pandas(interactions, threshold)
+        if isinstance(interactions, PolarsDataFrame):
+            return self._partial_split_polars(interactions, threshold)
 
-        return self._partial_split_pandas(interactions, threshold)
+        msg = f"{self} is not implemented for {type(interactions)}"
+        raise NotImplementedError(msg)
 
     def _partial_split_pandas(
         self, interactions: PandasDataFrame, threshold: Union[datetime, str, int]
@@ -174,9 +193,7 @@ class TimeSplitter(Splitter):
             )
             test_start = int(dates.count() * (1 - threshold)) + 1
             test_start = (
-                dates.filter(sf.col("_row_number_by_ts") == test_start)
-                .select(self.timestamp_column)
-                .collect()[0][0]
+                dates.filter(sf.col("_row_number_by_ts") == test_start).select(self.timestamp_column).collect()[0][0]
             )
             res = interactions.withColumn("is_test", sf.col(self.timestamp_column) >= test_start)
         else:
@@ -185,6 +202,25 @@ class TimeSplitter(Splitter):
         if self.session_id_column:
             res = self._recalculate_with_session_id_column(res)
         train = res.filter("is_test == 0").drop("is_test")
+        test = res.filter("is_test").drop("is_test")
+
+        return train, test
+
+    def _partial_split_polars(
+        self, interactions: PolarsDataFrame, threshold: Union[datetime, str, int]
+    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+        if isinstance(threshold, float):
+            test_start = int(len(interactions) * (1 - threshold)) + 1
+
+            res = interactions.sort(self.timestamp_column).with_columns(
+                (pl.col(self.timestamp_column).cum_count() >= test_start).alias("is_test")
+            )
+        else:
+            res = interactions.with_columns((pl.col(self.timestamp_column) >= threshold).alias("is_test"))
+
+        if self.session_id_column:
+            res = self._recalculate_with_session_id_column(res)
+        train = res.filter(~pl.col("is_test")).drop("is_test")
         test = res.filter("is_test").drop("is_test")
 
         return train, test

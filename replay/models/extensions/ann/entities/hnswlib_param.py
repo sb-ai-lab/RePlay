@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 from typing_extensions import Literal
 
-from replay.models.extensions.ann.entities.base_hnsw_param import BaseHnswParam
+from .base_hnsw_param import BaseHnswParam
 
 
 @dataclass
@@ -59,9 +59,3 @@ class HnswlibParam(BaseHnswParam):
     dim: int = field(default=None, init=False)
     # Max number of elements that will be stored in the index
     max_elements: int = field(default=None, init=False)
-
-    # def init_args_as_dict(self):
-    #     # union dicts
-    #     return dict(
-    #         super().init_args_as_dict()["init_args"], **{"space": self.space}
-    #     )

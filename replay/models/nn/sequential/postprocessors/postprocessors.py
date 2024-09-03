@@ -5,7 +5,8 @@ import pandas as pd
 import torch
 
 from replay.data.nn import SequentialDataset
-from replay.models.nn.sequential.postprocessors._base import BasePostProcessor
+
+from ._base import BasePostProcessor
 
 
 class RemoveSeenItems(BasePostProcessor):
@@ -85,7 +86,6 @@ class SampleItems(BasePostProcessor):
     Generates negative samples to compute sampled metrics
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         grouped_validation_items: pd.DataFrame,

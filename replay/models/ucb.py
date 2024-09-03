@@ -3,8 +3,9 @@ from typing import Any, Dict, List, Optional
 
 from replay.data.dataset import Dataset
 from replay.metrics import NDCG, Metric
-from replay.models.base_rec import NonPersonalizedRecommender
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+from .base_rec import NonPersonalizedRecommender
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -85,7 +86,6 @@ class UCB(NonPersonalizedRecommender):
             Could be changed after model training by setting the `sample` attribute.
         :param seed: random seed. Provides reproducibility if fixed
         """
-        # pylint: disable=super-init-not-called
         self.coef = exploration_coef
         self.sample = sample
         self.seed = seed
@@ -99,16 +99,15 @@ class UCB(NonPersonalizedRecommender):
             "seed": self.seed,
         }
 
-    # pylint: disable=too-many-arguments
     def optimize(
         self,
-        train_dataset: Dataset,
-        test_dataset: Dataset,
-        param_borders: Optional[Dict[str, List[Any]]] = None,
-        criterion: Metric = NDCG,
-        k: int = 10,
-        budget: int = 10,
-        new_study: bool = True,
+        train_dataset: Dataset,  # noqa: ARG002
+        test_dataset: Dataset,  # noqa: ARG002
+        param_borders: Optional[Dict[str, List[Any]]] = None,  # noqa: ARG002
+        criterion: Metric = NDCG,  # noqa: ARG002
+        k: int = 10,  # noqa: ARG002
+        budget: int = 10,  # noqa: ARG002
+        new_study: bool = True,  # noqa: ARG002
     ) -> None:
         """
         Searches best parameters with optuna.
@@ -126,15 +125,13 @@ class UCB(NonPersonalizedRecommender):
         :return: dictionary with best parameters
         """
         self.logger.warning(
-            "The UCB model has only exploration coefficient parameter, "
-            "which cannot not be directly optimized"
+            "The UCB model has only exploration coefficient parameter, which cannot not be directly optimized"
         )
 
     def _fit(
         self,
         dataset: Dataset,
     ) -> None:
-
         self._check_rating(dataset)
 
         # we save this dataframe for the refit() method
@@ -180,17 +177,9 @@ class UCB(NonPersonalizedRecommender):
         self._calc_item_popularity()
 
     def _calc_item_popularity(self):
-
         items_counts = self.items_counts_aggr.withColumn(
             self.rating_column,
-            (
-                sf.col("pos") / sf.col("total")
-                + sf.sqrt(
-                    self.coef
-                    * sf.log(sf.lit(self.full_count))
-                    / sf.col("total")
-                )
-            ),
+            (sf.col("pos") / sf.col("total") + sf.sqrt(self.coef * sf.log(sf.lit(self.full_count)) / sf.col("total"))),
         )
 
         self.item_popularity = items_counts.drop("pos", "total")

@@ -2,8 +2,9 @@ from os.path import join
 from typing import Optional, Tuple
 
 from replay.data import Dataset
-from replay.models.base_rec import ItemVectorModel, Recommender
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+from .base_rec import ItemVectorModel, Recommender
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
@@ -13,7 +14,6 @@ if PYSPARK_AVAILABLE:
     from replay.utils.spark_utils import list_to_vector_udf
 
 
-# pylint: disable=too-many-instance-attributes
 class ALSWrap(Recommender, ItemVectorModel):
     """Wrapper for `Spark ALS
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
@@ -24,7 +24,6 @@ class ALSWrap(Recommender, ItemVectorModel):
         "rank": {"type": "loguniform_int", "args": [8, 256]},
     }
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         rank: int = 10,
@@ -98,7 +97,6 @@ class ALSWrap(Recommender, ItemVectorModel):
             self.model.itemFactors.unpersist()
             self.model.userFactors.unpersist()
 
-    # pylint: disable=too-many-arguments
     def _predict(
         self,
         dataset: Optional[Dataset],
@@ -107,10 +105,8 @@ class ALSWrap(Recommender, ItemVectorModel):
         items: SparkDataFrame,
         filter_seen_items: bool = True,
     ) -> SparkDataFrame:
-
         if (items.count() == self.fit_items.count()) and (
-            items.join(self.fit_items, on=self.item_column, how="inner").count()
-            == self.fit_items.count()
+            items.join(self.fit_items, on=self.item_column, how="inner").count() == self.fit_items.count()
         ):
             max_seen = 0
             if filter_seen_items and dataset is not None:
@@ -125,9 +121,7 @@ class ALSWrap(Recommender, ItemVectorModel):
 
             recs_als = self.model.recommendForUserSubset(queries, k + max_seen)
             return (
-                recs_als.withColumn(
-                    "recommendations", sf.explode("recommendations")
-                )
+                recs_als.withColumn("recommendations", sf.explode("recommendations"))
                 .withColumn(self.item_column, sf.col(f"recommendations.{self.item_column}"))
                 .withColumn(
                     self.rating_column,
@@ -144,7 +138,7 @@ class ALSWrap(Recommender, ItemVectorModel):
     def _predict_pairs(
         self,
         pairs: SparkDataFrame,
-        dataset: Optional[Dataset] = None,
+        dataset: Optional[Dataset] = None,  # noqa: ARG002
     ) -> SparkDataFrame:
         return (
             self.model.transform(pairs)
@@ -153,15 +147,13 @@ class ALSWrap(Recommender, ItemVectorModel):
         )
 
     def _get_features(
-        self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
+        self, ids: SparkDataFrame, features: Optional[SparkDataFrame]  # noqa: ARG002
     ) -> Tuple[Optional[SparkDataFrame], Optional[int]]:
         entity = "user" if self.query_column in ids.columns else "item"
         entity_col = self.query_column if self.query_column in ids.columns else self.item_column
 
         als_factors = getattr(self.model, f"{entity}Factors")
-        als_factors = als_factors.withColumnRenamed(
-            "id", entity_col
-        ).withColumnRenamed("features", f"{entity}_factors")
+        als_factors = als_factors.withColumnRenamed("id", entity_col).withColumnRenamed("features", f"{entity}_factors")
         return (
             als_factors.join(ids, how="right", on=entity_col),
             self.model.rank,

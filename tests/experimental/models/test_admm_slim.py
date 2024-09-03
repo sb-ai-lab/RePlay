@@ -1,4 +1,3 @@
-# pylint: disable-all
 from datetime import datetime
 
 import numpy as np
@@ -14,7 +13,7 @@ from replay.experimental.models import ADMMSLIM
 from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
 from replay.experimental.utils.model_handler import save
 from replay.utils.model_handler import load
-from tests.utils import log, log_to_pred, long_log_with_features, spark, sparkDataFrameEqual, user_features
+from tests.utils import sparkDataFrameEqual
 
 SEED = 123
 INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
@@ -40,7 +39,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
     return model.predict(log=inf_log, users=users, k=1, **kwargs)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def simple_log(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -57,7 +56,7 @@ def simple_log(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model():
     return ADMMSLIM(1, 10, 42)
 
@@ -86,9 +85,7 @@ def test_predict(simple_log, model):
 
 
 @pytest.mark.experimental
-@pytest.mark.parametrize(
-    "lambda_1,lambda_2", [(0.0, 0.0), (-0.1, 0.1), (0.1, -0.1)]
-)
+@pytest.mark.parametrize("lambda_1,lambda_2", [(0.0, 0.0), (-0.1, 0.1), (0.1, -0.1)])
 def test_exceptions(lambda_1, lambda_2):
     with pytest.raises(ValueError):
         ADMMSLIM(lambda_1, lambda_2)
@@ -149,21 +146,9 @@ def test_predict_pairs_k(log):
         k=None,
     )
 
-    assert (
-        pairs_pred_k.groupBy("user_idx")
-        .count()
-        .filter(sf.col("count") > 1)
-        .count()
-        == 0
-    )
+    assert pairs_pred_k.groupBy("user_idx").count().filter(sf.col("count") > 1).count() == 0
 
-    assert (
-        pairs_pred.groupBy("user_idx")
-        .count()
-        .filter(sf.col("count") > 1)
-        .count()
-        > 0
-    )
+    assert pairs_pred.groupBy("user_idx").count().filter(sf.col("count") > 1).count() > 0
 
 
 @pytest.mark.experimental
@@ -204,14 +189,7 @@ def test_get_nearest_items(log):
         candidates=[0, 3],
     )
     assert res.count() == 1
-    assert (
-        len(
-            set(res.toPandas().to_dict()["item_idx"].values()).difference(
-                {0, 1}
-            )
-        )
-        == 0
-    )
+    assert len(set(res.toPandas().to_dict()["item_idx"].values()).difference({0, 1})) == 0
 
 
 @pytest.mark.experimental

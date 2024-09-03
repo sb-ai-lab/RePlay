@@ -1,24 +1,24 @@
-# pylint: disable=wildcard-import,invalid-name,unused-wildcard-import,unspecified-encoding
+import functools
 import json
 import os
 import pickle
-from inspect import getfullargspec
+import warnings
 from os.path import join
 from pathlib import Path
-from typing import Union
+from typing import Any, Callable, Optional, Union
 
 from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.models import *
 from replay.models.base_rec import BaseRecommender
 from replay.splitters import *
-from replay.utils.session_handler import State
 
+from .session_handler import State
 from .types import PYSPARK_AVAILABLE
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import SparkSession
 
-    from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
+    from .spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
 
     def get_fs(spark: SparkSession):
         """
@@ -27,9 +27,7 @@ if PYSPARK_AVAILABLE:
         :param spark: spark session
         :return:
         """
-        fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(
-            spark._jsc.hadoopConfiguration()
-        )
+        fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration())
         return fs
 
     def get_list_of_paths(spark: SparkSession, dir_path: str):
@@ -45,9 +43,7 @@ if PYSPARK_AVAILABLE:
         return [str(f.getPath()) for f in statuses]
 
 
-def save(
-    model: BaseRecommender, path: Union[str, Path], overwrite: bool = False
-):
+def save(model: BaseRecommender, path: Union[str, Path], overwrite: bool = False):
     """
     Save fitted model to disk as a folder
 
@@ -64,9 +60,8 @@ def save(
     if not overwrite:
         is_exists = fs.exists(spark._jvm.org.apache.hadoop.fs.Path(path))
         if is_exists:
-            raise FileExistsError(
-                f"Path '{path}' already exists. Mode is 'overwrite = False'."
-            )
+            msg = f"Path '{path}' already exists. Mode is 'overwrite = False'."
+            raise FileExistsError(msg)
 
     fs.mkdirs(spark._jvm.org.apache.hadoop.fs.Path(path))
     model._save_model(join(path, "model"))
@@ -75,9 +70,7 @@ def save(
     init_args["_model_name"] = str(model)
     sc = spark.sparkContext
     df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
-    df.coalesce(1).write.mode("overwrite").option(
-        "ignoreNullFields", "false"
-    ).json(join(path, "init_args.json"))
+    df.coalesce(1).write.mode("overwrite").option("ignoreNullFields", "false").json(join(path, "init_args.json"))
 
     dataframes = model._dataframes
     df_path = join(path, "dataframes")
@@ -86,13 +79,9 @@ def save(
             df.write.mode("overwrite").parquet(join(df_path, name))
 
     if hasattr(model, "fit_queries"):
-        model.fit_queries.write.mode("overwrite").parquet(
-            join(df_path, "fit_queries")
-        )
+        model.fit_queries.write.mode("overwrite").parquet(join(df_path, "fit_queries"))
     if hasattr(model, "fit_items"):
-        model.fit_items.write.mode("overwrite").parquet(
-            join(df_path, "fit_items")
-        )
+        model.fit_items.write.mode("overwrite").parquet(join(df_path, "fit_items"))
     if hasattr(model, "study"):
         save_picklable_to_parquet(model.study, join(path, "study"))
 
@@ -105,31 +94,13 @@ def load(path: str, model_type=None) -> BaseRecommender:
     :return: Restored trained model
     """
     spark = State().session
-    args = (
-        spark.read.json(join(path, "init_args.json"))
-        .first()
-        .asDict(recursive=True)
-    )
+    args = spark.read.json(join(path, "init_args.json")).first().asDict(recursive=True)
     name = args["_model_name"]
     del args["_model_name"]
 
-    if model_type is not None:
-        model_class = model_type
-    else:
-        model_class = globals()[name]
-    init_args = getfullargspec(model_class.__init__).args
-    init_args.remove("self")
-    extra_args = set(args) - set(init_args)
-    if len(extra_args) > 0:
-        extra_args = {key: args[key] for key in args}
-        init_args = {key: args[key] for key in init_args}
-    else:
-        init_args = args
-        extra_args = {}
+    model_class = model_type if model_type is not None else globals()[name]
 
-    model = model_class(**init_args)
-    for arg in extra_args:
-        model.arg = extra_args[arg]
+    model = model_class(**args)
 
     dataframes_paths = get_list_of_paths(spark, join(path, "dataframes"))
     for dataframe_path in dataframes_paths:
@@ -192,9 +163,7 @@ def save_splitter(splitter: Splitter, path: str, overwrite: bool = False):
     sc = spark.sparkContext
     df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
     if overwrite:
-        df.coalesce(1).write.mode("overwrite").json(
-            join(path, "init_args.json")
-        )
+        df.coalesce(1).write.mode("overwrite").json(join(path, "init_args.json"))
     else:
         df.coalesce(1).write.json(join(path, "init_args.json"))
 
@@ -212,3 +181,25 @@ def load_splitter(path: str) -> Splitter:
     del args["_splitter_name"]
     splitter = globals()[name]
     return splitter(**args)
+
+
+def deprecation_warning(message: Optional[str] = None) -> Callable[..., Any]:
+    """
+    Decorator that throws deprecation warnings.
+
+    :param message: message to deprecation warning without func name.
+    """
+    base_msg = "will be deprecated in future versions."
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            msg = f"{func.__qualname__} {message if message else base_msg}"
+            warnings.simplefilter("always", DeprecationWarning)  # turn off filter
+            warnings.warn(msg, category=DeprecationWarning, stacklevel=2)
+            warnings.simplefilter("default", DeprecationWarning)  # reset filter
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator

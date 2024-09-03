@@ -132,7 +132,7 @@ def test_dummy_bert_converges(tensor_schema, simple_masks, enable_positional_emb
     labels_mask = (~padding_mask) + tokens_mask
     labels = item_sequences.masked_fill(labels_mask, -1)
 
-    for _ in range(0, 20):
+    for _ in range(20):
         bert.train()
         adam.zero_grad()
 

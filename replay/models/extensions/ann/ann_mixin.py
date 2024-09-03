@@ -5,14 +5,16 @@ from typing import Any, Dict, Iterable, Optional, Union
 
 from replay.data import Dataset
 from replay.models.base_rec import BaseRecommender
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+from .index_builders.base_index_builder import IndexBuilder
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
 
-    from replay.models.extensions.ann.index_stores.spark_files_index_store import SparkFilesIndexStore
     from replay.utils.spark_utils import get_top_k_recs, return_recs
+
+    from .index_stores.spark_files_index_store import SparkFilesIndexStore
 
 
 logger = logging.getLogger("replay")
@@ -82,9 +84,7 @@ class ANNMixin(BaseRecommender):
             self.index_builder.build_index(vectors, **ann_params)
 
     @abstractmethod
-    def _get_vectors_to_infer_ann_inner(
-        self, interactions: SparkDataFrame, queries: SparkDataFrame
-    ) -> SparkDataFrame:
+    def _get_vectors_to_infer_ann_inner(self, interactions: SparkDataFrame, queries: SparkDataFrame) -> SparkDataFrame:
         """Implementations of this method must return a dataframe with user vectors.
         User vectors from this method are used to infer the index.
 
@@ -134,7 +134,6 @@ class ANNMixin(BaseRecommender):
 
         """
 
-    # pylint: disable=too-many-arguments, too-many-locals
     def _predict_wrap(
         self,
         dataset: Optional[Dataset],
@@ -144,14 +143,10 @@ class ANNMixin(BaseRecommender):
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
     ) -> Optional[SparkDataFrame]:
-        dataset, queries, items = self._filter_interactions_queries_items_dataframes(
-            dataset, k, queries, items
-        )
+        dataset, queries, items = self._filter_interactions_queries_items_dataframes(dataset, k, queries, items)
 
         if self._use_ann:
-            vectors = self._get_vectors_to_infer_ann(
-                dataset.interactions, queries, filter_seen_items
-            )
+            vectors = self._get_vectors_to_infer_ann(dataset.interactions, queries, filter_seen_items)
             ann_params = self._get_ann_infer_params()
             inferer = self.index_builder.produce_inferer(filter_seen_items)
             recs = inferer.infer(vectors, ann_params["features_col"], k)

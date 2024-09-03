@@ -3,16 +3,16 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 import numpy as np
 
 from replay.data import Dataset
-from replay.models.base_neighbour_rec import NeighbourRec
-from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+from .base_neighbour_rec import NeighbourRec
+from .extensions.ann.index_builders.base_index_builder import IndexBuilder
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
     from pyspark.sql.window import Window
 
 
-# pylint: disable=too-many-ancestors, too-many-instance-attributes
 class AssociationRulesItemRec(NeighbourRec):
     """
     Item-to-item recommender based on association rules.
@@ -28,6 +28,9 @@ class AssociationRulesItemRec(NeighbourRec):
 
     You can change your selection before calling `.predict()` or `.predict_pairs()`
     if you set a new value for the `similarity_metric` parameter.
+
+    Usage of ANN functionality requires only sparse indices and only one `similarity_metric`,
+    defined in `__init__` will be available during inference.
 
     >>> import pandas as pd
     >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
@@ -65,13 +68,13 @@ class AssociationRulesItemRec(NeighbourRec):
     >>> pred_dataset = Dataset(feature_schema.subset(["user_id", "item_id"]), pred_interactions)
     >>> model = AssociationRulesItemRec(min_item_count=1, min_pair_count=0, session_column="user_id")
     >>> res = model.fit(train_dataset)
-    >>> model.similarity.show()
-    +------------+------------+----------+----+---------------+
-    |item_idx_one|item_idx_two|confidence|lift|confidence_gain|
-    +------------+------------+----------+----+---------------+
-    |           1|           2|       1.0| 1.5|            2.0|
-    |           2|           1|       0.5| 1.5|       Infinity|
-    +------------+------------+----------+----+---------------+
+    >>> model.similarity.orderBy("item_idx_one").show()
+    +------------+------------+----------+----------+----+---------------+
+    |item_idx_one|item_idx_two|similarity|confidence|lift|confidence_gain|
+    +------------+------------+----------+----------+----+---------------+
+    |           1|           2|       1.0|       1.0| 1.5|            2.0|
+    |           2|           1|       0.5|       0.5| 1.5|       Infinity|
+    +------------+------------+----------+----------+----+---------------+
     >>> model.similarity_metric = "confidence"
     >>> model.predict_pairs(pred_interactions, train_dataset).show()
     +-------+-------+------+
@@ -114,7 +117,6 @@ class AssociationRulesItemRec(NeighbourRec):
         },
     }
 
-    # pylint: disable=too-many-arguments,
     def __init__(
         self,
         session_column: str,
@@ -161,6 +163,7 @@ class AssociationRulesItemRec(NeighbourRec):
             "num_neighbours": self.num_neighbours,
             "use_rating": self.use_rating,
             "similarity_metric": self.similarity_metric,
+            "index_builder": self.index_builder.init_meta_as_dict() if self.index_builder else None,
         }
 
     def _fit(
@@ -200,14 +203,11 @@ class AssociationRulesItemRec(NeighbourRec):
             frequent_items_interactions.withColumnRenamed(self.item_column, "antecedent")
             .withColumnRenamed(self.rating_column, "antecedent_rel")
             .join(
-                frequent_items_interactions.withColumnRenamed(
-                    self.session_column, self.session_column + "_cons"
-                )
+                frequent_items_interactions.withColumnRenamed(self.session_column, self.session_column + "_cons")
                 .withColumnRenamed(self.item_column, "consequent")
                 .withColumnRenamed(self.rating_column, "consequent_rel"),
                 on=[
-                    sf.col(self.session_column)
-                    == sf.col(self.session_column + "_cons"),
+                    sf.col(self.session_column) == sf.col(self.session_column + "_cons"),
                     sf.col("antecedent") < sf.col("consequent"),
                 ],
             )
@@ -216,9 +216,7 @@ class AssociationRulesItemRec(NeighbourRec):
                 self.rating_column,
                 sf.least(sf.col("consequent_rel"), sf.col("antecedent_rel")),
             )
-            .drop(
-                self.session_column + "_cons", "consequent_rel", "antecedent_rel"
-            )
+            .drop(self.session_column + "_cons", "consequent_rel", "antecedent_rel")
         )
 
         pairs_count = (
@@ -239,16 +237,12 @@ class AssociationRulesItemRec(NeighbourRec):
         )
 
         pairs_metrics = pairs_metrics.join(
-            frequent_items_cached.withColumnRenamed(
-                "item_rating", "antecedent_rating"
-            ),
+            frequent_items_cached.withColumnRenamed("item_rating", "antecedent_rating"),
             on=[sf.col("antecedent") == sf.col(self.item_column)],
         ).drop(self.item_column)
 
         pairs_metrics = pairs_metrics.join(
-            frequent_items_cached.withColumnRenamed(
-                "item_rating", "consequent_rating"
-            ),
+            frequent_items_cached.withColumnRenamed("item_rating", "consequent_rating"),
             on=[sf.col("consequent") == sf.col(self.item_column)],
         ).drop(self.item_column)
 
@@ -257,9 +251,7 @@ class AssociationRulesItemRec(NeighbourRec):
             sf.col("pair_rating") / sf.col("antecedent_rating"),
         ).withColumn(
             "lift",
-            num_sessions
-            * sf.col("confidence")
-            / sf.col("consequent_rating"),
+            num_sessions * sf.col("confidence") / sf.col("consequent_rating"),
         )
 
         if self.num_neighbours is not None:
@@ -290,6 +282,7 @@ class AssociationRulesItemRec(NeighbourRec):
         ).select(
             sf.col("antecedent").alias("item_idx_one"),
             sf.col("consequent").alias("item_idx_two"),
+            sf.col(self.similarity_metric).alias("similarity"),
             "confidence",
             "lift",
             "confidence_gain",
@@ -326,10 +319,8 @@ class AssociationRulesItemRec(NeighbourRec):
             spark-dataframe with columns ``[item_id, neighbour_item_id, similarity]``
         """
         if metric not in self.item_to_item_metrics:
-            raise ValueError(
-                f"Select one of the valid distance metrics: "
-                f"{self.item_to_item_metrics}"
-            )
+            msg = f"Select one of the valid distance metrics: {self.item_to_item_metrics}"
+            raise ValueError(msg)
 
         return self._get_nearest_items_wrap(
             items=items,
@@ -341,7 +332,7 @@ class AssociationRulesItemRec(NeighbourRec):
     def _get_nearest_items(
         self,
         items: SparkDataFrame,
-        metric: Optional[str] = None,
+        metric: Optional[str] = None,  # noqa: ARG002
         candidates: Optional[SparkDataFrame] = None,
     ) -> SparkDataFrame:
         """
@@ -356,9 +347,7 @@ class AssociationRulesItemRec(NeighbourRec):
         pairs_to_consider = self.similarity
         if candidates is not None:
             pairs_to_consider = self.similarity.join(
-                sf.broadcast(
-                    candidates.withColumnRenamed(self.item_column, "item_idx_two")
-                ),
+                sf.broadcast(candidates.withColumnRenamed(self.item_column, "item_idx_two")),
                 on="item_idx_two",
             )
 

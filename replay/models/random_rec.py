@@ -1,8 +1,9 @@
 from typing import Optional
 
 from replay.data import Dataset
-from replay.models.base_rec import NonPersonalizedRecommender
 from replay.utils import PYSPARK_AVAILABLE
+
+from .base_rec import NonPersonalizedRecommender
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -88,25 +89,25 @@ class RandomRec(NonPersonalizedRecommender):
     <BLANKLINE>
     >>> recs = random_pop.predict(dataset, 2)
     >>> recs.show()
-    +-------+-------+------------------+
-    |user_id|item_id|            rating|
-    +-------+-------+------------------+
-    |      1|      3|0.3333333333333333|
-    |      2|      1|               0.5|
-    |      3|      2|               1.0|
-    |      3|      1|0.3333333333333333|
-    |      4|      2|               1.0|
-    |      4|      1|               0.5|
-    +-------+-------+------------------+
+    +-------+-------+-------------------+
+    |user_id|item_id|             rating|
+    +-------+-------+-------------------+
+    |      1|      3| 0.5403400662326382|
+    |      2|      1| 0.8999281214873164|
+    |      3|      1|  0.909252584485465|
+    |      3|      2|0.14871615041196307|
+    |      4|      2| 0.9923148665602072|
+    |      4|      1| 0.4814574953690183|
+    +-------+-------+-------------------+
     <BLANKLINE>
     >>> recs = random_pop.predict(dataset, 2, queries=[1], items=[7, 8])
     >>> recs.show()
-    +-------+-------+------+
-    |user_id|item_id|rating|
-    +-------+-------+------+
-    |      1|      7|   1.0|
-    |      1|      8|   0.5|
-    +-------+-------+------+
+    +-------+-------+-------------------+
+    |user_id|item_id|             rating|
+    +-------+-------+-------------------+
+    |      1|      7|0.25547770543750425|
+    |      1|      8|0.12755340075617772|
+    +-------+-------+-------------------+
     <BLANKLINE>
     >>> random_pop = RandomRec(seed=555)
     >>> random_pop.fit(dataset)
@@ -130,7 +131,6 @@ class RandomRec(NonPersonalizedRecommender):
     }
     sample: bool = True
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         distribution: str = "uniform",
@@ -159,17 +159,15 @@ class RandomRec(NonPersonalizedRecommender):
             `Cold_weight` value should be in interval (0, 1].
         """
         if distribution not in ("popular_based", "relevance", "uniform"):
-            raise ValueError(
-                "distribution can be one of [popular_based, relevance, uniform]"
-            )
+            msg = "distribution can be one of [popular_based, relevance, uniform]"
+            raise ValueError(msg)
         if alpha <= -1.0 and distribution == "popular_based":
-            raise ValueError("alpha must be bigger than -1")
+            msg = "alpha must be bigger than -1"
+            raise ValueError(msg)
         self.distribution = distribution
         self.alpha = alpha
         self.seed = seed
-        super().__init__(
-            add_cold_items=add_cold_items, cold_weight=cold_weight
-        )
+        super().__init__(add_cold_items=add_cold_items, cold_weight=cold_weight)
 
     @property
     def _init_args(self):
@@ -193,10 +191,7 @@ class RandomRec(NonPersonalizedRecommender):
                 .agg(sf.countDistinct(self.query_column).alias("user_count"))
                 .select(
                     sf.col(self.item_column),
-                    (
-                        sf.col("user_count").astype("float")
-                        + sf.lit(self.alpha)
-                    ).alias(self.rating_column),
+                    (sf.col("user_count").astype("float") + sf.lit(self.alpha)).alias(self.rating_column),
                 )
             )
         elif self.distribution == "relevance":
@@ -207,14 +202,11 @@ class RandomRec(NonPersonalizedRecommender):
             )
         else:
             self.item_popularity = (
-                dataset.interactions.select(self.item_column)
-                .distinct()
-                .withColumn(self.rating_column, sf.lit(1.0))
+                dataset.interactions.select(self.item_column).distinct().withColumn(self.rating_column, sf.lit(1.0))
             )
         self.item_popularity = self.item_popularity.withColumn(
             self.rating_column,
-            sf.col(self.rating_column)
-            / self.item_popularity.agg(sf.sum(self.rating_column)).first()[0],
+            sf.col(self.rating_column) / self.item_popularity.agg(sf.sum(self.rating_column)).first()[0],
         )
         self.item_popularity.cache().count()
         self.fill = self._calc_fill(self.item_popularity, self.cold_weight, self.rating_column)

@@ -1,8 +1,7 @@
-# pylint: disable=redefined-outer-name, missing-function-docstring, unused-import
 import pytest
 
 from replay.models import RandomRec
-from tests.utils import create_dataset, log, spark, sparkDataFrameEqual, sparkDataFrameNotEqual
+from tests.utils import create_dataset, sparkDataFrameEqual, sparkDataFrameNotEqual
 
 pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
@@ -21,6 +20,7 @@ from pyspark.sql import functions as sf
         "popular_based_seed",
         "relevance_seed",
     ],
+    scope="module",
 )
 def fitted_model(request, log):
     model = RandomRec(**request.param)
@@ -32,26 +32,15 @@ def fitted_model(request, log):
 @pytest.mark.spark
 def test_popularity_matrix(log, fitted_model):
     if fitted_model.distribution == "uniform":
-        true_matrix = (
-            log.select("item_idx")
-            .distinct()
-            .withColumn("relevance", sf.lit(1.0))
-        )
+        true_matrix = log.select("item_idx").distinct().withColumn("relevance", sf.lit(1.0))
     elif fitted_model.distribution == "popular_based":
-        true_matrix = log.groupby(
-            "item_idx"
-        ).agg(  # pylint: disable=not-callable
-            sf.countDistinct("user_idx").astype("double").alias("relevance")
-        )
+        true_matrix = log.groupby("item_idx").agg(sf.countDistinct("user_idx").astype("double").alias("relevance"))
     elif fitted_model.distribution == "relevance":
-        true_matrix = log.groupby("item_idx").agg(
-            sf.sum("relevance").alias("relevance")
-        )
+        true_matrix = log.groupby("item_idx").agg(sf.sum("relevance").alias("relevance"))
 
     true_matrix = true_matrix.withColumn(
         "relevance",
-        sf.col("relevance")
-        / sf.lit(true_matrix.agg(sf.sum("relevance")).first()[0]),
+        sf.col("relevance") / sf.lit(true_matrix.agg(sf.sum("relevance")).first()[0]),
     )
 
     sparkDataFrameEqual(
@@ -64,11 +53,7 @@ def test_popularity_matrix(log, fitted_model):
 def test_predict(fitted_model, log):
     # fixed seed provides reproducibility (the same prediction every time),
     # non-fixed provides diversity (predictions differ every time)
-    equality_check = (
-        sparkDataFrameNotEqual
-        if fitted_model.seed is None
-        else sparkDataFrameEqual
-    )
+    equality_check = sparkDataFrameNotEqual if fitted_model.seed is None else sparkDataFrameEqual
     dataset = create_dataset(log)
     pred = fitted_model.predict(dataset, k=1)
     pred_checkpoint = pred.localCheckpoint()

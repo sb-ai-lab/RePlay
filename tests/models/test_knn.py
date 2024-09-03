@@ -1,4 +1,3 @@
-# pylint: disable-all
 from datetime import datetime
 
 import numpy as np
@@ -9,15 +8,16 @@ from replay.models import ItemKNN
 from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
 from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
 from replay.utils import PYSPARK_AVAILABLE
-from tests.utils import create_dataset, spark
+from tests.utils import create_dataset
 
 if PYSPARK_AVAILABLE:
     from replay.models.extensions.ann.index_stores.spark_files_index_store import SparkFilesIndexStore
     from replay.utils.spark_utils import convert2spark
+
     INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -31,7 +31,7 @@ def log(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log_2items_per_user(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -47,7 +47,7 @@ def log_2items_per_user(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def weighting_log(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -62,13 +62,13 @@ def weighting_log(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model():
     model = ItemKNN(1, weighting=None)
     return model
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model_with_ann():
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
@@ -80,19 +80,17 @@ def model_with_ann():
     return ItemKNN(
         1,
         weighting=None,
-        index_builder=DriverNmslibIndexBuilder(
-            index_params=nmslib_hnsw_params, index_store=SparkFilesIndexStore()
-        ),
+        index_builder=DriverNmslibIndexBuilder(index_params=nmslib_hnsw_params, index_store=SparkFilesIndexStore()),
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def tf_idf_model():
     model = ItemKNN(1, weighting="tf_idf")
     return model
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def bm25_model():
     model = ItemKNN(1, weighting="bm25")
     return model
@@ -186,12 +184,8 @@ def test_knn_predict_filter_seen_items(log, model, model_with_ann):
     model_with_ann.fit(dataset)
     recs2 = model_with_ann.predict(dataset, k=1, filter_seen_items=True)
 
-    recs1 = recs1.toPandas().sort_values(
-        ["user_idx", "item_idx"], ascending=False
-    )
-    recs2 = recs2.toPandas().sort_values(
-        ["user_idx", "item_idx"], ascending=False
-    )
+    recs1 = recs1.toPandas().sort_values(["user_idx", "item_idx"], ascending=False)
+    recs2 = recs2.toPandas().sort_values(["user_idx", "item_idx"], ascending=False)
     assert recs1.user_idx.equals(recs2.user_idx)
     assert recs1.item_idx.equals(recs2.item_idx)
 
@@ -203,15 +197,9 @@ def test_knn_predict(log_2items_per_user, model, model_with_ann):
     recs1 = model.predict(dataset, k=2, filter_seen_items=False)
 
     model_with_ann.fit(dataset)
-    recs2 = model_with_ann.predict(
-        dataset, k=2, filter_seen_items=False
-    )
+    recs2 = model_with_ann.predict(dataset, k=2, filter_seen_items=False)
 
-    recs1 = recs1.toPandas().sort_values(
-        ["user_idx", "item_idx"], ascending=False
-    )
-    recs2 = recs2.toPandas().sort_values(
-        ["user_idx", "item_idx"], ascending=False
-    )
+    recs1 = recs1.toPandas().sort_values(["user_idx", "item_idx"], ascending=False)
+    recs2 = recs2.toPandas().sort_values(["user_idx", "item_idx"], ascending=False)
     assert all(recs1.user_idx.values == recs2.user_idx.values)
     assert all(recs1.item_idx.values == recs2.item_idx.values)

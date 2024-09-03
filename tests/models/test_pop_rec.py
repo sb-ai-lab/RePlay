@@ -1,18 +1,17 @@
-# pylint: disable-all
 from datetime import datetime
 
 import pytest
 
 from replay.data import get_schema
 from replay.models import PopRec
-from tests.utils import create_dataset, spark
+from tests.utils import create_dataset
 
 pyspark = pytest.importorskip("pyspark")
 
 INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -29,7 +28,7 @@ def log(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model():
     model = PopRec()
     return model
@@ -37,23 +36,13 @@ def model():
 
 @pytest.mark.spark
 def test_works(log, model):
-    try:
-        dataset = create_dataset(log)
-        pred = model.fit_predict(dataset, k=1)
-        assert list(pred.toPandas().sort_values("user_idx")["item_idx"]) == [
-            1,
-            2,
-            0,
-        ]
-    except:  # noqa
-        pytest.fail()
+    dataset = create_dataset(log)
+    pred = model.fit_predict(dataset, k=1)
+    assert list(pred.toPandas().sort_values("user_idx")["item_idx"]) == [1, 2, 0]
 
 
 @pytest.mark.spark
 def test_clear_cache(log, model):
-    try:
-        dataset = create_dataset(log)
-        model.fit(dataset)
-        model._clear_cache()
-    except:  # noqa
-        pytest.fail()
+    dataset = create_dataset(log)
+    model.fit(dataset)
+    model._clear_cache()

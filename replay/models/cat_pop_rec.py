@@ -2,8 +2,9 @@ from os.path import join
 from typing import Iterable, Optional, Union
 
 from replay.data import Dataset
-from replay.models.base_rec import IsSavable, RecommenderCommons
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+from .base_rec import IsSavable, RecommenderCommons
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -18,7 +19,6 @@ if PYSPARK_AVAILABLE:
     )
 
 
-# pylint: disable=too-many-instance-attributes
 class CatPopRec(IsSavable, RecommenderCommons):
     """
     CatPopRec generate recommendation for item categories.
@@ -35,9 +35,7 @@ class CatPopRec(IsSavable, RecommenderCommons):
     can_predict_cold_items: bool = False
     fit_items: SparkDataFrame
 
-    def _generate_mapping(
-        self, cat_tree: SparkDataFrame, max_iter: int = 20
-    ) -> SparkDataFrame:
+    def _generate_mapping(self, cat_tree: SparkDataFrame, max_iter: int = 20) -> SparkDataFrame:
         """
         Create SparkDataFrame with mapping [`category`, `leaf_cat`]
         where `leaf_cat` is the lowest level categories of category tree,
@@ -49,9 +47,7 @@ class CatPopRec(IsSavable, RecommenderCommons):
         :param max_iter: maximal number of iteration of descend through the category tree
         :return: SparkDataFrame with mapping [`category`, `leaf_cat`]
         """
-        current_res = cat_tree.select(
-            sf.col("category"), sf.col("category").alias("leaf_cat")
-        )
+        current_res = cat_tree.select(sf.col("category"), sf.col("category").alias("leaf_cat"))
 
         i = 0
         res_size_growth = current_res.count()
@@ -108,9 +104,7 @@ class CatPopRec(IsSavable, RecommenderCommons):
         """
         self.max_iter = max_iter
         if cat_tree is not None:
-            self.leaf_cat_mapping = self._generate_mapping(
-                cat_tree, max_iter=max_iter
-            )
+            self.leaf_cat_mapping = self._generate_mapping(cat_tree, max_iter=max_iter)
 
     @property
     def _init_args(self):
@@ -165,7 +159,6 @@ class CatPopRec(IsSavable, RecommenderCommons):
         if hasattr(self, "leaf_cat_mapping"):
             self.leaf_cat_mapping.unpersist()
 
-    # pylint: disable=arguments-differ
     def predict(
         self,
         categories: Union[SparkDataFrame, Iterable],
@@ -219,9 +212,7 @@ class CatPopRec(IsSavable, RecommenderCommons):
         item_data = items or self.fit_items
         items = get_unique_entities(item_data, self.item_column)
 
-        num_new, items = filter_cold(
-            items, self.fit_items, col_name=self.item_column
-        )
+        num_new, items = filter_cold(items, self.fit_items, col_name=self.item_column)
         if num_new > 0:
             self.logger.info(
                 "%s model can't predict cold items, they will be ignored",
@@ -267,9 +258,7 @@ class CatPopRec(IsSavable, RecommenderCommons):
         # find number of interactions in all leaf categories after filtering
         num_interactions_in_cat = (
             res.join(
-                unique_leaf_cat_items.groupBy("leaf_cat").agg(
-                    sf.sum(self.rating_column).alias("sum_rating")
-                ),
+                unique_leaf_cat_items.groupBy("leaf_cat").agg(sf.sum(self.rating_column).alias("sum_rating")),
                 on="leaf_cat",
             )
             .groupBy("category")
@@ -284,9 +273,7 @@ class CatPopRec(IsSavable, RecommenderCommons):
             .groupBy("category", self.item_column)
             .agg(sf.sum(self.rating_column).alias(self.rating_column))
             .join(num_interactions_in_cat, on="category")
-            .withColumn(
-                self.rating_column, sf.col(self.rating_column) / sf.col("sum_rating")
-            )
+            .withColumn(self.rating_column, sf.col(self.rating_column) / sf.col("sum_rating"))
         )
 
     def _save_model(self, path: str):
@@ -296,7 +283,7 @@ class CatPopRec(IsSavable, RecommenderCommons):
                 "item_column": self.item_column,
                 "rating_column": self.rating_column,
             },
-            join(path, "params.dump")
+            join(path, "params.dump"),
         )
 
     def _load_model(self, path: str):

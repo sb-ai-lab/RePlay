@@ -31,9 +31,3 @@ Item Distribution
 Calculates item popularity in recommendations using 10 popularity bins.
 
 .. autofunction:: replay.utils.distributions.item_distribution
-
-You can plot the result. Here is the example for MovieLens log.
-
-.. image:: /images/item_pop.jpg
-
-.. autofunction:: replay.utils.distributions.plot_item_dist

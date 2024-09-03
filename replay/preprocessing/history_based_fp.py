@@ -29,7 +29,6 @@ class EmptyFeatureProcessor:
         :param features: DataFrame with ``user_idx/item_idx`` and feature columns
         """
 
-    # pylint: disable=no-self-use
     def transform(self, log: SparkDataFrame) -> SparkDataFrame:
         """
         Return log without any transformations
@@ -74,26 +73,16 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
         """
         prefix = agg_col[:1]
 
-        aggregates = [
-            sf.log(sf.count(sf.col("relevance"))).alias(
-                f"{prefix}_log_num_interact"
-            )
-        ]
+        aggregates = [sf.log(sf.count(sf.col("relevance"))).alias(f"{prefix}_log_num_interact")]
 
         if self.calc_timestamp_based:
             aggregates.extend(
                 [
-                    sf.log(
-                        sf.countDistinct(
-                            sf.date_trunc("dd", sf.col("timestamp"))
-                        )
-                    ).alias(f"{prefix}_log_interact_days_count"),
-                    sf.min(sf.col("timestamp")).alias(
-                        f"{prefix}_min_interact_date"
+                    sf.log(sf.countDistinct(sf.date_trunc("dd", sf.col("timestamp")))).alias(
+                        f"{prefix}_log_interact_days_count"
                     ),
-                    sf.max(sf.col("timestamp")).alias(
-                        f"{prefix}_max_interact_date"
-                    ),
+                    sf.min(sf.col("timestamp")).alias(f"{prefix}_min_interact_date"),
+                    sf.max(sf.col("timestamp")).alias(f"{prefix}_max_interact_date"),
                 ]
             )
 
@@ -102,8 +91,7 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
                 [
                     (
                         sf.when(
-                            sf.stddev(sf.col("relevance")).isNull()
-                            | sf.isnan(sf.stddev(sf.col("relevance"))),
+                            sf.stddev(sf.col("relevance")).isNull() | sf.isnan(sf.stddev(sf.col("relevance"))),
                             0,
                         )
                         .otherwise(sf.stddev(sf.col("relevance")))
@@ -112,19 +100,15 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
                     sf.mean(sf.col("relevance")).alias(f"{prefix}_mean"),
                 ]
             )
-            for percentile in [0.05, 0.5, 0.95]:
-                aggregates.append(
-                    sf.expr(
-                        f"percentile_approx(relevance, {percentile})"
-                    ).alias(f"{prefix}_quantile_{str(percentile)[2:]}")
-                )
+            aggregates.extend(
+                sf.expr(f"percentile_approx(relevance, {percentile})").alias(f"{prefix}_quantile_{str(percentile)[2:]}")
+                for percentile in [0.05, 0.5, 0.95]
+            )
 
         return aggregates
 
     @staticmethod
-    def _add_ts_based(
-        features: SparkDataFrame, max_log_date: datetime, prefix: str
-    ) -> SparkDataFrame:
+    def _add_ts_based(features: SparkDataFrame, max_log_date: datetime, prefix: str) -> SparkDataFrame:
         """
         Add history length (max - min timestamp) and difference in days between
         last date in log and last interaction of the user/item
@@ -142,15 +126,11 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
             ),
         ).withColumn(
             f"{prefix}_last_interaction_gap_days",
-            sf.datediff(
-                sf.lit(max_log_date), sf.col(f"{prefix}_max_interact_date")
-            ),
+            sf.datediff(sf.lit(max_log_date), sf.col(f"{prefix}_max_interact_date")),
         )
 
     @staticmethod
-    def _cals_cross_interactions_count(
-        log: SparkDataFrame, features: SparkDataFrame
-    ) -> SparkDataFrame:
+    def _cals_cross_interactions_count(log: SparkDataFrame, features: SparkDataFrame) -> SparkDataFrame:
         """
         Calculate difference between the log number of interactions by the user
         and average log number of interactions users interacted with the item has.
@@ -165,9 +145,7 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
             new_feature_entity, calc_by_entity = "user_idx", "item_idx"
 
         mean_log_num_interact = log.join(
-            features.select(
-                calc_by_entity, f"{calc_by_entity[0]}_log_num_interact"
-            ),
+            features.select(calc_by_entity, f"{calc_by_entity[0]}_log_num_interact"),
             on=calc_by_entity,
             how="left",
         )
@@ -178,9 +156,7 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
         )
 
     @staticmethod
-    def _calc_abnormality(
-        log: SparkDataFrame, item_features: SparkDataFrame
-    ) -> SparkDataFrame:
+    def _calc_abnormality(log: SparkDataFrame, item_features: SparkDataFrame) -> SparkDataFrame:
         """
         Calculate  discrepancy between a rating on a resource
         and the average rating of this resource (Abnormality) and
@@ -198,13 +174,9 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
             on_col_name="item_idx",
             how="left",
         )
-        abnormality_df = abnormality_df.withColumn(
-            "abnormality", sf.abs(sf.col("relevance") - sf.col("i_mean"))
-        )
+        abnormality_df = abnormality_df.withColumn("abnormality", sf.abs(sf.col("relevance") - sf.col("i_mean")))
 
-        abnormality_aggs = [
-            sf.mean(sf.col("abnormality")).alias("abnormality")
-        ]
+        abnormality_aggs = [sf.mean(sf.col("abnormality")).alias("abnormality")]
 
         # Abnormality CR:
         max_std = item_features.select(sf.max("i_std")).collect()[0][0]
@@ -212,80 +184,53 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
         if max_std - min_std != 0:
             abnormality_df = abnormality_df.withColumn(
                 "controversy",
-                1
-                - (sf.col("i_std") - sf.lit(min_std))
-                / (sf.lit(max_std - min_std)),
+                1 - (sf.col("i_std") - sf.lit(min_std)) / (sf.lit(max_std - min_std)),
             )
             abnormality_df = abnormality_df.withColumn(
                 "abnormalityCR",
                 (sf.col("abnormality") * sf.col("controversy")) ** 2,
             )
-            abnormality_aggs.append(
-                sf.mean(sf.col("abnormalityCR")).alias("abnormalityCR")
-            )
+            abnormality_aggs.append(sf.mean(sf.col("abnormalityCR")).alias("abnormalityCR"))
 
         return abnormality_df.groupBy("user_idx").agg(*abnormality_aggs)
 
-    def fit(
-        self, log: SparkDataFrame, features: Optional[SparkDataFrame] = None
-    ) -> None:
+    def fit(self, log: SparkDataFrame, features: Optional[SparkDataFrame] = None) -> None:  # noqa: ARG002
         """
         Calculate log-based features for users and items
 
          :param log: input SparkDataFrame ``[user_idx, item_idx, timestamp, relevance]``
-         :param features: not required
         """
-        self.calc_timestamp_based = (
-            isinstance(log.schema["timestamp"].dataType, TimestampType)
-        ) & (
-            log.select(sf.countDistinct(sf.col("timestamp"))).collect()[0][0]
-            > 1
+        self.calc_timestamp_based = (isinstance(log.schema["timestamp"].dataType, TimestampType)) & (
+            log.select(sf.countDistinct(sf.col("timestamp"))).collect()[0][0] > 1
         )
-        self.calc_relevance_based = (
-            log.select(sf.countDistinct(sf.col("relevance"))).collect()[0][0]
-            > 1
-        )
+        self.calc_relevance_based = log.select(sf.countDistinct(sf.col("relevance"))).collect()[0][0] > 1
 
-        user_log_features = log.groupBy("user_idx").agg(
-            *self._create_log_aggregates(agg_col="user_idx")
-        )
-        item_log_features = log.groupBy("item_idx").agg(
-            *self._create_log_aggregates(agg_col="item_idx")
-        )
+        user_log_features = log.groupBy("user_idx").agg(*self._create_log_aggregates(agg_col="user_idx"))
+        item_log_features = log.groupBy("item_idx").agg(*self._create_log_aggregates(agg_col="item_idx"))
 
         if self.calc_timestamp_based:
             last_date = log.select(sf.max("timestamp")).collect()[0][0]
-            user_log_features = self._add_ts_based(
-                features=user_log_features, max_log_date=last_date, prefix="u"
-            )
+            user_log_features = self._add_ts_based(features=user_log_features, max_log_date=last_date, prefix="u")
 
-            item_log_features = self._add_ts_based(
-                features=item_log_features, max_log_date=last_date, prefix="i"
-            )
+            item_log_features = self._add_ts_based(features=item_log_features, max_log_date=last_date, prefix="i")
 
         if self.calc_relevance_based:
             user_log_features = user_log_features.join(
-                self._calc_abnormality(
-                    log=log, item_features=item_log_features
-                ),
+                self._calc_abnormality(log=log, item_features=item_log_features),
                 on="user_idx",
                 how="left",
             ).cache()
 
         self.user_log_features = join_with_col_renaming(
             left=user_log_features,
-            right=self._cals_cross_interactions_count(
-                log=log, features=item_log_features
-            ),
+            right=self._cals_cross_interactions_count(log=log, features=item_log_features),
             on_col_name="user_idx",
             how="left",
         ).cache()
 
         self.item_log_features = join_with_col_renaming(
             left=item_log_features,
-            right=self._cals_cross_interactions_count(
-                log=log, features=user_log_features
-            ),
+            right=self._cals_cross_interactions_count(log=log, features=user_log_features),
             on_col_name="item_idx",
             how="left",
         ).cache()
@@ -311,25 +256,15 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
             )
             .withColumn(
                 "na_u_log_features",
-                sf.when(sf.col("u_log_num_interact").isNull(), 1.0).otherwise(
-                    0.0
-                ),
+                sf.when(sf.col("u_log_num_interact").isNull(), 1.0).otherwise(0.0),
             )
             .withColumn(
                 "na_i_log_features",
-                sf.when(sf.col("i_log_num_interact").isNull(), 1.0).otherwise(
-                    0.0
-                ),
+                sf.when(sf.col("i_log_num_interact").isNull(), 1.0).otherwise(0.0),
             )
             # TO DO std и date diff заменяем на inf, date features - будут ли работать корректно?
             # если не заменять, будет ли работать корректно?
-            .fillna(
-                {
-                    col_name: 0
-                    for col_name in self.user_log_features.columns
-                    + self.item_log_features.columns
-                }
-            )
+            .fillna({col_name: 0 for col_name in self.user_log_features.columns + self.item_log_features.columns})
         )
 
         joined = joined.withColumn(
@@ -375,19 +310,16 @@ class ConditionalPopularityProcessor(EmptyFeatureProcessor):
         :param log: input SparkDataFrame ``[user_idx, item_idx, timestamp, relevance]``
         :param features: SparkDataFrame with ``user_idx/item_idx`` and feature columns
         """
-        if len(
-            set(self.cat_features_list).intersection(features.columns)
-        ) != len(self.cat_features_list):
-            raise ValueError(
+        if len(set(self.cat_features_list).intersection(features.columns)) != len(self.cat_features_list):
+            msg = (
                 f"Columns {set(self.cat_features_list).difference(features.columns)} "
                 f"defined in `cat_features_list` are absent in features. "
                 f"features columns are: {features.columns}."
             )
+            raise ValueError(msg)
 
         join_col, self.entity_name = (
-            ("item_idx", "user_idx")
-            if "item_idx" in features.columns
-            else ("user_idx", "item_idx")
+            ("item_idx", "user_idx") if "item_idx" in features.columns else ("user_idx", "item_idx")
         )
 
         self.conditional_pop_dict = {}
@@ -400,9 +332,9 @@ class ConditionalPopularityProcessor(EmptyFeatureProcessor):
 
         for cat_col in self.cat_features_list:
             col_name = f"{self.entity_name[0]}_pop_by_{cat_col}"
-            intermediate_df = log_with_features.groupBy(
-                self.entity_name, cat_col
-            ).agg(sf.count("relevance").alias(col_name))
+            intermediate_df = log_with_features.groupBy(self.entity_name, cat_col).agg(
+                sf.count("relevance").alias(col_name)
+            )
             intermediate_df = intermediate_df.join(
                 sf.broadcast(count_by_entity_col),
                 on=self.entity_name,
@@ -447,7 +379,6 @@ class ConditionalPopularityProcessor(EmptyFeatureProcessor):
             unpersist_if_exists(df)
 
 
-# pylint: disable=too-many-instance-attributes, too-many-arguments
 class HistoryBasedFeaturesProcessor:
     """
     Calculate user and item features based on interactions history (log).
@@ -484,13 +415,9 @@ class HistoryBasedFeaturesProcessor:
 
         if use_conditional_popularity and user_cat_features_list:
             if user_cat_features_list:
-                self.user_cond_pop_proc = ConditionalPopularityProcessor(
-                    cat_features_list=user_cat_features_list
-                )
+                self.user_cond_pop_proc = ConditionalPopularityProcessor(cat_features_list=user_cat_features_list)
             if item_cat_features_list:
-                self.item_cond_pop_proc = ConditionalPopularityProcessor(
-                    cat_features_list=item_cat_features_list
-                )
+                self.item_cond_pop_proc = ConditionalPopularityProcessor(cat_features_list=item_cat_features_list)
         self.fitted: bool = False
 
     def fit(
@@ -524,7 +451,8 @@ class HistoryBasedFeaturesProcessor:
         :return: augmented SparkDataFrame
         """
         if not self.fitted:
-            raise AttributeError("Call fit before running transform")
+            msg = "Call fit before running transform"
+            raise AttributeError(msg)
         joined = self.log_processor.transform(log)
         joined = self.user_cond_pop_proc.transform(joined)
         joined = self.item_cond_pop_proc.transform(joined)

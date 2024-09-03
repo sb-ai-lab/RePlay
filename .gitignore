@@ -9,6 +9,10 @@
 lightning_logs/
 .logs/
 .checkpoints/
+*.ckpt
+
+# Saved objects
+*.replay
 
 # Poetry (since they are generated from template automatically)
 /poetry.lock

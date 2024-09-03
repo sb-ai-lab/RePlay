@@ -28,7 +28,6 @@ DEFAULT_METRICS: List[MetricName] = [
 DEFAULT_KS: List[int] = [1, 5, 10, 20]
 
 
-# pylint: disable=too-many-instance-attributes
 @dataclass
 class _MetricRequirements:
     """
@@ -113,7 +112,6 @@ class _CoverageHelper:
         self._train_hist = torch.zeros(self.item_count)
         self._pred_hist: Dict[int, torch.Tensor] = {k: torch.zeros(self.item_count) for k in self._top_k}
 
-    # pylint: disable=attribute-defined-outside-init
     def _ensure_hists_on_device(self, device: torch.device) -> None:
         self._train_hist = self._train_hist.to(device)
         for k in self._top_k:
@@ -192,13 +190,11 @@ class _MetricBuilder(abc.ABC):
         """
 
 
-# pylint: disable=too-many-instance-attributes
 class TorchMetricsBuilder(_MetricBuilder):
     """
     Computes specified metrics over multiple batches
     """
 
-    # pylint: disable=dangerous-default-value
     def __init__(
         self,
         metrics: List[MetricName] = DEFAULT_METRICS,
@@ -225,7 +221,9 @@ class TorchMetricsBuilder(_MetricBuilder):
             self._map_weights: torch.Tensor
             self._reserve_map_constants()
         self._item_count = item_count
-        self._coverage_helper = _CoverageHelper(top_k=self._mr.top_k, item_count=item_count)
+        if self._mr.need_coverage:
+            assert self._item_count is not None, "For Coverage calculations item_count should be defined."
+            self._coverage_helper = _CoverageHelper(top_k=self._mr.top_k, item_count=item_count)
         self.reset()
 
     @property
@@ -278,7 +276,7 @@ class TorchMetricsBuilder(_MetricBuilder):
             If users have a test set of different sizes then you need to do the padding using -1.
         :param train: (optional, int): A batch corresponding to the train set for each user.
             If users have a train set of different sizes then you need to do the padding using -2.
-            You can omit this parameter if you don't need to calculate the unseen metrics.
+            You can omit this parameter if you don't need to calculate the coverage or novelty metrics.
         """
         self._ensure_constants_on_device(predictions.device)
         metrics_sum = np.array(self._compute_metrics_sum(predictions, ground_truth, train), dtype=np.float64)
@@ -395,7 +393,7 @@ def metrics_to_df(metrics: Mapping[str, float]) -> PandasDataFrame:
 
     metric_name_and_k = metrics_df["m"].str.split("@", expand=True)
     metrics_df["metric"] = metric_name_and_k[0]
-    metrics_df["k"] = [int(k) for k in metric_name_and_k[1]]
+    metrics_df["k"] = metric_name_and_k[1]
 
     pivoted_metrics = metrics_df.pivot(index="metric", columns="k", values="v")
     pivoted_metrics.index.name = None

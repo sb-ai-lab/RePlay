@@ -125,8 +125,10 @@ We follow [the standard python PEP8](https://www.python.org/dev/peps/pep-0008/) 
 In order to automate checking of the code quality, please run:
 
     ```bash
-    pycodestyle replay tests
-    pylint replay
+    ruff check .
+    black --check --diff -- .
+    ./poetry_wrapper.sh check
+    ./poetry_wrapper.sh --experimental check
     ```
 
 ## How to add a new model

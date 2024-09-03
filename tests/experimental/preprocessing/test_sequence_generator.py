@@ -6,7 +6,25 @@ torch = pytest.importorskip("torch")
 
 from replay.experimental.preprocessing import SequenceGenerator
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
-from tests.preprocessing.conftest import *
+from tests.preprocessing.conftest import (
+    columns,
+    columns_target,
+    columns_target_list_len,
+    schema_target,
+    schema_target_list_len,
+    simple_dataframe,
+    simple_dataframe_additional,
+    simple_dataframe_additional_pandas,
+    simple_dataframe_array,
+    simple_dataframe_array_pandas,
+    simple_dataframe_pandas,
+    simple_dataframe_target,
+    simple_dataframe_target_ordered,
+    simple_dataframe_target_ordered_list_len,
+    simple_dataframe_target_ordered_list_len_pandas,
+    simple_dataframe_target_ordered_pandas,
+    simple_dataframe_target_pandas,
+)
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -23,7 +41,6 @@ if PYSPARK_AVAILABLE:
         pytest.param("simple_dataframe_pandas", "simple_dataframe_target_pandas"),
     ],
 )
-@pytest.mark.usefixtures("columns_target")
 def test_target(groupby_column, transform_columns, len_window, label_prefix, columns_target, dataset, result, request):
     simple_dataframe = request.getfixturevalue(dataset)
     simple_dataframe_target = request.getfixturevalue(result)
@@ -58,7 +75,6 @@ def test_target(groupby_column, transform_columns, len_window, label_prefix, col
         pytest.param("simple_dataframe_pandas", "simple_dataframe_target_ordered_pandas"),
     ],
 )
-@pytest.mark.usefixtures("columns_target")
 def test_target_ordered(
     groupby_column,
     orderby_column,
@@ -105,7 +121,6 @@ def test_target_ordered(
         pytest.param("simple_dataframe_pandas", "simple_dataframe_target_ordered_list_len_pandas"),
     ],
 )
-@pytest.mark.usefixtures("columns_target_list_len")
 def test_target_ordered_list_len(
     groupby_column,
     orderby_column,
@@ -295,7 +310,6 @@ def test_return_column_names(
 
 
 @pytest.mark.experimental
-@pytest.mark.usefixtures("columns")
 @pytest.mark.parametrize(
     "is_spark",
     [

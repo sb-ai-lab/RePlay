@@ -1,4 +1,3 @@
-# pylint: disable-all
 from datetime import datetime
 
 import numpy as np
@@ -14,16 +13,7 @@ from replay.experimental.models import NeuroMF
 from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
 from replay.experimental.utils.model_handler import save
 from replay.utils.model_handler import load
-from tests.utils import (
-    del_files_by_pattern,
-    find_file_by_pattern,
-    log,
-    log_to_pred,
-    long_log_with_features,
-    spark,
-    sparkDataFrameEqual,
-    user_features,
-)
+from tests.utils import sparkDataFrameEqual
 
 SEED = 123
 INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
@@ -37,7 +27,7 @@ def fit_predict_selected(model, train_log, inf_log, user_features, users):
     return model.predict(log=inf_log, users=users, k=1, **kwargs)
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def fix_seeds():
     torch.manual_seed(7)
     torch.backends.cudnn.deterministic = True
@@ -45,7 +35,7 @@ def fix_seeds():
     np.random.seed(0)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -71,7 +61,7 @@ def log(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model():
     params = {
         "learning_rate": 0.5,
@@ -124,7 +114,7 @@ def test_predict(log, model):
     try:
         pred = model.predict(log=log, k=1)
         pred.count()
-    except RuntimeError:  # noqa
+    except RuntimeError:
         pytest.fail()
 
 
@@ -134,7 +124,7 @@ def test_check_gmf_only(log):
     model = NeuroMF(**params)
     try:
         model.fit(log)
-    except RuntimeError:  # noqa
+    except RuntimeError:
         pytest.fail()
 
 
@@ -149,7 +139,7 @@ def test_check_mlp_only(log):
     model = NeuroMF(**params)
     try:
         model.fit(log)
-    except RuntimeError:  # noqa
+    except RuntimeError:
         pytest.fail()
 
 
@@ -159,7 +149,7 @@ def test_check_simple_mlp_only(log):
     model = NeuroMF(**params)
     try:
         model.fit(log)
-    except RuntimeError:  # noqa
+    except RuntimeError:
         pytest.fail()
 
 
@@ -236,21 +226,9 @@ def test_predict_pairs_k(log):
         k=None,
     )
 
-    assert (
-        pairs_pred_k.groupBy("user_idx")
-        .count()
-        .filter(sf.col("count") > 1)
-        .count()
-        == 0
-    )
+    assert pairs_pred_k.groupBy("user_idx").count().filter(sf.col("count") > 1).count() == 0
 
-    assert (
-        pairs_pred.groupBy("user_idx")
-        .count()
-        .filter(sf.col("count") > 1)
-        .count()
-        > 0
-    )
+    assert pairs_pred.groupBy("user_idx").count().filter(sf.col("count") > 1).count() > 0
 
 
 @pytest.mark.experimental

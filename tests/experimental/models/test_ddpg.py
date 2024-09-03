@@ -1,4 +1,3 @@
-# pylint: disable-all
 from datetime import datetime
 
 import numpy as np
@@ -17,12 +16,7 @@ from replay.experimental.models.ddpg import ActorDRR, CriticDRR, OUNoise, Replay
 from tests.utils import (
     del_files_by_pattern,
     find_file_by_pattern,
-    log,
-    log_to_pred,
-    long_log_with_features,
-    spark,
     sparkDataFrameEqual,
-    user_features,
 )
 
 SEED = 123
@@ -30,34 +24,34 @@ INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance
 
 
 DDPG_PARAMS = [
-    dict(
-        state_repr_dim=1,
-        action_emb_dim=1,
-        hidden_dim=1,
-        heads_num=1,
-        heads_q=0.5,
-        user_num=1,
-        item_num=1,
-        embedding_dim=1,
-        memory_size=1,
-        device=torch.device("cpu"),
-        env_gamma_alpha=1,
-        min_trajectory_len=10,
-    ),
-    dict(
-        state_repr_dim=10,
-        action_emb_dim=10,
-        hidden_dim=1,
-        heads_num=15,
-        heads_q=0.1,
-        user_num=10,
-        item_num=10,
-        embedding_dim=10,
-        memory_size=10,
-        device=torch.device("cpu"),
-        env_gamma_alpha=1,
-        min_trajectory_len=10,
-    ),
+    {
+        "state_repr_dim": 1,
+        "action_emb_dim": 1,
+        "hidden_dim": 1,
+        "heads_num": 1,
+        "heads_q": 0.5,
+        "user_num": 1,
+        "item_num": 1,
+        "embedding_dim": 1,
+        "memory_size": 1,
+        "device": torch.device("cpu"),
+        "env_gamma_alpha": 1,
+        "min_trajectory_len": 10,
+    },
+    {
+        "state_repr_dim": 10,
+        "action_emb_dim": 10,
+        "hidden_dim": 1,
+        "heads_num": 15,
+        "heads_q": 0.1,
+        "user_num": 10,
+        "item_num": 10,
+        "embedding_dim": 10,
+        "memory_size": 10,
+        "device": torch.device("cpu"),
+        "env_gamma_alpha": 1,
+        "min_trajectory_len": 10,
+    },
 ]
 
 HEADER = ["user_idx", "item_idx", "relevance"]
@@ -77,23 +71,10 @@ DF_CASES = [
     matrix_to_df(np.zeros((10, 10), dtype=int)),
     matrix_to_df(np.ones((10, 10), dtype=int)),
     matrix_to_df(np.random.choice([0, 1], size=(10, 10), p=[0.9, 0.1])),
-    # pd.DataFrame(
-    #     np.array(
-    #         [
-    #             [1, 2, 1],
-    #             [3, 4, 0],
-    #             [7, 9, 1],
-    #             [11, 10, 0],
-    #             [11, 4, 1],
-    #             [7, 10, 1],
-    #         ]
-    #     ),
-    #     columns=HEADER,
-    # ),
 ]
 
 
-@pytest.fixture(params=DDPG_PARAMS)
+@pytest.fixture(params=DDPG_PARAMS, scope="class")
 def ddpg_critic_param(request):
     param = request.param
     return (
@@ -108,7 +89,7 @@ def ddpg_critic_param(request):
     )
 
 
-@pytest.fixture(params=DDPG_PARAMS)
+@pytest.fixture(params=DDPG_PARAMS, scope="class")
 def ddpg_actor_param(request):
     param = request.param
     return (
@@ -126,7 +107,7 @@ def ddpg_actor_param(request):
     )
 
 
-@pytest.fixture(params=DDPG_PARAMS)
+@pytest.fixture(params=DDPG_PARAMS, scope="class")
 def ddpg_state_repr_param(request):
     param = request.param
     return (
@@ -143,7 +124,7 @@ def ddpg_state_repr_param(request):
 BATCH_SIZES = [1, 2, 3, 10, 15]
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="class", autouse=True)
 def fix_seeds():
     torch.manual_seed(7)
     torch.backends.cudnn.deterministic = True
@@ -151,7 +132,7 @@ def fix_seeds():
     np.random.seed(0)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -177,8 +158,8 @@ def log(spark):
     )
 
 
-@pytest.fixture
-def model(log):
+@pytest.fixture(scope="class")
+def model():
     model = DDPG(user_num=5, item_num=5)
     model.batch_size = 1
     return model
@@ -251,9 +232,7 @@ def test_actor_get_action(ddpg_actor_param, batch_size):
     action = torch.randint(high=item_num, size=(batch_size,))
     action_emb = actor.state_repr.item_embeddings(action)
 
-    discrete_actions = actor.get_action(
-        action_emb, items, torch.ones_like(items)
-    )
+    discrete_actions = actor.get_action(action_emb, items, torch.ones_like(items))
 
     assert (action == discrete_actions).prod()
 
@@ -293,7 +272,7 @@ def test_predict(log, model):
     try:
         pred = model.predict(log=log, k=1)
         pred.count()
-    except RuntimeError:  # noqa
+    except RuntimeError:
         pytest.fail()
 
 
@@ -305,15 +284,9 @@ def test_save_load(log, model, user_num=5, item_num=5):
 
     model.exact_embeddings_size = False
     model.fit(log=log)
-    old_params = [
-        param.detach().cpu().numpy() for param in model.model.parameters()
-    ]
-    old_policy_optimizer_params = model.policy_optimizer.state_dict()[
-        "param_groups"
-    ][0]
-    old_value_optimizer_params = model.value_optimizer.state_dict()[
-        "param_groups"
-    ][0]
+    old_params = [param.detach().cpu().numpy() for param in model.model.parameters()]
+    old_policy_optimizer_params = model.policy_optimizer.state_dict()["param_groups"][0]
+    old_value_optimizer_params = model.value_optimizer.state_dict()["param_groups"][0]
     path = find_file_by_pattern(spark_local_dir, pattern)
     assert path is not None
 
@@ -346,17 +319,13 @@ def test_save_load(log, model, user_num=5, item_num=5):
             old_params[i],
             atol=1.0e-3,
         )
-    for param_name, parameter in new_model.policy_optimizer.state_dict()[
-        "param_groups"
-    ][0].items():
+    for param_name, parameter in new_model.policy_optimizer.state_dict()["param_groups"][0].items():
         assert np.allclose(
             parameter,
             old_policy_optimizer_params[param_name],
             atol=1.0e-3,
         )
-    for param_name, parameter in new_model.value_optimizer.state_dict()[
-        "param_groups"
-    ][0].items():
+    for param_name, parameter in new_model.value_optimizer.state_dict()["param_groups"][0].items():
         assert np.allclose(
             parameter,
             old_value_optimizer_params[param_name],
@@ -372,7 +341,6 @@ def test_env_step(log, model, user=[0, 1, 2]):
         5,
         8,
     )
-    # model.replay_buffer.capacity = 4
     train_matrix, _, item_num, _ = model._preprocess_log(log)
     model.model = ActorDRR(
         model.user_num,
@@ -413,10 +381,7 @@ def test_env_step(log, model, user=[0, 1, 2]):
 
     # choose related action
     global_action = model.model.environment.related_items[user, 0]
-    action = torch.where(
-        model.model.environment.available_items - global_action.reshape(-1, 1)
-        == 0
-    )[1]
+    action = torch.where(model.model.environment.available_items - global_action.reshape(-1, 1) == 0)[1]
 
     # step
     model.model.environment.step(action, action_emb, replay_buffer)
@@ -432,16 +397,12 @@ def test_predict_pairs_to_file(spark, long_log_with_features, tmp_path):
     model.fit(long_log_with_features)
     model.predict_pairs(
         log=long_log_with_features,
-        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
-            "user_idx", "item_idx"
-        ),
+        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"),
         recs_file_path=path,
     )
     pred_cached = model.predict_pairs(
         log=long_log_with_features,
-        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select(
-            "user_idx", "item_idx"
-        ),
+        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"),
         recs_file_path=None,
     )
     pred_from_file = spark.read.parquet(path)
@@ -453,8 +414,6 @@ def test_predict_to_file(spark, long_log_with_features, tmp_path):
     model = DDPG(seed=SEED, user_num=6, item_num=6)
     path = str((tmp_path / "pred.parquet").resolve().absolute())
     model.fit_predict(long_log_with_features, k=10, recs_file_path=path)
-    pred_cached = model.predict(
-        long_log_with_features, k=10, recs_file_path=None
-    )
+    pred_cached = model.predict(long_log_with_features, k=10, recs_file_path=None)
     pred_from_file = spark.read.parquet(path)
     sparkDataFrameEqual(pred_cached, pred_from_file)

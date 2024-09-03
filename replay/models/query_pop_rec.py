@@ -1,7 +1,7 @@
-
 from replay.data import Dataset
-from replay.models.base_rec import Recommender
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+from .base_rec import Recommender
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -76,7 +76,6 @@ class QueryPopRec(Recommender):
         self,
         dataset: Dataset,
     ) -> None:
-
         query_rating_sum = (
             dataset.interactions.groupBy(self.query_column)
             .agg(sf.sum(self.rating_column).alias("query_rel_sum"))
@@ -94,9 +93,7 @@ class QueryPopRec(Recommender):
             .select(
                 self.query_column,
                 self.item_column,
-                (sf.col("query_item_rel_sum") / sf.col("query_rel_sum")).alias(
-                    self.rating_column
-                ),
+                (sf.col("query_item_rel_sum") / sf.col("query_rel_sum")).alias(self.rating_column),
             )
         )
         self.query_item_popularity.cache().count()
@@ -105,20 +102,15 @@ class QueryPopRec(Recommender):
         if hasattr(self, "query_item_popularity"):
             self.query_item_popularity.unpersist()
 
-    # pylint: disable=too-many-arguments
     def _predict(
         self,
-        dataset: Dataset,
-        k: int,
+        dataset: Dataset,  # noqa: ARG002
+        k: int,  # noqa: ARG002
         queries: SparkDataFrame,
         items: SparkDataFrame,
         filter_seen_items: bool = True,
     ) -> SparkDataFrame:
         if filter_seen_items:
-            self.logger.warning(
-                "QueryPopRec can't predict new items, recommendations will not be filtered"
-            )
+            self.logger.warning("QueryPopRec can't predict new items, recommendations will not be filtered")
 
-        return self.query_item_popularity.join(queries, on=self.query_column).join(
-            items, on=self.item_column
-        )
+        return self.query_item_popularity.join(queries, on=self.query_column).join(items, on=self.item_column)

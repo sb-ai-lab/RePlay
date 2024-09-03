@@ -1,4 +1,3 @@
-# pylint: disable=too-many-lines
 """
 NeighbourRec - base class that requires interactions at prediction time.
 Part of set of abstract classes (from base_rec.py)
@@ -8,9 +7,10 @@ from abc import ABC
 from typing import Any, Dict, Iterable, Optional, Union
 
 from replay.data.dataset import Dataset
-from replay.models.base_rec import Recommender
-from replay.models.extensions.ann.ann_mixin import ANNMixin
 from replay.utils import PYSPARK_AVAILABLE, MissingImportType, SparkDataFrame
+
+from .base_rec import Recommender
+from .extensions.ann.ann_mixin import ANNMixin
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -37,7 +37,6 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         if hasattr(self, "similarity"):
             self.similarity.unpersist()
 
-    # pylint: disable=missing-function-docstring
     @property
     def similarity_metric(self):
         return self._similarity_metric
@@ -45,14 +44,11 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
     @similarity_metric.setter
     def similarity_metric(self, value):
         if not self.can_change_metric:
-            raise ValueError(
-                "This class does not support changing similarity metrics"
-            )
+            msg = "This class does not support changing similarity metrics"
+            raise ValueError(msg)
         if value not in self.item_to_item_metrics:
-            raise ValueError(
-                f"Select one of the valid metrics for predict: "
-                f"{self.item_to_item_metrics}"
-            )
+            msg = f"Select one of the valid metrics for predict: {self.item_to_item_metrics}"
+            raise ValueError(msg)
         self._similarity_metric = value
 
     def _predict_pairs_inner(
@@ -76,9 +72,8 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         :return: SparkDataFrame ``[user_id, item_id, rating]``
         """
         if dataset is None:
-            raise ValueError(
-                "interactions is not provided, but it is required for prediction"
-            )
+            msg = "interactions is not provided, but it is required for prediction"
+            raise ValueError(msg)
 
         recs = (
             dataset.interactions.join(queries, how="inner", on=self.query_column)
@@ -98,16 +93,14 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         )
         return recs
 
-    # pylint: disable=too-many-arguments
     def _predict(
         self,
         dataset: Dataset,
-        k: int,
+        k: int,  # noqa: ARG002
         queries: SparkDataFrame,
         items: SparkDataFrame,
-        filter_seen_items: bool = True,
+        filter_seen_items: bool = True,  # noqa: ARG002
     ) -> SparkDataFrame:
-
         return self._predict_pairs_inner(
             dataset=dataset,
             filter_df=items.withColumnRenamed(self.item_column, "item_idx_filter"),
@@ -120,18 +113,12 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         pairs: SparkDataFrame,
         dataset: Optional[Dataset] = None,
     ) -> SparkDataFrame:
-
-        if dataset is None:
-            raise ValueError(
-                "interactions is not provided, but it is required for prediction"
-            )
-
         return self._predict_pairs_inner(
             dataset=dataset,
             filter_df=(
-                pairs.withColumnRenamed(
-                    self.query_column, "user_idx_filter"
-                ).withColumnRenamed(self.item_column, "item_idx_filter")
+                pairs.withColumnRenamed(self.query_column, "user_idx_filter").withColumnRenamed(
+                    self.item_column, "item_idx_filter"
+                )
             ),
             condition=(sf.col(self.query_column) == sf.col("user_idx_filter"))
             & (sf.col("item_idx_two") == sf.col("item_idx_filter")),
@@ -161,6 +148,10 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         """
 
         if metric is not None:
+            if metric not in self.item_to_item_metrics:
+                msg = f"Select one of the valid distance metrics: {self.item_to_item_metrics}"
+                raise ValueError(msg)
+
             self.logger.debug(
                 "Metric is not used to determine nearest items in %s model",
                 str(self),
@@ -179,7 +170,6 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
         metric: Optional[str] = None,
         candidates: Optional[SparkDataFrame] = None,
     ) -> SparkDataFrame:
-
         similarity_filtered = self.similarity.join(
             items.withColumnRenamed(self.item_column, "item_idx_one"),
             on="item_idx_one",
@@ -203,20 +193,16 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
             "features_col": None,
         }
 
-    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:
-        similarity_df = self.similarity.select(
-            "similarity", "item_idx_one", "item_idx_two"
-        )
+    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:  # noqa: ARG002
+        similarity_df = self.similarity.select("similarity", "item_idx_one", "item_idx_two")
         return similarity_df
 
     def _get_vectors_to_infer_ann_inner(
-            self, interactions: SparkDataFrame, queries: SparkDataFrame
+        self, interactions: SparkDataFrame, queries: SparkDataFrame  # noqa: ARG002
     ) -> SparkDataFrame:
-
-        user_vectors = (
-            interactions.groupBy(self.query_column).agg(
-                sf.collect_list(self.item_column).alias("vector_items"),
-                sf.collect_list(self.rating_column).alias("vector_ratings"))
+        user_vectors = interactions.groupBy(self.query_column).agg(
+            sf.collect_list(self.item_column).alias("vector_items"),
+            sf.collect_list(self.rating_column).alias("vector_ratings"),
         )
         return user_vectors
 

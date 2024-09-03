@@ -1,13 +1,21 @@
-from typing import Optional, Union
+from typing import Optional, Tuple
 
-from replay.splitters.base_splitter import Splitter, SplitterReturnType
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
+import polars as pl
+
+from replay.utils import (
+    PYSPARK_AVAILABLE,
+    DataFrameLike,
+    PandasDataFrame,
+    PolarsDataFrame,
+    SparkDataFrame,
+)
+
+from .base_splitter import Splitter, SplitterReturnType
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
 
 
-# pylint: disable=too-few-public-methods, duplicate-code
 class ColdUserRandomSplitter(Splitter):
     """
     Test set consists of all actions of randomly chosen users.
@@ -21,7 +29,6 @@ class ColdUserRandomSplitter(Splitter):
         "item_column",
     ]
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         test_size: float,
@@ -45,14 +52,13 @@ class ColdUserRandomSplitter(Splitter):
         )
         self.seed = seed
         if test_size <= 0 or test_size >= 1:
-            raise ValueError("test_size must between 0 and 1")
+            msg = "test_size must between 0 and 1"
+            raise ValueError(msg)
         self.test_size = test_size
 
     def _core_split_pandas(
-        self,
-        interactions: PandasDataFrame,
-        threshold: float
-    ) -> Union[PandasDataFrame, PandasDataFrame]:
+        self, interactions: PandasDataFrame, threshold: float
+    ) -> Tuple[PandasDataFrame, PandasDataFrame]:
         users = PandasDataFrame(interactions[self.query_column].unique(), columns=[self.query_column])
         train_users = users.sample(frac=(1 - threshold), random_state=self.seed)
         train_users["is_test"] = False
@@ -67,19 +73,15 @@ class ColdUserRandomSplitter(Splitter):
         return train, test
 
     def _core_split_spark(
-        self,
-        interactions: SparkDataFrame,
-        threshold: float
-    ) -> Union[SparkDataFrame, SparkDataFrame]:
+        self, interactions: SparkDataFrame, threshold: float
+    ) -> Tuple[SparkDataFrame, SparkDataFrame]:
         users = interactions.select(self.query_column).distinct()
         train_users, _ = users.randomSplit(
             [1 - threshold, threshold],
             seed=self.seed,
         )
         interactions = interactions.join(
-            train_users.withColumn("is_test", sf.lit(False)),
-            on=self.query_column,
-            how="left"
+            train_users.withColumn("is_test", sf.lit(False)), on=self.query_column, how="left"
         ).na.fill({"is_test": True})
 
         train = interactions.filter(~sf.col("is_test")).drop("is_test")
@@ -87,9 +89,29 @@ class ColdUserRandomSplitter(Splitter):
 
         return train, test
 
-    def _core_split(self, interactions: DataFrameLike) -> SplitterReturnType:
-        split_method = self._core_split_spark
-        if isinstance(interactions, PandasDataFrame):
-            split_method = self._core_split_pandas
+    def _core_split_polars(
+        self, interactions: PolarsDataFrame, threshold: float
+    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+        train_users = (
+            interactions.select(self.query_column)
+            .unique()
+            .sample(fraction=(1 - threshold), seed=self.seed)
+            .with_columns(pl.lit(False).alias("is_test"))
+        )
 
-        return split_method(interactions, self.test_size)
+        interactions = interactions.join(train_users, on=self.query_column, how="left").fill_null(True)
+
+        train = interactions.filter(~pl.col("is_test")).drop("is_test")
+        test = interactions.filter(pl.col("is_test")).drop("is_test")
+        return train, test
+
+    def _core_split(self, interactions: DataFrameLike) -> SplitterReturnType:
+        if isinstance(interactions, SparkDataFrame):
+            return self._core_split_spark(interactions, self.test_size)
+        if isinstance(interactions, PandasDataFrame):
+            return self._core_split_pandas(interactions, self.test_size)
+        if isinstance(interactions, PolarsDataFrame):
+            return self._core_split_polars(interactions, self.test_size)
+
+        msg = f"{self} is not implemented for {type(interactions)}"
+        raise NotImplementedError(msg)

@@ -3,7 +3,7 @@ from typing import ClassVar, Optional
 
 from typing_extensions import Literal
 
-from replay.models.extensions.ann.entities.base_hnsw_param import BaseHnswParam
+from .base_hnsw_param import BaseHnswParam
 
 
 @dataclass
@@ -65,9 +65,3 @@ class NmslibHnswParam(BaseHnswParam):
     items_count: Optional[int] = field(default=None, init=False)
 
     method: ClassVar[str] = "hnsw"
-
-    # def init_args_as_dict(self):
-    #     # union dicts
-    #     return dict(
-    #         super().init_args_as_dict()["init_args"], **{"space": self.space}
-    #     )

@@ -11,7 +11,6 @@ from replay.models.extensions.ann.index_builders.base_index_builder import Index
 from replay.utils import SparkDataFrame
 
 
-# pylint: disable=too-many-arguments, too-many-locals
 @nb.njit(parallel=True)
 def _main_iteration(
     inv_matrix,
@@ -27,7 +26,6 @@ def _main_iteration(
     threshold,
     multiplicator,
 ):  # pragma: no cover
-
     # calculate mat_b
     mat_b = p_x + np.dot(inv_matrix, rho * mat_c - mat_gamma)
     vec_gamma = np.diag(mat_b) / np.diag(inv_matrix)
@@ -45,9 +43,7 @@ def _main_iteration(
     # calculate residuals
     r_primal = np.linalg.norm(mat_b - mat_c)
     r_dual = np.linalg.norm(-rho * (mat_c - prev_mat_c))
-    eps_primal = eps_abs * items_count + eps_rel * max(
-        np.linalg.norm(mat_b), np.linalg.norm(mat_c)
-    )
+    eps_primal = eps_abs * items_count + eps_rel * max(np.linalg.norm(mat_b), np.linalg.norm(mat_c))
     eps_dual = eps_abs * items_count + eps_rel * np.linalg.norm(mat_gamma)
     if r_primal > threshold * r_dual:
         rho *= multiplicator
@@ -66,7 +62,6 @@ def _main_iteration(
     )
 
 
-# pylint: disable=too-many-instance-attributes, too-many-ancestors
 class ADMMSLIM(NeighbourRec):
     """`ADMM SLIM: Sparse Recommendations for Many Users
     <http://www.cs.columbia.edu/~jebara/papers/wsdm20_ADMM.pdf>`_
@@ -109,7 +104,8 @@ class ADMMSLIM(NeighbourRec):
             If not set, then ann will not be used.
         """
         if lambda_1 < 0 or lambda_2 <= 0:
-            raise ValueError("Invalid regularization parameters")
+            msg = "Invalid regularization parameters"
+            raise ValueError(msg)
         self.lambda_1 = lambda_1
         self.lambda_2 = lambda_2
         self.rho = lambda_2
@@ -127,12 +123,11 @@ class ADMMSLIM(NeighbourRec):
             "seed": self.seed,
         }
 
-    # pylint: disable=too-many-locals
     def _fit(
         self,
         log: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
     ) -> None:
         self.logger.debug("Fitting ADMM SLIM")
         pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
@@ -146,9 +141,7 @@ class ADMMSLIM(NeighbourRec):
         self.logger.debug("Gram matrix")
         xtx = (interactions_matrix.T @ interactions_matrix).toarray()
         self.logger.debug("Inverse matrix")
-        inv_matrix = np.linalg.inv(
-            xtx + (self.lambda_2 + self.rho) * np.eye(self._item_dim)
-        )
+        inv_matrix = np.linalg.inv(xtx + (self.lambda_2 + self.rho) * np.eye(self._item_dim))
         self.logger.debug("Main calculations")
         p_x = inv_matrix @ xtx
         mat_b, mat_c, mat_gamma = self._init_matrix(self._item_dim)
@@ -156,9 +149,7 @@ class ADMMSLIM(NeighbourRec):
         r_dual = np.linalg.norm(self.rho * mat_c)
         eps_primal, eps_dual = 0.0, 0.0
         iteration = 0
-        while (
-            r_primal > eps_primal or r_dual > eps_dual
-        ) and iteration < self.max_iteration:
+        while (r_primal > eps_primal or r_dual > eps_dual) and iteration < self.max_iteration:
             iteration += 1
             (
                 mat_b,
@@ -204,13 +195,11 @@ class ADMMSLIM(NeighbourRec):
         )
         self.similarity.cache().count()
 
-    def _init_matrix(
-        self, size: int
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _init_matrix(self, size: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Matrix initialization"""
         if self.seed is not None:
             np.random.seed(self.seed)
-        mat_b = np.random.rand(size, size)  # type: ignore
-        mat_c = np.random.rand(size, size)  # type: ignore
-        mat_gamma = np.random.rand(size, size)  # type: ignore
+        mat_b = np.random.rand(size, size)
+        mat_c = np.random.rand(size, size)
+        mat_gamma = np.random.rand(size, size)
         return mat_b, mat_c, mat_gamma

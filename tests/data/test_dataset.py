@@ -1,9 +1,16 @@
+import inspect
+import json
+import shutil
+from pathlib import Path
+
 import pandas as pd
+import polars as pl
 import pytest
 
 from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureSource, FeatureType
-from replay.utils import PYSPARK_AVAILABLE
-from tests.utils import spark
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame, SparkDataFrame
+from replay.utils.common import load_from_replay, save_to_replay
+from tests.utils import assert_dataframelikes_equal
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql.functions import asc
@@ -206,6 +213,22 @@ def compare_storage_level(resulting_storage_level, expected_storage_level):
     assert resulting_storage_level.replication == expected_storage_level.replication
 
 
+def compare_datasets(dataset, other_dataset, same_type=True):
+    for attr_name, attr in dataset.__dict__.items():
+        if attr.__class__.__module__ == "__builtin__":
+            assert attr == other_dataset.__dict__[attr_name]
+    if dataset.interactions is not None or other_dataset.interactions is not None:
+        assert_dataframelikes_equal([dataset.interactions, other_dataset.interactions], same_type=same_type)
+    if dataset.query_features is not None or other_dataset.query_features is not None:
+        assert_dataframelikes_equal([dataset.query_features, other_dataset.query_features], same_type=same_type)
+    if dataset.item_features is not None or other_dataset.item_features is not None:
+        assert_dataframelikes_equal([dataset.item_features, other_dataset.item_features], same_type=same_type)
+
+
+def get_test_name():
+    return inspect.stack()[0][3]
+
+
 @pytest.mark.spark
 @pytest.mark.parametrize(
     "data_dict",
@@ -220,19 +243,28 @@ def test_wrong_features_type(data_dict, request):
 
 
 @pytest.mark.core
-@pytest.mark.usefixtures("interactions_full_pandas_dataset")
 def test_type_pandas(interactions_full_pandas_dataset):
     dataset = create_dataset(interactions_full_pandas_dataset, check_consistency=True, categorical_encoded=False)
     assert dataset.is_pandas
+    assert not dataset.is_spark
+    assert not dataset.is_polars
+    assert dataset.is_categorical_encoded is False
+
+
+@pytest.mark.core
+def test_type_polars(interactions_full_polars_dataset):
+    dataset = create_dataset(interactions_full_polars_dataset, check_consistency=True, categorical_encoded=False)
+    assert dataset.is_polars
+    assert not dataset.is_pandas
     assert not dataset.is_spark
     assert dataset.is_categorical_encoded is False
 
 
 @pytest.mark.spark
-@pytest.mark.usefixtures("interactions_full_spark_dataset")
 def test_type_spark(interactions_full_spark_dataset):
     dataset = create_dataset(interactions_full_spark_dataset)
     assert not dataset.is_pandas
+    assert not dataset.is_polars
     assert dataset.is_spark
 
 
@@ -241,6 +273,7 @@ def test_type_spark(interactions_full_spark_dataset):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_consistent_ids(data_dict, request):
@@ -254,6 +287,8 @@ def test_consistent_ids(data_dict, request):
         pytest.param("inconsistent_user_full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("inconsistent_item_full_pandas_dataset", marks=pytest.mark.core),
         pytest.param("inconsistent_user_full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("inconsistent_item_full_polars_dataset", marks=pytest.mark.core),
+        pytest.param("inconsistent_user_full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_inconsistent_ids(data_dict, request):
@@ -276,6 +311,12 @@ def test_inconsistent_ids(data_dict, request):
         pytest.param("less_than_zero_item_pandas_dataset", marks=pytest.mark.core),
         pytest.param("more_than_count_user_pandas_dataset", marks=pytest.mark.core),
         pytest.param("more_than_count_item_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("not_int_user_polars_dataset", marks=pytest.mark.core),
+        pytest.param("not_int_item_polars_dataset", marks=pytest.mark.core),
+        pytest.param("less_than_zero_user_polars_dataset", marks=pytest.mark.core),
+        pytest.param("less_than_zero_item_polars_dataset", marks=pytest.mark.core),
+        pytest.param("more_than_count_user_polars_dataset", marks=pytest.mark.core),
+        pytest.param("more_than_count_item_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_unencoded_ids(data_dict, request):
@@ -292,6 +333,9 @@ def test_unencoded_ids(data_dict, request):
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
         pytest.param("inconsistent_user_full_pandas_dataset", marks=pytest.mark.core),
         pytest.param("not_int_user_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
+        pytest.param("inconsistent_user_full_polars_dataset", marks=pytest.mark.core),
+        pytest.param("not_int_user_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_not_check_consistency(data_dict, request):
@@ -303,6 +347,7 @@ def test_not_check_consistency(data_dict, request):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_get_unlabeled_columns(data_dict, request):
@@ -318,6 +363,7 @@ def test_get_unlabeled_columns(data_dict, request):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_feature_info_doesnt_exist(data_dict, request):
@@ -342,6 +388,7 @@ def test_feature_info_doesnt_exist(data_dict, request):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_fill_feature_info_dunder(data_dict, request):
@@ -362,11 +409,12 @@ def test_fill_feature_info_dunder(data_dict, request):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_fill_feature_schema(data_dict, request):
     dataset = create_dataset(request.getfixturevalue(data_dict))
-    assert "feature1" in [feature for feature in dataset.feature_schema.columns]
+    assert "feature1" in dataset.feature_schema.columns
 
 
 @pytest.mark.parametrize(
@@ -376,6 +424,8 @@ def test_fill_feature_schema(data_dict, request):
         pytest.param("full_spark_dataset_cutted_interactions", 4, marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", 4, marks=pytest.mark.core),
         pytest.param("full_pandas_dataset_cutted_interactions", 4, marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", 4, marks=pytest.mark.core),
+        pytest.param("full_polars_dataset_cutted_interactions", 4, marks=pytest.mark.core),
     ],
 )
 def test_item_count(data_dict, answer, request):
@@ -390,6 +440,8 @@ def test_item_count(data_dict, answer, request):
         pytest.param("full_spark_dataset_cutted_interactions", 3, marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", 3, marks=pytest.mark.core),
         pytest.param("full_pandas_dataset_cutted_interactions", 3, marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", 3, marks=pytest.mark.core),
+        pytest.param("full_polars_dataset_cutted_interactions", 3, marks=pytest.mark.core),
     ],
 )
 def test_user_count(data_dict, answer, request):
@@ -472,6 +524,11 @@ def test_cache_spark(data_dict, request):
         pytest.param("full_pandas_dataset", FeatureHint.QUERY_ID, "query_features", marks=pytest.mark.core),
         pytest.param("full_pandas_dataset", FeatureSource.QUERY_FEATURES, "query_features", marks=pytest.mark.core),
         pytest.param("full_pandas_dataset", FeatureSource.INTERACTIONS, "interactions", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", FeatureHint.ITEM_ID, "item_features", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", FeatureSource.ITEM_FEATURES, "item_features", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", FeatureHint.QUERY_ID, "query_features", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", FeatureSource.QUERY_FEATURES, "query_features", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", FeatureSource.INTERACTIONS, "interactions", marks=pytest.mark.core),
     ],
 )
 def test_dataframe_by_source(data_dict, source, answer, request):
@@ -487,6 +544,7 @@ def test_dataframe_by_source(data_dict, source, answer, request):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_feature_schema_schema_dict(data_dict, request):
@@ -501,6 +559,7 @@ def test_feature_schema_schema_dict(data_dict, request):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_feature_schema_schema_all_features(data_dict, request):
@@ -513,6 +572,7 @@ def test_feature_schema_schema_all_features(data_dict, request):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_feature_schema_schema_timestamp_column(data_dict, request):
@@ -525,6 +585,7 @@ def test_feature_schema_schema_timestamp_column(data_dict, request):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_feature_schema_schema_rating_column(data_dict, request):
@@ -537,6 +598,7 @@ def test_feature_schema_schema_rating_column(data_dict, request):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_feature_schema_schema_user_id_column(data_dict, request):
@@ -549,6 +611,7 @@ def test_feature_schema_schema_user_id_column(data_dict, request):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_feature_schema_schema_item_id_column(data_dict, request):
@@ -561,6 +624,7 @@ def test_feature_schema_schema_item_id_column(data_dict, request):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_feature_schema_schema_columns(data_dict, request):
@@ -581,6 +645,7 @@ def test_feature_schema_schema_columns(data_dict, request):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_feature_schema_schema_categorical_features(data_dict, request):
@@ -599,6 +664,7 @@ def test_feature_schema_schema_categorical_features(data_dict, request):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_feature_schema_schema_numerical_features(data_dict, request):
@@ -611,6 +677,7 @@ def test_feature_schema_schema_numerical_features(data_dict, request):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_feature_schema_schema_item_features(data_dict, request):
@@ -623,6 +690,7 @@ def test_feature_schema_schema_item_features(data_dict, request):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_feature_schema_schema_user_features(data_dict, request):
@@ -635,6 +703,7 @@ def test_feature_schema_schema_user_features(data_dict, request):
     [
         pytest.param("full_spark_dataset", marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
 def test_feature_schema_schema_interaction_features(data_dict, request):
@@ -676,6 +745,25 @@ def test_feature_schema_schema_interaction_features(data_dict, request):
         ),
         pytest.param(
             "full_pandas_dataset",
+            None,
+            FeatureSource.ITEM_FEATURES,
+            None,
+            None,
+            ["category_id", "feature1"],
+            marks=pytest.mark.core,
+        ),
+        pytest.param("full_polars_dataset", "gender", None, None, None, ["gender"], marks=pytest.mark.core),
+        pytest.param(
+            "full_polars_dataset",
+            "feature1",
+            FeatureSource.ITEM_FEATURES,
+            FeatureType.NUMERICAL,
+            None,
+            ["feature1"],
+            marks=pytest.mark.core,
+        ),
+        pytest.param(
+            "full_polars_dataset",
             None,
             FeatureSource.ITEM_FEATURES,
             None,
@@ -750,6 +838,33 @@ def test_feature_schema_schema_filter(data_dict, name, source, type, hint, resul
             ["user_id", "item_id", "timestamp", "rating", "gender"],
             marks=pytest.mark.core,
         ),
+        pytest.param(
+            "full_polars_dataset",
+            "gender",
+            None,
+            None,
+            None,
+            ["user_id", "item_id", "timestamp", "rating", "category_id", "feature1"],
+            marks=pytest.mark.core,
+        ),
+        pytest.param(
+            "full_polars_dataset",
+            "feature1",
+            FeatureSource.ITEM_FEATURES,
+            FeatureType.NUMERICAL,
+            None,
+            ["user_id", "item_id", "timestamp", "gender"],
+            marks=pytest.mark.core,
+        ),
+        pytest.param(
+            "full_polars_dataset",
+            None,
+            FeatureSource.ITEM_FEATURES,
+            None,
+            None,
+            ["user_id", "item_id", "timestamp", "rating", "gender"],
+            marks=pytest.mark.core,
+        ),
     ],
 )
 def test_feature_schema_schema_drop(data_dict, name, source, type, hint, result, request):
@@ -765,6 +880,7 @@ def test_feature_schema_schema_drop(data_dict, name, source, type, hint, result,
     [
         pytest.param("full_spark_dataset", "gender100", None, None, None, marks=pytest.mark.spark),
         pytest.param("full_pandas_dataset", "gender100", None, None, None, marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", "gender100", None, None, None, marks=pytest.mark.core),
     ],
 )
 def test_feature_schema_schema_filter_empty(data_dict, name, source, type, hint, request):
@@ -796,6 +912,15 @@ def test_feature_schema_schema_filter_empty(data_dict, name, source, type, hint,
         ),
         pytest.param(
             "full_pandas_dataset",
+            "gender100",
+            None,
+            None,
+            None,
+            ["user_id", "item_id", "timestamp", "rating", "gender", "category_id", "feature1"],
+            marks=pytest.mark.core,
+        ),
+        pytest.param(
+            "full_polars_dataset",
             "gender100",
             None,
             None,
@@ -845,7 +970,6 @@ def test_reset_feature_info_cardinality():
 
 
 @pytest.mark.core
-@pytest.mark.usefixtures("interactions_full_pandas_dataset")
 def test_feature_schema_schema_copy(interactions_full_pandas_dataset):
     feature_list = get_features(interactions_full_pandas_dataset)
     feature_list_copy = feature_list.copy()
@@ -900,7 +1024,6 @@ def test_feature_schema_check_naming(data_dict, feature_schema_getter, error_msg
 
 
 @pytest.mark.core
-@pytest.mark.usefixtures("interactions_full_pandas_dataset")
 def test_feature_schema_schema_item_error(interactions_full_pandas_dataset):
     with pytest.raises(ValueError) as exc:
         get_features(interactions_full_pandas_dataset).item()
@@ -909,7 +1032,6 @@ def test_feature_schema_schema_item_error(interactions_full_pandas_dataset):
 
 
 @pytest.mark.core
-@pytest.mark.usefixtures("interactions_full_pandas_dataset")
 def test_feature_schema_schema_empty_properties(interactions_full_pandas_dataset):
     feature_list = get_features(interactions_full_pandas_dataset).subset(["user_id"])
 
@@ -925,7 +1047,6 @@ def test_feature_schema_schema_empty_properties(interactions_full_pandas_dataset
         (["rating", "item_id"], "Query id column is not set."),
     ],
 )
-@pytest.mark.usefixtures("interactions_full_pandas_dataset")
 def test_interactions_dataset_init_exceptions(interactions_full_pandas_dataset, subset, error_msg):
     with pytest.raises(ValueError) as exc:
         Dataset(
@@ -944,6 +1065,7 @@ def test_interactions_dataset_init_exceptions(interactions_full_pandas_dataset, 
     "dataset",
     [
         pytest.param("interactions_full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("interactions_full_polars_dataset", marks=pytest.mark.core),
         pytest.param("interactions_full_spark_dataset", marks=pytest.mark.spark),
     ],
 )
@@ -954,8 +1076,8 @@ def test_interaction_dataset_queryids_and_itemids(dataset, request):
         assert [x.user_id for x in dataset.query_ids.sort(asc("user_id")).collect()] == [0, 1, 2]
         assert [x.item_id for x in dataset.item_ids.sort(asc("item_id")).collect()] == [0, 1, 2, 3]
     else:
-        assert dataset.query_ids["user_id"].to_list() == [0, 1, 2]
-        assert dataset.item_ids["item_id"].to_list() == [0, 1, 2, 3]
+        assert sorted(dataset.query_ids["user_id"].to_list()) == [0, 1, 2]
+        assert sorted(dataset.item_ids["item_id"].to_list()) == [0, 1, 2, 3]
 
 
 @pytest.mark.core
@@ -1011,6 +1133,59 @@ def test_interactions_dataset_subset(full_pandas_dataset, users, items, subset, 
     assert len(set(columns)) == columns_len
 
 
+@pytest.mark.core
+@pytest.mark.parametrize(
+    "users, items, subset, columns_len",
+    [
+        (
+            pl.DataFrame({"user_id": [0, 1, 2], "gender": [0, 1, 0]}),
+            None,
+            [
+                "user_id",
+                "item_id",
+                "gender",
+                "gender_fake",
+            ],
+            3,
+        ),
+        (
+            None,
+            pl.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]}),
+            [
+                "user_id",
+                "item_id",
+                "category_id",
+            ],
+            3,
+        ),
+        (
+            pl.DataFrame({"user_id": [0, 1, 2], "gender": [0, 1, 0]}),
+            pl.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]}),
+            [
+                "user_id",
+                "item_id",
+                "gender",
+                "category_id",
+            ],
+            4,
+        ),
+    ],
+)
+def test_interactions_dataset_subset_polars(full_polars_dataset, users, items, subset, columns_len):
+    full_polars_dataset["users"] = users
+    full_polars_dataset["items"] = items
+    dataset = create_dataset(full_polars_dataset)
+    dataset_subset = dataset.subset(subset)
+    columns = dataset_subset.interactions.columns
+    if users is not None:
+        columns += dataset_subset.query_features.columns
+    if items is not None:
+        columns += dataset_subset.item_features.columns
+
+    assert dataset_subset.is_polars is True
+    assert len(set(columns)) == columns_len
+
+
 @pytest.mark.spark
 def test_pandas_dataframe_in_storage_levels_of_spark(full_pandas_dataset):
     dataset = create_dataset(full_pandas_dataset)
@@ -1018,3 +1193,239 @@ def test_pandas_dataframe_in_storage_levels_of_spark(full_pandas_dataset):
     assert dataset.persist() is None
     assert dataset.unpersist() is None
     assert dataset.cache() is None
+
+
+@pytest.mark.parametrize(
+    "data_dict",
+    [
+        pytest.param("full_spark_dataset", marks=pytest.mark.spark),
+        pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
+        pytest.param("interactions_rating_spark_dataset", marks=pytest.mark.spark),
+        pytest.param("interactions_rating_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("interactions_rating_polars_dataset", marks=pytest.mark.core),
+    ],
+)
+def test_save_load(data_dict, request):
+    dataset = create_dataset(request.getfixturevalue(data_dict))
+    path = get_test_name() + data_dict
+    dataset.save(path)
+    dataset_loaded = Dataset.load(path)
+    compare_datasets(dataset, dataset_loaded, same_type=True)
+    path = path + ".replay"
+    shutil.rmtree(path)
+
+
+@pytest.mark.parametrize(
+    "data_dict, data_dict_to_overwrite",
+    [
+        pytest.param("full_spark_dataset", "full_spark_dataset_cutted_interactions", marks=pytest.mark.spark),
+        pytest.param("full_pandas_dataset", "full_pandas_dataset_cutted_interactions", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", "full_polars_dataset_cutted_interactions", marks=pytest.mark.core),
+    ],
+)
+def test_save_load_overwrite(data_dict, data_dict_to_overwrite, request):
+    path = get_test_name() + data_dict + data_dict_to_overwrite
+    data_dict_to_overwrite = request.getfixturevalue(data_dict_to_overwrite)
+    dataset_to_overwrite = create_dataset(data_dict_to_overwrite, check_consistency=False)
+    dataset_to_overwrite.save(path)
+    del data_dict_to_overwrite, dataset_to_overwrite
+    data_dict = request.getfixturevalue(data_dict)
+    dataset = create_dataset(data_dict)
+    dataset.save(path)
+    dataset_loaded = Dataset.load(path)
+    compare_datasets(dataset, dataset_loaded, same_type=True)
+    path = path + ".replay"
+    shutil.rmtree(path)
+
+
+@pytest.mark.parametrize(
+    "data_dict, _type",
+    [
+        pytest.param("full_spark_dataset", "pandas", marks=pytest.mark.spark),
+        pytest.param("full_spark_dataset", "spark", marks=pytest.mark.spark),
+        pytest.param("full_spark_dataset", "polars", marks=pytest.mark.spark),
+        pytest.param("full_pandas_dataset", "pandas", marks=pytest.mark.core),
+        pytest.param("full_pandas_dataset", "spark", marks=pytest.mark.spark),
+        pytest.param("full_pandas_dataset", "polars", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", "pandas", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", "spark", marks=pytest.mark.spark),
+        pytest.param("full_polars_dataset", "polars", marks=pytest.mark.core),
+    ],
+)
+def test_save_load_changed_dataframe_type(data_dict, _type, request):
+    dataset = create_dataset(request.getfixturevalue(data_dict))
+    path = get_test_name() + data_dict + _type
+    dataset.save(path)
+    dataset_loaded = Dataset.load(path, dataframe_type=_type)
+    assert dataset_loaded.__dict__[f"is_{_type}"] is True
+    compare_datasets(dataset, dataset_loaded, same_type=False)
+    path = path + ".replay"
+    shutil.rmtree(path)
+
+
+@pytest.mark.parametrize(
+    "data_dict",
+    [
+        pytest.param("full_spark_dataset", marks=pytest.mark.spark),
+        pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
+    ],
+)
+def test_save_replay_load_replay_on_dataset(data_dict, request):
+    dataset = create_dataset(request.getfixturevalue(data_dict))
+    path = get_test_name() + data_dict
+    save_to_replay(dataset, path)
+    dataset_loaded = load_from_replay(path)
+    compare_datasets(dataset, dataset_loaded)
+    path = path + ".replay"
+    shutil.rmtree(path)
+
+
+@pytest.mark.parametrize(
+    "data_dict",
+    [
+        pytest.param("full_spark_dataset", marks=pytest.mark.spark),
+        pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
+    ],
+)
+def test_save_with_unknown_df_type(data_dict, request):
+    with pytest.raises(ValueError):
+        dataset = create_dataset(request.getfixturevalue(data_dict))
+        dataset.is_pandas = False
+        dataset.is_spark = False
+        dataset.is_polars = False
+        setattr(dataset, "is_new_df_type", True)
+        path = get_test_name() + data_dict
+        dataset.save(path)
+
+
+@pytest.mark.parametrize(
+    "data_dict",
+    [
+        pytest.param("full_spark_dataset", marks=pytest.mark.spark),
+        pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
+    ],
+)
+def test_load_with_unknown_convertion_type(data_dict, request):
+    dataset = create_dataset(request.getfixturevalue(data_dict))
+    path = get_test_name() + data_dict
+    dataset.save(path)
+    with pytest.raises(ValueError):
+        Dataset.load(path, dataframe_type="new_df_type")
+
+
+@pytest.mark.parametrize(
+    "data_dict",
+    [
+        pytest.param("full_spark_dataset", marks=pytest.mark.spark),
+        pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
+    ],
+)
+def test_load_with_unknown_df_type(data_dict, request):
+    dataset = create_dataset(request.getfixturevalue(data_dict))
+    path = get_test_name() + data_dict
+    dataset.save(path)
+    base_path = Path(path).with_suffix(".replay").resolve()
+    with open(base_path / "init_args.json", "r+") as file:
+        dataset_dict = json.loads(file.read())
+    for df_key in ["interactions", "item_features", "query_features"]:
+        dataset_dict["init_args"][df_key] = "new_df_type"
+    with open(base_path / "init_args.json", "w+") as file:
+        json.dump(dataset_dict, file)
+    with pytest.raises(TypeError):
+        Dataset.load(path)
+
+
+@pytest.mark.parametrize(
+    "data_dict",
+    [
+        pytest.param("full_spark_dataset", marks=pytest.mark.spark),
+        pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
+    ],
+)
+def test_to_parquet_with_unknown_df_type(data_dict, request):
+    dataset = create_dataset(request.getfixturevalue(data_dict))
+    path = get_test_name() + data_dict
+    dataset.is_pandas = False
+    dataset.is_spark = False
+    dataset.is_polars = False
+    setattr(dataset, "is_new_df_type", True)
+    with pytest.raises(TypeError):
+        dataset._to_parquet(dataset.interactions, path)
+
+
+@pytest.mark.parametrize(
+    "data_dict",
+    [
+        pytest.param("full_spark_dataset", marks=pytest.mark.spark),
+        pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
+        pytest.param("interactions_rating_spark_dataset", marks=pytest.mark.spark),
+        pytest.param("interactions_rating_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("interactions_rating_polars_dataset", marks=pytest.mark.core),
+    ],
+)
+def test_df_to_pandas(data_dict, request):
+    dataset = create_dataset(request.getfixturevalue(data_dict))
+    dataset.to_pandas()
+    assert dataset.is_pandas
+    assert not dataset.is_spark
+    assert not dataset.is_polars
+    assert isinstance(dataset.interactions, PandasDataFrame)
+    if "users" in data_dict:
+        assert isinstance(dataset.query_features, PandasDataFrame)
+    if "items" in data_dict:
+        assert isinstance(dataset.item_features, PandasDataFrame)
+
+
+@pytest.mark.parametrize(
+    "data_dict",
+    [
+        pytest.param("full_spark_dataset", marks=pytest.mark.spark),
+        pytest.param("full_pandas_dataset", marks=pytest.mark.spark),
+        pytest.param("full_polars_dataset", marks=pytest.mark.spark),
+        pytest.param("interactions_rating_spark_dataset", marks=pytest.mark.spark),
+        pytest.param("interactions_rating_pandas_dataset", marks=pytest.mark.spark),
+        pytest.param("interactions_rating_polars_dataset", marks=pytest.mark.spark),
+    ],
+)
+def test_df_to_spark(data_dict, request):
+    dataset = create_dataset(request.getfixturevalue(data_dict))
+    dataset.to_spark()
+    assert not dataset.is_pandas
+    assert dataset.is_spark
+    assert not dataset.is_polars
+    assert isinstance(dataset.interactions, SparkDataFrame)
+    if "users" in data_dict:
+        assert isinstance(dataset.query_features, SparkDataFrame)
+    if "items" in data_dict:
+        assert isinstance(dataset.item_features, SparkDataFrame)
+
+
+@pytest.mark.parametrize(
+    "data_dict",
+    [
+        pytest.param("full_spark_dataset", marks=pytest.mark.spark),
+        pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
+        pytest.param("interactions_rating_spark_dataset", marks=pytest.mark.spark),
+        pytest.param("interactions_rating_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("interactions_rating_polars_dataset", marks=pytest.mark.core),
+    ],
+)
+def test_df_to_polars(data_dict, request):
+    dataset = create_dataset(request.getfixturevalue(data_dict))
+    dataset.to_polars()
+    assert not dataset.is_pandas
+    assert not dataset.is_spark
+    assert dataset.is_polars
+    assert isinstance(dataset.interactions, PolarsDataFrame)
+    if "users" in data_dict:
+        assert isinstance(dataset.query_features, PolarsDataFrame)
+    if "items" in data_dict:
+        assert isinstance(dataset.item_features, PolarsDataFrame)

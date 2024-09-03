@@ -1,16 +1,15 @@
 import pandas as pd
+import polars as pl
 import pytest
 
 from replay.utils import PYSPARK_AVAILABLE
-from tests.utils import spark
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql.functions import col, to_date, unix_timestamp
     from pyspark.sql.types import ArrayType, IntegerType, LongType, StringType, StructField, StructType
 
 
-@pytest.mark.usefixtures("spark")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def spark_df_for_labelencoder(spark):
     data = [
         ("u1", "item_1", "item_1"),
@@ -19,8 +18,7 @@ def spark_df_for_labelencoder(spark):
     return spark.createDataFrame(data, schema=["user_id", "item1", "item2"])
 
 
-@pytest.mark.usefixtures("spark")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def spark_df_for_labelencoder_modified(spark):
     data = [
         ("u1", "item_1", "item_1"),
@@ -36,6 +34,11 @@ def pandas_df_for_labelencoder():
 
 
 @pytest.fixture(scope="module")
+def polars_df_for_labelencoder(pandas_df_for_labelencoder):
+    return pl.from_pandas(pandas_df_for_labelencoder)
+
+
+@pytest.fixture(scope="module")
 def pandas_df_for_labelencoder_modified():
     return pd.DataFrame(
         {"user": ["u1", "u2", "u3"], "item1": ["item_1", "item_2", "item_3"], "item2": ["item_1", "item_2", "item_3"]}
@@ -43,8 +46,23 @@ def pandas_df_for_labelencoder_modified():
 
 
 @pytest.fixture(scope="module")
+def polars_df_for_labelencoder_modified(pandas_df_for_labelencoder_modified):
+    return pl.from_pandas(pandas_df_for_labelencoder_modified)
+
+
+@pytest.fixture(scope="module")
 def pandas_df_for_labelencoder_new_data():
     return pd.DataFrame({"user": ["u4"], "item1": ["item_4"], "item2": ["item_4"]})
+
+
+@pytest.fixture(scope="module")
+def polars_df_for_labelencoder_new_data(pandas_df_for_labelencoder_new_data):
+    return pl.from_pandas(pandas_df_for_labelencoder_new_data)
+
+
+@pytest.fixture(scope="module")
+def spark_df_for_labelencoder_new_data(pandas_df_for_labelencoder_new_data, spark):
+    return spark.createDataFrame(pandas_df_for_labelencoder_new_data)
 
 
 @pytest.fixture(scope="module")
@@ -69,8 +87,7 @@ def schema_string():
     )
 
 
-@pytest.mark.usefixtures("spark", "schema")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def dataframe(spark, schema):
     data = [
         (1, [2], [19842]),
@@ -112,8 +129,7 @@ def dataframe_pandas():
     return pd.DataFrame(data, columns=["user_id", "item_id", "timestamp"])
 
 
-@pytest.mark.usefixtures("spark", "schema")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def dataframe_special(spark, schema):
     data_special = [
         (1, [2], [19842]),
@@ -155,8 +171,7 @@ def dataframe_special_pandas():
     return pd.DataFrame(data_special, columns=["user_id", "item_id", "timestamp"])
 
 
-@pytest.mark.usefixtures("spark", "schema")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def dataframe_only_item(spark, schema):
     data_only_item = [
         (1, [2, 0, 0, 0, 0], [19842]),
@@ -198,8 +213,7 @@ def dataframe_only_item_pandas():
     return pd.DataFrame(data_only_item, columns=["user_id", "item_id", "timestamp"])
 
 
-@pytest.mark.usefixtures("spark", "schema")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def dataframe_only_item_none(spark, schema):
     data_only_item_none = [
         (1, [2, 0, 0, 0, 0, 0], [19842]),
@@ -241,8 +255,7 @@ def dataframe_only_item_none_pandas():
     return pd.DataFrame(data_only_item_none, columns=["user_id", "item_id", "timestamp"])
 
 
-@pytest.mark.usefixtures("spark", "schema")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def dataframe_two_columns_none(spark, schema):
     data_two_columns_none = [
         (1, [2, 0, 0, 0, 0, 0], [19842, 0, 0, 0, 0]),
@@ -284,8 +297,7 @@ def dataframe_two_columns_none_pandas():
     return pd.DataFrame(data_two_columns_none, columns=["user_id", "item_id", "timestamp"])
 
 
-@pytest.mark.usefixtures("spark", "schema")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def dataframe_two_columns(spark, schema):
     data_two_columns = [
         (1, [2, 0, 0, 0, 0], [19842, -1, -1, -1, -1]),
@@ -327,8 +339,7 @@ def dataframe_two_columns_pandas():
     return pd.DataFrame(data_two_columns, columns=["user_id", "item_id", "timestamp"])
 
 
-@pytest.mark.usefixtures("spark", "schema")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def dataframe_two_columns_len_two(spark, schema):
     data_two_columns_len_two = [
         (1, [2, 0], [19842, -1]),
@@ -370,8 +381,7 @@ def dataframe_two_columns_len_two_pandas():
     return pd.DataFrame(data_two_columns_len_two, columns=["user_id", "item_id", "timestamp"])
 
 
-@pytest.mark.usefixtures("spark", "schema")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def dataframe_two_columns_zeros(spark, schema):
     data_two_columns_zeros = [
         (1, [2, 0, 0, 0, 0], [19842, 0, 0, 0, 0]),
@@ -413,8 +423,7 @@ def dataframe_two_columns_zeros_pandas():
     return pd.DataFrame(data_two_columns_zeros, columns=["user_id", "item_id", "timestamp"])
 
 
-@pytest.mark.usefixtures("spark", "schema")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def dataframe_two_columns_cut_left(spark, schema):
     data_two_columns_cut_left = [
         (1, [2, 0, 0, 0, 0], [19842, -1, -1, -1, -1]),
@@ -456,8 +465,7 @@ def dataframe_two_columns_cut_left_pandas():
     return pd.DataFrame(data_two_columns_cut_left, columns=["user_id", "item_id", "timestamp"])
 
 
-@pytest.mark.usefixtures("spark", "schema")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def dataframe_two_columns_no_cut(spark, schema):
     data_two_columns_no_cut = [
         (1, [2, 0, 0, 0, 0], [19842, -1, -1, -1, -1]),
@@ -499,8 +507,7 @@ def dataframe_two_columns_no_cut_pandas():
     return pd.DataFrame(data_two_columns_no_cut, columns=["user_id", "item_id", "timestamp"])
 
 
-@pytest.mark.usefixtures("spark", "schema")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def dataframe_only_item_left(spark, schema):
     data_only_item_left = [
         (1, [0, 0, 0, 0, 2], [19842]),
@@ -542,8 +549,7 @@ def dataframe_only_item_left_pandas():
     return pd.DataFrame(data_only_item_left, columns=["user_id", "item_id", "timestamp"])
 
 
-@pytest.mark.usefixtures("spark", "schema")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def dataframe_two_columns_left(spark, schema):
     data_two_columns_left = [
         (1, [0, 0, 0, 0, 2], [-1, -1, -1, -1, 19842]),
@@ -585,8 +591,7 @@ def dataframe_two_columns_left_pandas():
     return pd.DataFrame(data_two_columns_left, columns=["user_id", "item_id", "timestamp"])
 
 
-@pytest.mark.usefixtures("spark", "schema_string")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def dataframe_string(spark, schema_string):
     data_string = [
         (1, ["2", "[PAD]", "[PAD]", "[PAD]", "[PAD]"], [19842]),
@@ -670,8 +675,7 @@ def schema_target_list_len():
     )
 
 
-@pytest.mark.usefixtures("spark", "columns")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def simple_dataframe(spark, columns):
     data = [
         (1, 2, 19842),
@@ -692,8 +696,7 @@ def simple_dataframe(spark, columns):
     return spark.createDataFrame(data, schema=columns)
 
 
-@pytest.mark.usefixtures("spark")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def simple_dataframe_array(spark):
     columns_array = ["user_id", "item_id", "timestamp"]
     data_array = [
@@ -715,8 +718,7 @@ def simple_dataframe_array(spark):
     return spark.createDataFrame(data_array, schema=columns_array)
 
 
-@pytest.mark.usefixtures("spark")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def simple_dataframe_additional(spark):
     columns_additional = ["user_id", "item_id", "timestamp", "other_column"]
     data_additional = [
@@ -738,8 +740,7 @@ def simple_dataframe_additional(spark):
     return spark.createDataFrame(data_additional, schema=columns_additional)
 
 
-@pytest.mark.usefixtures("spark", "schema_target")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def simple_dataframe_target(spark, schema_target):
     data_target = [
         (1, 4, 19844, [2], [19842]),
@@ -756,8 +757,7 @@ def simple_dataframe_target(spark, schema_target):
     return spark.createDataFrame(data_target, schema=schema_target)
 
 
-@pytest.mark.usefixtures("spark", "schema_target")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def simple_dataframe_target_ordered(spark, schema_target):
     data_target_ordered = [
         (1, 2, 19842, [1], [19841]),
@@ -774,8 +774,7 @@ def simple_dataframe_target_ordered(spark, schema_target):
     return spark.createDataFrame(data_target_ordered, schema=schema_target)
 
 
-@pytest.mark.usefixtures("spark", "schema_target_list_len")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def simple_dataframe_target_ordered_list_len(spark, schema_target_list_len):
     data_target_ordered_list_len = [
         (1, 2, 19842, [1], [19841], 1),
@@ -793,7 +792,6 @@ def simple_dataframe_target_ordered_list_len(spark, schema_target_list_len):
 
 
 @pytest.fixture(scope="module")
-@pytest.mark.usefixtures("columns")
 def simple_dataframe_pandas(columns):
     data = [
         (1, 2, 19842),
@@ -812,6 +810,16 @@ def simple_dataframe_pandas(columns):
         (1, 1, 19841),
     ]
     return pd.DataFrame(data, columns=columns)
+
+
+@pytest.fixture(scope="module")
+def simple_dataframe_polars(simple_dataframe_pandas):
+    return pl.from_pandas(simple_dataframe_pandas)
+
+
+@pytest.fixture(scope="module")
+def dataframe_not_implemented(simple_dataframe_pandas):
+    return simple_dataframe_pandas.to_numpy()
 
 
 @pytest.fixture(scope="module")
@@ -859,7 +867,6 @@ def simple_dataframe_additional_pandas():
 
 
 @pytest.fixture(scope="module")
-@pytest.mark.usefixtures("columns_target")
 def simple_dataframe_target_pandas(columns_target):
     data_target = [
         (1, 4, 19844, [2], [19842]),
@@ -877,7 +884,6 @@ def simple_dataframe_target_pandas(columns_target):
 
 
 @pytest.fixture(scope="module")
-@pytest.mark.usefixtures("columns_target")
 def simple_dataframe_target_ordered_pandas(columns_target):
     data_target_ordered = [
         (1, 2, 19842, [1], [19841]),
@@ -895,7 +901,6 @@ def simple_dataframe_target_ordered_pandas(columns_target):
 
 
 @pytest.fixture(scope="module")
-@pytest.mark.usefixtures("columns_target_list_len")
 def simple_dataframe_target_ordered_list_len_pandas(columns_target_list_len):
     data_target_ordered_list_len = [
         (1, 2, 19842, [1], [19841], 1),
@@ -912,8 +917,7 @@ def simple_dataframe_target_ordered_list_len_pandas(columns_target_list_len):
     return pd.DataFrame(data_target_ordered_list_len, columns=columns_target_list_len)
 
 
-@pytest.mark.usefixtures("spark")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def dataframe_sessionizer(spark):
     columns = ["user_id", "item_id", "timestamp"]
     data = [
@@ -986,7 +990,56 @@ def session_dataset_pandas():
     return pd.DataFrame(data)
 
 
-@pytest.mark.usefixtures("spark")
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def session_dataset_spark(spark, session_dataset_pandas):
     return spark.createDataFrame(session_dataset_pandas)
+
+
+@pytest.fixture(scope="module")
+def simple_data_to_filter_pandas():
+    df = pd.DataFrame(
+        {
+            "query_id": [0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 3, 3, 4, 5, 5, 5, 5, 5, 1, 0, 2, 2],
+            "item_id": [
+                10,
+                10,
+                11,
+                12,
+                15,
+                10,
+                11,
+                11,
+                13,
+                14,
+                15,
+                13,
+                10,
+                11,
+                11,
+                14,
+                10,
+                12,
+                13,
+                15,
+                15,
+                11,
+                11,
+                10,
+                11,
+            ],
+            "timestamp": [0, 1, 1, 2, 0, 2, 2, 3, 1, 1, 1, 1, 0, 2, 1, 3, 1, 0, 0, 0, 0, 2, 3, 3, 1],
+        }
+    )
+    return df
+
+
+@pytest.fixture(scope="module")
+def simple_data_to_filter_polars(simple_data_to_filter_pandas):
+    df = pl.DataFrame(simple_data_to_filter_pandas)
+    return df
+
+
+@pytest.fixture(scope="module")
+def simple_data_to_filter_spark(simple_data_to_filter_pandas, spark):
+    df = spark.createDataFrame(simple_data_to_filter_pandas)
+    return df

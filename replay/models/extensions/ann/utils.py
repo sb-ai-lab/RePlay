@@ -1,8 +1,8 @@
 import hnswlib
 import nmslib
 
-from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
-from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+from .entities.hnswlib_param import HnswlibParam
+from .entities.nmslib_hnsw_param import NmslibHnswParam
 
 
 def create_hnswlib_index_instance(params: HnswlibParam, init: bool = False):
@@ -15,9 +15,7 @@ def create_hnswlib_index_instance(params: HnswlibParam, init: bool = False):
         If `False` then the index will be used to load index data from a file.
     :return: `hnswlib` index instance
     """
-    index = hnswlib.Index(  # pylint: disable=c-extension-no-member
-        space=params.space, dim=params.dim
-    )
+    index = hnswlib.Index(space=params.space, dim=params.dim)
 
     if init:
         # Initializing index - the maximum number of elements should be known beforehand
@@ -37,10 +35,10 @@ def create_nmslib_index_instance(params: NmslibHnswParam):
     :param params: `NmslibHnswParam`
     :return: `nmslib` index
     """
-    index = nmslib.init(  # pylint: disable=c-extension-no-member
+    index = nmslib.init(
         method=params.method,
         space=params.space,
-        data_type=nmslib.DataType.SPARSE_VECTOR,  # pylint: disable=c-extension-no-member
+        data_type=nmslib.DataType.SPARSE_VECTOR,
     )
 
     return index

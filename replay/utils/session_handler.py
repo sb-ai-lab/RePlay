@@ -22,6 +22,7 @@ else:
 def get_spark_session(
     spark_memory: Optional[int] = None,
     shuffle_partitions: Optional[int] = None,
+    core_count: Optional[int] = None,
 ) -> SparkSession:
     """
     Get default SparkSession
@@ -29,39 +30,47 @@ def get_spark_session(
     :param spark_memory: GB of memory allocated for Spark;
         70% of RAM by default.
     :param shuffle_partitions: number of partitions for Spark; triple CPU count by default
+    :param core_count: Count of cores to execute, ``-1`` means using all available cores.
+        If ``None`` then checking out environment variable ``REPLAY_SPARK_CORE_COUNT``,
+        if variable is not set then using ``-1``.
+        Default: ``None``.
     """
-    if os.environ.get("SCRIPT_ENV", None) == "cluster":
-        # pylint: disable=no-member
+    if os.environ.get("SCRIPT_ENV", None) == "cluster":  # pragma: no cover
         return SparkSession.builder.getOrCreate()
 
     os.environ["PYSPARK_PYTHON"] = sys.executable
     os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
-    if os.environ.get("REPLAY_JAR_PATH"):
+    if os.environ.get("REPLAY_JAR_PATH"):  # pragma: no cover
         path_to_replay_jar = os.environ.get("REPLAY_JAR_PATH")
     else:
-        if pyspark_version.startswith("3.1"):
-            path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
-        elif pyspark_version.startswith("3.2") or pyspark_version.startswith(
-            "3.3"
-        ):
+        if pyspark_version.startswith("3.1"):  # pragma: no cover
+            path_to_replay_jar = (
+                "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
+            )
+        elif pyspark_version.startswith(("3.2", "3.3")):
             path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.2.0_als_metrics/replay_2.12-3.2.0_als_metrics.jar"
-        elif pyspark_version.startswith("3.4"):
+        elif pyspark_version.startswith("3.4"):  # pragma: no cover
             path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.4.0_als_metrics/replay_2.12-3.4.0_als_metrics.jar"
-        else:
-            path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
+        else:  # pragma: no cover
+            path_to_replay_jar = (
+                "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
+            )
             logging.warning(
-                "Replay ALS model support only spark 3.1-3.4 versions! "
-                "Replay will use 'https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar' in 'spark.jars' property."
+                "Replay ALS model support only spark 3.1-3.4 versions! Replay will use "
+                "'https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar' "
+                "in 'spark.jars' property."
             )
 
+    if core_count is None:  # checking out env variable
+        core_count = int(os.environ.get("REPLAY_SPARK_CORE_COUNT", "-1"))
     if spark_memory is None:
-        spark_memory = floor(psutil.virtual_memory().total / 1024**3 * 0.7)
+        env_var = os.environ.get("REPLAY_SPARK_MEMORY")
+        spark_memory = int(env_var) if env_var is not None else floor(psutil.virtual_memory().total / 1024**3 * 0.7)
     if shuffle_partitions is None:
         shuffle_partitions = os.cpu_count() * 3
     driver_memory = f"{spark_memory}g"
     user_home = os.environ["HOME"]
-    # pylint: disable=no-member
     spark = (
         SparkSession.builder.config("spark.driver.memory", driver_memory)
         .config(
@@ -74,10 +83,10 @@ def get_spark_session(
         .config("spark.driver.maxResultSize", "4g")
         .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.driver.host", "localhost")
-        .config("spark.sql.execution.arrow.pyspark.enabled", "true")
+        .config("spark.sql.execution.arrow.enabled", "true")
         .config("spark.kryoserializer.buffer.max", "256m")
         .config("spark.files.overwrite", "true")
-        .master("local[*]")
+        .master(f"local[{'*' if core_count == -1 else core_count}]")
         .enableHiveSupport()
         .getOrCreate()
     )
@@ -100,7 +109,6 @@ def logger_with_settings() -> logging.Logger:
     return logger
 
 
-# pylint: disable=too-few-public-methods
 class Borg:
     """
     This class allows to share objects between instances.
@@ -112,7 +120,6 @@ class Borg:
         self.__dict__ = self._shared_state
 
 
-# pylint: disable=too-few-public-methods
 class State(Borg):
     """
     All modules look for Spark session via this class. You can put your own session here.
