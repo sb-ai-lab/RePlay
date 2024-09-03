@@ -91,9 +91,7 @@ class HierarchicalRecommender(HybridRecommender):
         self.root._procreate(item_features.toPandas())
 
         self.logger.debug("Fitting...")
-        self.root._fit(
-            log.toPandas(), user_features.toPandas(), item_features.toPandas()
-        )
+        self.root._fit(log.toPandas(), user_features.toPandas(), item_features.toPandas())
 
     def _predict(
         self,
@@ -152,7 +150,6 @@ class Node:
         else:
             self.tree = self.parent.tree
             self.level = self.parent.level + 1
-            
 
         if self.level == (self.tree.depth - 1):
             self.is_leaf = True
@@ -212,15 +209,9 @@ class Node:
         items["cluster_idx"] = self.clusterer.predict(items[["item_idx"]])
 
         rec_params = {
-            "log": convert2spark(
-                log.drop(columns="item_idx").rename(columns={"cluster_idx": "item_idx"})
-            ),
+            "log": convert2spark(log.drop(columns="item_idx").rename(columns={"cluster_idx": "item_idx"})),
             "users": convert2spark(users),
-            "items": convert2spark(
-                items.drop(columns="item_idx").rename(
-                    columns={"cluster_idx": "item_idx"}
-                )
-            ),
+            "items": convert2spark(items.drop(columns="item_idx").rename(columns={"cluster_idx": "item_idx"})),
             "user_features": user_features,
             "item_features": item_features,
         }
@@ -228,32 +219,22 @@ class Node:
         if self.is_leaf:
             rec_params["k"] = k
             rec_params["filter_seen_items"] = filter_seen_items
-            pred = (
-                self.recommender.predict(**rec_params)
-                .toPandas()
-                .rename(columns={"item_idx": "cluster_idx"})
-            )
+            pred = self.recommender.predict(**rec_params).toPandas().rename(columns={"item_idx": "cluster_idx"})
             pred["item_idx"] = self.clusterer.predict_items(pred)
             pred = pred.drop(columns=["cluster_idx"])
         else:
             rec_params["k"] = 1
             rec_params["filter_seen_items"] = False
             pred_clusters = (
-                self.recommender.predict(**rec_params)
-                .toPandas()
-                .rename(columns={"item_idx": "cluster_idx"})
+                self.recommender.predict(**rec_params).toPandas().rename(columns={"item_idx": "cluster_idx"})
             )
 
             for cl_idx, cluster in pred_clusters.groupby("cluster_idx"):
                 child_params = {
-                    "log": log[log["cluster_idx"] == cl_idx].drop(
-                        columns="cluster_idx"
-                    ),
+                    "log": log[log["cluster_idx"] == cl_idx].drop(columns="cluster_idx"),
                     "k": k,
                     "users": cluster[["user_idx"]],
-                    "items": items[items["cluster_idx"] == cl_idx].drop(
-                        columns="cluster_idx"
-                    ),
+                    "items": items[items["cluster_idx"] == cl_idx].drop(columns="cluster_idx"),
                     "user_features": user_features,
                     "item_features": item_features,
                     "filter_seen_items": filter_seen_items,

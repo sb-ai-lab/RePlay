@@ -80,11 +80,7 @@ class ULinUCB(HybridRecommender):
         pred_df = pd_ucb.stack().reset_index()
         pred_df.columns = ["user_idx", "item_idx", "relevance"]
 
-        pred_df = (
-            pred_df.sort_values(["user_idx", "relevance"], ascending=False)
-            .groupby("user_idx")
-            .head(extended_k)
-        )
+        pred_df = (pred_df.sort_values(["user_idx", "relevance"], ascending=False).groupby("user_idx").head(extended_k))
 
         return convert2spark(pred_df)
 
@@ -105,9 +101,7 @@ class ULinUCB(HybridRecommender):
         self._b = self._b + item_features[items_idx].T @ rewards
         self._theta[user_idx] = np.linalg.inv(self._A) @ self._b
 
-        self._ucb[user_idx] = self._theta[
-            user_idx
-        ] @ item_features.T + self._alpha * np.sqrt(
+        self._ucb[user_idx] = self._theta[user_idx] @ item_features.T + self._alpha * np.sqrt(
             np.sum(
                 item_features.T * (np.linalg.inv(self._A) @ item_features.T),
                 axis=0,
