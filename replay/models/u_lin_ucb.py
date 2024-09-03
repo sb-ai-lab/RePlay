@@ -80,7 +80,7 @@ class ULinUCB(HybridRecommender):
         pred_df = pd_ucb.stack().reset_index()
         pred_df.columns = ["user_idx", "item_idx", "relevance"]
 
-        pred_df = (pred_df.sort_values(["user_idx", "relevance"], ascending=False).groupby("user_idx").head(extended_k))
+        pred_df = pred_df.sort_values(["user_idx", "relevance"], ascending=False).groupby("user_idx").head(extended_k)
 
         return convert2spark(pred_df)
 

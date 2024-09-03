@@ -186,9 +186,7 @@ class Node:
                 self.children[cl_idx]._fit(cl_log, user_features, item_features)
 
         rec_params = {
-            "log": convert2spark(
-                log.drop(columns="item_idx").rename(columns={"cluster_idx": "item_idx"})
-            ),
+            "log": convert2spark(log.drop(columns="item_idx").rename(columns={"cluster_idx": "item_idx"})),
             "user_features": convert2spark(user_features),
             "item_features": convert2spark(self.clusterer.get_cluster_centers()),
         }
