@@ -1,13 +1,14 @@
+from typing import Optional
+
 import numpy as np
 import pandas as pd
-
-from typing import Optional
 from pyspark.sql import DataFrame
+
 from replay.models.base_rec import HybridRecommender
 from replay.utils import convert2spark
 
 
-class uLinUCB(HybridRecommender):
+class ULinUCB(HybridRecommender):
     """
     A recommender implicitly proposed by
     `Song et al <https://arxiv.org/abs/2110.09905>`_.
@@ -43,12 +44,8 @@ class uLinUCB(HybridRecommender):
         # prepare data
         log = log.drop("timestamp").toPandas()
 
-        user_features = (
-            user_features.orderBy("user_idx").drop("user_idx").toPandas()
-        )
-        item_features = (
-            item_features.orderBy("item_idx").drop("item_idx").toPandas()
-        )
+        user_features = user_features.orderBy("user_idx").drop("user_idx").toPandas()
+        item_features = item_features.orderBy("item_idx").drop("item_idx").toPandas()
 
         self._num_users, self._num_user_features = user_features.shape
         self._num_items, self._num_item_features = item_features.shape
@@ -66,15 +63,15 @@ class uLinUCB(HybridRecommender):
 
     def _predict(
         self,
-        log: DataFrame,
+        log: DataFrame,  # noqa: ARG002
         k: int,
         users: DataFrame,
-        items: Optional[DataFrame] = None,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
-        filter_seen_items: bool = True,
+        items: Optional[DataFrame] = None,  # noqa: ARG002
+        user_features: Optional[DataFrame] = None,  # noqa: ARG002
+        item_features: Optional[DataFrame] = None,  # noqa: ARG002
+        filter_seen_items: bool = True,  # noqa: ARG002
     ) -> DataFrame:
-        K = 10 * k
+        extended_k = 10 * k
 
         user_idx = users.toPandas()["user_idx"].astype(int).to_numpy()
 
@@ -86,7 +83,7 @@ class uLinUCB(HybridRecommender):
         pred_df = (
             pred_df.sort_values(["user_idx", "relevance"], ascending=False)
             .groupby("user_idx")
-            .head(K)
+            .head(extended_k)
         )
 
         return convert2spark(pred_df)
@@ -104,9 +101,7 @@ class uLinUCB(HybridRecommender):
         rewards: np.ndarray,
         item_features: np.ndarray,
     ) -> None:
-        self._A = (
-            self._A + item_features[items_idx].T @ item_features[items_idx]
-        )
+        self._A = self._A + item_features[items_idx].T @ item_features[items_idx]
         self._b = self._b + item_features[items_idx].T @ rewards
         self._theta[user_idx] = np.linalg.inv(self._A) @ self._b
 

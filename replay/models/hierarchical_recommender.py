@@ -1,10 +1,11 @@
+from typing import Optional
+
 import numpy as np
 import pandas as pd
+from pandas import DataFrame as PandasDataFrame
+from pyspark.sql import DataFrame
 from tqdm import tqdm
 
-from typing import Optional
-from pyspark.sql import DataFrame
-from pandas import DataFrame as PandasDataFrame
 from replay.models.base_rec import HybridRecommender
 from replay.models.u_lin_ucb import uLinUCB
 from replay.utils import convert2spark
@@ -86,10 +87,10 @@ class HierarchicalRecommender(HybridRecommender):
         user_features: Optional[DataFrame] = None,
         item_features: Optional[DataFrame] = None,
     ) -> None:
-        print("Clustering...")
+        self.logger.debug("Clustering...")
         self.root._procreate(item_features.toPandas())
 
-        print("Fitting...")
+        self.logger.debug("Fitting...")
         self.root._fit(
             log.toPandas(), user_features.toPandas(), item_features.toPandas()
         )
@@ -104,7 +105,7 @@ class HierarchicalRecommender(HybridRecommender):
         item_features: Optional[DataFrame] = None,
         filter_seen_items: bool = True,
     ) -> DataFrame:
-        print("Predicting...")
+        self.logger.debug("Predicting...")
         pred = self.root._predict(
             log.toPandas(),
             k,
@@ -114,10 +115,9 @@ class HierarchicalRecommender(HybridRecommender):
             item_features,
             filter_seen_items,
         )
-        print(pred)
         return convert2spark(pred)
 
-    def _get_recommender(self, node):
+    def _get_recommender(self):
         new_recommender = self.recommender_class(**self.recommender_params)
         assert isinstance(new_recommender, HybridRecommender)
         return new_recommender
@@ -146,12 +146,12 @@ class Node:
         self.tree = tree
         self.is_leaf = False
 
-        if parent is None:
-            self.level = 0
-            assert tree != None
-        else:
+        if parent is not None:
             self.tree = self.parent.tree
             self.level = self.parent.level + 1
+        else:
+            self.level = 0
+            assert tree != None
 
         if self.level == (self.tree.depth - 1):
             self.is_leaf = True
@@ -185,20 +185,14 @@ class Node:
 
         if not self.is_leaf:
             for cl_idx, cl_log in tqdm(log.groupby("cluster_idx")):
-                self.children[cl_idx]._fit(
-                    cl_log, user_features, item_features
-                )
+                self.children[cl_idx]._fit(cl_log, user_features, item_features)
 
         rec_params = {
             "log": convert2spark(
-                log.drop(columns="item_idx").rename(
-                    columns={"cluster_idx": "item_idx"}
-                )
+                log.drop(columns="item_idx").rename(columns={"cluster_idx": "item_idx"})
             ),
             "user_features": convert2spark(user_features),
-            "item_features": convert2spark(
-                self.clusterer.get_cluster_centers()
-            ),
+            "item_features": convert2spark(self.clusterer.get_cluster_centers()),
         }
         self.recommender.fit(**rec_params)
 
@@ -218,9 +212,7 @@ class Node:
 
         rec_params = {
             "log": convert2spark(
-                log.drop(columns="item_idx").rename(
-                    columns={"cluster_idx": "item_idx"}
-                )
+                log.drop(columns="item_idx").rename(columns={"cluster_idx": "item_idx"})
             ),
             "users": convert2spark(users),
             "items": convert2spark(
