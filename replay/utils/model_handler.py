@@ -150,7 +150,7 @@ def load_encoder(path: Union[str, Path]) -> DatasetLabelEncoder:
     return encoder
 
 
-def save_splitter(splitter: Splitter, path: str, overwrite: bool = False):  # noqa: ARG001
+def save_splitter(splitter: Splitter, path: str, overwrite: bool = False):
     """
     Save initialized splitter
 
@@ -159,10 +159,13 @@ def save_splitter(splitter: Splitter, path: str, overwrite: bool = False):  # no
     """
     init_args = splitter._init_args
     init_args["_splitter_name"] = str(splitter)
-    if not os.path.exists(path):
-        os.makedirs(path)
-    with open(join(path, "init_args.json"), "w") as file:
-        json.dump(init_args, file)
+    spark = State().session
+    sc = spark.sparkContext
+    df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
+    if overwrite:
+        df.coalesce(1).write.mode("overwrite").json(join(path, "init_args.json"))
+    else:
+        df.coalesce(1).write.json(join(path, "init_args.json"))
 
 
 def load_splitter(path: str) -> Splitter:
@@ -172,8 +175,8 @@ def load_splitter(path: str) -> Splitter:
     :param path: path to folder
     :return: restored Splitter
     """
-    with open(join(path, "init_args.json"), "r") as file:
-        args = json.load(file)
+    spark = State().session
+    args = spark.read.json(join(path, "init_args.json")).first().asDict()
     name = args["_splitter_name"]
     del args["_splitter_name"]
     splitter = globals()[name]
