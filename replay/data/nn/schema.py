@@ -418,11 +418,11 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
                 "feature_type": feature.feature_type.name,
                 "is_seq": feature.is_seq,
                 "feature_hint": feature.feature_hint.name if feature.feature_hint else None,
-                "feature_sources": [
-                    {"source": x.source.name, "column": x.column, "index": x.index} for x in feature.feature_sources
-                ]
-                if feature.feature_sources
-                else None,
+                "feature_sources": (
+                    [{"source": x.source.name, "column": x.column, "index": x.index} for x in feature.feature_sources]
+                    if feature.feature_sources
+                    else None
+                ),
                 "cardinality": feature.cardinality if feature.feature_type == FeatureType.CATEGORICAL else None,
                 "embedding_dim": feature.embedding_dim if feature.feature_type == FeatureType.CATEGORICAL else None,
                 "tensor_dim": feature.tensor_dim if feature.feature_type == FeatureType.NUMERICAL else None,

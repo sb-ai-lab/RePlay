@@ -1,6 +1,7 @@
 """
 ``Dataset`` universal dataset class for manipulating interactions and feed data to models.
 """
+
 from __future__ import annotations
 
 import json
@@ -606,7 +607,7 @@ class Dataset:
         if self.is_pandas:
             min_id = data[column].min()
         elif self.is_spark:
-            min_id = data.agg(sf.min(column).alias("min_index")).collect()[0][0]
+            min_id = data.agg(sf.min(column).alias("min_index")).first()[0]
         else:
             min_id = data[column].min()
         if min_id < 0:
@@ -616,7 +617,7 @@ class Dataset:
         if self.is_pandas:
             max_id = data[column].max()
         elif self.is_spark:
-            max_id = data.agg(sf.max(column).alias("max_index")).collect()[0][0]
+            max_id = data.agg(sf.max(column).alias("max_index")).first()[0]
         else:
             max_id = data[column].max()
 

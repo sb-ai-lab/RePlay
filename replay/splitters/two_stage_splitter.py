@@ -1,6 +1,7 @@
 """
 This splitter split data by two columns.
 """
+
 from typing import Optional, Tuple
 
 import numpy as np
@@ -125,7 +126,6 @@ class TwoStageSplitter(Splitter):
         :return: DataFrame with single column `first_divide_column`
         """
         if isinstance(interactions, SparkDataFrame):
-            all_values = interactions.select(self.first_divide_column).distinct()
             all_values = interactions.select(self.first_divide_column).distinct().sort(self.first_divide_column)
             user_count = all_values.count()
         elif isinstance(interactions, PandasDataFrame):

@@ -179,8 +179,8 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
         abnormality_aggs = [sf.mean(sf.col("abnormality")).alias("abnormality")]
 
         # Abnormality CR:
-        max_std = item_features.select(sf.max("i_std")).collect()[0][0]
-        min_std = item_features.select(sf.min("i_std")).collect()[0][0]
+        max_std = item_features.select(sf.max("i_std")).first()[0]
+        min_std = item_features.select(sf.min("i_std")).first()[0]
         if max_std - min_std != 0:
             abnormality_df = abnormality_df.withColumn(
                 "controversy",
@@ -201,15 +201,15 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
          :param log: input SparkDataFrame ``[user_idx, item_idx, timestamp, relevance]``
         """
         self.calc_timestamp_based = (isinstance(log.schema["timestamp"].dataType, TimestampType)) & (
-            log.select(sf.countDistinct(sf.col("timestamp"))).collect()[0][0] > 1
+            log.select(sf.countDistinct(sf.col("timestamp"))).first()[0] > 1
         )
-        self.calc_relevance_based = log.select(sf.countDistinct(sf.col("relevance"))).collect()[0][0] > 1
+        self.calc_relevance_based = log.select(sf.countDistinct(sf.col("relevance"))).first()[0] > 1
 
         user_log_features = log.groupBy("user_idx").agg(*self._create_log_aggregates(agg_col="user_idx"))
         item_log_features = log.groupBy("item_idx").agg(*self._create_log_aggregates(agg_col="item_idx"))
 
         if self.calc_timestamp_based:
-            last_date = log.select(sf.max("timestamp")).collect()[0][0]
+            last_date = log.select(sf.max("timestamp")).first()[0]
             user_log_features = self._add_ts_based(features=user_log_features, max_log_date=last_date, prefix="u")
 
             item_log_features = self._add_ts_based(features=item_log_features, max_log_date=last_date, prefix="i")

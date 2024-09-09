@@ -1,6 +1,7 @@
 """
 This class calculates loss function for optimization process
 """
+
 import collections
 import logging
 from functools import partial

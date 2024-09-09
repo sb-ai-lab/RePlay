@@ -4,6 +4,7 @@ Contains classes for encoding categorical data
 ``LabelEncoderTransformWarning`` new category of warning for DatasetLabelEncoder.
 ``DatasetLabelEncoder`` to encode categorical features in `Dataset` objects.
 """
+
 import warnings
 from typing import Dict, Iterable, Iterator, Optional, Sequence, Set, Union
 
