@@ -459,8 +459,8 @@ def fallback(
     if base.count() == 0:
         return get_top_k_recs(fill, k, query_column=query_column, rating_column=rating_column)
     margin = 0.1
-    min_in_base = base.agg({rating_column: "min"}).collect()[0][0]
-    max_in_fill = fill.agg({rating_column: "max"}).collect()[0][0]
+    min_in_base = base.agg({rating_column: "min"}).first()[0]
+    max_in_fill = fill.agg({rating_column: "max"}).first()[0]
     diff = max_in_fill - min_in_base
     fill = fill.withColumnRenamed(rating_column, "relevance_fallback")
     if diff >= 0:
