@@ -401,7 +401,12 @@ class SasRecLayers(torch.nn.Module):
         """
         super().__init__()
         self.attention_layers = self._layers_stacker(
-            num_blocks, torch.nn.MultiheadAttention, hidden_size, num_heads, dropout, batch_first=True,
+            num_blocks,
+            torch.nn.MultiheadAttention,
+            hidden_size,
+            num_heads,
+            dropout,
+            batch_first=True,
         )
         self.attention_layernorms = self._layers_stacker(num_blocks, torch.nn.LayerNorm, hidden_size, eps=1e-8)
         self.forward_layers = self._layers_stacker(num_blocks, SasRecPointWiseFeedForward, hidden_size, dropout)

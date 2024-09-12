@@ -100,6 +100,8 @@ class SasRec(lightning.LightningModule):
 
         :returns: Computed loss for batch.
         """
+        if batch_idx % 100 == 0 and torch.cuda.is_available():  # pragma: no cover
+            torch.cuda.empty_cache()
         loss = self._compute_loss(batch)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         return loss
