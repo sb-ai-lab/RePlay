@@ -115,13 +115,10 @@ class Bert4RecModel(torch.nn.Module):
         # (B x L x E)
         x = self.item_embedder(inputs, token_mask)
 
-        # (B x 1 x L x L)
-        pad_mask_for_attention = self._get_attention_mask_from_padding(pad_mask)
-
         # Running over multiple transformer blocks
         for transformer in self.transformer_blocks:
             for _ in range(self.num_passes_over_block):
-                x = transformer(x, pad_mask_for_attention)
+                x = transformer(x, pad_mask)
 
         return x
 
@@ -146,11 +143,6 @@ class Bert4RecModel(torch.nn.Module):
         :returns: Query embeddings.
         """
         return self.forward_step(inputs, pad_mask, token_mask)[:, -1, :]
-
-    def _get_attention_mask_from_padding(self, pad_mask: torch.BoolTensor) -> torch.BoolTensor:
-        # (B x L) -> (B x 1 x L x L)
-        pad_mask_for_attention = pad_mask.unsqueeze(1).repeat(1, self.max_len, 1).unsqueeze(1)
-        return cast(torch.BoolTensor, pad_mask_for_attention)
 
     def _init(self) -> None:
         for _, param in self.named_parameters():
@@ -456,7 +448,7 @@ class TransformerBlock(torch.nn.Module):
         :param dropout: Dropout rate.
         """
         super().__init__()
-        self.attention = MultiHeadedAttention(h=attn_heads, d_model=hidden_size, dropout=dropout)
+        self.attention = torch.nn.MultiheadAttention(hidden_size, attn_heads, dropout=dropout, batch_first=True)
         self.attention_dropout = torch.nn.Dropout(dropout)
         self.attention_norm = LayerNorm(hidden_size)
 
@@ -479,7 +471,8 @@ class TransformerBlock(torch.nn.Module):
         """
         # Attention + skip-connection
         x_norm = self.attention_norm(x)
-        y = x + self.attention_dropout(self.attention(x_norm, x_norm, x_norm, mask))
+        attent_emb, _ = self.attention(x_norm, x_norm, x_norm, key_padding_mask=~mask, need_weights=False)
+        y = x + self.attention_dropout(attent_emb)
 
         # PFF + skip-connection
         z = y + self.pff_dropout(self.pff(self.pff_norm(y)))

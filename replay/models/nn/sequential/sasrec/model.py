@@ -401,7 +401,7 @@ class SasRecLayers(torch.nn.Module):
         """
         super().__init__()
         self.attention_layers = self._layers_stacker(
-            num_blocks, torch.nn.MultiheadAttention, hidden_size, num_heads, dropout
+            num_blocks, torch.nn.MultiheadAttention, hidden_size, num_heads, dropout, batch_first=True,
         )
         self.attention_layernorms = self._layers_stacker(num_blocks, torch.nn.LayerNorm, hidden_size, eps=1e-8)
         self.forward_layers = self._layers_stacker(num_blocks, SasRecPointWiseFeedForward, hidden_size, dropout)
@@ -422,11 +422,9 @@ class SasRecLayers(torch.nn.Module):
         """
         length = len(self.attention_layers)
         for i in range(length):
-            seqs = torch.transpose(seqs, 0, 1)
             query = self.attention_layernorms[i](seqs)
-            attent_emb, _ = self.attention_layers[i](query, seqs, seqs, attn_mask=attention_mask)
+            attent_emb, _ = self.attention_layers[i](query, seqs, seqs, attn_mask=attention_mask, need_weights=False)
             seqs = query + attent_emb
-            seqs = torch.transpose(seqs, 0, 1)
 
             seqs = self.forward_layernorms[i](seqs)
             seqs = self.forward_layers[i](seqs)
@@ -492,7 +490,7 @@ class SasRecPointWiseFeedForward(torch.nn.Module):
 
         :returns: Output tensors.
         """
-        outputs = self.dropout2(self.conv2(self.relu(self.dropout1(self.conv1(inputs.transpose(-1, -2))))))
+        outputs = self.dropout2(self.conv2(self.dropout1(self.relu(self.conv1(inputs.transpose(-1, -2))))))
         outputs = outputs.transpose(-1, -2)
         outputs += inputs
 
