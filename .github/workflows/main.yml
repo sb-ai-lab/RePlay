@@ -178,7 +178,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.8", "3.9", "3.10"] # TODO: enable 3.11 (lightfm installation problem)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -203,7 +203,7 @@ jobs:
           path: .coverage_experimental_${{ matrix.python-version }}
 
   merge_coverage:
-    needs: [pytest_core, pytest_torch, pytest_spark, pytest_spark_torch, pytest_experimental]
+    needs: [pytest_core, pytest_torch, pytest_spark, pytest_spark_torch]
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -229,7 +229,7 @@ jobs:
       - name: Combine coverage
         run: |
           . ./venv/bin/activate
-          coverage combine .coverage_core_${{ matrix.python-version }} .coverage_torch_${{ matrix.python-version }} .coverage_spark_${{ matrix.python-version }} .coverage_all_${{ matrix.python-version }} .coverage_experimental_${{ matrix.python-version }}
+          coverage combine .coverage_core_${{ matrix.python-version }} .coverage_torch_${{ matrix.python-version }} .coverage_spark_${{ matrix.python-version }} .coverage_all_${{ matrix.python-version }}
           coverage report --fail-under=100
           coverage xml
 
