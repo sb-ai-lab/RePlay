@@ -68,8 +68,7 @@ jobs:
         run: |
           python -m venv venv
           . ./venv/bin/activate
-          pip install --upgrade pip wheel poetry==1.5.1 lightfm==1.17
-          poetry cache clear pypi --all
+          pip install --upgrade pip wheel poetry==1.5.1
           ./poetry_wrapper.sh install
       - name: pytest
         run: |
@@ -98,8 +97,7 @@ jobs:
         run: |
           python -m venv venv
           . ./venv/bin/activate
-          pip install --upgrade pip wheel poetry==1.5.1 lightfm==1.17
-          poetry cache clear pypi --all
+          pip install --upgrade pip wheel poetry==1.5.1
           ./poetry_wrapper.sh install -E torch
       - name: pytest
         run: |
@@ -128,8 +126,7 @@ jobs:
         run: |
           python -m venv venv
           . ./venv/bin/activate
-          pip install --upgrade pip wheel poetry==1.5.1 lightfm==1.17
-          poetry cache clear pypi --all
+          pip install --upgrade pip wheel poetry==1.5.1
           ./poetry_wrapper.sh install -E spark
       - name: pytest
         run: |
@@ -158,8 +155,7 @@ jobs:
         run: |
           python -m venv venv
           . ./venv/bin/activate
-          pip install --upgrade pip wheel poetry==1.5.1 lightfm==1.17
-          poetry cache clear pypi --all
+          pip install --upgrade pip wheel poetry==1.5.1
           ./poetry_wrapper.sh install --all-extras
       - name: pytest
         run: |
