@@ -193,6 +193,7 @@ print(metrics.results)
 	- [Replay for offline recommendations, AI Journey 2021](https://www.youtube.com/watch?v=ejQZKGAG0xs)
 
 * **Research papers**:
+    - [RePlay: a Recommendation Framework for Experimentation and Production Use](https://arxiv.org/abs/2409.07272) Alexey Vasilev, Anna Volodkevich, Denis Kulandin, Tatiana Bysheva, Anton Klenitskiy. In The 18th ACM Conference on Recommender Systems (RecSys '24)
 	- [Turning Dross Into Gold Loss: is BERT4Rec really better than SASRec?](https://doi.org/10.1145/3604915.3610644) Anton Klenitskiy, Alexey Vasilev. In The 17th ACM Conference on Recommender Systems (RecSys '23)
     - [The Long Tail of Context: Does it Exist and Matter?](https://arxiv.org/abs/2210.01023). Konstantin Bauman, Alexey Vasilev, Alexander Tuzhilin. In Workshop on Context-Aware Recommender Systems (CARS) (RecSys '22)
     - [Multiobjective Evaluation of Reinforcement Learning Based Recommender Systems](https://doi.org/10.1145/3523227.3551485). Alexey Grishanov, Anastasia Ianina, Konstantin Vorontsov. In The 16th ACM Conference on Recommender Systems (RecSys '22)
