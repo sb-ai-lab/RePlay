@@ -214,8 +214,7 @@ jobs:
         run: |
           python -m venv venv
           . ./venv/bin/activate
-          pip install --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning lightfm==1.17
-          poetry cache clear pypi --all
+          pip install --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning
           ./poetry_wrapper.sh install --only dev
       - name: Download coverage reports
         uses: actions/download-artifact@v4
