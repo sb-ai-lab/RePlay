@@ -1,7 +1,7 @@
 import contextlib
 import math
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Tuple, Union, cast
+from typing import Dict, Optional, Union
 
 import torch
 
@@ -115,13 +115,10 @@ class Bert4RecModel(torch.nn.Module):
         # (B x L x E)
         x = self.item_embedder(inputs, token_mask)
 
-        # (B x 1 x L x L)
-        pad_mask_for_attention = self._get_attention_mask_from_padding(pad_mask)
-
         # Running over multiple transformer blocks
         for transformer in self.transformer_blocks:
             for _ in range(self.num_passes_over_block):
-                x = transformer(x, pad_mask_for_attention)
+                x = transformer(x, pad_mask)
 
         return x
 
@@ -146,11 +143,6 @@ class Bert4RecModel(torch.nn.Module):
         :returns: Query embeddings.
         """
         return self.forward_step(inputs, pad_mask, token_mask)[:, -1, :]
-
-    def _get_attention_mask_from_padding(self, pad_mask: torch.BoolTensor) -> torch.BoolTensor:
-        # (B x L) -> (B x 1 x L x L)
-        pad_mask_for_attention = pad_mask.unsqueeze(1).repeat(1, self.max_len, 1).unsqueeze(1)
-        return cast(torch.BoolTensor, pad_mask_for_attention)
 
     def _init(self) -> None:
         for _, param in self.named_parameters():
@@ -456,7 +448,7 @@ class TransformerBlock(torch.nn.Module):
         :param dropout: Dropout rate.
         """
         super().__init__()
-        self.attention = MultiHeadedAttention(h=attn_heads, d_model=hidden_size, dropout=dropout)
+        self.attention = torch.nn.MultiheadAttention(hidden_size, attn_heads, dropout=dropout, batch_first=True)
         self.attention_dropout = torch.nn.Dropout(dropout)
         self.attention_norm = LayerNorm(hidden_size)
 
@@ -479,112 +471,13 @@ class TransformerBlock(torch.nn.Module):
         """
         # Attention + skip-connection
         x_norm = self.attention_norm(x)
-        y = x + self.attention_dropout(self.attention(x_norm, x_norm, x_norm, mask))
+        attent_emb, _ = self.attention(x_norm, x_norm, x_norm, key_padding_mask=~mask, need_weights=False)
+        y = x + self.attention_dropout(attent_emb)
 
         # PFF + skip-connection
         z = y + self.pff_dropout(self.pff(self.pff_norm(y)))
 
         return self.dropout(z)
-
-
-class Attention(torch.nn.Module):
-    """
-    Compute Scaled Dot Product Attention
-    """
-
-    def __init__(self, dropout: float) -> None:
-        """
-        :param dropout: Dropout rate.
-        """
-        super().__init__()
-        self.dropout = torch.nn.Dropout(p=dropout)
-
-    def forward(
-        self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, mask: torch.BoolTensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        :param query: Query feature vector.
-        :param key: Key feature vector.
-        :param value: Value feature vector.
-        :param mask: Mask where 0 - <MASK>, 1 - otherwise.
-
-        :returns: Tuple of scaled dot product attention
-                and attention logits for each element.
-        """
-        scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(query.size(-1))
-
-        scores = scores.masked_fill(mask == 0, -1e9)
-        p_attn = torch.nn.functional.softmax(scores, dim=-1)
-        p_attn = self.dropout(p_attn)
-
-        return torch.matmul(p_attn, value), p_attn
-
-
-class MultiHeadedAttention(torch.nn.Module):
-    """
-    Take in model size and number of heads.
-    """
-
-    def __init__(self, h: int, d_model: int, dropout: float = 0.1) -> None:
-        """
-        :param h: Head sizes of multi-head attention.
-        :param d_model: Embedding dimension.
-        :param dropout: Dropout rate.
-            Default: ``0.1``.
-        """
-        super().__init__()
-        assert d_model % h == 0
-
-        # We assume d_v always equals d_k
-        self.d_k = d_model // h
-        self.h = h
-
-        # 3 linear projections for Q, K, V
-        self.qkv_linear_layers = torch.nn.ModuleList([torch.nn.Linear(d_model, d_model) for _ in range(3)])
-
-        # 2 linear projections for P -> P_q, P_k
-        self.pos_linear_layers = torch.nn.ModuleList([torch.nn.Linear(d_model, d_model) for _ in range(2)])
-
-        self.output_linear = torch.nn.Linear(d_model, d_model)
-
-        self.attention = Attention(dropout)
-
-    def forward(
-        self,
-        query: torch.Tensor,
-        key: torch.Tensor,
-        value: torch.Tensor,
-        mask: torch.BoolTensor,
-    ) -> torch.Tensor:
-        """
-        :param query: Query feature vector.
-        :param key: Key feature vector.
-        :param value: Value feature vector.
-        :param mask: Mask where 0 - <MASK>, 1 - otherwise.
-
-        :returns: Attention outputs.
-        """
-        batch_size = query.size(0)
-
-        # B - batch size
-        # L - sequence length (max_len)
-        # E - embedding size for tokens fed into transformer
-        # K - max relative distance
-        # H - attention head count
-
-        # Do all the linear projections in batch from d_model => h x d_k
-        # (B x L x E) -> (B x H x L x (E / H))
-        query, key, value = [
-            layer(x).view(batch_size, -1, self.h, self.d_k).transpose(1, 2)
-            for layer, x in zip(self.qkv_linear_layers, (query, key, value))
-        ]
-
-        x, _ = self.attention(query, key, value, mask)
-
-        # Concat using a view and apply a final linear.
-        x = x.transpose(1, 2).contiguous().view(batch_size, -1, self.h * self.d_k)
-
-        return self.output_linear(x)
 
 
 class LayerNorm(torch.nn.Module):
