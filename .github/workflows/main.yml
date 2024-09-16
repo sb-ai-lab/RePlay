@@ -74,12 +74,12 @@ jobs:
         run: |
           . ./venv/bin/activate
           pytest -m core tests/ --ignore=tests/experimental
-          mv .coverage .coverage_core_${{ matrix.python-version }}
+          mv .coverage coverage_core_${{ matrix.python-version }}
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
-          name: .coverage_core_${{ matrix.python-version }}
-          path: .coverage_core_${{ matrix.python-version }}
+          name: coverage_core_${{ matrix.python-version }}
+          path: coverage_core_${{ matrix.python-version }}
 
   pytest_torch:
     needs: static_tests
@@ -103,12 +103,12 @@ jobs:
         run: |
           . ./venv/bin/activate
           pytest -m "not spark and not experimental" tests/ --ignore=tests/experimental
-          mv .coverage .coverage_torch_${{ matrix.python-version }}
+          mv .coverage coverage_torch_${{ matrix.python-version }}
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
-          name: .coverage_torch_${{ matrix.python-version }}
-          path: .coverage_torch_${{ matrix.python-version }}
+          name: coverage_torch_${{ matrix.python-version }}
+          path: coverage_torch_${{ matrix.python-version }}
 
   pytest_spark:
     needs: static_tests
@@ -132,12 +132,12 @@ jobs:
         run: |
           . ./venv/bin/activate
           pytest -m "not torch and not experimental" tests/ --ignore=tests/experimental
-          mv .coverage .coverage_spark_${{ matrix.python-version }}
+          mv .coverage coverage_spark_${{ matrix.python-version }}
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
-          name: .coverage_spark_${{ matrix.python-version }}
-          path: .coverage_spark_${{ matrix.python-version }}
+          name: coverage_spark_${{ matrix.python-version }}
+          path: coverage_spark_${{ matrix.python-version }}
 
   pytest_spark_torch:
     needs: static_tests
@@ -161,12 +161,12 @@ jobs:
         run: |
           . ./venv/bin/activate
           pytest -m "not experimental" --ignore=replay/experimental --ignore=tests/experimental
-          mv .coverage .coverage_all_${{ matrix.python-version }}
+          mv .coverage coverage_all_${{ matrix.python-version }}
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
-          name: .coverage_all_${{ matrix.python-version }}
-          path: .coverage_all_${{ matrix.python-version }}
+          name: coverage_all_${{ matrix.python-version }}
+          path: coverage_all_${{ matrix.python-version }}
 
   pytest_experimental:
     needs: static_tests
@@ -185,18 +185,17 @@ jobs:
           python -m venv venv
           . ./venv/bin/activate
           pip install --upgrade pip wheel poetry==1.5.1 lightfm==1.17
-          poetry cache clear pypi --all
           ./poetry_wrapper.sh --experimental install --all-extras
       - name: pytest
         run: |
           . ./venv/bin/activate
           pytest -m "experimental"
-          mv .coverage .coverage_experimental_${{ matrix.python-version }}
+          mv .coverage coverage_experimental_${{ matrix.python-version }}
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
-          name: .coverage_experimental_${{ matrix.python-version }}
-          path: .coverage_experimental_${{ matrix.python-version }}
+          name: coverage_experimental_${{ matrix.python-version }}
+          path: coverage_experimental_${{ matrix.python-version }}
 
   merge_coverage:
     needs: [pytest_core, pytest_torch, pytest_spark, pytest_spark_torch]
@@ -224,7 +223,7 @@ jobs:
       - name: Combine coverage
         run: |
           . ./venv/bin/activate
-          coverage combine .coverage_core_${{ matrix.python-version }} .coverage_torch_${{ matrix.python-version }} .coverage_spark_${{ matrix.python-version }} .coverage_all_${{ matrix.python-version }}
+          coverage combine coverage_core_${{ matrix.python-version }} coverage_torch_${{ matrix.python-version }} coverage_spark_${{ matrix.python-version }} coverage_all_${{ matrix.python-version }}
           coverage report --fail-under=100
           coverage xml
 
@@ -243,7 +242,6 @@ jobs:
           python -m venv venv
           . ./venv/bin/activate
           pip install --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning
-          poetry cache clear pypi --all
           ./poetry_wrapper.sh install --all-extras
       - name: Build
         run: |
@@ -266,7 +264,6 @@ jobs:
           python -m venv venv
           . ./venv/bin/activate
           pip install --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning lightfm==1.17
-          poetry cache clear pypi --all
           ./poetry_wrapper.sh --experimental install --all-extras
       - name: Build
         run: |
