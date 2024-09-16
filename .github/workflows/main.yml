@@ -218,7 +218,7 @@ jobs:
       - name: Download coverage reports
         uses: actions/download-artifact@v4
         with:
-          pattern: .coverage_*
+          pattern: coverage_*
           merge-multiple: true
       - name: Combine coverage
         run: |
