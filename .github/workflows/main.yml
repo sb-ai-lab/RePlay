@@ -131,7 +131,7 @@ jobs:
       - name: pytest
         run: |
           . ./venv/bin/activate
-          pytest -m "not torch and not experimental" tests/ --ignore=tests/experimental
+          pytest -m "not torch and not experimental" tests/ --ignore=tests/experimental --ignore=tests/models
           mv .coverage coverage_spark_${{ matrix.python-version }}
       - name: Upload coverage
         uses: actions/upload-artifact@v4
@@ -160,13 +160,13 @@ jobs:
       - name: pytest
         run: |
           . ./venv/bin/activate
-          pytest -m "not experimental" --ignore=replay/experimental --ignore=tests/experimental
-          mv .coverage coverage_all_${{ matrix.python-version }}
+          pytest -m "not experimental" --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
+          mv .coverage coverage_spark_and_torch_${{ matrix.python-version }}
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
-          name: coverage_all_${{ matrix.python-version }}
-          path: coverage_all_${{ matrix.python-version }}
+          name: coverage_spark_and_torch_${{ matrix.python-version }}
+          path: coverage_spark_and_torch_${{ matrix.python-version }}
 
   pytest_experimental:
     needs: static_tests
@@ -174,7 +174,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10"] # TODO: enable 3.11 (lightfm installation problem)
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -184,7 +184,8 @@ jobs:
         run: |
           python -m venv venv
           . ./venv/bin/activate
-          pip install --upgrade pip wheel poetry==1.5.1 lightfm==1.17
+          pip install --upgrade pip wheel poetry==1.5.1
+          pip install --upgrade --no-use-pep517 lightfm==1.17
           ./poetry_wrapper.sh --experimental install --all-extras
       - name: pytest
         run: |
@@ -197,8 +198,37 @@ jobs:
           name: coverage_experimental_${{ matrix.python-version }}
           path: coverage_experimental_${{ matrix.python-version }}
 
+  pytest_models:
+    needs: static_tests
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install full package
+        run: |
+          python -m venv venv
+          . ./venv/bin/activate
+          pip install --upgrade pip wheel poetry==1.5.1
+          ./poetry_wrapper.sh install --all-extras
+      - name: pytest
+        run: |
+          . ./venv/bin/activate
+          pytest -m "not experimental" tests/models --ignore=replay/experimental --ignore=tests/experimental
+          mv .coverage coverage_models_${{ matrix.python-version }}
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage_models_${{ matrix.python-version }}
+          path: coverage_models_${{ matrix.python-version }}
+
   merge_coverage:
-    needs: [pytest_core, pytest_torch, pytest_spark, pytest_spark_torch]
+    needs: [pytest_core, pytest_torch, pytest_spark, pytest_spark_torch, pytest_models, pytest_experimental]
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -223,7 +253,7 @@ jobs:
       - name: Combine coverage
         run: |
           . ./venv/bin/activate
-          coverage combine coverage_core_${{ matrix.python-version }} coverage_torch_${{ matrix.python-version }} coverage_spark_${{ matrix.python-version }} coverage_all_${{ matrix.python-version }}
+          coverage combine coverage_core_${{ matrix.python-version }} coverage_torch_${{ matrix.python-version }} coverage_spark_${{ matrix.python-version }} coverage_spark_and_torch_${{ matrix.python-version }} coverage_models_${{ matrix.python-version }} coverage_experimental_${{ matrix.python-version }}
           coverage report --fail-under=100
           coverage xml
 
