@@ -313,8 +313,8 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         k: int,
         users: SparkDataFrame,
         items: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
         filter_seen_items: bool = True,
     ) -> np.ndarray:
         """
@@ -346,7 +346,13 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         n_items = items.select("item_idx").count()
 
         recs = self._predict(
-            log, k, users, items, user_features, item_features, filter_seen_items,
+            log,
+            k,
+            users,
+            items,
+            user_features,
+            item_features,
+            filter_seen_items,
         )
 
         recs = get_top_k_recs(recs, k=k).select("user_idx", "item_idx", "relevance")

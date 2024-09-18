@@ -1,8 +1,6 @@
 # pylint: disable-all
-import os
-from datetime import datetime
-
 import pytest
+from datetime import datetime
 
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
@@ -160,6 +158,7 @@ def obp_dataset():
     dataset = OpenBanditDataset(behavior_policy="random", data_path=None, campaign="all")
     return dataset
 
+
 @pytest.fixture
 def obp_learner(obp_dataset):
     obp_model = NeuralTS(
@@ -181,13 +180,10 @@ def obp_learner(obp_dataset):
     )
     return learner
 
+
 def test_obp_evaluation(obp_dataset, obp_learner):
-    bandit_feedback_train, _ = obp_dataset.obtain_batch_bandit_feedback(
-        test_size=0.3, is_timeseries_split=True
-    )
-    _, bandit_feedback_test = obp_dataset.obtain_batch_bandit_feedback(
-        test_size=0.3, is_timeseries_split=True
-    )
+    bandit_feedback_train, _ = obp_dataset.obtain_batch_bandit_feedback(test_size=0.3, is_timeseries_split=True)
+    _, bandit_feedback_test = obp_dataset.obtain_batch_bandit_feedback(test_size=0.3, is_timeseries_split=True)
 
     obp_learner.fit(
         action=bandit_feedback_train["action"],

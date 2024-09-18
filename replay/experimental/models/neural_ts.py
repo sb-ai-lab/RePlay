@@ -438,8 +438,8 @@ class NeuralTS(HybridRecommender):
 
     def __init__(
         self,
-        user_cols: Dict[str, List[str]] = {'continuous_cols':[], 'cat_embed_cols':[], 'wide_cols': []},
-        item_cols: Dict[str, List[str]] = {'continuous_cols':[], 'cat_embed_cols':[], 'wide_cols': []},
+        user_cols: Dict[str, List[str]] = {"continuous_cols":[], "cat_embed_cols":[], "wide_cols": []},
+        item_cols: Dict[str, List[str]] = {"continuous_cols":[], "cat_embed_cols":[], "wide_cols": []},
         embedding_sizes: List[int] = [32, 32, 64],
         hidden_layers: List[int] = [32, 20],
         wide_out_dim: int = 1,
@@ -451,13 +451,13 @@ class NeuralTS(HybridRecommender):
         opt_lr: float = 3e-4,
         lr_min: float = 1e-5,
         use_gpu: bool = False,
-        plot_dir: Optional[str] = None,
         use_warp_loss: bool = True,
         cnt_neg_samples: int = 100,
         cnt_samples_for_predict: int = 10,
         exploration_coef: float = 1.0,
-        cnt_users = None,
-        cnt_items = None,
+        cnt_users: Optional[int] = None,
+        cnt_items: Optional[int] = None,
+        plot_dir: Optional[str] = None,
     ):
         self.user_cols = user_cols
         self.item_cols = item_cols
@@ -474,13 +474,13 @@ class NeuralTS(HybridRecommender):
         self.device = torch.device("cpu")
         if use_gpu:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.plot_dir = plot_dir
         self.use_warp_loss = use_warp_loss
         self.cnt_neg_samples = cnt_neg_samples
         self.cnt_samples_for_predict = cnt_samples_for_predict
         self.exploration_coef = exploration_coef
         self.cnt_users = cnt_users
         self.cnt_items = cnt_items
+        self.plot_dir = plot_dir
 
         self.size_wide_features = None
         self.size_continuous_features = None
@@ -560,9 +560,7 @@ class NeuralTS(HybridRecommender):
                 self.encoder_intersept_user.transform(user_features[wide_cols_cat]),
                 columns=list(self.encoder_intersept_user.get_feature_names_out(wide_cols_cat)),
             )
-            self.union_cols["cat_embed_cols"] += list(
-                self.encoder_intersept_user.get_feature_names_out(wide_cols_cat)
-            )
+            self.union_cols["cat_embed_cols"] += list(self.encoder_intersept_user.get_feature_names_out(wide_cols_cat))
             self.union_cols["wide_cols"] += list(
                 set(self.user_cols["wide_cols"]).difference(set(self.user_cols["cat_embed_cols"]))
             ) + list(self.encoder_intersept_user.get_feature_names_out(wide_cols_cat))
@@ -598,9 +596,7 @@ class NeuralTS(HybridRecommender):
                 self.encoder_intersept_item.transform(item_features[wide_cols_cat]),
                 columns=list(self.encoder_intersept_item.get_feature_names_out(wide_cols_cat)),
             )
-            self.union_cols["cat_embed_cols"] += list(
-                self.encoder_intersept_item.get_feature_names_out(wide_cols_cat)
-            )
+            self.union_cols["cat_embed_cols"] += list(self.encoder_intersept_item.get_feature_names_out(wide_cols_cat))
             self.union_cols["wide_cols"] += list(
                 set(self.item_cols["wide_cols"]).difference(set(self.item_cols["cat_embed_cols"]))
             ) + list(self.encoder_intersept_item.get_feature_names_out(wide_cols_cat))
@@ -818,7 +814,6 @@ class NeuralTS(HybridRecommender):
                 idx += 1
         self.lr_scheduler.step()
         return cumulative_loss / idx
-
 
     def predict_val_with_ndcg(self, model, val_dataloader, device, k):
         """

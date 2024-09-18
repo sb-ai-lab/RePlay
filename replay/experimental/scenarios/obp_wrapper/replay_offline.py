@@ -1,5 +1,5 @@
-import logging
 from dataclasses import dataclass
+import logging
 from typing import (
     Any,
     Dict,
@@ -16,14 +16,16 @@ from optuna.samplers import TPESampler
 from pyspark.sql import DataFrame
 
 from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType
+from replay.experimental.models.base_rec import BaseRecommender as ExperimentalBaseRecommender
 from replay.experimental.scenarios.obp_wrapper.obp_optuna_objective import OBPObjective
 from replay.experimental.scenarios.obp_wrapper.utils import split_bandit_feedback
 from replay.models.base_rec import BaseRecommender
-from replay.experimental.models.base_rec import BaseRecommender as ExperimentalBaseRecommender
 from replay.utils.spark_utils import convert2spark
 
 
-def obp2df(action: np.ndarray, reward: np.ndarray, timestamp: np.ndarray, feedback_column: str) -> Optional[pd.DataFrame]:
+def obp2df(
+    action: np.ndarray, reward: np.ndarray, timestamp: np.ndarray, feedback_column: str
+) -> Optional[pd.DataFrame]:
     """
     Converts OBP log to the pandas DataFrame
     """
@@ -192,13 +194,7 @@ class OBPOfflinePolicyLearner(BaseOfflinePolicyLearner):
 
         if self.is_experimental_model:
             action_dist = self.replay_model._predict_proba(
-                self.log,
-                self.len_list,
-                users,
-                items,
-                user_features,
-                self.item_features,
-                filter_seen_items=False
+                self.log, self.len_list, users, items, user_features, self.item_features, filter_seen_items=False
             )
         else:
             dataset = Dataset(
