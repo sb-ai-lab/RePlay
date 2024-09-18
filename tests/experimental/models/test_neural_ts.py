@@ -1,15 +1,15 @@
 # pylint: disable-all
 from datetime import datetime
-import pytest
 
 import numpy as np
+import pytest
 from obp.dataset import OpenBanditDataset
 from obp.ope import OffPolicyEvaluation, InverseProbabilityWeighting, DirectMethod, DoublyRobust
+from pyspark.sql import functions as sf
 
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
 
-from pyspark.sql import functions as sf
 from replay.data import get_schema
 from replay.experimental.models import NeuralTS
 from replay.experimental.scenarios.obp_wrapper.replay_offline import OBPOfflinePolicyLearner
