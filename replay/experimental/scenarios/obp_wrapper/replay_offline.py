@@ -1,4 +1,3 @@
-import logging
 from typing import (
     Any,
     Dict,
@@ -7,6 +6,7 @@ from typing import (
     Union,
 )
 
+import logging
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass
