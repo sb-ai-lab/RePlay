@@ -402,9 +402,12 @@ def w_log_loss(output, target, device):
     return -loss.mean()
 
 
-class NeuralTS(HybridRecommender):
+class NeuralTS(HybridRecommender, NonPersonalizedRecommender):
     """
-    Neural Thompson sampling model based on https://arxiv.org/abs/1606.07792
+    'Neural Thompson sampling recommender
+    <https://dl.acm.org/doi/pdf/10.1145/3383313.3412214>`_  based on `Wide&Deep model
+    <https://arxiv.org/abs/1606.07792>`_.
+
     :param user_cols: cols_user = {'continuous_cols':List[str], 'cat_embed_cols':List[str], 'wide_cols': List[str]},
     where List[str] -- some column names from user_features dataframe, which is input to the fit method,
     or empty List
@@ -426,42 +429,46 @@ class NeuralTS(HybridRecommender):
     :param lr_min: minimum learning rate value for the CosineAnnealingLR learning rate scheduler
     :param use_gpu: if true, the model will be trained on the GPU
     :param plot_dir: file name where the training graphs will be saved, if None, the graphs will not be saved
-    :param is_warp_loss: if true, then warp loss will be used otherwise weighted logistic loss.
+    :param use_warp_loss: if true, then warp loss will be used otherwise weighted logistic loss.
     :param cnt_neg_samples: number of additional negative examples for each user
     :param cnt_samples_for_predict: number of predictions for one user,
-    which are used to calculate the mean and variance of relevance
-    :param eps:  exploration coefficient
+    which are used to estimate the mean and variance of relevance
+    :param exploration_coef:  exploration coefficient
     """
 
     def __init__(
         self,
-        user_cols: Optional[Dict[str, List[str]]] = None,
-        item_cols: Optional[Dict[str, List[str]]] = None,
-        dim_head: int = 4,
-        deep_out_dim: int = 8,
-        hidden_layers: Optional[List[int]] = None,
-        embedding_sizes: Optional[List[int]] = None,
+        user_cols: Dict[str, List[str]] = {'continuous_cols':[], 'cat_embed_cols':[], 'wide_cols': []},
+        item_cols: Dict[str, List[str]] = {'continuous_cols':[], 'cat_embed_cols':[], 'wide_cols': []},
+        embedding_sizes: List[int] = [32, 32, 64],
+        hidden_layers: List[int] = [32, 20],
         wide_out_dim: int = 1,
+        deep_out_dim: int = 20,
         head_dropout: float = 0.0,
         deep_dropout: float = 0.0,
+        dim_head: int = 20,
         n_epochs: int = 10,
         opt_lr: float = 3e-4,
         lr_min: float = 1e-5,
         use_gpu: bool = False,
         plot_dir: Optional[str] = None,
-        is_warp_loss: bool = False,
+        use_warp_loss: bool = False,
         cnt_neg_samples: int = 100,
         cnt_samples_for_predict: int = 10,
-        eps: float = 0.0,
+        exploration_coef: float = 0.0,
+        cnt_users = None,
+        cnt_items = None,
+        sample=False,
     ):
         self.user_cols = user_cols
         self.item_cols = item_cols
-        self.dim_head = dim_head
-        self.deep_out_dim = deep_out_dim
+        self.embedding_sizes = embedding_sizes
         self.hidden_layers = hidden_layers
         self.wide_out_dim = wide_out_dim
+        self.deep_out_dim = deep_out_dim
         self.head_dropout = head_dropout
         self.deep_dropout = deep_dropout
+        self.dim_head = dim_head
         self.n_epochs = n_epochs
         self.opt_lr = opt_lr
         self.lr_min = lr_min
@@ -469,136 +476,30 @@ class NeuralTS(HybridRecommender):
         if use_gpu:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.plot_dir = plot_dir
-        self.is_warp_loss = is_warp_loss
+        self.use_warp_loss = use_warp_loss
         self.cnt_neg_samples = cnt_neg_samples
-        self.embedding_sizes = embedding_sizes
         self.cnt_samples_for_predict = cnt_samples_for_predict
-        self.eps = eps
+        self.exploration_coef = exploration_coef
+        self.cnt_users = cnt_users
+        self.cnt_items = cnt_items
+        self.sample = sample
+
         self.size_wide_features = None
         self.size_continuous_features = None
         self.size_cat_features = None
         self.scaler_user = None
-        self.myencoder_intersept_user = None
-        self.myencoder_diff_user = None
+        self.encoder_intersept_user = None
+        self.encoder_diff_user = None
         self.scaler_item = None
-        self.myencoder_intersept_item = None
-        self.myencoder_diff_item = None
+        self.encoder_intersept_item = None
+        self.encoder_diff_item = None
         self.union_cols = None
-        self.cnt_users = None
-        self.cnt_items = None
         self.num_of_train_labels = None
         self.dict_true_items_val = None
         self.lr_scheduler = None
         self.model = None
         self.criterion = None
         self.optimizer = None
-
-    def train_model(self, model, train_dataloader, val_dataloader, device, n_epochs, plot_dir, is_warp_loss):
-        """
-        Run training loop.
-        """
-        train_loss = []
-        val_ndcg = []
-        model = model.to(device)
-        for epoch in range(n_epochs):
-            loss = self.train_one_epoch_batch_user(model, train_dataloader, device, is_warp_loss)
-            ndcg = self.predict_val_with_ndcg(model, val_dataloader, device, k=10)
-            val_ndcg.append(ndcg)
-            train_loss.append(loss)
-            if plot_dir is not None and epoch > 0:
-                clear_output(wait=True)
-                _, (ax1, ax2) = plt.subplots(1, 2, figsize=(30, 15))
-                ax1.plot(train_loss, label="train", color="b")
-                ax2.plot(val_ndcg, label="val_ndcg", color="g")
-                size = max(1, round(epoch / 10))
-                plt.xticks(range(epoch - 1)[::size])
-                ax1.set_ylabel("loss")
-                ax1.set_xlabel("epoch")
-                ax2.set_ylabel("ndcg")
-                ax2.set_xlabel("epoch")
-                plt.legend()
-                plt.savefig(plot_dir)
-                plt.show()
-                self.logger.info("ndcg val =%.4f", ndcg)
-
-    def train_one_epoch_batch_user(self, model, train_dataloader, device, is_warp_loss):
-        """
-        Run training one epoch loop.
-        """
-        model.train()
-        idx = 0
-        cumulative_loss = 0
-        preds = None
-        for user_dataloader in tqdm(train_dataloader):
-            for wide_part, continuous_part, cat_part, users, items, labels in user_dataloader:
-                self.optimizer.zero_grad()
-                preds = model(wide_part, continuous_part, cat_part, users, items)
-                if is_warp_loss:
-                    ind_pos = torch.where(labels == 1)[0]
-                    ind_neg = torch.where(labels == 0)[0]
-                    min_batch = ind_pos.shape[0]
-                    if ind_pos.shape[0] == 0 or ind_neg.shape[0] == 0:
-                        continue
-                    indexes_pos = ind_pos
-                    pos = preds.squeeze()[indexes_pos].unsqueeze(-1)
-                    list_neg = []
-                    for _ in range(min_batch):
-                        indexes_neg = ind_neg[torch.randperm(ind_neg.shape[0])]
-                        list_neg.append(preds.squeeze()[indexes_neg].unsqueeze(-1))
-                    neg = torch.cat(list_neg, dim=-1)
-                    neg = neg.transpose(0, 1)
-                    loss = self.criterion(pos, neg, self.num_of_train_labels, device)
-                else:
-                    loss = self.criterion(preds.squeeze(), labels, device)
-                loss.backward()
-                self.optimizer.step()
-                cumulative_loss += loss.item()
-                idx += 1
-        self.lr_scheduler.step()
-        return cumulative_loss / idx
-
-    def predict_val_with_ndcg(self, model, val_dataloader, device, k):
-        """
-        This function returns the NDCG metric for the validation data.
-        """
-        ndcg = 0
-        idx = 0
-        model = model.to(device)
-        for user_dataloader in tqdm(val_dataloader):
-            _, _, _, users, _, _ = next(iter(user_dataloader))
-            user = int(users[0])
-            sample_pred = np.array(self.predict_val(model, user_dataloader, self.device))
-            top_k_predicts = (-sample_pred).argsort()[:k]
-            ndcg += (np.isin(top_k_predicts, self.dict_true_items_val[user]).sum()) / k
-            idx += 1
-        return ndcg / idx
-
-    def predict_val(self, model, val_dataloader, device):
-        """
-        This function returns the relevances for the validation data.
-        """
-        probs = []
-        model = model.to(device)
-        model.eval()
-        with torch.no_grad():
-            for wide_part, continuous_part, cat_part, users, items, _ in val_dataloader:
-                preds = model(wide_part, continuous_part, cat_part, users, items)
-                probs += (preds.squeeze()).tolist()
-        return probs
-
-    def predict_test(self, model, val_dataloader, device, cnt_samples_for_predict):
-        """
-        This function returns a list of cnt_samples_for_predict relevancies for each pair (users, items)
-        in val_dataloader
-        """
-        probs = []
-        model = model.to(device)
-        model.eval()
-        with torch.no_grad():
-            for wide_part, continuous_part, cat_part, users, items, _ in val_dataloader:
-                preds = model.forward_for_predict(wide_part, continuous_part, cat_part, users, items)
-                probs.extend(model.forward_dropout(preds).squeeze().tolist() for __ in range(cnt_samples_for_predict))
-        return probs
 
     def preproces_features_fit(self, train, item_features, user_features):
         """
@@ -613,15 +514,15 @@ class NeuralTS(HybridRecommender):
         else:
             self.scaler_user = None
         if len(wide_cols_cat) != 0:
-            self.myencoder_intersept_user = OneHotEncoder(sparse=False, handle_unknown="ignore")
-            self.myencoder_intersept_user.fit(train_users[wide_cols_cat])
+            self.encoder_intersept_user = OneHotEncoder(sparse=False, handle_unknown="ignore")
+            self.encoder_intersept_user.fit(train_users[wide_cols_cat])
         else:
-            self.myencoder_intersept_user = None
+            self.encoder_intersept_user = None
         if len(cat_embed_cols_not_wide) != 0:
-            self.myencoder_diff_user = OneHotEncoder(sparse=False, handle_unknown="ignore")
-            self.myencoder_diff_user.fit(train_users[cat_embed_cols_not_wide])
+            self.encoder_diff_user = OneHotEncoder(sparse=False, handle_unknown="ignore")
+            self.encoder_diff_user.fit(train_users[cat_embed_cols_not_wide])
         else:
-            self.myencoder_diff_user = None
+            self.encoder_diff_user = None
         train_items = item_features.loc[item_features["item_idx"].isin(train["item_idx"].values.tolist())]
         wide_cols_cat = list(set(self.item_cols["cat_embed_cols"]) & set(self.item_cols["wide_cols"]))
         cat_embed_cols_not_wide = list(set(self.item_cols["cat_embed_cols"]).difference(set(wide_cols_cat)))
@@ -631,15 +532,15 @@ class NeuralTS(HybridRecommender):
         else:
             self.scaler_item = None
         if len(wide_cols_cat) != 0:
-            self.myencoder_intersept_item = OneHotEncoder(sparse=False, handle_unknown="ignore")
-            self.myencoder_intersept_item.fit(train_items[wide_cols_cat])
+            self.encoder_intersept_item = OneHotEncoder(sparse=False, handle_unknown="ignore")
+            self.encoder_intersept_item.fit(train_items[wide_cols_cat])
         else:
-            self.myencoder_intersept_item = None
+            self.encoder_intersept_item = None
         if len(cat_embed_cols_not_wide) != 0:
-            self.myencoder_diff_item = OneHotEncoder(sparse=False, handle_unknown="ignore")
-            self.myencoder_diff_item.fit(train_items[cat_embed_cols_not_wide])
+            self.encoder_diff_item = OneHotEncoder(sparse=False, handle_unknown="ignore")
+            self.encoder_diff_item.fit(train_items[cat_embed_cols_not_wide])
         else:
-            self.myencoder_diff_item = None
+            self.encoder_diff_item = None
 
     def preproces_features_trasform(self, item_features, user_features):
         """
@@ -658,30 +559,32 @@ class NeuralTS(HybridRecommender):
             users_continuous = user_features[[]]
         if len(wide_cols_cat) != 0:
             users_wide_cat = pd.DataFrame(
-                self.myencoder_intersept_user.transform(user_features[wide_cols_cat]),
-                columns=list(self.myencoder_intersept_user.get_feature_names_out(wide_cols_cat)),
+                self.encoder_intersept_user.transform(user_features[wide_cols_cat]),
+                columns=list(self.encoder_intersept_user.get_feature_names_out(wide_cols_cat)),
             )
             self.union_cols["cat_embed_cols"] += list(
-                self.myencoder_intersept_user.get_feature_names_out(wide_cols_cat)
+                self.encoder_intersept_user.get_feature_names_out(wide_cols_cat)
             )
             self.union_cols["wide_cols"] += list(
                 set(self.user_cols["wide_cols"]).difference(set(self.user_cols["cat_embed_cols"]))
-            ) + list(self.myencoder_intersept_user.get_feature_names_out(wide_cols_cat))
+            ) + list(self.encoder_intersept_user.get_feature_names_out(wide_cols_cat))
         else:
             users_wide_cat = user_features[[]]
         if len(cat_embed_cols_not_wide) != 0:
             users_cat = pd.DataFrame(
-                self.myencoder_diff_user.transform(user_features[cat_embed_cols_not_wide]),
-                columns=list(self.myencoder_diff_user.get_feature_names_out(cat_embed_cols_not_wide)),
+                self.encoder_diff_user.transform(user_features[cat_embed_cols_not_wide]),
+                columns=list(self.encoder_diff_user.get_feature_names_out(cat_embed_cols_not_wide)),
             )
             self.union_cols["cat_embed_cols"] += list(
-                self.myencoder_diff_user.get_feature_names_out(cat_embed_cols_not_wide)
+                self.encoder_diff_user.get_feature_names_out(cat_embed_cols_not_wide)
             )
         else:
             users_cat = user_features[[]]
+
         transform_user_features = pd.concat(
             [user_features[["user_idx"]], users_continuous, users_wide_cat, users_cat], axis=1
         )
+
         wide_cols_cat = list(set(self.item_cols["cat_embed_cols"]) & set(self.item_cols["wide_cols"]))
         cat_embed_cols_not_wide = list(set(self.item_cols["cat_embed_cols"]).difference(set(wide_cols_cat)))
         if len(self.item_cols["continuous_cols"]) != 0:
@@ -694,27 +597,28 @@ class NeuralTS(HybridRecommender):
             items_continuous = item_features[[]]
         if len(wide_cols_cat) != 0:
             items_wide_cat = pd.DataFrame(
-                self.myencoder_intersept_item.transform(item_features[wide_cols_cat]),
-                columns=list(self.myencoder_intersept_item.get_feature_names_out(wide_cols_cat)),
+                self.encoder_intersept_item.transform(item_features[wide_cols_cat]),
+                columns=list(self.encoder_intersept_item.get_feature_names_out(wide_cols_cat)),
             )
             self.union_cols["cat_embed_cols"] += list(
-                self.myencoder_intersept_item.get_feature_names_out(wide_cols_cat)
+                self.encoder_intersept_item.get_feature_names_out(wide_cols_cat)
             )
             self.union_cols["wide_cols"] += list(
                 set(self.item_cols["wide_cols"]).difference(set(self.item_cols["cat_embed_cols"]))
-            ) + list(self.myencoder_intersept_item.get_feature_names_out(wide_cols_cat))
+            ) + list(self.encoder_intersept_item.get_feature_names_out(wide_cols_cat))
         else:
             items_wide_cat = item_features[[]]
         if len(cat_embed_cols_not_wide) != 0:
             items_cat = pd.DataFrame(
-                self.myencoder_diff_item.transform(item_features[cat_embed_cols_not_wide]),
-                columns=list(self.myencoder_diff_item.get_feature_names_out(cat_embed_cols_not_wide)),
+                self.encoder_diff_item.transform(item_features[cat_embed_cols_not_wide]),
+                columns=list(self.encoder_diff_item.get_feature_names_out(cat_embed_cols_not_wide)),
             )
             self.union_cols["cat_embed_cols"] += list(
-                self.myencoder_diff_item.get_feature_names_out(cat_embed_cols_not_wide)
+                self.encoder_diff_item.get_feature_names_out(cat_embed_cols_not_wide)
             )
         else:
             items_cat = item_features[[]]
+
         transform_item_features = pd.concat(
             [item_features[["item_idx"]], items_continuous, items_wide_cat, items_cat], axis=1
         )
@@ -754,36 +658,39 @@ class NeuralTS(HybridRecommender):
         val = val.toPandas()
         pd_item_features = item_features.toPandas()
         pd_user_features = user_features.toPandas()
-        self.cnt_users = pd_user_features.shape[0]
-        self.cnt_items = pd_item_features.shape[0]
-        list_items = item_features.toPandas()["item_idx"].values.tolist()
+        if self.cnt_users is None:
+            self.cnt_users = pd_user_features.shape[0]
+        if self.cnt_items is None:
+            self.cnt_items = pd_item_features.shape[0]
+        self.num_of_train_labels = self.cnt_items
+
         self.preproces_features_fit(train, pd_item_features, pd_user_features)
         transform_user_features, transform_item_features = self.preproces_features_trasform(
             pd_item_features, pd_user_features
         )
 
+        list_items = item_features.toPandas()["item_idx"].values.tolist()
+
         target = "relevance"
-        self.num_of_train_labels = self.cnt_items
-        train = train.set_axis(range(train.shape[0]), axis="index")
-        val = val.set_axis(range(val.shape[0]), axis="index")
-        # for batch by users
         dataloader_train_users = []
+
+        train = train.set_axis(range(train.shape[0]), axis="index")
         train_group_by_users = train.groupby("user_idx")
         for idx, df_train_idx in tqdm(train_group_by_users):
             df_train_idx = df_train_idx.loc[df_train_idx[target] == 1]
             if df_train_idx.shape[0] == 0:
                 continue
             df_train_idx = df_train_idx.set_axis(range(df_train_idx.shape[0]), axis="index")
-            dataset = MyDatasetreset(
-                idx,
-                df_train_idx,
-                transform_user_features,
-                transform_item_features,
-                list_items,
-                self.union_cols,
-                self.cnt_neg_samples,
-                self.device,
-                target,
+            dataset = UserDatasetWithReset(
+                idx=idx,
+                log_train=df_train_idx,
+                user_features=transform_user_features,
+                item_features=transform_item_features,
+                list_items=list_items,
+                union_cols=self.union_cols,
+                cnt_neg_samples=self.cnt_neg_samples,
+                device=self.device,
+                target=target,
             )
             sampler = SamplerWithReset(dataset)
             dataloader_train_users.append(
@@ -793,27 +700,30 @@ class NeuralTS(HybridRecommender):
             )
             self.size_wide_features, self.size_continuous_features, self.size_cat_features = dataset.get_size_features()
 
+        target = None
         dataloader_val_users = []
         self.dict_true_items_val = {}
         transform_item_features.sort_values(by=["item_idx"], inplace=True, ignore_index=True)
-        target = None
+
+        val = val.set_axis(range(val.shape[0]), axis="index")
         val_group_by_users = val.groupby("user_idx")
         for idx, df_val_idx in tqdm(val_group_by_users):
             self.dict_true_items_val[idx] = df_val_idx.loc[(df_val_idx["relevance"] == 1)]["item_idx"].values.tolist()
             df_val = cartesian_product_basic(pd.DataFrame({"user_idx": [idx]}), transform_item_features[["item_idx"]])
             df_val = df_val.set_axis(range(df_val.shape[0]), axis="index")
-            dataset = MyDatasetreset(
-                idx,
-                df_val,
-                transform_user_features,
-                transform_item_features,
-                list_items,
-                self.union_cols,
-                None,
-                self.device,
-                target,
+            dataset = UserDatasetWithReset(
+                idx=idx,
+                log_train=df_val,
+                user_features=transform_user_features,
+                item_features=transform_item_features,
+                list_items=list_items,
+                union_cols=self.union_cols,
+                cnt_neg_samples=None,
+                device=self.device,
+                target=target,
             )
             dataloader_val_users.append(torch.utils.data.DataLoader(dataset, batch_size=df_val.shape[0], shuffle=False))
+
         self.model = WideDeep(
             dim_head=self.dim_head,
             deep_out_dim=self.deep_out_dim,
@@ -830,7 +740,7 @@ class NeuralTS(HybridRecommender):
             item_embed=self.embedding_sizes[1],
             crossed_embed=self.embedding_sizes[2],
         )
-        if self.is_warp_loss:
+        if self.use_warp_loss:
             self.criterion = warp_loss
         else:
             self.criterion = w_log_loss
@@ -843,8 +753,122 @@ class NeuralTS(HybridRecommender):
             self.device,
             self.n_epochs,
             self.plot_dir,
-            self.is_warp_loss,
+            self.use_warp_loss,
         )
+
+    def train_model(self, model, train_dataloader, val_dataloader, device, n_epochs, plot_dir, use_warp_loss):
+        """
+        Run training loop.
+        """
+        train_loss = []
+        val_ndcg = []
+        model = model.to(device)
+        for epoch in range(n_epochs):
+            loss = self.train_one_epoch_batch_user(model, train_dataloader, device, use_warp_loss)
+            ndcg = self.predict_val_with_ndcg(model, val_dataloader, device, k=10)
+            val_ndcg.append(ndcg)
+            train_loss.append(loss)
+
+            if plot_dir is not None and epoch > 0:
+                clear_output(wait=True)
+                _, (ax1, ax2) = plt.subplots(1, 2, figsize=(30, 15))
+                ax1.plot(train_loss, label="train", color="b")
+                ax2.plot(val_ndcg, label="val_ndcg", color="g")
+                size = max(1, round(epoch / 10))
+                plt.xticks(range(epoch - 1)[::size])
+                ax1.set_ylabel("loss")
+                ax1.set_xlabel("epoch")
+                ax2.set_ylabel("ndcg")
+                ax2.set_xlabel("epoch")
+                plt.legend()
+                plt.savefig(plot_dir)
+                plt.show()
+                self.logger.info("ndcg val =%.4f", ndcg)
+
+    def train_one_epoch_batch_user(self, model, train_dataloader, device, use_warp_loss):
+        """
+        Run training one epoch loop.
+        """
+        model.train()
+        idx = 0
+        cumulative_loss = 0
+        preds = None
+        for user_dataloader in tqdm(train_dataloader):
+            for wide_part, continuous_part, cat_part, users, items, labels in user_dataloader:
+                self.optimizer.zero_grad()
+                preds = model(wide_part, continuous_part, cat_part, users, items)
+                if use_warp_loss:
+                    ind_pos = torch.where(labels == 1)[0]
+                    ind_neg = torch.where(labels == 0)[0]
+                    min_batch = ind_pos.shape[0]
+                    if ind_pos.shape[0] == 0 or ind_neg.shape[0] == 0:
+                        continue
+                    indexes_pos = ind_pos
+                    pos = preds.squeeze()[indexes_pos].unsqueeze(-1)
+                    list_neg = []
+                    for _ in range(min_batch):
+                        indexes_neg = ind_neg[torch.randperm(ind_neg.shape[0])]
+                        list_neg.append(preds.squeeze()[indexes_neg].unsqueeze(-1))
+                    neg = torch.cat(list_neg, dim=-1)
+                    neg = neg.transpose(0, 1)
+                    loss = self.criterion(pos, neg, self.num_of_train_labels, device)
+                else:
+                    loss = self.criterion(preds.squeeze(), labels, device)
+                loss.backward()
+                self.optimizer.step()
+                cumulative_loss += loss.item()
+                idx += 1
+        self.lr_scheduler.step()
+        return cumulative_loss / idx
+
+
+    def predict_val_with_ndcg(self, model, val_dataloader, device, k):
+        """
+        This function returns the NDCG metric for the validation data.
+        """
+        if len(val_dataloader) == 0:
+            return 0
+
+        ndcg = 0
+        idx = 0
+        model = model.to(device)
+        for user_dataloader in tqdm(val_dataloader):
+            _, _, _, users, _, _ = next(iter(user_dataloader))
+            user = int(users[0])
+            sample_pred = np.array(self.predict_val(model, user_dataloader, self.device))
+            top_k_predicts = (-sample_pred).argsort()[:k]
+            ndcg += (np.isin(top_k_predicts, self.dict_true_items_val[user]).sum()) / k
+            idx += 1
+
+        metric = ndcg / idx
+        return metric
+
+    def predict_val(self, model, val_dataloader, device):
+        """
+        This function returns the relevances for the validation data.
+        """
+        probs = []
+        model = model.to(device)
+        model.eval()
+        with torch.no_grad():
+            for wide_part, continuous_part, cat_part, users, items, _ in val_dataloader:
+                preds = model(wide_part, continuous_part, cat_part, users, items)
+                probs += (preds.squeeze()).tolist()
+        return probs
+
+    def predict_test(self, model, test_dataloader, device, cnt_samples_for_predict):
+        """
+        This function returns a list of cnt_samples_for_predict relevancies for each pair (users, items)
+        in val_dataloader
+        """
+        probs = []
+        model = model.to(device)
+        model.eval()
+        with torch.no_grad():
+            for wide_part, continuous_part, cat_part, users, items, _ in test_dataloader:
+                preds = model.forward_for_predict(wide_part, continuous_part, cat_part, users, items)
+                probs.extend(model.forward_dropout(preds).squeeze().tolist() for __ in range(cnt_samples_for_predict))
+        return probs
 
     def _predict(
         self,
@@ -876,34 +900,37 @@ class NeuralTS(HybridRecommender):
         preds = []
         users_ans = []
         items_ans = []
+
         # preprocess
         for idx in tqdm(pd_users["user_idx"].unique()):
             df_test_idx = cartesian_product_basic(pd.DataFrame({"user_idx": [idx]}), pd_items)
             df_test_idx = df_test_idx.set_axis(range(df_test_idx.shape[0]), axis="index")
             users_ans += [idx] * df_test_idx.shape[0]
             items_ans += df_test_idx["item_idx"].values.tolist()
-            dataset = MyDatasetreset(
-                idx,
-                df_test_idx,
-                transform_user_features,
-                transform_item_features,
-                list_items,
-                self.union_cols,
-                None,
-                self.device,
-                target,
+            dataset = UserDatasetWithReset(
+                idx=idx,
+                log_train=df_test_idx,
+                user_features=transform_user_features,
+                item_features=transform_item_features,
+                list_items=list_items,
+                union_cols=self.union_cols,
+                cnt_neg_samples=None,
+                device=self.device,
+                target=target,
             )
             dataloader = torch.utils.data.DataLoader(dataset, batch_size=df_test_idx.shape[0], shuffle=False)
+
             # predict
             samples = self.predict_test(self.model, dataloader, self.device, self.cnt_samples_for_predict)
             samples = np.array(samples)
             mean = np.mean(samples, axis=0)
             var = ((samples - mean) ** 2).mean(axis=0)
-            sample_pred = mean + (self.eps) * np.sqrt(var)
+            sample_pred = mean + (self.exploration_coef) * np.sqrt(var)
             preds += sample_pred.tolist()
         # return everything in a PySpark template
         res_df = pd.DataFrame({"user_idx": users_ans, "item_idx": items_ans, "relevance": preds})
         pred = convert2spark(res_df)
+        self.item_popularity = pred
         return pred
 
     def model_save(self, dir_name):
@@ -912,26 +939,26 @@ class NeuralTS(HybridRecommender):
         """
         os.makedirs(dir_name, exist_ok=True)
         path = os.path.join(dir_name, "union_cols.json")
-        with open(path, mode="w", encoding="utf-8") as my_file:
-            json.dump(self.union_cols, my_file)
+        with open(path, mode="w", encoding="utf-8") as f:
+            json.dump(self.union_cols, f)
 
         path = os.path.join(dir_name, "scaler_user.joblib")
         joblib.dump(self.scaler_user, path)
 
-        path = os.path.join(dir_name, "myencoder_intersept_user.joblib")
-        joblib.dump(self.myencoder_intersept_user, path)
+        path = os.path.join(dir_name, "encoder_intersept_user.joblib")
+        joblib.dump(self.encoder_intersept_user, path)
 
-        path = os.path.join(dir_name, "myencoder_diff_user.joblib")
-        joblib.dump(self.myencoder_diff_user, path)
+        path = os.path.join(dir_name, "encoder_diff_user.joblib")
+        joblib.dump(self.encoder_diff_user, path)
 
         path = os.path.join(dir_name, "scaler_item.joblib")
         joblib.dump(self.scaler_item, path)
 
-        path = os.path.join(dir_name, "myencoder_intersept_item.joblib")
-        joblib.dump(self.myencoder_intersept_item, path)
+        path = os.path.join(dir_name, "encoder_intersept_item.joblib")
+        joblib.dump(self.encoder_intersept_item, path)
 
-        path = os.path.join(dir_name, "myencoder_diff_item.joblib")
-        joblib.dump(self.myencoder_diff_item, path)
+        path = os.path.join(dir_name, "encoder_diff_item.joblib")
+        joblib.dump(self.encoder_diff_item, path)
 
         dict_scalars = {
             "cnt_users": self.cnt_users,
@@ -942,8 +969,8 @@ class NeuralTS(HybridRecommender):
         }
 
         path = os.path.join(dir_name, "dict_scalars.json")
-        with open(path, mode="w", encoding="utf-8") as my_file:
-            json.dump(dict_scalars, my_file)
+        with open(path, mode="w", encoding="utf-8") as f:
+            json.dump(dict_scalars, f)
 
         path = os.path.join(dir_name, "model_weights.pth")
         torch.save(self.model.state_dict(), path)
@@ -963,30 +990,30 @@ class NeuralTS(HybridRecommender):
         This function downloads the model.
         """
         path = os.path.join(dir_name, "union_cols.json")
-        with open(path, mode="r", encoding="utf-8") as my_file:
-            self.union_cols = json.load(my_file)
+        with open(path, mode="r", encoding="utf-8") as f:
+            self.union_cols = json.load(f)
 
         path = os.path.join(dir_name, "scaler_user.joblib")
         self.scaler_user = joblib.load(path)
 
-        path = os.path.join(dir_name, "myencoder_intersept_user.joblib")
-        self.myencoder_intersept_user = joblib.load(path)
+        path = os.path.join(dir_name, "encoder_intersept_user.joblib")
+        self.encoder_intersept_user = joblib.load(path)
 
-        path = os.path.join(dir_name, "myencoder_diff_user.joblib")
-        self.myencoder_diff_user = joblib.load(path)
+        path = os.path.join(dir_name, "encoder_diff_user.joblib")
+        self.encoder_diff_user = joblib.load(path)
 
         path = os.path.join(dir_name, "scaler_item.joblib")
         self.scaler_item = joblib.load(path)
 
-        path = os.path.join(dir_name, "myencoder_intersept_item.joblib")
-        self.myencoder_intersept_item = joblib.load(path)
+        path = os.path.join(dir_name, "encoder_intersept_item.joblib")
+        self.encoder_intersept_item = joblib.load(path)
 
-        path = os.path.join(dir_name, "myencoder_diff_item.joblib")
-        self.myencoder_diff_item = joblib.load(path)
+        path = os.path.join(dir_name, "encoder_diff_item.joblib")
+        self.encoder_diff_item = joblib.load(path)
 
         path = os.path.join(dir_name, "dict_scalars.json")
-        with open(path, mode="r", encoding="utf-8") as my_file:
-            dict_scalars = json.load(my_file)
+        with open(path, mode="r", encoding="utf-8") as f:
+            dict_scalars = json.load(f)
 
         self.cnt_users = dict_scalars["cnt_users"]
         self.cnt_items = dict_scalars["cnt_items"]
