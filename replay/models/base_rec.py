@@ -625,23 +625,21 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         self, dataset: Dataset, k: int, queries: SparkDataFrame, items: SparkDataFrame, filter_seen_items: bool = True
     ) -> np.ndarray:
         """
-        Inner method where model actually predicts.
+        Inner method where model actually predicts probability estimates.
 
-        :param log: historical log of interactions
+        Mainly used in ```OBPOfflinePolicyLearner```.
+
+        :param dataset: historical interactions with query/item features
             ``[user_idx, item_idx, timestamp, rating]``
         :param k: number of recommendations for each user
-        :param users: users to create recommendations for
+        :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all users from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
+            if ``None``, take all items from ``interactions``.
             If it contains new items, ``rating`` for them will be ``0``.
-        :param user_features: user features
-            ``[user_idx , timestamp]`` + feature columns
-        :param item_features: item features
-            ``[item_idx , timestamp]`` + feature columns
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :return: distribution over items for each user with shape
             ``(n_users, n_items, k)``
             where we have probability for each user to choose item at fixed position(top-k).
@@ -1644,23 +1642,21 @@ class NonPersonalizedRecommender(Recommender, ABC):
         self, dataset: Dataset, k: int, queries: SparkDataFrame, items: SparkDataFrame, filter_seen_items: bool = True
     ) -> np.ndarray:
         """
-        Inner method where model actually predicts.
+        Inner method where model actually predicts probability estimates.
 
-        :param log: historical log of interactions
+        Mainly used in ```OBPOfflinePolicyLearner```.
+
+        :param dataset: historical interactions with query/item features
             ``[user_idx, item_idx, timestamp, rating]``
         :param k: number of recommendations for each user
-        :param users: users to create recommendations for
+        :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all users from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
+            if ``None``, take all items from ``interactions``.
             If it contains new items, ``rating`` for them will be ``0``.
-        :param user_features: user features
-            ``[user_idx , timestamp]`` + feature columns
-        :param item_features: item features
-            ``[item_idx , timestamp]`` + feature columns
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :return: distribution over items for each user with shape
             ``(n_users, n_items, k)``
             where we have probability for each user to choose item at fixed position(top-k).
