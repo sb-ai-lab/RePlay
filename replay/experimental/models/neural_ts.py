@@ -1,4 +1,3 @@
-# pylint: disable=too-many-lines
 import json
 import os
 from typing import Dict, List, Optional
@@ -41,7 +40,6 @@ def num_tries_gt_zero(scores, batch_size, max_trials, max_num, device):
     return tries
 
 
-# pylint: disable=too-many-locals
 def warp_loss(positive_predictions, negative_predictions, num_labels, device):
     """
     positive_predictions: [batch_size x 1] floats between -1 to 1
@@ -86,7 +84,6 @@ def cartesian_product_basic(left, right):
     return left.assign(key=1).merge(right.assign(key=1), on="key").drop("key", 1)
 
 
-# pylint: disable=too-few-public-methods
 class SamplerWithReset(td.SequentialSampler):
     """
     Sampler class for train dataloader.
@@ -97,8 +94,6 @@ class SamplerWithReset(td.SequentialSampler):
         return super().__iter__()
 
 
-# pylint: disable=too-many-arguments
-# pylint: disable=too-many-instance-attributes
 class UserDatasetWithReset(torch.utils.data.Dataset):
     """
     Dataset class that takes data for a single user and
