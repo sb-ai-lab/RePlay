@@ -6,9 +6,10 @@ import pytest
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
 
+from pyspark.sql import functions as sf
+
 from obp.dataset import OpenBanditDataset
 from obp.ope import OffPolicyEvaluation, InverseProbabilityWeighting, DirectMethod, DoublyRobust
-from pyspark.sql import functions as sf
 
 from replay.data import get_schema
 from replay.experimental.models import NeuralTS
