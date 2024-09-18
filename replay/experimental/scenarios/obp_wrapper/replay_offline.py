@@ -1,9 +1,9 @@
+import logging
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
-import logging
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
 from obp.policy.base import BaseOfflinePolicyLearner
 from optuna import create_study
 from optuna.samplers import TPESampler
