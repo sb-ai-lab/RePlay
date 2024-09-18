@@ -1,15 +1,15 @@
 # pylint: disable-all
-import pytest
 from datetime import datetime
-
-pyspark = pytest.importorskip("pyspark")
-torch = pytest.importorskip("torch")
+import pytest
 
 import numpy as np
 from obp.dataset import OpenBanditDataset
 from obp.ope import OffPolicyEvaluation, InverseProbabilityWeighting, DirectMethod, DoublyRobust
-from pyspark.sql import functions as sf
 
+pyspark = pytest.importorskip("pyspark")
+torch = pytest.importorskip("torch")
+
+from pyspark.sql import functions as sf
 from replay.data import get_schema
 from replay.experimental.models import NeuralTS
 from replay.experimental.scenarios.obp_wrapper.replay_offline import OBPOfflinePolicyLearner
@@ -152,6 +152,7 @@ def test_predict_empty_log(model_with_features, user_features, item_features, lo
     model_with_features._predict(
         log.limit(0), 1, users=users, items=items, user_features=user_features, item_features=item_features
     )
+
 
 @pytest.fixture
 def obp_dataset():

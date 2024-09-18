@@ -438,8 +438,8 @@ class NeuralTS(HybridRecommender):
 
     def __init__(
         self,
-        user_cols: Dict[str, List[str]] = {"continuous_cols":[], "cat_embed_cols":[], "wide_cols": []},
-        item_cols: Dict[str, List[str]] = {"continuous_cols":[], "cat_embed_cols":[], "wide_cols": []},
+        user_cols: Dict[str, List[str]] = {"continuous_cols": [], "cat_embed_cols": [], "wide_cols": []},
+        item_cols: Dict[str, List[str]] = {"continuous_cols": [], "cat_embed_cols": [], "wide_cols": []},
         embedding_sizes: List[int] = [32, 32, 64],
         hidden_layers: List[int] = [32, 20],
         wide_out_dim: int = 1,

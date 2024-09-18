@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 from typing import (
     Any,
     Dict,
@@ -204,14 +204,7 @@ class OBPOfflinePolicyLearner(BaseOfflinePolicyLearner):
                 item_features=self.item_features,
                 check_consistency=False,
             )
-            action_dist = self.replay_model._predict_proba(
-                dataset,
-                self.len_list,
-                users,
-                items,
-                filter_seen_items=False
-            )
-
+            action_dist = self.replay_model._predict_proba(dataset, self.len_list, users, items, filter_seen_items=False)
         return action_dist
 
     def optimize(
