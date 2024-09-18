@@ -99,7 +99,7 @@ class SamplerWithReset(td.SequentialSampler):
 
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-instance-attributes
-class MyDatasetreset(torch.utils.data.Dataset):
+class UserDatasetWithReset(torch.utils.data.Dataset):
     """
     Dataset class that takes data for a single user and
     column names for continuous data, categorical data and data for
@@ -351,7 +351,7 @@ class WideDeep(nn.Module):
         output = self.last_layer(output)
         return output
 
-    def my_forward(
+    def forward_for_embeddings(
         self, wide_part, continuous_part, cat_part, users_to_embed, items_to_embed, cross_users, cross_items, cross
     ):
         """
@@ -378,7 +378,7 @@ class WideDeep(nn.Module):
 
         """
         users_to_embed, items_to_embed, cross_users, cross_items, cross = self.embed_model(users, items)
-        output = self.my_forward(
+        output = self.forward_for_embeddings(
             wide_part, continuous_part, cat_part, users_to_embed, items_to_embed, cross_users, cross_items, cross
         )
         return output
@@ -402,7 +402,7 @@ def w_log_loss(output, target, device):
     return -loss.mean()
 
 
-class NeuralTS(HybridRecommender, NonPersonalizedRecommender):
+class NeuralTS(HybridRecommender):
     """
     'Neural Thompson sampling recommender
     <https://dl.acm.org/doi/pdf/10.1145/3383313.3412214>`_  based on `Wide&Deep model
@@ -444,21 +444,20 @@ class NeuralTS(HybridRecommender, NonPersonalizedRecommender):
         hidden_layers: List[int] = [32, 20],
         wide_out_dim: int = 1,
         deep_out_dim: int = 20,
-        head_dropout: float = 0.0,
-        deep_dropout: float = 0.0,
+        head_dropout: float = 0.8,
+        deep_dropout: float = 0.4,
         dim_head: int = 20,
-        n_epochs: int = 10,
+        n_epochs: int = 2,
         opt_lr: float = 3e-4,
         lr_min: float = 1e-5,
         use_gpu: bool = False,
         plot_dir: Optional[str] = None,
-        use_warp_loss: bool = False,
+        use_warp_loss: bool = True,
         cnt_neg_samples: int = 100,
         cnt_samples_for_predict: int = 10,
-        exploration_coef: float = 0.0,
+        exploration_coef: float = 1.0,
         cnt_users = None,
         cnt_items = None,
-        sample=False,
     ):
         self.user_cols = user_cols
         self.item_cols = item_cols
@@ -482,7 +481,6 @@ class NeuralTS(HybridRecommender, NonPersonalizedRecommender):
         self.exploration_coef = exploration_coef
         self.cnt_users = cnt_users
         self.cnt_items = cnt_items
-        self.sample = sample
 
         self.size_wide_features = None
         self.size_continuous_features = None
