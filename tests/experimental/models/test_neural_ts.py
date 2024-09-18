@@ -7,10 +7,15 @@ import pytest
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
 
+import numpy as np
+from obp.dataset import OpenBanditDataset
+from obp.ope import OffPolicyEvaluation, InverseProbabilityWeighting, DirectMethod, DoublyRobust
 from pyspark.sql import functions as sf
 
 from replay.data import get_schema
 from replay.experimental.models import NeuralTS
+from replay.experimental.scenarios.obp_wrapper.replay_offline import OBPOfflinePolicyLearner
+from replay.experimental.scenarios.obp_wrapper.utils import get_est_rewards_by_reg
 from tests.utils import sparkDataFrameEqual
 
 SEED = 123
@@ -51,28 +56,16 @@ def item_features(spark):
 
 @pytest.fixture
 def model():
-    cols_item = {"continuous_cols": [], "cat_embed_cols": [], "wide_cols": []}
-    cols_user = {"continuous_cols": [], "cat_embed_cols": [], "wide_cols": []}
-
     model = NeuralTS(
-        user_cols=cols_user,
-        item_cols=cols_item,
-        dim_head=1,
-        deep_out_dim=1,
-        hidden_layers=[2, 5],
         embedding_sizes=[2, 2, 4],
+        hidden_layers=[2, 5],
         wide_out_dim=1,
-        head_dropout=0.8,
-        deep_dropout=0.4,
+        deep_out_dim=1,
+        dim_head=1,
         n_epochs=1,
-        opt_lr=3e-4,
-        lr_min=1e-5,
         use_gpu=False,
-        plot_dir=None,
-        is_warp_loss=True,
         cnt_neg_samples=1,
         cnt_samples_for_predict=2,
-        eps=1.0,
     )
 
     return model
@@ -95,22 +88,15 @@ def model_with_features():
     model_with_features = NeuralTS(
         user_cols=cols_user,
         item_cols=cols_item,
-        dim_head=1,
-        deep_out_dim=1,
-        hidden_layers=[2, 5],
         embedding_sizes=[2, 2, 4],
+        hidden_layers=[2, 5],
         wide_out_dim=1,
-        head_dropout=0.8,
-        deep_dropout=0.4,
-        n_epochs=2,
-        opt_lr=3e-4,
-        lr_min=1e-5,
+        deep_out_dim=1,
+        dim_head=1,
+        n_epochs=1,
         use_gpu=False,
-        plot_dir="plot.png",
-        is_warp_loss=False,
         cnt_neg_samples=1,
         cnt_samples_for_predict=2,
-        eps=1.0,
     )
 
     return model_with_features
@@ -144,7 +130,6 @@ def test_use_features(model_with_features, user_features, item_features, log):
     n_items = items.count()
 
     assert base_pred.count() == n_users * n_items
-    assert os.path.exists("plot.png")
 
 
 @pytest.mark.experimental
@@ -169,3 +154,65 @@ def test_predict_empty_log(model_with_features, user_features, item_features, lo
     model_with_features._predict(
         log.limit(0), 1, users=users, items=items, user_features=user_features, item_features=item_features
     )
+
+@pytest.fixture
+def obp_dataset():
+    dataset = OpenBanditDataset(behavior_policy="random", data_path=None, campaign="all")
+    return dataset
+
+@pytest.fixture
+def obp_learner(obp_dataset):
+    obp_model = NeuralTS(
+        embedding_sizes=[2, 2, 4],
+        hidden_layers=[2, 5],
+        wide_out_dim=1,
+        deep_out_dim=1,
+        dim_head=1,
+        n_epochs=1,
+        use_gpu=False,
+        cnt_neg_samples=1,
+        cnt_samples_for_predict=2,
+        cnt_users=obp_dataset.n_rounds,
+    )
+    learner = OBPOfflinePolicyLearner(
+        n_actions=obp_dataset.n_actions,
+        replay_model=obp_model,
+        len_list=obp_dataset.len_list,
+    )
+    return learner
+
+def test_obp_evaluation(obp_dataset, obp_learner):
+    bandit_feedback_train, _ = obp_dataset.obtain_batch_bandit_feedback(
+        test_size=0.3, is_timeseries_split=True
+    )
+    _, bandit_feedback_test = obp_dataset.obtain_batch_bandit_feedback(
+        test_size=0.3, is_timeseries_split=True
+    )
+
+    obp_learner.fit(
+        action=bandit_feedback_train["action"],
+        reward=bandit_feedback_train["reward"],
+        timestamp=np.arange(bandit_feedback_train["n_rounds"]),
+        context=bandit_feedback_train["context"],
+        action_context=bandit_feedback_train["action_context"],
+    )
+    action_dist = obp_learner.predict(
+        bandit_feedback_test["n_rounds"],
+        bandit_feedback_test["context"],
+    )
+    assert action_dist.shape == (bandit_feedback_test["n_rounds"], obp_learner.n_actions, obp_learner.len_list)
+
+    ope = OffPolicyEvaluation(
+        bandit_feedback=bandit_feedback_test,
+        ope_estimators=[InverseProbabilityWeighting(), DirectMethod(), DoublyRobust()],
+    )
+    estimated_rewards_by_reg_model = get_est_rewards_by_reg(
+        obp_dataset.n_actions, obp_dataset.len_list, bandit_feedback_test, bandit_feedback_test
+    )
+    estimated_policy_value = ope.estimate_policy_values(
+        action_dist=action_dist,
+        estimated_rewards_by_reg_model=estimated_rewards_by_reg_model,
+    )
+    assert "ipw" in estimated_policy_value
+    assert "dm" in estimated_policy_value
+    assert "dr" in estimated_policy_value
