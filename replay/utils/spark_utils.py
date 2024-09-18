@@ -33,7 +33,9 @@ class SparkCollectToMasterWarning(Warning):  # pragma: no cover
     """
 
 
-def spark_to_pandas(data: SparkDataFrame, allow_collect_to_master: bool = False) -> pd.DataFrame:  # pragma: no cover
+def spark_to_pandas(
+    data: SparkDataFrame, allow_collect_to_master: bool = False, from_constructor: bool = True
+) -> pd.DataFrame:  # pragma: no cover
     """
     Convert Spark DataFrame to Pandas DataFrame.
 
@@ -42,10 +44,15 @@ def spark_to_pandas(data: SparkDataFrame, allow_collect_to_master: bool = False)
 
     :returns: Converted Pandas DataFrame.
     """
+    warn_msg = "Spark Data Frame is collected to master node, this may lead to OOM exception for larger dataset. "
+    if from_constructor:
+        _msg = "To remove this warning set allow_collect_to_master=True in the recommender constructor."
+    else:
+        _msg = "To remove this warning set allow_collect_to_master=True."
+    warn_msg += _msg
     if not allow_collect_to_master:
         warnings.warn(
-            "Spark Data Frame is collected to master node, this may lead to OOM exception for larger dataset. "
-            "To remove this warning set allow_collect_to_master=True in the recommender constructor.",
+            warn_msg,
             SparkCollectToMasterWarning,
         )
     return data.toPandas()
@@ -169,7 +176,7 @@ if PYSPARK_AVAILABLE:
         <BLANKLINE>
         >>> output_data = input_data.select(vector_dot("one", "two").alias("dot"))
         >>> output_data.schema
-        StructType(List(StructField(dot,DoubleType,true)))
+        StructType([StructField('dot', DoubleType(), True)])
         >>> output_data.show()
         +----+
         | dot|
@@ -207,7 +214,7 @@ if PYSPARK_AVAILABLE:
         <BLANKLINE>
         >>> output_data = input_data.select(vector_mult("one", "two").alias("mult"))
         >>> output_data.schema
-        StructType(List(StructField(mult,VectorUDT,true)))
+        StructType([StructField('mult', VectorUDT(), True)])
         >>> output_data.show()
         +---------+
         |     mult|
@@ -244,7 +251,7 @@ if PYSPARK_AVAILABLE:
         <BLANKLINE>
         >>> output_data = input_data.select(array_mult("one", "two").alias("mult"))
         >>> output_data.schema
-        StructType(List(StructField(mult,ArrayType(DoubleType,true),true)))
+        StructType([StructField('mult', ArrayType(DoubleType(), True), True)])
         >>> output_data.show()
         +----------+
         |      mult|
@@ -452,8 +459,8 @@ def fallback(
     if base.count() == 0:
         return get_top_k_recs(fill, k, query_column=query_column, rating_column=rating_column)
     margin = 0.1
-    min_in_base = base.agg({rating_column: "min"}).collect()[0][0]
-    max_in_fill = fill.agg({rating_column: "max"}).collect()[0][0]
+    min_in_base = base.agg({rating_column: "min"}).first()[0]
+    max_in_fill = fill.agg({rating_column: "max"}).first()[0]
     diff = max_in_fill - min_in_base
     fill = fill.withColumnRenamed(rating_column, "relevance_fallback")
     if diff >= 0:

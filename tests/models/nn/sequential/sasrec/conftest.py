@@ -12,7 +12,7 @@ if TORCH_AVAILABLE:
     from replay.models.nn.sequential.sasrec import SasRec, SasRecTrainingDataset
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def feature_schema_for_sasrec():
     schema = FeatureSchema(
         [
@@ -32,7 +32,7 @@ def feature_schema_for_sasrec():
     return schema
 
 
-@pytest.fixture()
+@pytest.fixture(scope="class")
 def fitted_sasrec(feature_schema_for_sasrec):
     data = pd.DataFrame(
         {
@@ -68,7 +68,7 @@ def fitted_sasrec(feature_schema_for_sasrec):
     return model, tokenizer
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def new_items_dataset():
     data = pd.DataFrame(
         {

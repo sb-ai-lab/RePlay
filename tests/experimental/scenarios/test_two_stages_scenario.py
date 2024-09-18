@@ -17,7 +17,7 @@ from replay.preprocessing.history_based_fp import HistoryBasedFeaturesProcessor
 from replay.splitters import TimeSplitter
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def two_stages_kwargs():
     return {
         "first_level_models": [

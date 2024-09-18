@@ -7,7 +7,7 @@ build-backend = "poetry_dynamic_versioning.backend"
 
 [tool.black]
 line-length = 120
-target-versions = ["py38", "py39", "py310"]
+target-versions = ["py38", "py39", "py310", "py311"]
 
 [tool.poetry]
 name = "replay-rec"
@@ -46,32 +46,39 @@ exclude = [
 version = "0.0.0"
 
 [tool.poetry.dependencies]
-python = ">=3.8.1, <3.11"
+python = ">=3.8.1, <3.12"
 numpy = ">=1.20.0"
-pandas = "^1.3.5"
-polars = "~0.20.7"
+pandas = ">=1.3.5, <=2.2.2"
+polars = "~1.0.0"
 optuna = "~3.2.0"
-scipy = "~1.8.1"
-psutil = "~5.9.5"
-pyspark = {version = ">=3.0,<3.3", optional = true}
+scipy = "^1.8.1"
+psutil = "~6.0.0"
 scikit-learn = "^1.0.2"
-pyarrow = ">=12.0.1, <=14.0.1"
+pyarrow = ">=12.0.1"
 {% if project == "default" %}
-torch = {version = "^1.8", optional = true}
-lightning = {version = "^2.0.2", optional = true}
+pyspark = [
+    {version = ">=3.4,<3.6", python = ">=3.11,<3.12", optional = true},
+    {version = ">=3.0,<3.6", python = ">=3.8.1,<3.11", optional = true},
+]
+torch = {version = ">=1.8, <=2.4.0", optional = true}
+lightning = {version = ">=2.0.2, <=2.4.0", optional = true}
 pytorch-ranger = {version = "^0.1.1", optional = true}
 {% endif %}
-nmslib = "2.1.1"
-hnswlib = "0.7.0"
+fixed-install-nmslib = "2.1.2"
+hnswlib = "^0.7.0"
 {% if project == "experimental" %}
-torch = "^1.8"
-lightning = "^2.0.2"
+pyspark = [
+    {version = ">=3.4,<3.5", python = ">=3.11,<3.12"},
+    {version = ">=3.0,<3.5", python = ">=3.8.1,<3.11"},
+]
+torch = ">=1.8, <=2.4.0"
+lightning = ">=2.0.2, <=2.4.0"
 pytorch-ranger = "^0.1.1"
 lightfm = "1.17"
 lightautoml = "~0.3.1"
 numba = ">=0.50"
 llvmlite = ">=0.32.1"
-sb-obp = "^0.5.7"
+sb-obp = "^0.5.8"
 d3rlpy = "^2.0.4"
 implicit = "~0.7.0"
 gym = "^0.26.0"
@@ -87,7 +94,7 @@ jupyter = "~1.0.0"
 jupyterlab = "^3.6.0"
 pytest = ">=7.1.0"
 pytest-cov = ">=3.0.0"
-statsmodels = "~0.13.5"
+statsmodels = "~0.14.0"
 black = ">=23.3.0"
 ruff = ">=0.0.261"
 toml-sort = "^0.23.0"
@@ -102,7 +109,7 @@ data-science-types = "0.2.23"
 
 [tool.poetry-dynamic-versioning]
 enable = true
-format-jinja = """0.17.0{{ env['PACKAGE_SUFFIX'] }}"""
+format-jinja = """0.18.1{{ env['PACKAGE_SUFFIX'] }}"""
 vcs = "git"
 
 [tool.ruff]
@@ -133,6 +140,9 @@ max-complexity = 13
 "tests/*" = ["ARG", "E402", "INP", "ISC", "N", "S", "SIM", "F811"]
 "tests/experimental/*" = ["F401", "F811"]
 "replay/experimental/models/extensions/spark_custom_models/als_extension.py" = ["ARG002", "N802", "N803", "N815"]
+"replay/data/nn/sequence_tokenizer.py" = ["ARG003"]
+"replay/splitters/base_splitter.py" = ["ARG003"]
+"replay/data/nn/sequential_dataset.py" = ["ARG003"]
 
 [tool.tomlsort]
 ignore_case = true

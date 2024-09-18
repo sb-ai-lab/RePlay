@@ -13,12 +13,12 @@ if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model():
     return SLIM(0.0, 0.01, seed=42)
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def model_with_ann(tmp_path):
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",

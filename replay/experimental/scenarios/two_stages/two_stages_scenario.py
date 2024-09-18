@@ -383,7 +383,7 @@ class TwoStagesScenario(HybridRecommender):
                 log_to_filter_cached.groupBy("user_idx")
                 .agg(sf.count("item_idx").alias("num_positives"))
                 .select(sf.max("num_positives"))
-                .collect()[0][0]
+                .first()[0]
             )
 
         pred = model._predict(

@@ -1,13 +1,13 @@
 import os
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 from numpy.testing import assert_allclose
 
 from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType, get_schema
-from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 from replay.utils.spark_utils import convert2spark
 
 if PYSPARK_AVAILABLE:
@@ -112,3 +112,32 @@ def create_dataset(log, user_features=None, item_features=None, feature_schema=N
         item_features=item_features,
         check_consistency=False,
     )
+
+
+def convert2pandas(df: Union[SparkDataFrame, PolarsDataFrame, PandasDataFrame]) -> PandasDataFrame:
+    if isinstance(df, PandasDataFrame):
+        return df
+    if isinstance(df, PolarsDataFrame):
+        return df.to_pandas()
+    if isinstance(df, SparkDataFrame):
+        return df.toPandas()
+
+
+def assert_dataframelikes_equal(dataframes_list: List[DataFrameLike], same_type: bool = True):
+    if len(dataframes_list) < 2:
+        msg = "Less than 2 dataframes provided, can't compare"
+        raise ValueError(msg)
+    if same_type:
+        types_set = {type(elem) for elem in dataframes_list}
+        if len(types_set) > 1:
+            msg = f"Dataframes list contains elements of different types: {types_set}"
+            raise ValueError(msg)
+    idx = 0
+    dataframe = dataframes_list[idx]
+    dataframe = convert2pandas(dataframe)
+    while idx < len(dataframes_list) - 1:
+        idx = idx + 1
+        other_dataframe = dataframes_list[idx]
+        other_dataframe = convert2pandas(other_dataframe)
+        pd.testing.assert_frame_equal(dataframe, other_dataframe)
+        dataframe = other_dataframe

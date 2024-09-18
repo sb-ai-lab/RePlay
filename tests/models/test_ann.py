@@ -16,7 +16,7 @@ if PYSPARK_AVAILABLE:
     from replay.models.extensions.ann.index_stores.spark_files_index_store import SparkFilesIndexStore
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def vectors(spark):
     return spark.createDataFrame(
         data=[
@@ -30,7 +30,7 @@ def vectors(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def hnsw_driver():
     return DriverHnswlibIndexBuilder(
         index_params=HnswlibParam(
@@ -44,7 +44,7 @@ def hnsw_driver():
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def hnsw_executor(tmp_path):
     return ExecutorHnswlibIndexBuilder(
         index_params=HnswlibParam(
@@ -58,7 +58,7 @@ def hnsw_executor(tmp_path):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def nms_executor(tmp_path):
     return ExecutorNmslibIndexBuilder(
         index_params=NmslibHnswParam(

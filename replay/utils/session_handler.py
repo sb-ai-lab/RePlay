@@ -48,10 +48,10 @@ def get_spark_session(
             path_to_replay_jar = (
                 "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
             )
-        elif pyspark_version.startswith(("3.2", "3.3")):
+        elif pyspark_version.startswith(("3.2", "3.3")):  # pragma: no cover
             path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.2.0_als_metrics/replay_2.12-3.2.0_als_metrics.jar"
         elif pyspark_version.startswith("3.4"):  # pragma: no cover
-            path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.4.0_als_metrics/replay_2.12-3.4.0_als_metrics.jar"
+            path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_after_fix_2.12/0.1/replay_after_fix_2.12-0.1.jar"
         else:  # pragma: no cover
             path_to_replay_jar = (
                 "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
@@ -83,7 +83,7 @@ def get_spark_session(
         .config("spark.driver.maxResultSize", "4g")
         .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.driver.host", "localhost")
-        .config("spark.sql.execution.arrow.pyspark.enabled", "true")
+        .config("spark.sql.execution.arrow.enabled", "true")
         .config("spark.kryoserializer.buffer.max", "256m")
         .config("spark.files.overwrite", "true")
         .master(f"local[{'*' if core_count == -1 else core_count}]")

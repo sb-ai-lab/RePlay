@@ -9,7 +9,7 @@ import pyspark.sql.functions as sf
 
 
 @pytest.mark.spark
-def test_get_csr_matrix(spark, log2):
+def test_get_csr_matrix(log2):
     grouped_log = log2.groupBy("user_idx").agg(
         sf.collect_list("item_idx").alias("vector_items"),
         sf.collect_list("relevance").alias("vector_ratings"),

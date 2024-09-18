@@ -29,7 +29,7 @@ from pyspark.sql import functions as sf
 SEED = 123
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log_binary_rating(log):
     return log.withColumn("relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0))
 

@@ -1,10 +1,13 @@
 """
 Select or remove data by some criteria
 """
+
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import Callable, Optional, Tuple, Union
 
+import numpy as np
+import pandas as pd
 import polars as pl
 
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
@@ -353,11 +356,11 @@ class NumInteractionsFilter(_BaseFilter):
     >>> log_pd = pd.DataFrame({"user_id": ["u1", "u2", "u2", "u3", "u3", "u3"],
     ...                     "item_id": ["i1", "i2","i3", "i1", "i2","i3"],
     ...                     "rating": [1., 0.5, 3, 1, 0, 1],
-    ...                     "timestamp": ["2020-01-01 23:59:59", "2020-02-01",
-    ...                                   "2020-02-01", "2020-01-01 00:04:15",
+    ...                     "timestamp": ["2020-01-01 23:59:59", "2020-02-01 00:00:00",
+    ...                                   "2020-02-01 00:00:01", "2020-01-01 00:04:15",
     ...                                   "2020-01-02 00:04:14", "2020-01-05 23:59:59"]},
     ...             )
-    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
+    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"], format="ISO8601")
     >>> log_sp = convert2spark(log_pd)
     >>> log_sp.show()
     +-------+-------+------+-------------------+
@@ -365,7 +368,7 @@ class NumInteractionsFilter(_BaseFilter):
     +-------+-------+------+-------------------+
     |     u1|     i1|   1.0|2020-01-01 23:59:59|
     |     u2|     i2|   0.5|2020-02-01 00:00:00|
-    |     u2|     i3|   3.0|2020-02-01 00:00:00|
+    |     u2|     i3|   3.0|2020-02-01 00:00:01|
     |     u3|     i1|   1.0|2020-01-01 00:04:15|
     |     u3|     i2|   0.0|2020-01-02 00:04:14|
     |     u3|     i3|   1.0|2020-01-05 23:59:59|
@@ -391,7 +394,7 @@ class NumInteractionsFilter(_BaseFilter):
     |user_id|item_id|rating|          timestamp|
     +-------+-------+------+-------------------+
     |     u1|     i1|   1.0|2020-01-01 23:59:59|
-    |     u2|     i2|   0.5|2020-02-01 00:00:00|
+    |     u2|     i3|   3.0|2020-02-01 00:00:01|
     |     u3|     i3|   1.0|2020-01-05 23:59:59|
     +-------+-------+------+-------------------+
     <BLANKLINE>
@@ -401,7 +404,7 @@ class NumInteractionsFilter(_BaseFilter):
     |user_id|item_id|rating|          timestamp|
     +-------+-------+------+-------------------+
     |     u1|     i1|   1.0|2020-01-01 23:59:59|
-    |     u2|     i3|   3.0|2020-02-01 00:00:00|
+    |     u2|     i3|   3.0|2020-02-01 00:00:01|
     |     u3|     i3|   1.0|2020-01-05 23:59:59|
     +-------+-------+------+-------------------+
     <BLANKLINE>
@@ -480,7 +483,7 @@ class NumInteractionsFilter(_BaseFilter):
 
         return (
             interactions.sort(sorting_columns, descending=descending)
-            .with_columns(pl.col(self.query_column).cumcount().over(self.query_column).alias("temp_rank"))
+            .with_columns(pl.col(self.query_column).cum_count().over(self.query_column).alias("temp_rank"))
             .filter(pl.col("temp_rank") <= self.num_interactions)
             .drop("temp_rank")
         )
@@ -495,11 +498,11 @@ class EntityDaysFilter(_BaseFilter):
     >>> log_pd = pd.DataFrame({"user_id": ["u1", "u2", "u2", "u3", "u3", "u3"],
     ...                     "item_id": ["i1", "i2","i3", "i1", "i2","i3"],
     ...                     "rating": [1., 0.5, 3, 1, 0, 1],
-    ...                     "timestamp": ["2020-01-01 23:59:59", "2020-02-01",
-    ...                                   "2020-02-01", "2020-01-01 00:04:15",
+    ...                     "timestamp": ["2020-01-01 23:59:59", "2020-02-01 00:00:00",
+    ...                                   "2020-02-01 00:00:01", "2020-01-01 00:04:15",
     ...                                   "2020-01-02 00:04:14", "2020-01-05 23:59:59"]},
     ...             )
-    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
+    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"], format="ISO8601")
     >>> log_sp = convert2spark(log_pd)
     >>> log_sp.orderBy('user_id', 'item_id').show()
     +-------+-------+------+-------------------+
@@ -507,7 +510,7 @@ class EntityDaysFilter(_BaseFilter):
     +-------+-------+------+-------------------+
     |     u1|     i1|   1.0|2020-01-01 23:59:59|
     |     u2|     i2|   0.5|2020-02-01 00:00:00|
-    |     u2|     i3|   3.0|2020-02-01 00:00:00|
+    |     u2|     i3|   3.0|2020-02-01 00:00:01|
     |     u3|     i1|   1.0|2020-01-01 00:04:15|
     |     u3|     i2|   0.0|2020-01-02 00:04:14|
     |     u3|     i3|   1.0|2020-01-05 23:59:59|
@@ -522,7 +525,7 @@ class EntityDaysFilter(_BaseFilter):
     +-------+-------+------+-------------------+
     |     u1|     i1|   1.0|2020-01-01 23:59:59|
     |     u2|     i2|   0.5|2020-02-01 00:00:00|
-    |     u2|     i3|   3.0|2020-02-01 00:00:00|
+    |     u2|     i3|   3.0|2020-02-01 00:00:01|
     |     u3|     i1|   1.0|2020-01-01 00:04:15|
     |     u3|     i2|   0.0|2020-01-02 00:04:14|
     +-------+-------+------+-------------------+
@@ -537,7 +540,7 @@ class EntityDaysFilter(_BaseFilter):
     |     u1|     i1|   1.0|2020-01-01 23:59:59|
     |     u3|     i1|   1.0|2020-01-01 00:04:15|
     |     u2|     i2|   0.5|2020-02-01 00:00:00|
-    |     u2|     i3|   3.0|2020-02-01 00:00:00|
+    |     u2|     i3|   3.0|2020-02-01 00:00:01|
     +-------+-------+------+-------------------+
     <BLANKLINE>
     """
@@ -634,11 +637,11 @@ class GlobalDaysFilter(_BaseFilter):
     >>> log_pd = pd.DataFrame({"user_id": ["u1", "u2", "u2", "u3", "u3", "u3"],
     ...                     "item_id": ["i1", "i2","i3", "i1", "i2","i3"],
     ...                     "rating": [1., 0.5, 3, 1, 0, 1],
-    ...                     "timestamp": ["2020-01-01 23:59:59", "2020-02-01",
-    ...                                   "2020-02-01", "2020-01-01 00:04:15",
+    ...                     "timestamp": ["2020-01-01 23:59:59", "2020-02-01 00:00:00",
+    ...                                   "2020-02-01 00:00:01", "2020-01-01 00:04:15",
     ...                                   "2020-01-02 00:04:14", "2020-01-05 23:59:59"]},
     ...             )
-    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
+    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"], format="ISO8601")
     >>> log_sp = convert2spark(log_pd)
     >>> log_sp.show()
     +-------+-------+------+-------------------+
@@ -646,7 +649,7 @@ class GlobalDaysFilter(_BaseFilter):
     +-------+-------+------+-------------------+
     |     u1|     i1|   1.0|2020-01-01 23:59:59|
     |     u2|     i2|   0.5|2020-02-01 00:00:00|
-    |     u2|     i3|   3.0|2020-02-01 00:00:00|
+    |     u2|     i3|   3.0|2020-02-01 00:00:01|
     |     u3|     i1|   1.0|2020-01-01 00:04:15|
     |     u3|     i2|   0.0|2020-01-02 00:04:14|
     |     u3|     i3|   1.0|2020-01-05 23:59:59|
@@ -668,7 +671,7 @@ class GlobalDaysFilter(_BaseFilter):
     |user_id|item_id|rating|          timestamp|
     +-------+-------+------+-------------------+
     |     u2|     i2|   0.5|2020-02-01 00:00:00|
-    |     u2|     i3|   3.0|2020-02-01 00:00:00|
+    |     u2|     i3|   3.0|2020-02-01 00:00:01|
     +-------+-------+------+-------------------+
     <BLANKLINE>
     """
@@ -736,11 +739,11 @@ class TimePeriodFilter(_BaseFilter):
     >>> log_pd = pd.DataFrame({"user_id": ["u1", "u2", "u2", "u3", "u3", "u3"],
     ...                     "item_id": ["i1", "i2","i3", "i1", "i2","i3"],
     ...                     "rating": [1., 0.5, 3, 1, 0, 1],
-    ...                     "timestamp": ["2020-01-01 23:59:59", "2020-02-01",
-    ...                                   "2020-02-01", "2020-01-01 00:04:15",
+    ...                     "timestamp": ["2020-01-01 23:59:59", "2020-02-01 00:00:00",
+    ...                                   "2020-02-01 00:00:01", "2020-01-01 00:04:15",
     ...                                   "2020-01-02 00:04:14", "2020-01-05 23:59:59"]},
     ...             )
-    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"])
+    >>> log_pd["timestamp"] = pd.to_datetime(log_pd["timestamp"], format="ISO8601")
     >>> log_sp = convert2spark(log_pd)
     >>> log_sp.show()
     +-------+-------+------+-------------------+
@@ -748,7 +751,7 @@ class TimePeriodFilter(_BaseFilter):
     +-------+-------+------+-------------------+
     |     u1|     i1|   1.0|2020-01-01 23:59:59|
     |     u2|     i2|   0.5|2020-02-01 00:00:00|
-    |     u2|     i3|   3.0|2020-02-01 00:00:00|
+    |     u2|     i3|   3.0|2020-02-01 00:00:01|
     |     u3|     i1|   1.0|2020-01-01 00:04:15|
     |     u3|     i2|   0.0|2020-01-02 00:04:14|
     |     u3|     i3|   1.0|2020-01-05 23:59:59|
@@ -823,3 +826,166 @@ class TimePeriodFilter(_BaseFilter):
         return interactions.filter(
             pl.col(self.timestamp_column).is_between(self.start_date, self.end_date, closed="left")
         )
+
+
+class QuantileItemsFilter(_BaseFilter):
+    """
+    Filter is aimed on undersampling the interactions dataset.
+
+    Filter algorithm performs undersampling by removing `items_proportion` of interactions
+    for each items counts that exceeds the `alpha_quantile` value in distribution. Filter firstly
+    removes popular items (items that have most interactions). Filter also keeps the original
+    relation of items popularity among each other by removing interactions only in range of
+    current item count and quantile count (specified by `alpha_quantile`).
+
+    >>> import pandas as pd
+    >>> from replay.utils.spark_utils import convert2spark
+    >>> log_pd = pd.DataFrame({
+    ...        "user_id": [0, 0, 1, 2, 2, 2, 2],
+    ...        "item_id": [0, 2, 1, 1, 2, 2, 2]
+    ... })
+    >>> log_spark = convert2spark(log_pd)
+    >>> log_spark.show()
+    +-------+-------+
+    |user_id|item_id|
+    +-------+-------+
+    |      0|      0|
+    |      0|      2|
+    |      1|      1|
+    |      2|      1|
+    |      2|      2|
+    |      2|      2|
+    |      2|      2|
+    +-------+-------+
+    <BLANKLINE>
+
+    >>> QuantileItemsFilter(query_column="user_id").transform(log_spark).show()
+    +-------+-------+
+    |user_id|item_id|
+    +-------+-------+
+    |      0|      0|
+    |      1|      1|
+    |      2|      1|
+    |      2|      2|
+    |      2|      2|
+    |      0|      2|
+    +-------+-------+
+    <BLANKLINE>
+    """
+
+    def __init__(
+        self,
+        alpha_quantile: float = 0.99,
+        items_proportion: float = 0.5,
+        query_column: str = "query_id",
+        item_column: str = "item_id",
+    ) -> None:
+        """
+        :param alpha_quantile: Quantile value of items counts distribution to keep unchanged.
+            Every items count that exceeds this value will be undersampled.
+            Default: ``0.99``.
+        :param items_proportion: proportion of items counts to remove for items that
+            exceeds `alpha_quantile` value in range of current item count and quantile count
+            to make sure we keep original relation between items unchanged.
+            Default: ``0.5``.
+        :param query_column: query column name.
+            Default: ``query_id``.
+        :param item_column: item column name.
+            Default: ``item_id``.
+        """
+        if not 0 < alpha_quantile < 1:
+            msg = "`alpha_quantile` value must be in (0, 1)"
+            raise ValueError(msg)
+        if not 0 < items_proportion < 1:
+            msg = "`items_proportion` value must be in (0, 1)"
+            raise ValueError(msg)
+
+        self.alpha_quantile = alpha_quantile
+        self.items_proportion = items_proportion
+        self.query_column = query_column
+        self.item_column = item_column
+
+    def _filter_pandas(self, df: pd.DataFrame):
+        items_distribution = df.groupby(self.item_column).size().reset_index().rename(columns={0: "counts"})
+        users_distribution = df.groupby(self.query_column).size().reset_index().rename(columns={0: "counts"})
+        count_threshold = items_distribution.loc[:, "counts"].quantile(self.alpha_quantile, interpolation="midpoint")
+        df_with_counts = df.merge(items_distribution, how="left", on=self.item_column).merge(
+            users_distribution, how="left", on=self.query_column, suffixes=["_items", "_users"]
+        )
+        long_tail = df_with_counts.loc[df_with_counts["counts_items"] <= count_threshold]
+        short_tail = df_with_counts.loc[df_with_counts["counts_items"] > count_threshold]
+        short_tail["num_items_to_delete"] = self.items_proportion * (
+            short_tail["counts_items"] - long_tail["counts_items"].max()
+        )
+        short_tail["num_items_to_delete"] = short_tail["num_items_to_delete"].astype("int")
+        short_tail = short_tail.sort_values("counts_users", ascending=False)
+
+        def get_mask(x):
+            mask = np.ones_like(x)
+            threshold = x.iloc[0]
+            mask[:threshold] = 0
+            return mask
+
+        mask = short_tail.groupby(self.item_column)["num_items_to_delete"].transform(get_mask).astype(bool)
+        return pd.concat([long_tail[df.columns], short_tail.loc[mask][df.columns]])
+
+    def _filter_polars(self, df: pl.DataFrame):
+        items_distribution = df.group_by(self.item_column).len()
+        users_distribution = df.group_by(self.query_column).len()
+        count_threshold = items_distribution.select("len").quantile(self.alpha_quantile, "midpoint")["len"][0]
+        df_with_counts = (
+            df.join(items_distribution, how="left", on=self.item_column).join(
+                users_distribution, how="left", on=self.query_column
+            )
+        ).rename({"len": "counts_items", "len_right": "counts_users"})
+        long_tail = df_with_counts.filter(pl.col("counts_items") <= count_threshold)
+        short_tail = df_with_counts.filter(pl.col("counts_items") > count_threshold)
+        max_long_tail_count = long_tail["counts_items"].max()
+        items_to_delete = (
+            short_tail.select(
+                self.query_column,
+                self.item_column,
+                self.items_proportion * (pl.col("counts_items") - max_long_tail_count),
+            )
+            .with_columns(pl.col("literal").cast(pl.Int64).alias("num_items_to_delete"))
+            .select(self.item_column, "num_items_to_delete")
+            .unique(maintain_order=True)
+        )
+        short_tail = short_tail.join(items_to_delete, how="left", on=self.item_column).sort(
+            "counts_users", descending=True
+        )
+        short_tail = short_tail.with_columns(index=pl.int_range(short_tail.shape[0]))
+        grouped = short_tail.group_by(self.item_column, maintain_order=True).agg(
+            pl.col("index"), pl.col("num_items_to_delete")
+        )
+        grouped = grouped.with_columns(
+            pl.col("num_items_to_delete").list.get(0),
+            (pl.col("index").list.len() - pl.col("num_items_to_delete").list.get(0)).alias("tail"),
+        )
+        grouped = grouped.with_columns(pl.col("index").list.tail(pl.col("tail")))
+        grouped = grouped.explode("index").select("index")
+        short_tail = grouped.join(short_tail, how="left", on="index")
+        return pl.concat([long_tail.select(df.columns), short_tail.select(df.columns)])
+
+    def _filter_spark(self, df: SparkDataFrame):
+        items_distribution = df.groupBy(self.item_column).agg(sf.count(self.query_column).alias("counts_items"))
+        users_distribution = df.groupBy(self.query_column).agg(sf.count(self.item_column).alias("counts_users"))
+        count_threshold = items_distribution.toPandas().loc[:, "counts_items"].quantile(self.alpha_quantile, "midpoint")
+        df_with_counts = df.join(items_distribution, on=self.item_column).join(users_distribution, on=self.query_column)
+        long_tail = df_with_counts.filter(sf.col("counts_items") <= count_threshold)
+        short_tail = df_with_counts.filter(sf.col("counts_items") > count_threshold)
+        max_long_tail_count = long_tail.agg({"counts_items": "max"}).collect()[0][0]
+        items_to_delete = (
+            short_tail.withColumn(
+                "num_items_to_delete",
+                (self.items_proportion * (sf.col("counts_items") - max_long_tail_count)).cast("int"),
+            )
+            .select(self.item_column, "num_items_to_delete")
+            .distinct()
+        )
+        short_tail = short_tail.join(items_to_delete, on=self.item_column, how="left")
+        short_tail = short_tail.withColumn(
+            "index", sf.row_number().over(Window.partitionBy(self.item_column).orderBy(sf.col("counts_users").desc()))
+        )
+        short_tail = short_tail.filter(sf.col("index") > sf.col("num_items_to_delete"))
+        return long_tail.select(df.columns).union(short_tail.select(df.columns))

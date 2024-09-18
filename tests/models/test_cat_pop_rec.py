@@ -10,48 +10,7 @@ pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
 
 
-@pytest.fixture
-def cat_tree(spark):
-    return spark.createDataFrame(
-        data=[
-            [None, "healthy_food"],
-            [None, "groceries"],
-            ["groceries", "fruits"],
-            ["fruits", "apples"],
-            ["fruits", "bananas"],
-            ["apples", "red_apples"],
-        ],
-        schema="parent_cat string, category string",
-    )
-
-
-@pytest.fixture
-def cat_log(spark):
-    # assume item 1 is an apple-banana mix and item 2 is a banana
-    return spark.createDataFrame(
-        data=[
-            [1, 1, "red_apples", 5],
-            [1, 2, "bananas", 1],
-            [2, 1, "healthy_food", 3],
-            [3, 1, "bananas", 2],
-        ],
-        schema="user_idx int, item_idx int, category string, relevance int",
-    )
-
-
-@pytest.fixture
-def requested_cats(spark):
-    return spark.createDataFrame(
-        data=[
-            ["healthy_food"],
-            ["fruits"],
-            ["red_apples"],
-        ],
-        schema="category string",
-    )
-
-
-@pytest.fixture
+@pytest.fixture(scope="module")
 def cold_items(spark):
     # assume item 1 is an apple-banana mix and item 2 is a banana
     return spark.createDataFrame(
@@ -65,11 +24,12 @@ def cold_items(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model(cat_tree):
     return CatPopRec(cat_tree)
 
 
+@pytest.mark.spark
 def test_cat_tree(model):
     mapping = model.leaf_cat_mapping.orderBy("category")
     mapping.show()
@@ -83,6 +43,7 @@ def test_cat_tree(model):
     ) == ["bananas", "red_apples"]
 
 
+@pytest.mark.spark
 def test_works_no_rel(spark, cat_log, requested_cats, model):
     ground_thuth = spark.createDataFrame(
         data=[
@@ -116,6 +77,7 @@ def test_works_no_rel(spark, cat_log, requested_cats, model):
     sparkDataFrameEqual(model.predict(requested_cats, k=3), ground_thuth)
 
 
+@pytest.mark.spark
 def test_works_rel(spark, cat_log, requested_cats, model):
     ground_thuth = spark.createDataFrame(
         data=[
@@ -155,12 +117,14 @@ def test_works_rel(spark, cat_log, requested_cats, model):
     model._clear_cache()
 
 
+@pytest.mark.spark
 def test_set_cat_tree(model, cat_tree):
     mapping = model.leaf_cat_mapping
     model.set_cat_tree(cat_tree)
     sparkDataFrameEqual(model.leaf_cat_mapping, mapping)
 
 
+@pytest.mark.spark
 def test_max_iter_warning(cat_tree, caplog):
     with caplog.at_level(logging.WARNING):
         CatPopRec(cat_tree, max_iter=1)
@@ -171,6 +135,7 @@ def test_max_iter_warning(cat_tree, caplog):
         )
 
 
+@pytest.mark.spark
 def test_predict_cold_items(cat_log, requested_cats, model, cold_items, caplog):
     caplog.set_level(logging.INFO, logger="replay")
     feature_schema = FeatureSchema(

@@ -102,6 +102,6 @@ class CSRConverter:
         row_count = self.row_count if self.row_count is not None else _get_max(rows_data) + 1
         col_count = self.column_count if self.column_count is not None else _get_max(cols_data) + 1
         return csr_matrix(
-            (data, (rows_data, cols_data)),
+            (data.tolist(), (rows_data.tolist(), cols_data.tolist())),
             shape=(row_count, col_count),
         )

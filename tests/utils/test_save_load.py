@@ -25,54 +25,59 @@ from replay.utils.model_handler import (
     save_encoder,
     save_splitter,
 )
-from replay.utils.spark_utils import convert2spark
 from tests.utils import create_dataset, sparkDataFrameEqual
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def user_features(spark):
     return spark.createDataFrame([(1, 20.0, -3.0, 1), (2, 30.0, 4.0, 0), (3, 40.0, 0.0, 1)]).toDF(
         "user_idx", "age", "mood", "gender"
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def df():
     folder = dirname(replay.__file__)
     res = pd.read_csv(
         join(folder, "../examples/data/ml1m_ratings.dat"),
         sep="\t",
-        names=["user_id", "item_id", "relevance", "timestamp"],
-    ).head(1000)
-    res = convert2spark(res)
+        names=["user_idx", "item_idx", "relevance", "timestamp"],
+    )
     encoder = LabelEncoder(
         [
-            LabelEncodingRule("user_id"),
-            LabelEncodingRule("item_id"),
+            LabelEncodingRule("user_idx"),
+            LabelEncodingRule("item_idx"),
         ]
     )
     res = encoder.fit_transform(res)
     return res
 
 
-@pytest.mark.spark
+@pytest.mark.core
 @pytest.mark.parametrize(
     "splitter, init_args",
     [
-        (TimeSplitter, {"time_threshold": 0.8, "query_column": "user_id"}),
-        (LastNSplitter, {"N": 2, "query_column": "user_id", "divide_column": "user_id"}),
-        (RatioSplitter, {"test_size": 0.8, "query_column": "user_id", "divide_column": "user_id"}),
-        (RandomSplitter, {"test_size": 0.8, "seed": 123}),
-        (NewUsersSplitter, {"test_size": 0.8, "query_column": "user_id"}),
-        (ColdUserRandomSplitter, {"test_size": 0.8, "seed": 123, "query_column": "user_id"}),
+        (TimeSplitter, {"time_threshold": 0.8, "query_column": "user_idx", "item_column": "item_idx"}),
+        (LastNSplitter, {"N": 2, "query_column": "user_idx", "divide_column": "user_idx", "item_column": "item_idx"}),
+        (
+            RatioSplitter,
+            {"test_size": 0.8, "query_column": "user_idx", "divide_column": "user_idx", "item_column": "item_idx"},
+        ),
+        (RandomSplitter, {"test_size": 0.8, "seed": 123, "item_column": "item_idx"}),
+        (NewUsersSplitter, {"test_size": 0.8, "query_column": "user_idx", "item_column": "item_idx"}),
+        (
+            ColdUserRandomSplitter,
+            {"test_size": 0.8, "seed": 123, "query_column": "user_idx", "item_column": "item_idx"},
+        ),
         (
             TwoStageSplitter,
             {
                 "second_divide_size": 1,
                 "first_divide_size": 0.2,
                 "seed": 123,
-                "query_column": "user_id",
-                "first_divide_column": "user_id",
+                "query_column": "user_idx",
+                "first_divide_column": "user_idx",
+                "item_column": "item_idx",
             },
         ),
     ],
@@ -80,7 +85,6 @@ def df():
 def test_splitter(splitter, init_args, df, tmp_path):
     path = (tmp_path / "splitter").resolve()
     splitter = splitter(**init_args)
-    df = df.withColumnRenamed("user_idx", "user_id").withColumnRenamed("item_idx", "item_id")
     save_splitter(splitter, path)
     save_splitter(splitter, path, overwrite=True)
     train, test = splitter.split(df)
@@ -88,8 +92,8 @@ def test_splitter(splitter, init_args, df, tmp_path):
     for arg_, value_ in init_args.items():
         assert getattr(restored_splitter, arg_) == value_
     new_train, new_test = restored_splitter.split(df)
-    assert new_train.count() == train.count()
-    assert new_test.count() == test.count()
+    assert new_train.shape == train.shape
+    assert new_test.shape == test.shape
 
 
 @pytest.mark.spark

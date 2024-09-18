@@ -21,7 +21,7 @@ log_data = [
 ]
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log(spark):
     return spark.createDataFrame(
         log_data,
@@ -29,17 +29,17 @@ def log(spark):
     )
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def log_pandas():
     return PandasDataFrame(log_data, columns=["user_id", "item_id", "timestamp", "relevance", "session_id"])
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def log_polars(log_pandas):
     return pl.from_pandas(log_pandas)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def log_not_implemented(log_pandas):
     return log_pandas.to_numpy()
 

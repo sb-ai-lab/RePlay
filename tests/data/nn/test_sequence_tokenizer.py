@@ -1,4 +1,5 @@
 import os
+import shutil
 from typing import Optional
 
 import numpy as np
@@ -74,7 +75,7 @@ def test_item_ids_are_grouped_to_sequences_with_subset(dataset, item_id_and_item
     for tensor_feature_name in sequential_dataset.schema.keys():
         assert tensor_feature_name in {"item_id"}
 
-    with pytest.raises(KeyError):
+    with pytest.raises((KeyError, pl.ColumnNotFoundError)):
         sequential_dataset.get_sequence(0, "some_item_feature")
 
 
@@ -294,6 +295,15 @@ def test_process_numerical_features(dataset, request):
             is_seq=True,
             feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "some_item_feature")],
         )
+        .numerical(
+            "doubled_feature",
+            tensor_dim=2,
+            is_seq=True,
+            feature_sources=[
+                TensorFeatureSource(FeatureSource.INTERACTIONS, "num_feature"),
+                TensorFeatureSource(FeatureSource.INTERACTIONS, "num_feature2"),
+            ],
+        )
         .build()
     )
     tokenizer = SequenceTokenizer(schema)
@@ -311,6 +321,14 @@ def test_process_numerical_features(dataset, request):
         "some_item_feature",
         answers,
     )
+    for num_feature_name in ["feature", "some_item_feature", "doubled_feature"]:
+        for query in sequential_dataset.get_all_query_ids():
+            query_decoded = tokenizer.query_id_encoder.inverse_mapping["user_id"][query]
+            seq = sequential_dataset.get_sequence_by_query_id(query, num_feature_name)
+            assert seq.shape == (
+                len(answers[query_decoded]),
+                len(tokenizer.tensor_schema.get(num_feature_name).feature_sources),
+            )
 
 
 @pytest.mark.torch
@@ -623,15 +641,16 @@ def _compare_sequence(
 
 @pytest.mark.torch
 @pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
-def test_save_and_load(dataset, request, only_item_id_schema: TensorSchema):
+@pytest.mark.parametrize("use_pickle, extension", [(True, "pth"), (False, "replay")])
+def test_save_and_load(dataset, request, use_pickle, extension, only_item_id_schema: TensorSchema):
     data = request.getfixturevalue(dataset)
     tokenizer = SequenceTokenizer(only_item_id_schema).fit(data)
     before_save = tokenizer.transform(data)
 
-    tokenizer.save("sequence_tokenizer.pth")
+    tokenizer.save(f"sequence_tokenizer.{extension}", use_pickle=use_pickle)
     del tokenizer
 
-    tokenizer = SequenceTokenizer.load("sequence_tokenizer.pth")
+    tokenizer = SequenceTokenizer.load(f"sequence_tokenizer.{extension}", use_pickle=use_pickle)
     after_save = tokenizer.transform(data)
 
     answers = {
@@ -654,6 +673,10 @@ def test_save_and_load(dataset, request, only_item_id_schema: TensorSchema):
         answers,
         tokenizer.item_id_encoder.inverse_mapping["item_id"],
     )
+    try:
+        os.remove(f"sequence_tokenizer.{extension}")
+    except IsADirectoryError:
+        shutil.rmtree(f"sequence_tokenizer.{extension}")
 
 
 @pytest.mark.torch
@@ -671,15 +694,18 @@ def test_my(item_id_and_timestamp_schema, dataset, request):
 
 @pytest.mark.torch
 @pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
-def test_save_and_load_different_features_to_keep(dataset, request, item_id_and_item_feature_schema: TensorSchema):
+@pytest.mark.parametrize("use_pickle, extension", [(True, "pth"), (False, "replay")])
+def test_save_and_load_different_features_to_keep(
+    dataset, request, use_pickle, extension, item_id_and_item_feature_schema: TensorSchema
+):
     data = request.getfixturevalue(dataset)
     tokenizer = SequenceTokenizer(item_id_and_item_feature_schema).fit(data)
     item_id_transformed = tokenizer.transform(data, tensor_features_to_keep=["item_id"])
 
-    tokenizer.save("sequence_tokenizer.pth")
+    tokenizer.save(f"sequence_tokenizer.{extension}", use_pickle=use_pickle)
     del tokenizer
 
-    tokenizer = SequenceTokenizer.load("sequence_tokenizer.pth")
+    tokenizer = SequenceTokenizer.load(f"sequence_tokenizer.{extension}", use_pickle=use_pickle)
     some_item_feature_transformed = tokenizer.transform(data, tensor_features_to_keep=["some_item_feature"])
 
     answers = {
@@ -708,4 +734,7 @@ def test_save_and_load_different_features_to_keep(dataset, request, item_id_and_
         answers,
         tokenizer.item_features_encoder.inverse_mapping["some_item_feature"],
     )
-    os.remove("sequence_tokenizer.pth")
+    try:
+        os.remove(f"sequence_tokenizer.{extension}")
+    except IsADirectoryError:
+        shutil.rmtree(f"sequence_tokenizer.{extension}")

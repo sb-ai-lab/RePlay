@@ -115,7 +115,7 @@ class ALSWrap(Recommender, ItemVectorModel):
                     .groupBy("user_idx")
                     .agg(sf.count("user_idx").alias("num_seen"))
                     .select(sf.max("num_seen"))
-                    .collect()[0][0]
+                    .first()[0]
                 )
                 max_seen = max_seen_in_log if max_seen_in_log is not None else 0
 
@@ -280,7 +280,7 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
                 .groupBy("user_idx")
                 .agg(sf.count("user_idx").alias("num_seen"))
                 .select(sf.max("num_seen"))
-                .collect()[0][0]
+                .first()[0]
             )
             max_seen = max_seen_in_log if max_seen_in_log is not None else 0
 
