@@ -1,13 +1,13 @@
 from datetime import datetime
 
 import numpy as np
+from obp.dataset import OpenBanditDataset
+from obp.ope import OffPolicyEvaluation, InverseProbabilityWeighting, DirectMethod, DoublyRobust
 import pytest
 
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
 
-from obp.dataset import OpenBanditDataset
-from obp.ope import OffPolicyEvaluation, InverseProbabilityWeighting, DirectMethod, DoublyRobust
 from pyspark.sql import functions as sf
 
 from replay.data import get_schema
