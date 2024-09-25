@@ -1,9 +1,9 @@
 from datetime import datetime
 
 import numpy as np
-from obp.dataset import OpenBanditDataset
-from obp.ope import OffPolicyEvaluation, InverseProbabilityWeighting, DirectMethod, DoublyRobust
 import pytest
+from obp.dataset import OpenBanditDataset
+from obp.ope import DirectMethod, DoublyRobust, InverseProbabilityWeighting, OffPolicyEvaluation
 
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
