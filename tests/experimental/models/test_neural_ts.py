@@ -135,6 +135,15 @@ def test_predict_pairs(log, user_features, item_features, model):
     model.fit(log, user_features, item_features)
 
     pred = model.predict_pairs(
+        log.filter(sf.col("user_idx") == 0).select("user_idx", "item_idx"),
+        user_features=user_features,
+        item_features=item_features,
+    )
+    assert pred.count() == 2
+    assert pred.select("user_idx").distinct().collect()[0][0] == 0
+
+
+    pred = model.predict_pairs(
         log.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"),
         user_features=user_features,
         item_features=item_features,
