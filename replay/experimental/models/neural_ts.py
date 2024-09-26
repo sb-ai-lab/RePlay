@@ -1,4 +1,3 @@
-import json
 import os
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -7,7 +6,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
-import torch.utils.data as td
 from IPython.display import clear_output
 from pyspark.sql import DataFrame
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
@@ -15,12 +13,9 @@ from torch import Tensor, nn
 from torch.utils.data import DataLoader, Dataset, SequentialSampler
 from tqdm import tqdm
 
-from replay.data import get_schema
 from replay.experimental.models.base_rec import HybridRecommender
-from replay.experimental.models.base_torch_rec import TorchRecommender
 from replay.splitters import TimeSplitter
 from replay.utils.spark_utils import convert2spark
-from replay.utils import PandasDataFrame, SparkDataFrame
 
 pd.options.mode.chained_assignment = None
 
@@ -721,7 +716,9 @@ class NeuralTS(HybridRecommender):
                 )
             )
 
-        self.size_wide_features, self.size_continuous_features, self.size_cat_features = train_dataset.get_size_features()
+        self.size_wide_features, self.size_continuous_features, self.size_cat_features = (
+            train_dataset.get_size_features()
+        )
         self.model = WideDeep(
             dim_head=self.dim_head,
             deep_out_dim=self.deep_out_dim,
@@ -953,7 +950,7 @@ class NeuralTS(HybridRecommender):
 
     def model_load(self, dir_name):
         """
-        This function downloads the model.
+        This function loads the model.
         """
         self.scaler_user = joblib.load(os.path.join(dir_name, "scaler_user.joblib"))
         self.encoder_intersept_user = joblib.load(os.path.join(dir_name, "encoder_intersept_user.joblib"))
