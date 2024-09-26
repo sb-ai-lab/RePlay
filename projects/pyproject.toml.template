@@ -106,6 +106,7 @@ myst-parser = "1.0.0"
 ghp-import = "2.1.0"
 docutils = "0.16"
 data-science-types = "0.2.23"
+filelock = "~3.14.0"
 
 [tool.poetry-dynamic-versioning]
 enable = true
