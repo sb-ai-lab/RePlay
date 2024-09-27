@@ -101,14 +101,16 @@ def model_with_features():
 
 
 @pytest.mark.experimental
-def test_equal_preds(model, user_features, item_features, log):
-    dir_name = "test"
+def test_equal_preds(model, user_features, item_features, log, tmp_path):
+    path = (tmp_path / "test").resolve()
     model.fit(log, user_features=user_features, item_features=item_features)
     torch.manual_seed(SEED)
+
     base_pred = model.predict(log, 5, user_features=user_features, item_features=item_features)
-    model.model_save(dir_name)
-    model.model_load(dir_name)
+    model.model_save(path)
+    model.model_load(path)
     torch.manual_seed(SEED)
+
     new_pred = model.predict(log, 5, user_features=user_features, item_features=item_features)
     sparkDataFrameEqual(base_pred, new_pred)
 
