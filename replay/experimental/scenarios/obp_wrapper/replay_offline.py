@@ -86,7 +86,7 @@ class OBPOfflinePolicyLearner(BaseOfflinePolicyLearner):
         self.feature_schema = FeatureSchema(
             [
                 FeatureInfo(
-                    column="query_id",
+                    column="user_idx",
                     feature_type=FeatureType.CATEGORICAL,
                     feature_hint=FeatureHint.QUERY_ID,
                 ),
