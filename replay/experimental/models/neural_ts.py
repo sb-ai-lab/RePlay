@@ -20,11 +20,11 @@ from replay.utils.spark_utils import convert2spark
 pd.options.mode.chained_assignment = None
 
 
-def cartesian_product_basic(left, right):
+def cartesian_product(left, right):
     """
     This function computes cartesian product.
     """
-    return left.assign(key=1).merge(right.assign(key=1), on="key").drop("key", 1)
+    return left.assign(key=1).merge(right.assign(key=1), on="key").drop(columns=["key"])
 
 
 def num_tries_gt_zero(scores, batch_size, max_trials, max_num, device):
@@ -218,7 +218,7 @@ class UserDatasetWithReset(Dataset):
             sample_item = np.random.choice(self.item_idx_not_user, n_samples, replace=False)
             sample_item_feat = self.item_features.loc[self.item_features["item_idx"].isin(sample_item)]
             sample_item_feat = sample_item_feat.set_axis(range(sample_item_feat.shape[0]), axis="index")
-            df_sample = cartesian_product_basic(
+            df_sample = cartesian_product(
                 self.user_features.loc[self.user_features["user_idx"] == self.user_idx], sample_item_feat
             )
             df_sample[self.target_column] = 0
@@ -708,7 +708,7 @@ class NeuralTS(HybridRecommender):
         val_group_by_users = val.groupby("user_idx")
         for idx, df_val_idx in tqdm(val_group_by_users):
             self.dict_true_items_val[idx] = df_val_idx.loc[(df_val_idx["relevance"] == 1)]["item_idx"].values.tolist()
-            df_val = cartesian_product_basic(pd.DataFrame({"user_idx": [idx]}), transform_item_features[["item_idx"]])
+            df_val = cartesian_product(pd.DataFrame({"user_idx": [idx]}), transform_item_features[["item_idx"]])
             df_val = df_val.set_axis(range(df_val.shape[0]), axis="index")
             dataloader_val_users.append(
                 self._data_loader(
@@ -896,7 +896,7 @@ class NeuralTS(HybridRecommender):
         users_ans = []
         items_ans = []
         for idx in tqdm(pd_users["user_idx"].unique()):
-            df_test_idx = cartesian_product_basic(pd.DataFrame({"user_idx": [idx]}), pd_items)
+            df_test_idx = cartesian_product(pd.DataFrame({"user_idx": [idx]}), pd_items)
             df_test_idx = df_test_idx.set_axis(range(df_test_idx.shape[0]), axis="index")
             test_dataloader = self._data_loader(
                 idx, df_test_idx, transform_user_features, transform_item_features, list_items, train=False
