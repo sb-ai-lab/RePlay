@@ -1,11 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -15,13 +10,16 @@ from optuna.samplers import TPESampler
 from pyspark.sql import DataFrame
 
 from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType
+from replay.experimental.models.base_rec import BaseRecommender as ExperimentalBaseRecommender
 from replay.experimental.scenarios.obp_wrapper.obp_optuna_objective import OBPObjective
 from replay.experimental.scenarios.obp_wrapper.utils import split_bandit_feedback
 from replay.models.base_rec import BaseRecommender
 from replay.utils.spark_utils import convert2spark
 
 
-def obp2df(action: np.ndarray, reward: np.ndarray, timestamp: np.ndarray) -> Optional[pd.DataFrame]:
+def obp2df(
+    action: np.ndarray, reward: np.ndarray, timestamp: np.ndarray, feedback_column: str
+) -> Optional[pd.DataFrame]:
     """
     Converts OBP log to the pandas DataFrame
     """
@@ -32,7 +30,7 @@ def obp2df(action: np.ndarray, reward: np.ndarray, timestamp: np.ndarray) -> Opt
         {
             "user_idx": np.arange(n_interactions),
             "item_idx": action,
-            "rating": reward,
+            feedback_column: reward,
             "timestamp": timestamp,
         }
     )
@@ -68,7 +66,7 @@ class OBPOfflinePolicyLearner(BaseOfflinePolicyLearner):
                 Constructing inside the fit method. Used for predict of replay_model.
     """
 
-    replay_model: Optional[BaseRecommender] = None
+    replay_model: Optional[Union[BaseRecommender, ExperimentalBaseRecommender]] = None
     log: Optional[DataFrame] = None
     max_usr_id: int = 0
     item_features: DataFrame = None
@@ -78,6 +76,13 @@ class OBPOfflinePolicyLearner(BaseOfflinePolicyLearner):
 
     def __post_init__(self) -> None:
         """Initialize Class."""
+
+        self.is_experimental_model = isinstance(self.replay_model, ExperimentalBaseRecommender)
+        if self.is_experimental_model:
+            self.feedback_column = "relevance"
+        else:
+            self.feedback_column = "rating"
+
         self.feature_schema = FeatureSchema(
             [
                 FeatureInfo(
@@ -136,7 +141,7 @@ class OBPOfflinePolicyLearner(BaseOfflinePolicyLearner):
         :param action_context: Context vectors observed for each action.
         """
 
-        log = convert2spark(obp2df(action, reward, timestamp))
+        log = convert2spark(obp2df(action, reward, timestamp, self.feedback_column))
         self.log = log
 
         user_features = None
@@ -148,13 +153,16 @@ class OBPOfflinePolicyLearner(BaseOfflinePolicyLearner):
         if action_context is not None:
             self.item_features = convert2spark(context2df(action_context, np.arange(self.n_actions), "item"))
 
-        dataset = Dataset(
-            feature_schema=self.feature_schema,
-            interactions=log,
-            query_features=user_features,
-            item_features=self.item_features,
-        )
-        self.replay_model._fit_wrap(dataset)
+        if self.is_experimental_model:
+            self.replay_model._fit_wrap(log, user_features, self.item_features)
+        else:
+            dataset = Dataset(
+                feature_schema=self.feature_schema,
+                interactions=log,
+                query_features=user_features,
+                item_features=self.item_features,
+            )
+            self.replay_model._fit_wrap(dataset)
 
     def predict(self, n_rounds: int = 1, context: np.ndarray = None) -> np.ndarray:
         """Predict best actions for new data.
@@ -178,16 +186,21 @@ class OBPOfflinePolicyLearner(BaseOfflinePolicyLearner):
 
         self.max_usr_id += n_rounds
 
-        dataset = Dataset(
-            feature_schema=self.feature_schema,
-            interactions=self.log,
-            query_features=user_features,
-            item_features=self.item_features,
-            check_consistency=False,
-        )
-
-        action_dist = self.replay_model._predict_proba(dataset, self.len_list, users, items, filter_seen_items=False)
-
+        if self.is_experimental_model:
+            action_dist = self.replay_model._predict_proba(
+                self.log, self.len_list, users, items, user_features, self.item_features, filter_seen_items=False
+            )
+        else:
+            dataset = Dataset(
+                feature_schema=self.feature_schema,
+                interactions=self.log,
+                query_features=user_features,
+                item_features=self.item_features,
+                check_consistency=False,
+            )
+            action_dist = self.replay_model._predict_proba(
+                dataset, self.len_list, users, items, filter_seen_items=False
+            )
         return action_dist
 
     def optimize(
