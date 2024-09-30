@@ -19,7 +19,7 @@ from tests.utils import sparkDataFrameEqual
 SEED = 123
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log(spark):
     date1 = datetime(2019, 1, 1)
     date2 = datetime(2019, 1, 2)
@@ -38,21 +38,21 @@ def log(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def user_features(spark):
     return spark.createDataFrame([(0, 2.0, 5.0), (1, 0.0, -5.0), (2, 4.0, 3.0)]).toDF(
         "user_idx", "user_feature_cat", "user_feature_cont"
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def item_features(spark):
     return spark.createDataFrame([(0, 4.0, 5.0), (1, 5.0, 4.0), (2, 1.5, 3.3)]).toDF(
         "item_idx", "item_feature_cat", "item_feature_cont"
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model():
     model = NeuralTS(
         embedding_sizes=[2, 2, 4],
@@ -69,7 +69,7 @@ def model():
     return model
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model_with_features():
     cols_item = {
         "continuous_cols": ["item_feature_cont"],
