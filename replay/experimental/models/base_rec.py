@@ -307,6 +307,75 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             ``[user_idx, item_idx, relevance]``
         """
 
+    def _predict_proba(
+        self,
+        log: SparkDataFrame,
+        k: int,
+        users: SparkDataFrame,
+        items: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> np.ndarray:
+        """
+        Inner method where model actually predicts probability estimates.
+
+        Mainly used in ```OBPOfflinePolicyLearner```.
+
+        :param log: historical log of interactions
+            ``[user_idx, item_idx, timestamp, rating]``
+        :param k: number of recommendations for each user
+        :param users: users to create recommendations for
+            dataframe containing ``[user_idx]`` or ``array-like``;
+            if ``None``, recommend to all users from ``log``
+        :param items: candidate items for recommendations
+            dataframe containing ``[item_idx]`` or ``array-like``;
+            if ``None``, take all items from ``log``.
+            If it contains new items, ``rating`` for them will be ``0``.
+        :param user_features: user features
+            ``[user_idx , timestamp]`` + feature columns
+        :param item_features: item features
+            ``[item_idx , timestamp]`` + feature columns
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :return: distribution over items for each user with shape
+            ``(n_users, n_items, k)``
+            where we have probability for each user to choose item at fixed position(top-k).
+        """
+
+        n_users = users.select("user_idx").count()
+        n_items = items.select("item_idx").count()
+
+        recs = self._predict(
+            log,
+            k,
+            users,
+            items,
+            user_features,
+            item_features,
+            filter_seen_items,
+        )
+
+        recs = get_top_k_recs(recs, k=k).select("user_idx", "item_idx", "relevance")
+
+        cols = [f"k{i}" for i in range(k)]
+
+        recs_items = (
+            recs.groupBy("user_idx")
+            .agg(sf.collect_list("item_idx").alias("item_idx"))
+            .select([sf.col("item_idx")[i].alias(cols[i]) for i in range(k)])
+        )
+
+        action_dist = np.zeros(shape=(n_users, n_items, k))
+
+        for i in range(k):
+            action_dist[
+                np.arange(n_users),
+                recs_items.select(cols[i]).toPandas()[cols[i]].to_numpy(),
+                np.ones(n_users, dtype=int) * i,
+            ] += 1
+
+        return action_dist
+
     def _get_fit_counts(self, entity: str) -> int:
         if not hasattr(self, f"_num_{entity}s"):
             setattr(
