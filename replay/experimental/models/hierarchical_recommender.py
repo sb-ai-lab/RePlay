@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from replay.models.base_rec import HybridRecommender
-from replay.models.u_lin_ucb import ULinUCB
+from replay.experimental.models.base_rec import HybridRecommender
+from replay.experimental.models.u_lin_ucb import ULinUCB
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
