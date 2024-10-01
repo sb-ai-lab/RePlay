@@ -12,6 +12,7 @@ from replay.experimental.models import ULinUCB
 def log_u_lin_ucb(log2):
     return log2.withColumn("relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0))
 
+
 @pytest.fixture(scope="module")
 def item_features(spark):
     return spark.createDataFrame([(0, 4.0, 5.0), (1, 5.0, 4.0), (2, 5.0, 1.0), (3, 0.0, 4.0)]).toDF(
