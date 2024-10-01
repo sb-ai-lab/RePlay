@@ -401,8 +401,8 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         self.fit_items = sf.broadcast(items)
         self._num_queries = self.fit_queries.count()
         self._num_items = self.fit_items.count()
-        self._query_dim_size = self.fit_queries.agg({self.query_column: "max"}).collect()[0][0] + 1
-        self._item_dim_size = self.fit_items.agg({self.item_column: "max"}).collect()[0][0] + 1
+        self._query_dim_size = self.fit_queries.agg({self.query_column: "max"}).first()[0] + 1
+        self._item_dim_size = self.fit_items.agg({self.item_column: "max"}).first()[0] + 1
         self._fit(dataset)
 
     @abstractmethod
@@ -431,7 +431,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         # count maximal number of items seen by queries
         max_seen = 0
         if num_seen.count() > 0:
-            max_seen = num_seen.select(sf.max("seen_count")).collect()[0][0]
+            max_seen = num_seen.select(sf.max("seen_count")).first()[0]
 
         # crop recommendations to first k + max_seen items for each query
         recs = recs.withColumn(
@@ -625,23 +625,21 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         self, dataset: Dataset, k: int, queries: SparkDataFrame, items: SparkDataFrame, filter_seen_items: bool = True
     ) -> np.ndarray:
         """
-        Inner method where model actually predicts.
+        Inner method where model actually predicts probability estimates.
 
-        :param log: historical log of interactions
+        Mainly used in ```OBPOfflinePolicyLearner```.
+
+        :param dataset: historical interactions with query/item features
             ``[user_idx, item_idx, timestamp, rating]``
         :param k: number of recommendations for each user
-        :param users: users to create recommendations for
+        :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all users from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
+            if ``None``, take all items from ``interactions``.
             If it contains new items, ``rating`` for them will be ``0``.
-        :param user_features: user features
-            ``[user_idx , timestamp]`` + feature columns
-        :param item_features: item features
-            ``[item_idx , timestamp]`` + feature columns
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :return: distribution over items for each user with shape
             ``(n_users, n_items, k)``
             where we have probability for each user to choose item at fixed position(top-k).
@@ -708,7 +706,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             setattr(
                 self,
                 dim_size,
-                fit_entities.agg({column: "max"}).collect()[0][0] + 1,
+                fit_entities.agg({column: "max"}).first()[0] + 1,
             )
         return getattr(self, dim_size)
 
@@ -1426,7 +1424,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
         Calculating a fill value a the minimal rating
         calculated during model training multiplied by weight.
         """
-        return item_popularity.select(sf.min(rating_column)).collect()[0][0] * weight
+        return item_popularity.select(sf.min(rating_column)).first()[0] * weight
 
     @staticmethod
     def _check_rating(dataset: Dataset):
@@ -1460,7 +1458,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
                 .agg(sf.countDistinct(item_column).alias("items_count"))
             )
             .select(sf.max("items_count"))
-            .collect()[0][0]
+            .first()[0]
         )
         # all queries have empty history
         if max_hist_len is None:
@@ -1495,7 +1493,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
             queries = queries.join(query_to_num_items, on=self.query_column, how="left")
             queries = queries.fillna(0, "num_items")
             # 'selected_item_popularity' truncation by k + max_seen
-            max_seen = queries.select(sf.coalesce(sf.max("num_items"), sf.lit(0))).collect()[0][0]
+            max_seen = queries.select(sf.coalesce(sf.max("num_items"), sf.lit(0))).first()[0]
             selected_item_popularity = selected_item_popularity.filter(sf.col("rank") <= k + max_seen)
             return queries.join(selected_item_popularity, on=(sf.col("rank") <= k + sf.col("num_items")), how="left")
 
@@ -1644,23 +1642,21 @@ class NonPersonalizedRecommender(Recommender, ABC):
         self, dataset: Dataset, k: int, queries: SparkDataFrame, items: SparkDataFrame, filter_seen_items: bool = True
     ) -> np.ndarray:
         """
-        Inner method where model actually predicts.
+        Inner method where model actually predicts probability estimates.
 
-        :param log: historical log of interactions
+        Mainly used in ```OBPOfflinePolicyLearner```.
+
+        :param dataset: historical interactions with query/item features
             ``[user_idx, item_idx, timestamp, rating]``
         :param k: number of recommendations for each user
-        :param users: users to create recommendations for
+        :param queries: queries to create recommendations for
             dataframe containing ``[user_idx]`` or ``array-like``;
-            if ``None``, recommend to all users from ``log``
+            if ``None``, recommend to all queries from ``interactions``
         :param items: candidate items for recommendations
             dataframe containing ``[item_idx]`` or ``array-like``;
-            if ``None``, take all items from ``log``.
+            if ``None``, take all items from ``interactions``.
             If it contains new items, ``rating`` for them will be ``0``.
-        :param user_features: user features
-            ``[user_idx , timestamp]`` + feature columns
-        :param item_features: item features
-            ``[item_idx , timestamp]`` + feature columns
-        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
         :return: distribution over items for each user with shape
             ``(n_users, n_items, k)``
             where we have probability for each user to choose item at fixed position(top-k).

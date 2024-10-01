@@ -86,8 +86,8 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         self.fit_items = sf.broadcast(items)
         self._num_users = self.fit_users.count()
         self._num_items = self.fit_items.count()
-        self._user_dim_size = self.fit_users.agg({"user_idx": "max"}).collect()[0][0] + 1
-        self._item_dim_size = self.fit_items.agg({"item_idx": "max"}).collect()[0][0] + 1
+        self._user_dim_size = self.fit_users.agg({"user_idx": "max"}).first()[0] + 1
+        self._item_dim_size = self.fit_items.agg({"item_idx": "max"}).first()[0] + 1
         self._fit(log, user_features, item_features)
 
     @abstractmethod
@@ -122,7 +122,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         # count maximal number of items seen by users
         max_seen = 0
         if num_seen.count() > 0:
-            max_seen = num_seen.select(sf.max("seen_count")).collect()[0][0]
+            max_seen = num_seen.select(sf.max("seen_count")).first()[0]
 
         # crop recommendations to first k + max_seen items for each user
         recs = recs.withColumn(
@@ -307,6 +307,75 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             ``[user_idx, item_idx, relevance]``
         """
 
+    def _predict_proba(
+        self,
+        log: SparkDataFrame,
+        k: int,
+        users: SparkDataFrame,
+        items: SparkDataFrame,
+        user_features: Optional[SparkDataFrame] = None,
+        item_features: Optional[SparkDataFrame] = None,
+        filter_seen_items: bool = True,
+    ) -> np.ndarray:
+        """
+        Inner method where model actually predicts probability estimates.
+
+        Mainly used in ```OBPOfflinePolicyLearner```.
+
+        :param log: historical log of interactions
+            ``[user_idx, item_idx, timestamp, rating]``
+        :param k: number of recommendations for each user
+        :param users: users to create recommendations for
+            dataframe containing ``[user_idx]`` or ``array-like``;
+            if ``None``, recommend to all users from ``log``
+        :param items: candidate items for recommendations
+            dataframe containing ``[item_idx]`` or ``array-like``;
+            if ``None``, take all items from ``log``.
+            If it contains new items, ``rating`` for them will be ``0``.
+        :param user_features: user features
+            ``[user_idx , timestamp]`` + feature columns
+        :param item_features: item features
+            ``[item_idx , timestamp]`` + feature columns
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``log``.
+        :return: distribution over items for each user with shape
+            ``(n_users, n_items, k)``
+            where we have probability for each user to choose item at fixed position(top-k).
+        """
+
+        n_users = users.select("user_idx").count()
+        n_items = items.select("item_idx").count()
+
+        recs = self._predict(
+            log,
+            k,
+            users,
+            items,
+            user_features,
+            item_features,
+            filter_seen_items,
+        )
+
+        recs = get_top_k_recs(recs, k=k).select("user_idx", "item_idx", "relevance")
+
+        cols = [f"k{i}" for i in range(k)]
+
+        recs_items = (
+            recs.groupBy("user_idx")
+            .agg(sf.collect_list("item_idx").alias("item_idx"))
+            .select([sf.col("item_idx")[i].alias(cols[i]) for i in range(k)])
+        )
+
+        action_dist = np.zeros(shape=(n_users, n_items, k))
+
+        for i in range(k):
+            action_dist[
+                np.arange(n_users),
+                recs_items.select(cols[i]).toPandas()[cols[i]].to_numpy(),
+                np.ones(n_users, dtype=int) * i,
+            ] += 1
+
+        return action_dist
+
     def _get_fit_counts(self, entity: str) -> int:
         if not hasattr(self, f"_num_{entity}s"):
             setattr(
@@ -335,7 +404,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             setattr(
                 self,
                 f"_{entity}_dim_size",
-                getattr(self, f"fit_{entity}s").agg({f"{entity}_idx": "max"}).collect()[0][0] + 1,
+                getattr(self, f"fit_{entity}s").agg({f"{entity}_idx": "max"}).first()[0] + 1,
             )
         return getattr(self, f"_{entity}_dim_size")
 
@@ -1088,7 +1157,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
         Calculating a fill value a the minimal relevance
         calculated during model training multiplied by weight.
         """
-        return item_popularity.select(sf.min("relevance")).collect()[0][0] * weight
+        return item_popularity.select(sf.min("relevance")).first()[0] * weight
 
     @staticmethod
     def _check_relevance(log: SparkDataFrame):
@@ -1113,7 +1182,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
         max_hist_len = (
             (log.join(users, on="user_idx").groupBy("user_idx").agg(sf.countDistinct("item_idx").alias("items_count")))
             .select(sf.max("items_count"))
-            .collect()[0][0]
+            .first()[0]
         )
         # all users have empty history
         if max_hist_len is None:
@@ -1146,7 +1215,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
             users = users.join(user_to_num_items, on="user_idx", how="left")
             users = users.fillna(0, "num_items")
             # 'selected_item_popularity' truncation by k + max_seen
-            max_seen = users.select(sf.coalesce(sf.max("num_items"), sf.lit(0))).collect()[0][0]
+            max_seen = users.select(sf.coalesce(sf.max("num_items"), sf.lit(0))).first()[0]
             selected_item_popularity = selected_item_popularity.filter(sf.col("rank") <= k + max_seen)
             return users.join(selected_item_popularity, on=(sf.col("rank") <= k + sf.col("num_items")), how="left")
 

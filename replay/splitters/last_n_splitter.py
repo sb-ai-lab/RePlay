@@ -193,7 +193,7 @@ class LastNSplitter(Splitter):
 
     def _add_time_partition_to_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
         res = interactions.sort(self.timestamp_column).with_columns(
-            pl.col(self.divide_column).cumcount().over(pl.col(self.divide_column)).alias("row_num")
+            pl.col(self.divide_column).cum_count().over(pl.col(self.divide_column)).alias("row_num")
         )
 
         return res

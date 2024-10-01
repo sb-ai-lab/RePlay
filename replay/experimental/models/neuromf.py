@@ -3,6 +3,7 @@ Generalized Matrix Factorization (GMF),
 Multi-Layer Perceptron (MLP),
 Neural Matrix Factorization (MLP + GMF).
 """
+
 from typing import List, Optional
 
 import numpy as np

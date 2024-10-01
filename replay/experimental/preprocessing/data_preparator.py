@@ -6,6 +6,7 @@ Contains classes for data preparation and categorical features transformation.
 ``ToNumericFeatureTransformer`` leaves only numerical features
 by one-hot encoding of some features and deleting the others.
 """
+
 import json
 import logging
 import string
@@ -699,7 +700,7 @@ if PYSPARK_AVAILABLE:
                 return
 
             cat_feat_values_dict = {
-                name: (spark_df.select(sf.collect_set(sf.col(name))).collect()[0][0]) for name in self.cat_cols_list
+                name: (spark_df.select(sf.collect_set(sf.col(name))).first()[0]) for name in self.cat_cols_list
             }
             self.expressions_list = [
                 sf.when(sf.col(col_name) == cur_name, 1)
