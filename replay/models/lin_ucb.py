@@ -16,7 +16,7 @@ if PYSPARK_AVAILABLE:
 
 from replay.utils.spark_utils import convert2spark
 
-#import for parameter optimization
+# import for parameter optimization
 from optuna import create_study
 from optuna.samplers import TPESampler
 
@@ -24,21 +24,23 @@ from tqdm import tqdm
 import scipy.sparse as scs
 
 
-#Object for interactions with a single arm in a UCB disjoint framework
-class linucb_disjoint_arm():
-    def __init__(self, arm_index, d, eps, alpha): #in case of lin ucb with disjoint features: d = dimension of user's features solely
+# Object for interactions with a single arm in a UCB disjoint framework
+class linucb_disjoint_arm:
+    def __init__(
+        self, arm_index, d, eps, alpha
+    ):  # in case of lin ucb with disjoint features: d = dimension of user's features solely
         # Track arm index
         self.arm_index = arm_index
         # Exploration parameter
         self.eps = eps
         self.alpha = alpha
         # Inverse of feature matrix for ridge regression
-        self.A = self.alpha*np.identity(d)
-        self.A_inv = (1./self.alpha)*np.identity(d)
+        self.A = self.alpha * np.identity(d)
+        self.A_inv = (1.0 / self.alpha) * np.identity(d)
         # right-hand side of the regression
-        self.theta = np.zeros(d, dtype = float)
+        self.theta = np.zeros(d, dtype=float)
         self.cond_number = 1.0
-    
+
     def feature_update(self, usr_features, relevances):
         """
         function to update featurs or each Lin-UCB hand in the current model
@@ -50,13 +52,13 @@ class linucb_disjoint_arm():
         # Update A which is (d * d) matrix.
         self.A += np.dot(usr_features.T, usr_features)
         self.A_inv = np.linalg.inv(self.A)
-        # Update the parameter theta by the results  linear regression
-        self.theta = np.linalg.lstsq(self.A, usr_features.T @ relevances, rcond = 1.0)[0]
-        self.cond_number = np.linalg.cond(self.A) #this ome needed for deug only
+        # Update the parameter theta by the results linear regression
+        self.theta = np.linalg.lstsq(self.A, usr_features.T @ relevances, rcond=1.0)[0]
+        self.cond_number = np.linalg.cond(self.A)  # this ome needed for deug only
 
 
-#Object for interactions with a single arm in a UCB hybrid framework
-class linucb_hybrid_arm():
+# Object for interactions with a single arm in a UCB hybrid framework
+class linucb_hybrid_arm:
     def __init__(self, arm_index, d, k, eps, alpha):
         # Track arm index
         self.arm_index = arm_index
@@ -64,14 +66,16 @@ class linucb_hybrid_arm():
         self.eps = eps
         self.alpha = alpha
         # Inverse of feature matrix for ridge regression
-        self.A = scs.csr_matrix(self.alpha*np.identity(d))
-        self.A_inv = scs.csr_matrix((1./self.alpha)*np.identity(d))
+        self.A = scs.csr_matrix(self.alpha * np.identity(d))
+        self.A_inv = scs.csr_matrix((1.0 / self.alpha) * np.identity(d))
         self.B = scs.csr_matrix(np.zeros((d, k)))
-        self.b = np.zeros(d, dtype = float)
+        self.b = np.zeros(d, dtype=float)
         # right-hand side of the regression
         self.cond_number = 1.0
 
-    def feature_update(self, usr_features, usr_itm_features, relevances) -> Tuple[np.ndarray, np.ndarray]:
+    def feature_update(
+        self, usr_features, usr_itm_features, relevances
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         function to update featurs or each Lin-UCB hand in the current model
         features:
@@ -84,21 +88,26 @@ class linucb_hybrid_arm():
         self.A_inv = scs.linalg.inv(self.A)
         self.B += (usr_features.T).dot(usr_itm_features)
         self.b += (usr_features.T).dot(relevances)
-        delta_A_0 = np.dot(usr_itm_features.T, usr_itm_features) - self.B.T @ self.A_inv @ self.B
-        delta_b_0 = (usr_itm_features.T).dot(relevances) - (self.B.T).dot(self.A_inv.dot(self.b))
+        delta_A_0 = (
+            np.dot(usr_itm_features.T, usr_itm_features)
+            - self.B.T @ self.A_inv @ self.B
+        )
+        delta_b_0 = (usr_itm_features.T).dot(relevances) - (self.B.T).dot(
+            self.A_inv.dot(self.b)
+        )
         return delta_A_0, delta_b_0
 
 
 class LinUCB(HybridRecommender):
     """
-    Function implementing the functional of linear UCB 
+    Function implementing the functional of linear UCB
     """
 
     def __init__(
         self,
-        eps: float, #exploration parameter
-        alpha: float, #ridge parameter
-        regr_type: str, #put here "disjoint" or "hybrid"
+        eps: float,  # exploration parameter
+        alpha: float,  # ridge parameter
+        regr_type: str,  # put here "disjoint" or "hybrid"
         random_state: Optional[int] = None,
     ):  # pylint: disable=too-many-arguments
         np.random.seed(42)
@@ -106,18 +115,16 @@ class LinUCB(HybridRecommender):
         self.random_state = random_state
         self.eps = eps
         self.alpha = alpha
-        self.linucb_arms = None #initialize only when working within fit method
+        self.linucb_arms = None  # initialize only when working within fit method
         cpu_count = os.cpu_count()
         self.num_threads = cpu_count if cpu_count is not None else 1
 
-
-        self._study = None #field required for proper optuna's optimization
+        self._study = None  # field required for proper optuna's optimization
         self._search_space = {
-        "eps": {"type": "uniform", "args": [-10.0, 10.0]},
-        "alpha": {"type": "uniform", "args": [0.001, 10.0]},
+            "eps": {"type": "uniform", "args": [-10.0, 10.0]},
+            "alpha": {"type": "uniform", "args": [0.001, 10.0]},
         }
-        #self._objective = MainObjective
-
+        # self._objective = MainObjective
 
     @property
     def _init_args(self):
@@ -159,11 +166,12 @@ class LinUCB(HybridRecommender):
         #     "The UCB model has only exploration coefficient parameter, which cannot not be directly optimized"
         # )
 
-
         self.query_column = train_dataset.feature_schema.query_id_column
         self.item_column = train_dataset.feature_schema.item_id_column
         self.rating_column = train_dataset.feature_schema.interactions_rating_column
-        self.timestamp_column = train_dataset.feature_schema.interactions_timestamp_column
+        self.timestamp_column = (
+            train_dataset.feature_schema.interactions_timestamp_column
+        )
 
         self.criterion = criterion(
             topk=k,
@@ -196,112 +204,161 @@ class LinUCB(HybridRecommender):
         best_params = self.study.best_params
         self.set_params(**best_params)
         return best_params
-    
 
     def _fit(
         self,
         dataset: Dataset,
     ) -> None:
         feature_schema = dataset.feature_schema
-        #should not work if user features or item features are unavailable 
+        # should not work if user features or item features are unavailable
         if dataset.query_features is None:
             raise ValueError("User features are missing for fitting")
         if dataset.item_features is None:
             raise ValueError("Item features are missing for fitting")
-        #assuming that user_features and item_features are both dataframes
-        #now forget about pyspark until the better times
+        # assuming that user_features and item_features are both dataframes
+        # now forget about pyspark until the better times
         log = dataset.interactions.toPandas()
         user_features = dataset.query_features.toPandas()
         item_features = dataset.item_features.toPandas()
-        #check that the dataframe contains uer indexes
+        # check that the dataframe contains uer indexes
         if not feature_schema.query_id_column in user_features.columns:
             raise ValueError("User indices are missing in user features dataframe")
         self._num_items = item_features.shape[0]
         self._user_dim_size = user_features.shape[1] - 1
         self._item_dim_size = item_features.shape[1] - 1
-        #now initialize an arm object for each potential arm instance
-        if self.regr_type == 'disjoint':
-            self.linucb_arms = [linucb_disjoint_arm(arm_index = i, d = self._user_dim_size, eps = self.eps, alpha = self.alpha) for i in range(self._num_items)]
-            #now we work with pandas
+        # now initialize an arm object for each potential arm instance
+        if self.regr_type == "disjoint":
+            self.linucb_arms = [
+                linucb_disjoint_arm(
+                    arm_index=i, d=self._user_dim_size, eps=self.eps, alpha=self.alpha
+                )
+                for i in range(self._num_items)
+            ]
+            # now we work with pandas
             for i in range(self._num_items):
                 B = log.loc[log[feature_schema.item_id_column] == i]
                 idxs_list = B[feature_schema.query_id_column].values
                 rel_list = B[feature_schema.interactions_rating_column].values
                 if not B.empty:
-                    #if we have at least one user interacting with the hand i
-                    cur_usrs = user_features.query(f"{feature_schema.query_id_column} in @idxs_list").drop(columns=[feature_schema.query_id_column])
+                    # if we have at least one user interacting with the hand i
+                    cur_usrs = user_features.query(
+                        f"{feature_schema.query_id_column} in @idxs_list"
+                    ).drop(columns=[feature_schema.query_id_column])
                     self.linucb_arms[i].feature_update(cur_usrs.to_numpy(), rel_list)
-                
-            condit_number = [self.linucb_arms[i].cond_number for i in range(self._num_items)]
 
-        elif self.regr_type == 'hybrid':
+            condit_number = [
+                self.linucb_arms[i].cond_number for i in range(self._num_items)
+            ]
+
+        elif self.regr_type == "hybrid":
             k = self._user_dim_size * self._item_dim_size
             self.A_0 = scs.csr_matrix(np.identity(k))
-            self.b_0 = np.zeros(k, dtype = float)
-            self.linucb_arms = [linucb_hybrid_arm(arm_index = i, d = self._user_dim_size, k = k, eps = self.eps, alpha = self.alpha) for i in range(self._num_items)]
+            self.b_0 = np.zeros(k, dtype=float)
+            self.linucb_arms = [
+                linucb_hybrid_arm(
+                    arm_index=i,
+                    d=self._user_dim_size,
+                    k=k,
+                    eps=self.eps,
+                    alpha=self.alpha,
+                )
+                for i in range(self._num_items)
+            ]
 
-            #now we work with pandas
+            # now we work with pandas
             for i in tqdm(range(self._num_items)):
                 B = log.loc[log[feature_schema.item_id_column] == i]
                 idxs_list = B[feature_schema.query_id_column].values
                 rel_list = B[feature_schema.interactions_rating_column].values
                 if not B.empty:
-                    #if we have at least one user interacting with the hand i
-                    cur_usrs = scs.csr_matrix(user_features.query(f"{feature_schema.query_id_column} in @idxs_list").drop(columns=[feature_schema.query_id_column]).to_numpy())
-                    cur_itm = scs.csr_matrix(item_features.iloc[i].drop(labels=[feature_schema.item_id_column]).to_numpy())
+                    # if we have at least one user interacting with the hand i
+                    cur_usrs = scs.csr_matrix(
+                        user_features.query(
+                            f"{feature_schema.query_id_column} in @idxs_list"
+                        )
+                        .drop(columns=[feature_schema.query_id_column])
+                        .to_numpy()
+                    )
+                    cur_itm = scs.csr_matrix(
+                        item_features.iloc[i]
+                        .drop(labels=[feature_schema.item_id_column])
+                        .to_numpy()
+                    )
                     usr_itm_features = scs.kron(cur_usrs, cur_itm)
-                    delta_A_0, delta_b_0 = self.linucb_arms[i].feature_update(cur_usrs, usr_itm_features, rel_list)
-            
+                    delta_A_0, delta_b_0 = self.linucb_arms[i].feature_update(
+                        cur_usrs, usr_itm_features, rel_list
+                    )
+
                     self.A_0 += delta_A_0
                     self.b_0 += delta_b_0
-            
+
             self.beta = scs.linalg.spsolve(self.A_0, self.b_0)
             self.A_0_inv = scs.linalg.inv(self.A_0)
 
             for i in range(self._num_items):
-                self.linucb_arms[i].theta = scs.linalg.spsolve(self.linucb_arms[i].A, self.linucb_arms[i].b - self.linucb_arms[i].B @ self.beta)
-
+                self.linucb_arms[i].theta = scs.linalg.spsolve(
+                    self.linucb_arms[i].A,
+                    self.linucb_arms[i].b - self.linucb_arms[i].B @ self.beta,
+                )
 
         else:
             raise ValueError("model.regr_type must be in ['disjoint', 'hybrid']")
         return
-        
+
     def _predict(
-        self,   
+        self,
         dataset: Dataset,
         k: int,
         users: SparkDataFrame,
         items: SparkDataFrame = None,
         filter_seen_items: bool = True,
     ) -> SparkDataFrame:
-        if self.regr_type == 'disjoint':        
+        if self.regr_type == "disjoint":
             feature_schema = dataset.feature_schema
-            num_user_pred = users.count() #assuming it is a pyspark dataset
+            num_user_pred = users.count()  # assuming it is a pyspark dataset
             users = users.toPandas()
             user_features = dataset.query_features.toPandas()
             idxs_list = users[feature_schema.query_id_column].values
             if user_features is None:
                 raise ValueError("Can not make predict in the Lin UCB method")
-            usrs_feat = user_features.query(f"{feature_schema.query_id_column} in @idxs_list").drop(columns=[feature_schema.query_id_column]).to_numpy()
-            rel_matrix = np.zeros((num_user_pred,self._num_items),dtype = float)
-            #fill in relevance matrix
+            usrs_feat = (
+                user_features.query(f"{feature_schema.query_id_column} in @idxs_list")
+                .drop(columns=[feature_schema.query_id_column])
+                .to_numpy()
+            )
+            rel_matrix = np.zeros((num_user_pred, self._num_items), dtype=float)
+            # fill in relevance matrix
             for i in range(self._num_items):
-                rel_matrix[:,i] = self.eps * np.sqrt((usrs_feat.dot(self.linucb_arms[i].A_inv)*usrs_feat).sum(axis=1)) + usrs_feat @ self.linucb_arms[i].theta  
-            #select top k predictions from each row (unsorted ones)
-            big_k = 20*k
+                rel_matrix[:, i] = (
+                    self.eps
+                    * np.sqrt(
+                        (usrs_feat.dot(self.linucb_arms[i].A_inv) * usrs_feat).sum(
+                            axis=1
+                        )
+                    )
+                    + usrs_feat @ self.linucb_arms[i].theta
+                )
+            # select top k predictions from each row (unsorted ones)
+            big_k = 20 * k
             topk_indices = np.argpartition(rel_matrix, -big_k, axis=1)[:, -big_k:]
-            rows_inds,_ = np.indices((num_user_pred, big_k))
-            #result df
+            rows_inds, _ = np.indices((num_user_pred, big_k))
+            # result df
             predict_inds = np.repeat(idxs_list, big_k)
             predict_items = topk_indices.ravel()
-            predict_rels = rel_matrix[rows_inds,topk_indices].ravel()
-            #return everything in a PySpark template
-            res_df = pd.DataFrame({feature_schema.query_id_column: predict_inds, feature_schema.item_id_column: predict_items, feature_schema.interactions_rating_column: predict_rels})
+            predict_rels = rel_matrix[rows_inds, topk_indices].ravel()
+            # return everything in a PySpark template
+            res_df = pd.DataFrame(
+                {
+                    feature_schema.query_id_column: predict_inds,
+                    feature_schema.item_id_column: predict_items,
+                    feature_schema.interactions_rating_column: predict_rels,
+                }
+            )
             return convert2spark(res_df)
-        
-        if self.regr_type == 'hybrid':
+
+        if self.regr_type == "hybrid":
             feature_schema = dataset.feature_schema
-            num_user_pred = users.count() #assuming it is a pyspark dataset
+            num_user_pred = users.count()  # assuming it is a pyspark dataset
             users = users.toPandas()
             items = items.toPandas()
             user_features = dataset.query_features.toPandas()
@@ -311,38 +368,61 @@ class LinUCB(HybridRecommender):
 
             if user_features is None:
                 raise ValueError("Can not make predict in the Lin UCB method")
-            usrs_feat = scs.csr_matrix(user_features.query(f"{feature_schema.query_id_column} in @usr_idxs_list").drop(columns=[feature_schema.query_id_column]).to_numpy())
+            usrs_feat = scs.csr_matrix(
+                user_features.query(
+                    f"{feature_schema.query_id_column} in @usr_idxs_list"
+                )
+                .drop(columns=[feature_schema.query_id_column])
+                .to_numpy()
+            )
 
             if item_features is None:
                 raise ValueError("Can not make predict in the Lin UCB method")
-            itm_feat = scs.csr_matrix(item_features.query(f"{feature_schema.item_id_column} in @itm_idxs_list").drop(columns=[feature_schema.item_id_column]).to_numpy())
-            rel_matrix = np.zeros((num_user_pred, self._num_items),dtype = float)
+            itm_feat = scs.csr_matrix(
+                item_features.query(
+                    f"{feature_schema.item_id_column} in @itm_idxs_list"
+                )
+                .drop(columns=[feature_schema.item_id_column])
+                .to_numpy()
+            )
+            rel_matrix = np.zeros((num_user_pred, self._num_items), dtype=float)
 
-
-            #fill in relevance matrix
+            # fill in relevance matrix
             for i in tqdm(range(self._num_items)):
                 z = scs.kron(usrs_feat, itm_feat[i])
-                rel_matrix[:,i] = usrs_feat.dot(self.linucb_arms[i].theta)
-                rel_matrix[:,i] += z.dot(self.beta)
+                rel_matrix[:, i] = usrs_feat.dot(self.linucb_arms[i].theta)
+                rel_matrix[:, i] += z.dot(self.beta)
 
-                s = (usrs_feat.dot(self.linucb_arms[i].A_inv).multiply(usrs_feat)).sum(axis=1)
+                s = (usrs_feat.dot(self.linucb_arms[i].A_inv).multiply(usrs_feat)).sum(
+                    axis=1
+                )
                 s += (z.dot(self.A_0_inv).multiply(z)).sum(axis=1)
                 M = self.A_0_inv @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv
-                s -= 2*(z.dot(M).multiply(usrs_feat)).sum(axis=1)
-                s += (usrs_feat.dot(M.T @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv).multiply(usrs_feat)).sum(axis=1)
+                s -= 2 * (z.dot(M).multiply(usrs_feat)).sum(axis=1)
+                s += (
+                    usrs_feat.dot(
+                        M.T @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv
+                    ).multiply(usrs_feat)
+                ).sum(axis=1)
 
                 rel_matrix[:, i] += np.array(self.eps * np.sqrt(s))[:, 0]
 
-            #select top k predictions from each row (unsorted ones)
-            big_k = 20*k
+            # select top k predictions from each row (unsorted ones)
+            big_k = 20 * k
             topk_indices = np.argpartition(rel_matrix, -big_k, axis=1)[:, -big_k:]
-            rows_inds,_ = np.indices((num_user_pred, big_k))
-            #result df
+            rows_inds, _ = np.indices((num_user_pred, big_k))
+            # result df
             predict_inds = np.repeat(usr_idxs_list, big_k)
             predict_items = topk_indices.ravel()
-            predict_rels = rel_matrix[rows_inds,topk_indices].ravel()
-            #return everything in a PySpark template
-            res_df = pd.DataFrame({feature_schema.query_id_column: predict_inds, feature_schema.item_id_column: predict_items, feature_schema.interactions_rating_column: predict_rels})
+            predict_rels = rel_matrix[rows_inds, topk_indices].ravel()
+            # return everything in a PySpark template
+            res_df = pd.DataFrame(
+                {
+                    feature_schema.query_id_column: predict_inds,
+                    feature_schema.item_id_column: predict_items,
+                    feature_schema.interactions_rating_column: predict_rels,
+                }
+            )
             return convert2spark(res_df)
         else:
             raise ValueError("model.regr_type must be in ['disjoint', 'hybrid']")
