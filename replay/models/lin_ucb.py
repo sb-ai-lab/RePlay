@@ -96,10 +96,10 @@ class LinUCB(HybridRecommender):
     """
     A recommender algorithm for contextual bandit problems,
     implicitly proposed by `Li et al <https://arxiv.org/pdf/1003.0146>`_.
-    The model assumes a linear relationship between user context, item features and action rewards, 
+    The model assumes a linear relationship between user context, item features and action rewards,
     making it efficient for high-dimensional contexts.
-    
-    
+
+
     >>> import pandas as pd
     >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
     >>> from replay.utils.spark_utils import convert2spark
@@ -139,7 +139,7 @@ class LinUCB(HybridRecommender):
     >>> model.fit(dataset)
     >>> model.predict(dataset, k=2, queries=[0,1,2]).toPandas().sort_values(["user_id","rating","item_id"],
     ... ascending=[True,False,True]).reset_index(drop=True)
-    
+
         user_id   item_id     rating
     0         0         1   -11.073741
     1         0         2   -81.240384
@@ -147,7 +147,7 @@ class LinUCB(HybridRecommender):
     3         1         2   -96.436508
     4         2         2   -112.249722
     5         2         3   -112.249722
- 
+
     """
 
     def __init__(
