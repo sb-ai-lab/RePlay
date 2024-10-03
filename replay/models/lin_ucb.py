@@ -312,6 +312,7 @@ class LinUCB(HybridRecommender):
         users: SparkDataFrame,
         items: SparkDataFrame = None,
         filter_seen_items: bool = True,
+        oversample: int = 20,
     ) -> SparkDataFrame:
         if self.regr_type == "disjoint":
             feature_schema = dataset.feature_schema
@@ -339,7 +340,7 @@ class LinUCB(HybridRecommender):
                     + usrs_feat @ self.linucb_arms[i].theta
                 )
             # select top k predictions from each row (unsorted ones)
-            big_k = 20 * k
+            big_k = min(oversample * k, dataset.item_features.count())
             topk_indices = np.argpartition(rel_matrix, -big_k, axis=1)[:, -big_k:]
             rows_inds, _ = np.indices((num_user_pred, big_k))
             # result df
@@ -408,7 +409,7 @@ class LinUCB(HybridRecommender):
                 rel_matrix[:, i] += np.array(self.eps * np.sqrt(s))[:, 0]
 
             # select top k predictions from each row (unsorted ones)
-            big_k = 20 * k
+            big_k = min(oversample * k, dataset.item_features.count())
             topk_indices = np.argpartition(rel_matrix, -big_k, axis=1)[:, -big_k:]
             rows_inds, _ = np.indices((num_user_pred, big_k))
             # result df
