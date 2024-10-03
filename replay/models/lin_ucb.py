@@ -1,4 +1,3 @@
-import math
 import numpy as np
 import pandas as pd
 import os
@@ -7,12 +6,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from replay.data.dataset import Dataset
 from replay.metrics import NDCG, Metric
-from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+from replay.utils import SparkDataFrame
 
 from .base_rec import HybridRecommender
-
-if PYSPARK_AVAILABLE:
-    from pyspark.sql import functions as sf
 
 from replay.utils.spark_utils import convert2spark
 
@@ -39,7 +35,6 @@ class linucb_disjoint_arm:
         self.A_inv = (1.0 / self.alpha) * np.identity(d)
         # right-hand side of the regression
         self.theta = np.zeros(d, dtype=float)
-        self.cond_number = 1.0
 
     def feature_update(self, usr_features, relevances):
         """
@@ -69,9 +64,8 @@ class linucb_hybrid_arm:
         self.A = scs.csr_matrix(self.alpha * np.identity(d))
         self.A_inv = scs.csr_matrix((1.0 / self.alpha) * np.identity(d))
         self.B = scs.csr_matrix(np.zeros((d, k)))
-        self.b = np.zeros(d, dtype=float)
         # right-hand side of the regression
-        self.cond_number = 1.0
+        self.b = np.zeros(d, dtype=float)
 
     def feature_update(
         self, usr_features, usr_itm_features, relevances
@@ -100,16 +94,75 @@ class linucb_hybrid_arm:
 
 class LinUCB(HybridRecommender):
     """
-    Function implementing the functional of linear UCB
+    A recommender algorithm for contextual bandit problems,
+    implicitly proposed by `Li et al <https://arxiv.org/pdf/1003.0146>`_.
+    The model assumes a linear relationship between user context, item features and action rewards, 
+    making it efficient for high-dimensional contexts.
+    
+    
+    >>> import pandas as pd
+    >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
+    >>> from replay.utils.spark_utils import convert2spark
+    >>> data_frame = pd.DataFrame({"user_id": [0, 1, 2, 2], "item_id": [0, 1, 0, 1], "rating": [1, 0, 0, 0]})
+    >>> user_features = pd.DataFrame({"user_id": [0, 1, 2], "usr_feat_1": [1, 2, 3], "usr_feat_2": [4, 5, 6], "usr_feat_3": [7, 8, 9]})
+    >>> item_features = pd.DataFrame({"item_id": [0, 1, 2, 3, 4, 5], "itm_feat_1": [1, 2, 3, 4, 5, 6], "itm_feat_2": [7, 8, 9, 10, 11, 12], "itm_feat_3": [13, 14, 15, 16, 17, 18]})
+    >>> interactions = convert2spark(data_frame)
+    >>> user_features = convert2spark(user_features)
+    >>> item_features = convert2spark(item_features)
+    >>> feature_schema = FeatureSchema(
+    ...    [
+    ...        FeatureInfo(
+    ...            column="user_id",
+    ...            feature_type=FeatureType.CATEGORICAL,
+    ...            feature_hint=FeatureHint.QUERY_ID,
+    ...        ),
+    ...        FeatureInfo(
+    ...            column="item_id",
+    ...            feature_type=FeatureType.CATEGORICAL,
+    ...            feature_hint=FeatureHint.ITEM_ID,
+    ...        ),
+    ...        FeatureInfo(
+    ...            column="rating",
+    ...            feature_type=FeatureType.NUMERICAL,
+    ...            feature_hint=FeatureHint.RATING,
+    ...        ),
+    ...    ]
+    ... )
+    >>> dataset = Dataset(
+    ...     feature_schema=feature_schema,
+    ...     interactions=interactions,
+    ...     item_features=item_features,
+    ...     query_features=user_features,
+    ...     categorical_encoded = True
+    ... )
+    >>> model = LinUCB(eps = -10.0, alpha = 1.0, regr_type = 'disjoint')
+    >>> model.fit(dataset)
+    >>> model.predict(dataset, k=2, queries=[0,1,2]).toPandas().sort_values(["user_id","rating","item_id"],
+    ... ascending=[True,False,True]).reset_index(drop=True)
+    
+        user_id   item_id     rating
+    0         0         1   -11.073741
+    1         0         2   -81.240384
+    2         1         0   -6.555529
+    3         1         2   -96.436508
+    4         2         2   -112.249722
+    5         2         3   -112.249722
+ 
     """
 
     def __init__(
         self,
-        eps: float,  # exploration parameter
-        alpha: float,  # ridge parameter
-        regr_type: str,  # put here "disjoint" or "hybrid"
+        eps: float,
+        alpha: float,
+        regr_type: str,
         random_state: Optional[int] = None,
     ):  # pylint: disable=too-many-arguments
+        """
+        :param eps: exploration coefficient
+        :param alpha: ridge parameter
+        :param regr_type: type of model "disjoint" or "hybrid"
+        :param random_state: random seed. Provides reproducibility if fixed
+        """
         np.random.seed(42)
         self.regr_type = regr_type
         self.random_state = random_state
@@ -124,7 +177,6 @@ class LinUCB(HybridRecommender):
             "eps": {"type": "uniform", "args": [-10.0, 10.0]},
             "alpha": {"type": "uniform", "args": [0.001, 10.0]},
         }
-        # self._objective = MainObjective
 
     @property
     def _init_args(self):
@@ -161,10 +213,6 @@ class LinUCB(HybridRecommender):
         :param new_study: keep searching with previous study or start a new study
         :return: dictionary with best parameters
         """
-
-        # self.logger.warning(
-        #     "The UCB model has only exploration coefficient parameter, which cannot not be directly optimized"
-        # )
 
         self.query_column = train_dataset.feature_schema.query_id_column
         self.item_column = train_dataset.feature_schema.item_id_column
@@ -221,7 +269,7 @@ class LinUCB(HybridRecommender):
         user_features = dataset.query_features.toPandas()
         item_features = dataset.item_features.toPandas()
         # check that the dataframe contains uer indexes
-        if not feature_schema.query_id_column in user_features.columns:
+        if feature_schema.query_id_column not in user_features.columns:
             raise ValueError("User indices are missing in user features dataframe")
         self._num_items = item_features.shape[0]
         self._user_dim_size = user_features.shape[1] - 1
@@ -245,10 +293,6 @@ class LinUCB(HybridRecommender):
                         f"{feature_schema.query_id_column} in @idxs_list"
                     ).drop(columns=[feature_schema.query_id_column])
                     self.linucb_arms[i].feature_update(cur_usrs.to_numpy(), rel_list)
-
-            condit_number = [
-                self.linucb_arms[i].cond_number for i in range(self._num_items)
-            ]
 
         elif self.regr_type == "hybrid":
             k = self._user_dim_size * self._item_dim_size
