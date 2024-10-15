@@ -14,6 +14,7 @@ from .cat_pop_rec import CatPopRec
 from .cluster import ClusterRec
 from .kl_ucb import KLUCB
 from .knn import ItemKNN
+from .lin_ucb import LinUCB
 from .pop_rec import PopRec
 from .query_pop_rec import QueryPopRec
 from .random_rec import RandomRec
@@ -22,4 +23,3 @@ from .thompson_sampling import ThompsonSampling
 from .ucb import UCB
 from .wilson import Wilson
 from .word2vec import Word2VecRec
-from .lin_ucb import LinUCB
