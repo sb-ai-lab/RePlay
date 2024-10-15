@@ -254,9 +254,9 @@ class LinUCB(HybridRecommender):
                         item_features.iloc[i].drop(labels=[feature_schema.item_id_column]).to_numpy()
                     )
                     usr_itm_features = scs.kron(cur_usrs, cur_itm)
-                    delta_A_0, delta_b_0 = self.linucb_arms[i].feature_update(
+                    delta_A_0, delta_b_0 = self.linucb_arms[i].feature_update(  # noqa: N806
                         cur_usrs, usr_itm_features, rel_list
-                    )  # noqa: N806
+                    )
 
                     self.A_0 += delta_A_0
                     self.b_0 += delta_b_0
@@ -338,7 +338,6 @@ class LinUCB(HybridRecommender):
             items = items.toPandas()
             usr_idxs_list = users[feature_schema.query_id_column].values
 
-            
             usrs_feat = scs.csr_matrix(
                 user_features.query(f"{feature_schema.query_id_column} in @items[feature_schema.item_id_column].values")
                 .drop(columns=[feature_schema.query_id_column])

@@ -97,7 +97,7 @@ def item_features_linucb(item_features):
     return indexed_df
 
 
-@pytest.fixture(params=[LinUCB(eps = -10.0, alpha = 1.0, regr_type = "disjoint")])
+@pytest.fixture(params=[LinUCB(eps=-10.0, alpha=1.0, regr_type="disjoint")])
 def fitted_model_disjoint(request, log_linucb, user_features_linucb, item_features_linucb):
     dataset = create_dataset(log_linucb, user_features_linucb, item_features_linucb)
     model = request.param
@@ -105,7 +105,7 @@ def fitted_model_disjoint(request, log_linucb, user_features_linucb, item_featur
     return model
 
 
-@pytest.fixture(params=[LinUCB(eps = -10.0, alpha = 1.0, regr_type = "hybrid")])
+@pytest.fixture(params=[LinUCB(eps=-10.0, alpha=1.0, regr_type="hybrid")])
 def fitted_model_hybrid(request, log_linucb, user_features_linucb, item_features_linucb):
     dataset = create_dataset(log_linucb, user_features_linucb, item_features_linucb)
     model = request.param
@@ -174,9 +174,7 @@ def test_predict_hybrid(fitted_model_hybrid, log_linucb, user_features_linucb, i
 
 
 @pytest.mark.experimental
-def test_predict_empty_log_disjoint(
-    fitted_model_disjoint, user_features_linucb, item_features_linucb, empty_log
-):
+def test_predict_empty_log_disjoint(fitted_model_disjoint, user_features_linucb, item_features_linucb, empty_log):
     empty_dataset = create_dataset(empty_log, user_features_linucb, item_features_linucb)
 
     users = user_features_linucb.select("user_idx").distinct()
@@ -244,4 +242,4 @@ def test_predict_k_hybrid(fitted_model_hybrid, user_features_linucb, item_featur
 
     users = user_features_linucb.select("user_idx").distinct()
     pred = fitted_model_hybrid.predict(dataset, queries=users, k=k)
-    assert pred.count() == users.count()*k
+    assert pred.count() == users.count() *k
