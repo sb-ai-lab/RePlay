@@ -1,8 +1,8 @@
+import os
 from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
-import os
 import scipy.sparse as scs
 from tqdm import tqdm
 
@@ -75,7 +75,7 @@ class HybridArm:
         self.A_inv = scs.linalg.inv(self.A)
         self.B += (usr_features.T).dot(usr_itm_features)
         self.b += (usr_features.T).dot(relevances)
-        delta_A_0 = np.dot(usr_itm_features.T, usr_itm_features)- self.B.T @ self.A_inv @ self.B  # noqa: N806
+        delta_A_0 = np.dot(usr_itm_features.T, usr_itm_features) - self.B.T @ self.A_inv @ self.B  # noqa: N806
         delta_b_0 = (usr_itm_features.T).dot(relevances) - (self.B.T).dot(self.A_inv.dot(self.b))
         return delta_A_0, delta_b_0
 
@@ -239,7 +239,7 @@ class LinUCB(HybridRecommender):
 
             # now we work with pandas
             for i in tqdm(range(self._num_items)):
-                B = log.loc[log[feature_schema.item_id_column] == i]
+                B = log.loc[log[feature_schema.item_id_column] == i]  # noqa: N806
                 rel_list = B[feature_schema.interactions_rating_column].values
                 if not B.empty:
                     # if we have at least one user interacting with the hand i
@@ -254,7 +254,9 @@ class LinUCB(HybridRecommender):
                         item_features.iloc[i].drop(labels=[feature_schema.item_id_column]).to_numpy()
                     )
                     usr_itm_features = scs.kron(cur_usrs, cur_itm)
-                    delta_A_0, delta_b_0 = self.linucb_arms[i].feature_update(cur_usrs, usr_itm_features, rel_list)  # noqa: N806
+                    delta_A_0, delta_b_0 = self.linucb_arms[i].feature_update(
+                        cur_usrs, usr_itm_features, rel_list
+                    )  # noqa: N806
 
                     self.A_0 += delta_A_0
                     self.b_0 += delta_b_0
@@ -283,14 +285,16 @@ class LinUCB(HybridRecommender):
         oversample: int = 20,
     ) -> SparkDataFrame:
         if self.regr_type == "disjoint":
-            feature_schema = dataset.feature_schema
-            num_user_pred = users.count()  # assuming it is a pyspark dataset
-            users = users.toPandas()
             user_features = dataset.query_features.toPandas()
-            idxs_list = users[feature_schema.query_id_column].values
             if user_features is None:
                 msg = "Can not make predict in the Lin UCB method"
                 raise ValueError(msg)
+
+            feature_schema = dataset.feature_schema
+            num_user_pred = users.count()  # assuming it is a pyspark dataset
+            users = users.toPandas()
+
+            idxs_list = users[feature_schema.query_id_column].values
             usrs_feat = (
                 user_features.query(f"{feature_schema.query_id_column} in @idxs_list")
                 .drop(columns=[feature_schema.query_id_column])
@@ -300,8 +304,7 @@ class LinUCB(HybridRecommender):
             # fill in relevance matrix
             for i in range(self._num_items):
                 rel_matrix[:, i] = (
-                    self.eps
-                    * np.sqrt((usrs_feat.dot(self.linucb_arms[i].A_inv) * usrs_feat).sum(axis=1))
+                    self.eps * np.sqrt((usrs_feat.dot(self.linucb_arms[i].A_inv) * usrs_feat).sum(axis=1))
                     + usrs_feat @ self.linucb_arms[i].theta
                 )
             # select top k predictions from each row (unsorted ones)
@@ -323,21 +326,21 @@ class LinUCB(HybridRecommender):
             return convert2spark(res_df)
 
         if self.regr_type == "hybrid":
+            user_features = dataset.query_features.toPandas()
+            if user_features is None:
+                msg = "Can not make predict in the Lin UCB method"
+                raise ValueError(msg)
+
+            item_features = dataset.item_features.toPandas()
             feature_schema = dataset.feature_schema
             num_user_pred = users.count()  # assuming it is a pyspark dataset
             users = users.toPandas()
             items = items.toPandas()
-            user_features = dataset.query_features.toPandas()
-            item_features = dataset.item_features.toPandas()
             usr_idxs_list = users[feature_schema.query_id_column].values
 
-            if user_features is None:
-                msg = "Can not make predict in the Lin UCB method"
-                raise ValueError(msg)
+            
             usrs_feat = scs.csr_matrix(
-                user_features.query(
-                    f"{feature_schema.query_id_column} in @items[feature_schema.item_id_column].values"
-                )
+                user_features.query(f"{feature_schema.query_id_column} in @items[feature_schema.item_id_column].values")
                 .drop(columns=[feature_schema.query_id_column])
                 .to_numpy()
             )
@@ -346,9 +349,7 @@ class LinUCB(HybridRecommender):
                 msg = "Can not make predict in the Lin UCB method"
                 raise ValueError(msg)
             itm_feat = scs.csr_matrix(
-                item_features.query(
-                    f"{feature_schema.item_id_column} in @itm_idxs_list"
-                )
+                item_features.query(f"{feature_schema.item_id_column} in @itm_idxs_list")
                 .drop(columns=[feature_schema.item_id_column])
                 .to_numpy()
             )
