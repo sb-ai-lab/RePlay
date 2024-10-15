@@ -242,4 +242,4 @@ def test_predict_k_hybrid(fitted_model_hybrid, user_features_linucb, item_featur
 
     users = user_features_linucb.select("user_idx").distinct()
     pred = fitted_model_hybrid.predict(dataset, queries=users, k=k)
-    assert pred.count() == users.count() *k
+    assert pred.count() == users.count() * k
