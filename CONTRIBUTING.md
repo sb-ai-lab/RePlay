@@ -54,7 +54,7 @@ To install the necessary packages run the following instructions:
 
 ### Installing from the source
 
-If you are installing from the source, you will need Python 3.9-3.11.
+If you are installing from the source, you will need Python 3.8.1-3.11.
 
 1. Install poetry using [the poetry installation guide](https://python-poetry.org/docs/#installation). 
 
