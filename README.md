@@ -3,10 +3,14 @@
 
 [![GitHub License](https://img.shields.io/github/license/sb-ai-lab/RePlay)](https://github.com/sb-ai-lab/RePlay/blob/main/LICENSE)
 [![PyPI - Version](https://img.shields.io/pypi/v/replay-rec)](https://pypi.org/project/replay-rec)
+[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://sb-ai-lab.github.io/RePlay/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/replay-rec)](https://pypistats.org/packages/replay-rec)
 <br>
 [![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/sb-ai-lab/replay/main.yml)](https://github.com/sb-ai-lab/RePlay/actions/workflows/main.yml?query=branch%3Amain)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/charliermarsh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Python Versions](https://img.shields.io/pypi/pyversions/replay-rec.svg?logo=python&logoColor=white)](https://pypi.org/project/replay-rec)
 [![Join the community on GitHub Discussions](https://badgen.net/badge/join%20the%20discussion/on%20github/black?icon=github)](https://github.com/sb-ai-lab/RePlay/discussions)
+
 
 RePlay is an advanced framework designed to facilitate the development and evaluation of recommendation systems. It provides a robust set of tools covering the entire lifecycle of a recommendation system pipeline:
 
@@ -22,60 +26,23 @@ RePlay is an advanced framework designed to facilitate the development and evalu
 1. **Diverse Hardware Support:** Compatible with various hardware configurations including CPU, GPU, Multi-GPU.
 2. **Cluster Computing Integration:** Integrating with PySpark for distributed computing, enabling scalability for large-scale recommendation systems.
 
-## 📖 Documentation is available [here](https://sb-ai-lab.github.io/RePlay/).
-
 <a name="toc"></a>
 # Table of Contents
 
-* [Installation](#installation)
 * [Quickstart](#quickstart)
+* [Installation](#installation)
 * [Resources](#examples)
 * [Contributing to RePlay](#contributing)
 
 
-<a name="installation"></a>
-## 🔧 Installation
-
-Installation via `pip` package manager is recommended by default:
-
-```bash
-pip install replay-rec
-```
-
-In this case it will be installed the `core` package without `PySpark` and `PyTorch` dependencies.
-Also `experimental` submodule will not be installed.
-
-To install `experimental` submodule please specify the version with `rc0` suffix.
-For example:
-
-```bash
-pip install replay-rec==XX.YY.ZZrc0
-```
-
-### Extras
-
-In addition to the core package, several extras are also provided, including:
-- `[spark]`: Install PySpark functionality
-- `[torch]`: Install PyTorch and Lightning functionality
-- `[all]`: `[spark]` `[torch]`
-
-Example:
-```bash
-# Install core package with PySpark dependency
-pip install replay-rec[spark]
-
-# Install package with experimental submodule and PySpark dependency
-pip install replay-rec[spark]==XX.YY.ZZrc0
-```
-
-To build RePlay from sources please use the [instruction](CONTRIBUTING.md#installing-from-the-source).
-
-If you encounter an error during RePlay installation, check the [troubleshooting](https://sb-ai-lab.github.io/RePlay/pages/installation.html#troubleshooting) guide.
-
-
 <a name="quickstart"></a>
-## 📈 Quickstart (PySpark-based)
+## 📈 Quickstart
 
+```bash
+pip install replay-rec[all]
+```
+
+Pyspark-based model and data preprocessing:
 ```python
 from rs_datasets import MovieLens
 
@@ -90,7 +57,7 @@ from replay.splitters import RatioSplitter
 spark = State().session
 
 ml_1m = MovieLens("1m")
-K=10
+K = 10
 
 # data preprocessing
 interactions = convert2spark(ml_1m.ratings)
@@ -173,6 +140,44 @@ metrics.add_result("ItemKNN", recs)
 print(metrics.results)
 ```
 
+<a name="installation"></a>
+## 🔧 Installation
+
+Installation via `pip` package manager is recommended by default:
+
+```bash
+pip install replay-rec
+```
+
+In this case it will be installed the `core` package without `PySpark` and `PyTorch` dependencies.
+Also `experimental` submodule will not be installed.
+
+To install `experimental` submodule please specify the version with `rc0` suffix.
+For example:
+
+```bash
+pip install replay-rec==XX.YY.ZZrc0
+```
+
+### Extras
+
+In addition to the core package, several extras are also provided, including:
+- `[spark]`: Install PySpark functionality
+- `[torch]`: Install PyTorch and Lightning functionality
+- `[all]`: `[spark]` `[torch]`
+
+Example:
+```bash
+# Install core package with PySpark dependency
+pip install replay-rec[spark]
+
+# Install package with experimental submodule and PySpark dependency
+pip install replay-rec[spark]==XX.YY.ZZrc0
+```
+
+To build RePlay from sources please use the [instruction](CONTRIBUTING.md#installing-from-the-source).
+
+
 <a name="examples"></a>
 ## 📑  Resources
 
@@ -185,7 +190,10 @@ print(metrics.results)
 6. [06_item2item_recommendations.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/06_item2item_recommendations.ipynb) - Item to Item recommendations example.
 7. [07_filters.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/07_filters.ipynb) - An example of using filters.
 8. [08_recommending_for_categories.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/08_recommending_for_categories.ipynb) - An example of recommendation for product categories.
-9. [09_sasrec_example.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/09_sasrec_example.ipynb) - An example of using transformers to generate recommendations.
+9. [09_sasrec_example.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/09_sasrec_example.ipynb) - An example of using transformer-based SASRec model to generate recommendations.
+10. [10_bert4rec_example.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/10_bert4rec_example.ipynb) - An example of using transformer-based BERT4Rec model to generate recommendations.
+11. [11_sasrec_dataframes_comparison.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/11_sasrec_dataframes_comparison.ipynb) - speed comparison of using different frameworks (pandas, polars, pyspark) for data processing during SASRec training.
+12. [12_neural_ts_exp.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/12_neural_ts_exp.ipynb) - An example of using Neural Thompson Sampling bandit model (based on Wide&Deep architecture).
 
 
 ### Videos and papers
@@ -203,3 +211,4 @@ print(metrics.results)
 ## 💡 Contributing to RePlay
 
 We welcome community contributions. For details please check our [contributing guidelines](CONTRIBUTING.md).
+
