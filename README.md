@@ -42,8 +42,9 @@ RePlay is an advanced framework designed to facilitate the development and evalu
 pip install replay-rec[all]
 ```
 
-Pyspark-based model and data preprocessing:
+Pyspark-based model and [fast](https://github.com/sb-ai-lab/RePlay/blob/main/examples/11_sasrec_dataframes_comparison.ipynb) polars-based data preprocessing:
 ```python
+from polars import from_pandas
 from rs_datasets import MovieLens
 
 from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType
@@ -59,8 +60,8 @@ spark = State().session
 ml_1m = MovieLens("1m")
 K = 10
 
-# data preprocessing
-interactions = convert2spark(ml_1m.ratings)
+# convert data to polars
+interactions = from_pandas(ml_1m.ratings)
 
 # data splitting
 splitter = RatioSplitter(
@@ -102,11 +103,11 @@ feature_schema = FeatureSchema(
 
 train_dataset = Dataset(
     feature_schema=feature_schema,
-    interactions=train,
+    interactions=convert2spark(train),
 )
 test_dataset = Dataset(
     feature_schema=feature_schema,
-    interactions=test,
+    interactions=convert2spark(test),
 )
 
 # data encoding
