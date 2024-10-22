@@ -43,7 +43,6 @@ class DisjointArm:
         self.A_inv = np.linalg.inv(self.A)
         # Update the parameter theta by the results linear regression
         self.theta = np.linalg.lstsq(self.A, usr_features.T @ relevances, rcond=1.0)[0]
-        self.cond_number = np.linalg.cond(self.A)  # this ome needed for deug only
 
 
 # Object for interactions with a single arm in a UCB hybrid framework
@@ -92,16 +91,16 @@ class LinUCB(HybridRecommender):
     >>> from replay.utils.spark_utils import convert2spark
     >>> data_frame = pd.DataFrame({"user_id": [0, 1, 2, 2], "item_id": [0, 1, 0, 1], "rating": [1, 0, 0, 0]})
     >>> user_features = pd.DataFrame(
-    >>>     {"user_id": [0, 1, 2], "usr_feat_1": [1, 2, 3], "usr_feat_2": [4, 5, 6], "usr_feat_3": [7, 8, 9]}
-    >>> )
+    ...     {"user_id": [0, 1, 2], "usr_feat_1": [1, 2, 3], "usr_feat_2": [4, 5, 6], "usr_feat_3": [7, 8, 9]}
+    ... )
     >>> item_features = pd.DataFrame(
-    >>>     {
-    >>>         "item_id": [0, 1, 2, 3, 4, 5],
-    >>>         "itm_feat_1": [1, 2, 3, 4, 5, 6],
-    >>>         "itm_feat_2": [7, 8, 9, 10, 11, 12],
-    >>>         "itm_feat_3": [13, 14, 15, 16, 17, 18]
-    >>>     }
-    >>> )
+    ...     {
+    ...         "item_id": [0, 1, 2, 3, 4, 5],
+    ...         "itm_feat_1": [1, 2, 3, 4, 5, 6],
+    ...         "itm_feat_2": [7, 8, 9, 10, 11, 12],
+    ...         "itm_feat_3": [13, 14, 15, 16, 17, 18]
+    ...     }
+    ... )
     >>> interactions = convert2spark(data_frame)
     >>> user_features = convert2spark(user_features)
     >>> item_features = convert2spark(item_features)
@@ -287,7 +286,7 @@ class LinUCB(HybridRecommender):
         if self.regr_type == "disjoint":
             user_features = dataset.query_features.toPandas()
             if user_features is None:
-                msg = "Can not make predict in the Lin UCB method"
+                msg = "User features are missing for predict"
                 raise ValueError(msg)
 
             feature_schema = dataset.feature_schema
@@ -328,7 +327,7 @@ class LinUCB(HybridRecommender):
         if self.regr_type == "hybrid":
             user_features = dataset.query_features.toPandas()
             if user_features is None:
-                msg = "Can not make predict in the Lin UCB method"
+                msg = "User features are missing for predict"
                 raise ValueError(msg)
 
             item_features = dataset.item_features.toPandas()
@@ -345,7 +344,7 @@ class LinUCB(HybridRecommender):
             )
 
             if item_features is None:
-                msg = "Can not make predict in the Lin UCB method"
+                msg = "Item features are missing for predict"
                 raise ValueError(msg)
             itm_feat = scs.csr_matrix(
                 item_features.query(f"{feature_schema.item_id_column} in @itm_idxs_list")
