@@ -16,7 +16,7 @@ if PYSPARK_AVAILABLE:
     INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log(spark):
     return spark.createDataFrame(
         data=[
@@ -35,7 +35,7 @@ def log(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def empty_log(spark):
     return spark.createDataFrame(
         data=[],
@@ -43,7 +43,7 @@ def empty_log(spark):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def users_features(spark):
     return spark.createDataFrame(
         [
@@ -55,7 +55,7 @@ def users_features(spark):
     ).toDF("user_idx", "age", "mood", "gender")
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def item_features(spark):
     return spark.createDataFrame(
         [
@@ -69,12 +69,12 @@ def item_features(spark):
     ).toDF("item_idx", "iq", "class", "color")
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def log_linucb(log):
     return log.withColumn("relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0))
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def user_features_linucb(all_users_features):
     indexer = StringIndexer(inputCol="gender", outputCol="gender_Indexed")
     indexerModel = indexer.fit(all_users_features)
@@ -83,7 +83,7 @@ def user_features_linucb(all_users_features):
     return indexed_df
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def item_features_linucb(item_features):
     indexer = StringIndexer(inputCol="class", outputCol="class_Indexed")
     indexerModel = indexer.fit(item_features)
@@ -97,7 +97,7 @@ def item_features_linucb(item_features):
     return indexed_df
 
 
-@pytest.fixture(params=[LinUCB(eps=-10.0, alpha=1.0, regr_type="disjoint")])
+@pytest.fixture(params=[LinUCB(eps=-10.0, alpha=1.0, regr_type="disjoint")], scope="module")
 def fitted_model_disjoint(request, log_linucb, user_features_linucb, item_features_linucb):
     dataset = create_dataset(log_linucb, user_features_linucb, item_features_linucb)
     model = request.param
@@ -105,7 +105,7 @@ def fitted_model_disjoint(request, log_linucb, user_features_linucb, item_featur
     return model
 
 
-@pytest.fixture(params=[LinUCB(eps=-10.0, alpha=1.0, regr_type="hybrid")])
+@pytest.fixture(params=[LinUCB(eps=-10.0, alpha=1.0, regr_type="hybrid")], scope="module")
 def fitted_model_hybrid(request, log_linucb, user_features_linucb, item_features_linucb):
     dataset = create_dataset(log_linucb, user_features_linucb, item_features_linucb)
     model = request.param
@@ -173,7 +173,7 @@ def test_predict_hybrid(fitted_model_hybrid, log_linucb, user_features_linucb, i
     sparkDataFrameEqual(pred_after_refit_checkpoint, pred_repeat)
 
 
-@pytest.mark.experimental
+@pytest.mark.spark
 def test_predict_empty_log_disjoint(fitted_model_disjoint, user_features_linucb, item_features_linucb, empty_log):
     empty_dataset = create_dataset(empty_log, user_features_linucb, item_features_linucb)
 
@@ -182,7 +182,7 @@ def test_predict_empty_log_disjoint(fitted_model_disjoint, user_features_linucb,
     assert pred_empty.count() == users.count()
 
 
-@pytest.mark.experimental
+@pytest.mark.spark
 def test_predict_empty_log_hybrid(fitted_model_hybrid, user_features_linucb, item_features_linucb, empty_log):
     empty_dataset = create_dataset(empty_log, user_features_linucb, item_features_linucb)
 
@@ -222,7 +222,7 @@ def test_optimize_hybrid(fitted_model_hybrid, log_linucb, user_features_linucb, 
     [1, 2, 3],
     ids=["k=1", "k=2", "k=3"],
 )
-@pytest.mark.experimental
+@pytest.mark.spark
 def test_predict_k_disjoint(fitted_model_disjoint, user_features_linucb, item_features_linucb, log_linucb, k):
     dataset = create_dataset(log_linucb, user_features_linucb, item_features_linucb)
 
@@ -236,7 +236,7 @@ def test_predict_k_disjoint(fitted_model_disjoint, user_features_linucb, item_fe
     [1, 2, 3],
     ids=["k=1", "k=2", "k=3"],
 )
-@pytest.mark.experimental
+@pytest.mark.spark
 def test_predict_k_hybrid(fitted_model_hybrid, user_features_linucb, item_features_linucb, log_linucb, k):
     dataset = create_dataset(log_linucb, user_features_linucb, item_features_linucb)
 
