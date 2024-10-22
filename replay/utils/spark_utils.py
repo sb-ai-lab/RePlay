@@ -10,7 +10,7 @@ import pandas as pd
 from numpy.random import default_rng
 
 from .session_handler import State
-from .types import PYSPARK_AVAILABLE, DataFrameLike, MissingImportType, NumType, SparkDataFrame
+from .types import PYSPARK_AVAILABLE, DataFrameLike, MissingImportType, NumType, PolarsDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.types as st
@@ -69,7 +69,10 @@ def convert2spark(data_frame: Optional[DataFrameLike]) -> Optional[SparkDataFram
         return None
     if isinstance(data_frame, SparkDataFrame):
         return data_frame
+
     spark = State().session
+    if isinstance(data_frame, PolarsDataFrame):
+        return spark.createDataFrame(data_frame.to_pandas())
     return spark.createDataFrame(data_frame)
 
 
