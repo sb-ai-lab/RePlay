@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from functools import partial
 
 import pandas as pd
+import polars as pl
 import pytest
 
 from tests.utils import sparkDataFrameEqual
@@ -92,10 +93,17 @@ def test_get_spark_session():
 
 @pytest.mark.spark
 def test_convert():
-    dataframe = pd.DataFrame([[1, "a", 3.0], [3, "b", 5.0]], columns=["a", "b", "c"])
-    spark_df = utils.convert2spark(dataframe)
-    pd.testing.assert_frame_equal(dataframe, spark_df.toPandas())
+    dataframe_pandas = pd.DataFrame([[1, "a", 3.0], [3, "b", 5.0]], columns=["a", "b", "c"])
+    dataframe_polars = pl.DataFrame({"a": [1, 3], "b": ["a", "b"], "c": [3.0, 5.0]})
+
+    spark_df = utils.convert2spark(dataframe_pandas)
+    pd.testing.assert_frame_equal(dataframe_pandas, spark_df.toPandas())
     assert utils.convert2spark(spark_df) is spark_df
+
+    spark_df = utils.convert2spark(dataframe_polars)
+    pl.testing.assert_frame_equal(dataframe_polars, pl.from_pandas(spark_df.to_pandas()))
+
+    pd.testing.assert_frame_equal(dataframe_pandas, dataframe_polars.to_pandas())
 
 
 @pytest.mark.spark
