@@ -75,7 +75,7 @@ splitter = RatioSplitter(
 )
 train, test = splitter.split(interactions)
 
-# dataset creating
+# datasets creation
 feature_schema = FeatureSchema(
     [
         FeatureInfo(
