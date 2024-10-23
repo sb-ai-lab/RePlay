@@ -1,5 +1,5 @@
 import os
-from typing import Optional, Tuple
+from typing import Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -13,11 +13,13 @@ from replay.utils.spark_utils import convert2spark
 from .base_rec import HybridRecommender
 
 
-# Object for interactions with a single arm in a UCB disjoint framework
 class DisjointArm:
-    def __init__(
-        self, arm_index, d, eps, alpha
-    ):  # in case of lin ucb with disjoint features: d = dimension of user's features solely
+    """
+    Object for interactions with a single arm in a UCB disjoint framework.
+
+    In case of LinUCB with disjoint features: d = dimension of user's features solely.
+    """
+    def __init__(self, arm_index, d, eps, alpha):
         # Track arm index
         self.arm_index = arm_index
         # Exploration parameter
@@ -31,7 +33,8 @@ class DisjointArm:
 
     def feature_update(self, usr_features, relevances):
         """
-        function to update featurs or each Lin-UCB hand in the current model
+        Function to update featurs or each Lin-UCB hand in the current model.
+
         features:
             usr_features = matrix (np.array of shape (m,d)),
                 where m = number of occurences of the current feature in the dataset;
@@ -45,8 +48,10 @@ class DisjointArm:
         self.theta = np.linalg.lstsq(self.A, usr_features.T @ relevances, rcond=1.0)[0]
 
 
-# Object for interactions with a single arm in a UCB hybrid framework
 class HybridArm:
+    """
+    Object for interactions with a single arm in a UCB hybrid framework
+    """
     def __init__(self, arm_index, d, k, eps, alpha):
         # Track arm index
         self.arm_index = arm_index
@@ -62,7 +67,8 @@ class HybridArm:
 
     def feature_update(self, usr_features, usr_itm_features, relevances) -> Tuple[np.ndarray, np.ndarray]:
         """
-        function to update featurs or each Lin-UCB hand in the current model
+        Function to update featurs or each Lin-UCB hand in the current model.
+
         features:
             usr_features = matrix (np.array of shape (m,d)),
                 where m = number of occurences of the current feature in the dataset;
@@ -101,9 +107,6 @@ class LinUCB(HybridRecommender):
     ...         "itm_feat_3": [13, 14, 15, 16, 17, 18]
     ...     }
     ... )
-    >>> interactions = convert2spark(data_frame)
-    >>> user_features = convert2spark(user_features)
-    >>> item_features = convert2spark(item_features)
     >>> feature_schema = FeatureSchema(
     ...    [
     ...        FeatureInfo(
@@ -128,9 +131,10 @@ class LinUCB(HybridRecommender):
     ...     interactions=interactions,
     ...     item_features=item_features,
     ...     query_features=user_features,
-    ...     categorical_encoded = True
+    ...     categorical_encoded=True
     ... )
-    >>> model = LinUCB(eps = -10.0, alpha = 1.0, regr_type = 'disjoint')
+    >>> dataset.to_spark()
+    >>> model = LinUCB(eps=-10.0, alpha=1.0, regr_type='disjoint')
     >>> model.fit(dataset)
     >>> model.predict(dataset, k=2, queries=[0,1,2]).toPandas().sort_values(["user_id","rating","item_id"],
     ... ascending=[True,False,True]).reset_index(drop=True)
@@ -149,7 +153,7 @@ class LinUCB(HybridRecommender):
         self,
         eps: float,
         alpha: float,
-        regr_type: str,
+        regr_type: Literal["disjoint", "hybrid"],
         random_state: Optional[int] = None,
     ):  # pylint: disable=too-many-arguments
         """
@@ -158,14 +162,14 @@ class LinUCB(HybridRecommender):
         :param regr_type: type of model "disjoint" or "hybrid"
         :param random_state: random seed. Provides reproducibility if fixed
         """
-        np.random.seed(42)
+        if regr_type not in ["disjoint", "hybrid"]:
+            raise ValueError("regr_type must be in ['disjoint', 'hybrid']")
         self.regr_type = regr_type
         self.random_state = random_state
+        np.random.seed(self.random_state)
         self.eps = eps
         self.alpha = alpha
         self.linucb_arms = None  # initialize only when working within fit method
-        cpu_count = os.cpu_count()
-        self.num_threads = cpu_count if cpu_count is not None else 1
 
         self._study = None  # field required for proper optuna's optimization
         self._search_space = {
@@ -184,23 +188,22 @@ class LinUCB(HybridRecommender):
         self,
         dataset: Dataset,
     ) -> None:
-        feature_schema = dataset.feature_schema
-        # should not work if user features or item features are unavailable
         if dataset.query_features is None:
             msg = "User features are missing for fitting"
+            raise ValueError(msg)
+        feature_schema = dataset.feature_schema
+        if feature_schema.query_id_column not in user_features.columns:
+            msg = "User indices are missing in user features dataframe"
             raise ValueError(msg)
         if dataset.item_features is None:
             msg = "Item features are missing for fitting"
             raise ValueError(msg)
-        # assuming that user_features and item_features are both dataframes
-        # now forget about pyspark until the better times
-        log = dataset.interactions.toPandas()
-        user_features = dataset.query_features.toPandas()
-        item_features = dataset.item_features.toPandas()
-        # check that the dataframe contains uer indexes
-        if feature_schema.query_id_column not in user_features.columns:
-            msg = "User indices are missing in user features dataframe"
-            raise ValueError(msg)
+
+        dataset.to_pandas()
+        log = dataset.interactions
+        user_features = dataset.query_features
+        item_features = dataset.item_features
+
         self._num_items = item_features.shape[0]
         self._user_dim_size = user_features.shape[1] - 1
         self._item_dim_size = item_features.shape[1] - 1
@@ -210,7 +213,7 @@ class LinUCB(HybridRecommender):
                 DisjointArm(arm_index=i, d=self._user_dim_size, eps=self.eps, alpha=self.alpha)
                 for i in range(self._num_items)
             ]
-            # now we work with pandas
+
             for i in range(self._num_items):
                 B = log.loc[log[feature_schema.item_id_column] == i]  # noqa: N806
                 rel_list = B[feature_schema.interactions_rating_column].values
@@ -236,7 +239,6 @@ class LinUCB(HybridRecommender):
                 for i in range(self._num_items)
             ]
 
-            # now we work with pandas
             for i in tqdm(range(self._num_items)):
                 B = log.loc[log[feature_schema.item_id_column] == i]  # noqa: N806
                 rel_list = B[feature_schema.interactions_rating_column].values
@@ -268,11 +270,6 @@ class LinUCB(HybridRecommender):
                     self.linucb_arms[i].A,
                     self.linucb_arms[i].b - self.linucb_arms[i].B @ self.beta,
                 )
-
-        else:
-            msg = "model.regr_type must be in ['disjoint', 'hybrid']"
-            raise ValueError(msg)
-        return
 
     def _predict(
         self,
@@ -386,6 +383,3 @@ class LinUCB(HybridRecommender):
                 }
             )
             return convert2spark(res_df)
-        else:
-            msg = "model.regr_type must be in ['disjoint', 'hybrid']"
-            raise ValueError(msg)
