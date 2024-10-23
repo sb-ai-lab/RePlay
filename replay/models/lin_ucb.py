@@ -99,7 +99,7 @@ class LinUCB(HybridRecommender):
     >>> import pandas as pd
     >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
     >>> from replay.utils.spark_utils import convert2spark
-    >>> data_frame = pd.DataFrame({"user_id": [0, 1, 2, 2], "item_id": [0, 1, 0, 1], "rating": [1, 0, 0, 0]})
+    >>> interactions = pd.DataFrame({"user_id": [0, 1, 2, 2], "item_id": [0, 1, 0, 1], "rating": [1, 0, 0, 0]})
     >>> user_features = pd.DataFrame(
     ...     {"user_id": [0, 1, 2], "usr_feat_1": [1, 2, 3], "usr_feat_2": [4, 5, 6], "usr_feat_3": [7, 8, 9]}
     ... )
