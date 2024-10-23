@@ -1,4 +1,3 @@
-import os
 from typing import Literal, Optional, Tuple
 
 import numpy as np
@@ -15,10 +14,11 @@ from .base_rec import HybridRecommender
 
 class DisjointArm:
     """
-    Object for interactions with a single arm in a UCB disjoint framework.
+    Object for interactions with a single arm in a disjoint LinUCB framework.
 
-    In case of LinUCB with disjoint features: d = dimension of user's features solely.
+    In disjoint LinUCB features of all arms are disjoint (no common features used).
     """
+
     def __init__(self, arm_index, d, eps, alpha):
         # Track arm index
         self.arm_index = arm_index
@@ -50,8 +50,12 @@ class DisjointArm:
 
 class HybridArm:
     """
-    Object for interactions with a single arm in a UCB hybrid framework
+    Object for interactions with a single arm in a hybrid LinUCB framework.
+
+    Hybrid LinUCB combines shared and arm-specific features.
+    Preferrable when there are meaningful relationships between different arms e.g. genres, product categories, etc.
     """
+
     def __init__(self, arm_index, d, k, eps, alpha):
         # Track arm index
         self.arm_index = arm_index
@@ -163,7 +167,8 @@ class LinUCB(HybridRecommender):
         :param random_state: random seed. Provides reproducibility if fixed
         """
         if regr_type not in ["disjoint", "hybrid"]:
-            raise ValueError("regr_type must be in ['disjoint', 'hybrid']")
+            msg = "regr_type must be in ['disjoint', 'hybrid']"
+            raise ValueError(msg)
         self.regr_type = regr_type
         self.random_state = random_state
         np.random.seed(self.random_state)
@@ -192,9 +197,6 @@ class LinUCB(HybridRecommender):
             msg = "User features are missing for fitting"
             raise ValueError(msg)
         feature_schema = dataset.feature_schema
-        if feature_schema.query_id_column not in user_features.columns:
-            msg = "User indices are missing in user features dataframe"
-            raise ValueError(msg)
         if dataset.item_features is None:
             msg = "Item features are missing for fitting"
             raise ValueError(msg)
@@ -202,6 +204,9 @@ class LinUCB(HybridRecommender):
         dataset.to_pandas()
         log = dataset.interactions
         user_features = dataset.query_features
+        if feature_schema.query_id_column not in user_features.columns:
+            msg = "User indices are missing in user features dataframe"
+            raise ValueError(msg)
         item_features = dataset.item_features
 
         self._num_items = item_features.shape[0]
