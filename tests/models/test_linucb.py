@@ -3,6 +3,7 @@ from datetime import datetime
 
 import pytest
 
+from replay.data import get_schema
 from replay.models import LinUCB
 from replay.utils import PYSPARK_AVAILABLE
 from tests.utils import create_dataset, sparkDataFrameEqual
@@ -11,8 +12,6 @@ if PYSPARK_AVAILABLE:
     from pyspark.ml.feature import StringIndexer
     from pyspark.sql import functions as sf
     from pyspark.sql.types import StructType, StructField, IntegerType, DoubleType, StringType
-
-    from replay.data import get_schema
 
     INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 

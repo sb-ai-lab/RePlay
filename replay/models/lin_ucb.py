@@ -136,7 +136,7 @@ class LinUCB(HybridRecommender):
     ...     interactions=interactions,
     ...     item_features=item_features,
     ...     query_features=user_features,
-    ...     categorical_encoded=True
+    ...     categorical_encoded=True,
     ... )
     >>> dataset.to_spark()
     >>> model = LinUCB(eps=-10.0, alpha=1.0, is_hybrid=False)
