@@ -11,7 +11,7 @@ from tests.utils import create_dataset, sparkDataFrameEqual
 if PYSPARK_AVAILABLE:
     from pyspark.ml.feature import StringIndexer
     from pyspark.sql import functions as sf
-    from pyspark.sql.types import StructType, StructField, IntegerType, DoubleType, StringType
+    from pyspark.sql.types import DoubleType, IntegerType, StringType, StructField, StructType
 
     INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
