@@ -403,15 +403,15 @@ class NeuralTS(HybridRecommender):
     <https://arxiv.org/abs/1606.07792>`_.
 
     :param user_cols: user_cols = {'continuous_cols':List[str], 'cat_embed_cols':List[str], 'wide_cols': List[str]},
-    where List[str] -- some column names from user_features dataframe, which is input to the fit method,
-    or empty List
+        where List[str] -- some column names from user_features dataframe, which is input to the fit method,
+        or empty List
     :param item_cols: item_cols = {'continuous_cols':List[str], 'cat_embed_cols':List[str], 'wide_cols': List[str]},
-    where List[str] -- some column names from item_features dataframe, which is input to the fit method,
-    or empty List
+        where List[str] -- some column names from item_features dataframe, which is input to the fit method,
+        or empty List
     :param embedding_sizes: list of length three in which
-    embedding_sizes[0] = embedding size for users,
-    embedding_sizes[1] = embedding size for items,
-    embedding_sizes[2] = embedding size for pair (users, items)
+        embedding_sizes[0] = embedding size for users,
+        embedding_sizes[1] = embedding size for items,
+        embedding_sizes[2] = embedding size for pair (users, items)
     :param hidden_layers: list of hidden layer sizes for Deep model
     :param wide_out_dim: output size for the Wide model
     :param deep_out_dim: output size for the Deep model
@@ -425,7 +425,7 @@ class NeuralTS(HybridRecommender):
     :param use_warp_loss: if true, then warp loss will be used otherwise weighted logistic loss.
     :param cnt_neg_samples: number of additional negative examples for each user
     :param cnt_samples_for_predict: number of sampled predictions for one user,
-    which are used to estimate the mean and variance of relevance
+        which are used to estimate the mean and variance of relevance
     :param exploration_coef:  exploration coefficient
     :param plot_dir: file name where the training graphs will be saved, if None, the graphs will not be saved
     :param cnt_users: number of users, used in Wide&Deep model initialization
