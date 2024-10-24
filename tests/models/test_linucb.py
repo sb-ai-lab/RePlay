@@ -51,7 +51,7 @@ def user_features(spark):
             StructField("user_idx", IntegerType(), False),
             StructField("age", DoubleType(), True),
             StructField("mood", DoubleType(), True),
-            StructField("gender", StringType(), True)
+            StructField("gender", StringType(), True),
         ]
     )
     return spark.createDataFrame(
@@ -72,7 +72,7 @@ def item_features(spark):
             StructField("item_idx", IntegerType(), False),
             StructField("iq", DoubleType(), True),
             StructField("class", StringType(), True),
-            StructField("color", StringType(), True)
+            StructField("color", StringType(), True),
         ]
     )
     return spark.createDataFrame(
