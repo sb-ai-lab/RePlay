@@ -430,6 +430,7 @@ class NeuralTS(HybridRecommender):
     :param plot_dir: file name where the training graphs will be saved, if None, the graphs will not be saved
     :param cnt_users: number of users, used in Wide&Deep model initialization
     :param cnt_items: number of items, used in Wide&Deep model initialization
+
     """
 
     def __init__(
