@@ -91,8 +91,9 @@ class HybridArm:
 
 class LinUCB(HybridRecommender):
     """
-    A recommender algorithm for contextual bandit problems,
-    implicitly proposed by `Li et al <https://arxiv.org/pdf/1003.0146>`_.
+    A recommender algorithm for contextual bandit problems.
+
+    Implicitly proposed by `Li et al <https://arxiv.org/pdf/1003.0146>`_.
     The model assumes a linear relationship between user context, item features and action rewards,
     making it efficient for high-dimensional contexts.
 
@@ -142,7 +143,6 @@ class LinUCB(HybridRecommender):
     >>> model.fit(dataset)
     >>> model.predict(dataset, k=2, queries=[0,1,2]).toPandas().sort_values(["user_id","rating","item_id"],
     ... ascending=[True,False,True]).reset_index(drop=True)
-
         user_id   item_id     rating
     0         0         1   -11.073741
     1         0         2   -81.240384
