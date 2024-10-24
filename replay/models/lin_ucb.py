@@ -1,4 +1,4 @@
-from typing import Literal, Optional, Tuple
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -93,7 +93,6 @@ class LinUCB(HybridRecommender):
     """
     A recommender algorithm for contextual bandit problems,
     implicitly proposed by `Li et al <https://arxiv.org/pdf/1003.0146>`_.
-
     The model assumes a linear relationship between user context, item features and action rewards,
     making it efficient for high-dimensional contexts.
 

@@ -46,12 +46,14 @@ def empty_log(spark):
 
 @pytest.fixture(scope="module")
 def user_features(spark):
-    USER_FEATURES_SCHEMA = StructType([
-        StructField("user_idx", IntegerType(), False),
-        StructField("age", DoubleType(), True),
-        StructField("mood", DoubleType(), True),
-        StructField("gender", StringType(), True)
-    ])
+    USER_FEATURES_SCHEMA = StructType(
+        [
+            StructField("user_idx", IntegerType(), False),
+            StructField("age", DoubleType(), True),
+            StructField("mood", DoubleType(), True),
+            StructField("gender", StringType(), True)
+        ]
+    )
     return spark.createDataFrame(
         [
             (0, 20.0, -3.0, "M"),
@@ -59,18 +61,20 @@ def user_features(spark):
             (2, 75.0, -1.0, "M"),
             (3, 35.0, 42.0, "M"),
         ],
-        schema=USER_FEATURES_SCHEMA
+        schema=USER_FEATURES_SCHEMA,
     )
 
 
 @pytest.fixture(scope="module")
 def item_features(spark):
-    ITEM_FEATURES_SCHEMA = StructType([
-        StructField("item_idx", IntegerType(), False),
-        StructField("iq", DoubleType(), True),
-        StructField("class", StringType(), True),
-        StructField("color", StringType(), True)
-    ])
+    ITEM_FEATURES_SCHEMA = StructType(
+        [
+            StructField("item_idx", IntegerType(), False),
+            StructField("iq", DoubleType(), True),
+            StructField("class", StringType(), True),
+            StructField("color", StringType(), True)
+        ]
+    )
     return spark.createDataFrame(
         [
             (0, 4.0, "cat", "black"),
@@ -80,7 +84,7 @@ def item_features(spark):
             (4, 11.0, "dog", "white"),
             (5, 0.0, "mouse", "yellow"),
         ],
-        schema=ITEM_FEATURES_SCHEMA
+        schema=ITEM_FEATURES_SCHEMA,
     )
 
 
