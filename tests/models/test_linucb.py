@@ -10,6 +10,7 @@ from tests.utils import create_dataset, sparkDataFrameEqual
 if PYSPARK_AVAILABLE:
     from pyspark.ml.feature import StringIndexer
     from pyspark.sql import functions as sf
+    from pyspark.sql.types import StructType, StructField, IntegerType, DoubleType, StringType
 
     from replay.data import get_schema
 
@@ -44,19 +45,32 @@ def empty_log(spark):
 
 
 @pytest.fixture(scope="module")
-def users_features(spark):
+def user_features(spark):
+    USER_FEATURES_SCHEMA = StructType([
+        StructField("user_idx", IntegerType(), False),
+        StructField("age", DoubleType(), True),
+        StructField("mood", DoubleType(), True),
+        StructField("gender", StringType(), True)
+    ])
     return spark.createDataFrame(
         [
             (0, 20.0, -3.0, "M"),
             (1, 30.0, 4.0, "F"),
             (2, 75.0, -1.0, "M"),
             (3, 35.0, 42.0, "M"),
-        ]
-    ).toDF("user_idx", "age", "mood", "gender")
+        ],
+        schema=USER_FEATURES_SCHEMA
+    )
 
 
 @pytest.fixture(scope="module")
 def item_features(spark):
+    ITEM_FEATURES_SCHEMA = StructType([
+        StructField("item_idx", IntegerType(), False),
+        StructField("iq", DoubleType(), True),
+        StructField("class", StringType(), True),
+        StructField("color", StringType(), True)
+    ])
     return spark.createDataFrame(
         [
             (0, 4.0, "cat", "black"),
@@ -65,8 +79,9 @@ def item_features(spark):
             (3, -1.0, "cat", "yellow"),
             (4, 11.0, "dog", "white"),
             (5, 0.0, "mouse", "yellow"),
-        ]
-    ).toDF("item_idx", "iq", "class", "color")
+        ],
+        schema=ITEM_FEATURES_SCHEMA
+    )
 
 
 @pytest.fixture(scope="module")
@@ -75,10 +90,10 @@ def log_linucb(log):
 
 
 @pytest.fixture(scope="module")
-def user_features_linucb(all_users_features):
+def user_features_linucb(user_features):
     indexer = StringIndexer(inputCol="gender", outputCol="gender_Indexed")
-    indexerModel = indexer.fit(all_users_features)
-    indexed_df = indexerModel.transform(all_users_features)
+    indexerModel = indexer.fit(user_features)
+    indexed_df = indexerModel.transform(user_features)
     indexed_df = indexed_df.drop("gender")
     return indexed_df
 
@@ -97,7 +112,7 @@ def item_features_linucb(item_features):
     return indexed_df
 
 
-@pytest.fixture(params=[LinUCB(eps=-10.0, alpha=1.0, regr_type="disjoint")], scope="module")
+@pytest.fixture(params=[LinUCB(eps=-10.0, alpha=1.0, is_hybrid=False)], scope="module")
 def fitted_model_disjoint(request, log_linucb, user_features_linucb, item_features_linucb):
     dataset = create_dataset(log_linucb, user_features_linucb, item_features_linucb)
     model = request.param
@@ -105,7 +120,7 @@ def fitted_model_disjoint(request, log_linucb, user_features_linucb, item_featur
     return model
 
 
-@pytest.fixture(params=[LinUCB(eps=-10.0, alpha=1.0, regr_type="hybrid")], scope="module")
+@pytest.fixture(params=[LinUCB(eps=-10.0, alpha=1.0, is_hybrid=True)], scope="module")
 def fitted_model_hybrid(request, log_linucb, user_features_linucb, item_features_linucb):
     dataset = create_dataset(log_linucb, user_features_linucb, item_features_linucb)
     model = request.param

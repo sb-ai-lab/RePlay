@@ -93,6 +93,7 @@ class LinUCB(HybridRecommender):
     """
     A recommender algorithm for contextual bandit problems,
     implicitly proposed by `Li et al <https://arxiv.org/pdf/1003.0146>`_.
+
     The model assumes a linear relationship between user context, item features and action rewards,
     making it efficient for high-dimensional contexts.
 
@@ -138,7 +139,7 @@ class LinUCB(HybridRecommender):
     ...     categorical_encoded=True
     ... )
     >>> dataset.to_spark()
-    >>> model = LinUCB(eps=-10.0, alpha=1.0, regr_type='disjoint')
+    >>> model = LinUCB(eps=-10.0, alpha=1.0, is_hybrid=False)
     >>> model.fit(dataset)
     >>> model.predict(dataset, k=2, queries=[0,1,2]).toPandas().sort_values(["user_id","rating","item_id"],
     ... ascending=[True,False,True]).reset_index(drop=True)
@@ -157,21 +158,14 @@ class LinUCB(HybridRecommender):
         self,
         eps: float,
         alpha: float,
-        regr_type: Literal["disjoint", "hybrid"],
-        random_state: Optional[int] = None,
-    ):  # pylint: disable=too-many-arguments
+        is_hybrid: bool = False,
+    ):
         """
         :param eps: exploration coefficient
         :param alpha: ridge parameter
-        :param regr_type: type of model "disjoint" or "hybrid"
-        :param random_state: random seed. Provides reproducibility if fixed
+        :param is_hybrid: flag to choose model type. If True, model is hybrid.
         """
-        if regr_type not in ["disjoint", "hybrid"]:
-            msg = "regr_type must be in ['disjoint', 'hybrid']"
-            raise ValueError(msg)
-        self.regr_type = regr_type
-        self.random_state = random_state
-        np.random.seed(self.random_state)
+        self.is_hybrid = is_hybrid
         self.eps = eps
         self.alpha = alpha
         self.linucb_arms = None  # initialize only when working within fit method
@@ -184,10 +178,7 @@ class LinUCB(HybridRecommender):
 
     @property
     def _init_args(self):
-        return {
-            "regression type": self.regr_type,
-            "seed": self.random_state,
-        }
+        return {"is_hybrid": self.is_hybrid}
 
     def _fit(
         self,
@@ -204,32 +195,13 @@ class LinUCB(HybridRecommender):
         dataset.to_pandas()
         log = dataset.interactions
         user_features = dataset.query_features
-        if feature_schema.query_id_column not in user_features.columns:
-            msg = "User indices are missing in user features dataframe"
-            raise ValueError(msg)
         item_features = dataset.item_features
 
         self._num_items = item_features.shape[0]
         self._user_dim_size = user_features.shape[1] - 1
         self._item_dim_size = item_features.shape[1] - 1
         # now initialize an arm object for each potential arm instance
-        if self.regr_type == "disjoint":
-            self.linucb_arms = [
-                DisjointArm(arm_index=i, d=self._user_dim_size, eps=self.eps, alpha=self.alpha)
-                for i in range(self._num_items)
-            ]
-
-            for i in range(self._num_items):
-                B = log.loc[log[feature_schema.item_id_column] == i]  # noqa: N806
-                rel_list = B[feature_schema.interactions_rating_column].values
-                if not B.empty:
-                    # if we have at least one user interacting with the hand i
-                    cur_usrs = user_features.query(
-                        f"{feature_schema.query_id_column} in @B[feature_schema.query_id_column].values"
-                    ).drop(columns=[feature_schema.query_id_column])
-                    self.linucb_arms[i].feature_update(cur_usrs.to_numpy(), rel_list)
-
-        elif self.regr_type == "hybrid":
+        if self.is_hybrid:
             k = self._user_dim_size * self._item_dim_size
             self.A_0 = scs.csr_matrix(np.identity(k))
             self.b_0 = np.zeros(k, dtype=float)
@@ -275,6 +247,21 @@ class LinUCB(HybridRecommender):
                     self.linucb_arms[i].A,
                     self.linucb_arms[i].b - self.linucb_arms[i].B @ self.beta,
                 )
+        else:
+            self.linucb_arms = [
+                DisjointArm(arm_index=i, d=self._user_dim_size, eps=self.eps, alpha=self.alpha)
+                for i in range(self._num_items)
+            ]
+
+            for i in range(self._num_items):
+                B = log.loc[log[feature_schema.item_id_column] == i]  # noqa: N806
+                rel_list = B[feature_schema.interactions_rating_column].values
+                if not B.empty:
+                    # if we have at least one user interacting with the hand i
+                    cur_usrs = user_features.query(
+                        f"{feature_schema.query_id_column} in @B[feature_schema.query_id_column].values"
+                    ).drop(columns=[feature_schema.query_id_column])
+                    self.linucb_arms[i].feature_update(cur_usrs.to_numpy(), rel_list)
 
     def _predict(
         self,
@@ -285,48 +272,7 @@ class LinUCB(HybridRecommender):
         filter_seen_items: bool = True,  # noqa: ARG002
         oversample: int = 20,
     ) -> SparkDataFrame:
-        if self.regr_type == "disjoint":
-            user_features = dataset.query_features.toPandas()
-            if user_features is None:
-                msg = "User features are missing for predict"
-                raise ValueError(msg)
-
-            feature_schema = dataset.feature_schema
-            num_user_pred = users.count()  # assuming it is a pyspark dataset
-            users = users.toPandas()
-
-            idxs_list = users[feature_schema.query_id_column].values
-            usrs_feat = (
-                user_features.query(f"{feature_schema.query_id_column} in @idxs_list")
-                .drop(columns=[feature_schema.query_id_column])
-                .to_numpy()
-            )
-            rel_matrix = np.zeros((num_user_pred, self._num_items), dtype=float)
-            # fill in relevance matrix
-            for i in range(self._num_items):
-                rel_matrix[:, i] = (
-                    self.eps * np.sqrt((usrs_feat.dot(self.linucb_arms[i].A_inv) * usrs_feat).sum(axis=1))
-                    + usrs_feat @ self.linucb_arms[i].theta
-                )
-            # select top k predictions from each row (unsorted ones)
-            big_k = min(oversample * k, dataset.item_features.count())
-            topk_indices = np.argpartition(rel_matrix, -big_k, axis=1)[:, -big_k:]
-            rows_inds, _ = np.indices((num_user_pred, big_k))
-            # result df
-            predict_inds = np.repeat(idxs_list, big_k)
-            predict_items = topk_indices.ravel()
-            predict_rels = rel_matrix[rows_inds, topk_indices].ravel()
-            # return everything in a PySpark template
-            res_df = pd.DataFrame(
-                {
-                    feature_schema.query_id_column: predict_inds,
-                    feature_schema.item_id_column: predict_items,
-                    feature_schema.interactions_rating_column: predict_rels,
-                }
-            )
-            return convert2spark(res_df)
-
-        if self.regr_type == "hybrid":
+        if self.is_hybrid:
             user_features = dataset.query_features.toPandas()
             if user_features is None:
                 msg = "User features are missing for predict"
@@ -377,6 +323,47 @@ class LinUCB(HybridRecommender):
             rows_inds, _ = np.indices((num_user_pred, big_k))
             # result df
             predict_inds = np.repeat(usr_idxs_list, big_k)
+            predict_items = topk_indices.ravel()
+            predict_rels = rel_matrix[rows_inds, topk_indices].ravel()
+            # return everything in a PySpark template
+            res_df = pd.DataFrame(
+                {
+                    feature_schema.query_id_column: predict_inds,
+                    feature_schema.item_id_column: predict_items,
+                    feature_schema.interactions_rating_column: predict_rels,
+                }
+            )
+            return convert2spark(res_df)
+
+        else:
+            user_features = dataset.query_features.toPandas()
+            if user_features is None:
+                msg = "User features are missing for predict"
+                raise ValueError(msg)
+
+            feature_schema = dataset.feature_schema
+            num_user_pred = users.count()  # assuming it is a pyspark dataset
+            users = users.toPandas()
+
+            idxs_list = users[feature_schema.query_id_column].values
+            usrs_feat = (
+                user_features.query(f"{feature_schema.query_id_column} in @idxs_list")
+                .drop(columns=[feature_schema.query_id_column])
+                .to_numpy()
+            )
+            rel_matrix = np.zeros((num_user_pred, self._num_items), dtype=float)
+            # fill in relevance matrix
+            for i in range(self._num_items):
+                rel_matrix[:, i] = (
+                    self.eps * np.sqrt((usrs_feat.dot(self.linucb_arms[i].A_inv) * usrs_feat).sum(axis=1))
+                    + usrs_feat @ self.linucb_arms[i].theta
+                )
+            # select top k predictions from each row (unsorted ones)
+            big_k = min(oversample * k, dataset.item_features.count())
+            topk_indices = np.argpartition(rel_matrix, -big_k, axis=1)[:, -big_k:]
+            rows_inds, _ = np.indices((num_user_pred, big_k))
+            # result df
+            predict_inds = np.repeat(idxs_list, big_k)
             predict_items = topk_indices.ravel()
             predict_rels = rel_matrix[rows_inds, topk_indices].ravel()
             # return everything in a PySpark template
