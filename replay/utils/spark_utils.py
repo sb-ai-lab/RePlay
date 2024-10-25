@@ -27,6 +27,12 @@ else:
     Column = MissingImportType
 
 
+class PolarsConvertToSparkWarning(Warning):
+    """
+    Direct PolarsDataFrame to SparkDataFrame convertation warning.
+    """
+
+
 class SparkCollectToMasterWarning(Warning):  # pragma: no cover
     """
     Collect to master warning for Spark DataFrames.
@@ -72,6 +78,11 @@ def convert2spark(data_frame: Optional[DataFrameLike]) -> Optional[SparkDataFram
 
     spark = State().session
     if isinstance(data_frame, PolarsDataFrame):
+        warnings.warn(
+            "Direct convertation PolarsDataFrame to SparkDataFrame currently is not supported, "
+            "converting to pandas first",
+            PolarsConvertToSparkWarning,
+        )
         return spark.createDataFrame(data_frame.to_pandas())
     return spark.createDataFrame(data_frame)
 
