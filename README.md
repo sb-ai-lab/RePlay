@@ -101,19 +101,17 @@ feature_schema = FeatureSchema(
     ]
 )
 
-train_dataset = Dataset(
-    feature_schema=feature_schema,
-    interactions=convert2spark(train),
-)
-test_dataset = Dataset(
-    feature_schema=feature_schema,
-    interactions=convert2spark(test),
-)
+train_dataset = Dataset(feature_schema=feature_schema, interactions=train)
+test_dataset = Dataset(feature_schema=feature_schema, interactions=test)
 
 # data encoding
 encoder = DatasetLabelEncoder()
 train_dataset = encoder.fit_transform(train_dataset)
 test_dataset = encoder.transform(test_dataset)
+
+# convert datasets to spark
+train_dataset.to_spark()
+test_dataset.to_spark()
 
 # model training
 model = ItemKNN()
