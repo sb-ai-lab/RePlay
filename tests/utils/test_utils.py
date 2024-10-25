@@ -7,6 +7,7 @@ import pandas as pd
 import polars as pl
 import pytest
 from polars.testing import assert_frame_equal as pl_assert_frame_equal
+
 from tests.utils import sparkDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
