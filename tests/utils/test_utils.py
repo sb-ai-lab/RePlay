@@ -6,7 +6,7 @@ from functools import partial
 import pandas as pd
 import polars as pl
 import pytest
-
+from polars.testing import assert_frame_equal as pl_assert_frame_equal
 from tests.utils import sparkDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
@@ -101,7 +101,7 @@ def test_convert():
     assert utils.convert2spark(spark_df) is spark_df
 
     spark_df = utils.convert2spark(dataframe_polars)
-    pl.testing.assert_frame_equal(dataframe_polars, pl.from_pandas(spark_df.to_pandas()))
+    pl_assert_frame_equal(dataframe_polars, pl.from_pandas(spark_df.toPandas()))
 
     pd.testing.assert_frame_equal(dataframe_pandas, dataframe_polars.to_pandas())
 
