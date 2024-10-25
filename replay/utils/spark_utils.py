@@ -83,7 +83,7 @@ def convert2spark(data_frame: Optional[DataFrameLike]) -> Optional[SparkDataFram
             "converting to pandas first",
             PolarsConvertToSparkWarning,
         )
-        return spark.createDataFrame(data_frame.to_pandas())
+        return spark.createDataFrame(data_frame.to_pandas())  # TODO: remove extra convertation to pandas
     return spark.createDataFrame(data_frame)
 
 
