@@ -23,6 +23,7 @@ def get_spark_session(
     spark_memory: Optional[int] = None,
     shuffle_partitions: Optional[int] = None,
     core_count: Optional[int] = None,
+    enable_hive_support: bool = True,
 ) -> SparkSession:
     """
     Get default SparkSession
@@ -34,6 +35,9 @@ def get_spark_session(
         If ``None`` then checking out environment variable ``REPLAY_SPARK_CORE_COUNT``,
         if variable is not set then using ``-1``.
         Default: ``None``.
+    :param enable_hive_support: Hive support.
+        If ``True`` enables Hive support in Spark session and disables otherwise.
+        Default: ``True``.
     """
     if os.environ.get("SCRIPT_ENV", None) == "cluster":  # pragma: no cover
         return SparkSession.builder.getOrCreate()
@@ -71,7 +75,7 @@ def get_spark_session(
         shuffle_partitions = os.cpu_count() * 3
     driver_memory = f"{spark_memory}g"
     user_home = os.environ["HOME"]
-    spark = (
+    spark_session_builder = (
         SparkSession.builder.config("spark.driver.memory", driver_memory)
         .config(
             "spark.driver.extraJavaOptions",
@@ -87,10 +91,12 @@ def get_spark_session(
         .config("spark.kryoserializer.buffer.max", "256m")
         .config("spark.files.overwrite", "true")
         .master(f"local[{'*' if core_count == -1 else core_count}]")
-        .enableHiveSupport()
-        .getOrCreate()
     )
-    return spark
+
+    if enable_hive_support:
+        spark_session_builder.enableHiveSupport()
+
+    return spark_session_builder.getOrCreate()
 
 
 def logger_with_settings() -> logging.Logger:
