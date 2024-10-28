@@ -523,7 +523,6 @@ def test_label_encoder_save_load(simple_dataframe_pandas):
     encoder = LabelEncoder([rule]).fit(simple_dataframe_pandas)
 
     mapping = encoder.mapping
-    mapping["user_id"] = {str(key): value for key, value in mapping["user_id"].items()}
     encoder.save("./")
 
     assert mapping == LabelEncoder.load("./LabelEncoder.replay").mapping
