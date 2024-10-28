@@ -514,3 +514,16 @@ def test_label_encoder_drop_strategy_empty_dataset(request, df_for_labelencoder,
         assert transformed.is_empty()
     else:
         assert transformed.rdd.isEmpty()
+
+
+@pytest.mark.core
+@pytest.mark.usefixtures("simple_dataframe_pandas")
+def test_label_encoder_save_load(simple_dataframe_pandas):
+    rule = LabelEncodingRule("user_id", default_value="last")
+    encoder = LabelEncoder([rule]).fit(simple_dataframe_pandas)
+
+    mapping = encoder.mapping
+    mapping['user_id'] = {str(key): value for key, value in mapping['user_id'].items()}
+    encoder.save('./')
+
+    assert mapping == LabelEncoder.load("./LabelEncoder.replay").mapping

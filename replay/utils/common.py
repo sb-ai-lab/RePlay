@@ -7,6 +7,10 @@ from typing import Any, Callable, Union
 from polars import from_pandas as pl_from_pandas
 
 from replay.data.dataset import Dataset
+from replay.preprocessing import (
+    LabelEncoder,
+    LabelEncodingRule,
+)
 from replay.splitters import (
     ColdUserRandomSplitter,
     KFolds,
@@ -38,6 +42,8 @@ SavableObject = Union[
     TimeSplitter,
     TwoStageSplitter,
     Dataset,
+    LabelEncoder,
+    LabelEncodingRule,
 ]
 
 if TORCH_AVAILABLE:
@@ -55,6 +61,8 @@ if TORCH_AVAILABLE:
         SequenceTokenizer,
         PandasSequentialDataset,
         PolarsSequentialDataset,
+        LabelEncoder,
+        LabelEncodingRule,
     ]
 
 
