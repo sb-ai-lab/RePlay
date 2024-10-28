@@ -8,8 +8,8 @@ Contains classes for encoding categorical data
 
 import abc
 import json
-import warnings
 import os
+import warnings
 from pathlib import Path
 from typing import Dict, List, Literal, Mapping, Optional, Sequence, Union
 
@@ -487,27 +487,30 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             raise ValueError(msg)
         self._handle_unknown = handle_unknown
 
-    def save(self, path: str,) -> None:
+    def save(
+        self,
+        path: str,
+    ) -> None:
         encoder_rule_dict = {}
         encoder_rule_dict["_class_name"] = self.__class__.__name__
         encoder_rule_dict["init_args"] = {
             "column": self._col,
             "mapping": self._mapping,
             "handle_unknown": self._handle_unknown,
-            "default_value": self._default_value
+            "default_value": self._default_value,
         }
 
-        for key in self._mapping.keys():
+        for key in self._mapping:
             column_type = str(type(key))
             break
 
         encoder_rule_dict["fitted_args"] = {
             "target_col": self._target_col,
             "is_fitted": self._is_fitted,
-            "column_type": column_type
+            "column_type": column_type,
         }
 
-        base_path = Path(path  + f"/{self.__class__.__name__}_{self._col}").with_suffix(".replay").resolve()
+        base_path = Path(path + f"/{self.__class__.__name__}_{self._col}").with_suffix(".replay").resolve()
         if os.path.exists(base_path):  # pragma: no cover
             os.system(f"rm -r {base_path}")
         base_path.mkdir(parents=True)
@@ -539,7 +542,6 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         encoding_rule._target_col = encoder_rule_dict["fitted_args"]["target_col"]
         encoding_rule._is_fitted = encoder_rule_dict["fitted_args"]["is_fitted"]
         return encoding_rule
-
 
 
 class LabelEncoder:
@@ -708,7 +710,10 @@ class LabelEncoder:
             rule = list(filter(lambda x: x.column == column, self.rules))
             rule[0].set_default_value(default_value)
 
-    def save(self, path: str,) -> None:
+    def save(
+        self,
+        path: str,
+    ) -> None:
         encoder_dict = {}
         encoder_dict["_class_name"] = self.__class__.__name__
 
@@ -719,7 +724,6 @@ class LabelEncoder:
 
         for rule in self.rules:
             rule.save(str(base_path) + "/rules")
-
 
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(encoder_dict, file)
@@ -733,10 +737,6 @@ class LabelEncoder:
                 with open(root + d + "/init_args.json", "r") as file:
                     encoder_rule_dict = json.loads(file.read())
                 rules.append(globals()[encoder_rule_dict["_class_name"]].load(root + d))
-
-
-        with open(base_path / "init_args.json", "r") as file:
-            encoder_dict = json.loads(file.read())
 
         encoder = cls(rules=[])
         encoder.rules = rules
