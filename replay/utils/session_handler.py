@@ -93,7 +93,7 @@ def get_spark_session(
         .master(f"local[{'*' if core_count == -1 else core_count}]")
     )
 
-    if enable_hive_support:
+    if enable_hive_support:  # pragma: no cover
         spark_session_builder.enableHiveSupport()
 
     return spark_session_builder.getOrCreate()
