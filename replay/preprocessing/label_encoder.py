@@ -531,7 +531,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             column_type = int
         elif "float" in string_column_type:
             column_type = float
-        else:
+        else:  # pragma: no cover
             msg = f"LabelEncodingRule.save() is not implemented for column type {string_column_type}."
             raise NotImplementedError(msg)
         encoder_rule_dict["init_args"]["mapping"] = {

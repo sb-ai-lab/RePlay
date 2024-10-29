@@ -526,3 +526,23 @@ def test_label_encoder_save_load(simple_dataframe_pandas):
     encoder.save("./")
 
     assert mapping == LabelEncoder.load("./LabelEncoder.replay").mapping
+
+
+@pytest.mark.core
+@pytest.mark.usefixtures("simple_dataframe_pandas")
+def test_label_encoder_save_load_with_different_keys_type(simple_dataframe_pandas):
+    simple_dataframe_pandas["user_id"] = simple_dataframe_pandas["user_id"].astype("string")
+    rule = LabelEncodingRule("user_id", default_value="last")
+    encoder = LabelEncoder([rule]).fit(simple_dataframe_pandas)
+    mapping = encoder.mapping
+    encoder.save("./")
+
+    assert mapping == LabelEncoder.load("./LabelEncoder.replay").mapping
+
+    simple_dataframe_pandas["user_id"] = simple_dataframe_pandas["user_id"].astype("float")
+    rule = LabelEncodingRule("user_id", default_value="last")
+    encoder = LabelEncoder([rule]).fit(simple_dataframe_pandas)
+    mapping = encoder.mapping
+    encoder.save("./")
+
+    assert mapping == LabelEncoder.load("./LabelEncoder.replay").mapping
