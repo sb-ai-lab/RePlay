@@ -500,9 +500,12 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             "default_value": self._default_value,
         }
 
-        for key in self._mapping:
-            column_type = str(type(key))
-            break
+        column_type = str(type(list(self._mapping.keys())[0]))
+
+        if not isinstance (column_type, (str, int, float)):
+            msg = f"LabelEncodingRule.save() is not implemented for column type {column_type}. \
+Convert type to string, integer, or float."
+            raise NotImplementedError(msg)
 
         encoder_rule_dict["fitted_args"] = {
             "target_col": self._target_col,
@@ -512,8 +515,10 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
         base_path = Path(path + f"/{self.__class__.__name__}_{self._col}").with_suffix(".replay").resolve()
         if os.path.exists(base_path):  # pragma: no cover
-            os.system(f"rm -r {base_path}")
-        base_path.mkdir(parents=True)
+            msg = "There is already LabelEncodingRule object saved at the given path. File will be overwrited."
+            warnings.warn(msg)
+        else:
+            base_path.mkdir(parents=True)
 
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(encoder_rule_dict, file)
@@ -531,10 +536,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             column_type = int
         elif "float" in string_column_type:
             column_type = float
-        else:  # pragma: no cover
-            msg = f"LabelEncodingRule.save() is not implemented for column type {string_column_type}. \
-Convert type to string, integer, or float."
-            raise NotImplementedError(msg)
+
         encoder_rule_dict["init_args"]["mapping"] = {
             column_type(key): value for key, value in encoder_rule_dict["init_args"]["mapping"].items()
         }
@@ -720,11 +722,16 @@ class LabelEncoder:
 
         base_path = Path(path + f"/{self.__class__.__name__}").with_suffix(".replay").resolve()
         if os.path.exists(base_path):
-            os.system(f"rm -r {base_path}")
-        base_path.mkdir(parents=True)
+            msg = "There is already LabelEncoder object saved at the given path. File will be overwrited."
+            warnings.warn(msg)
+        else:
+            base_path.mkdir(parents=True)
+
+        encoder_dict["rule_names"] = []
 
         for rule in self.rules:
             rule.save(str(base_path) + "/rules")
+            encoder_dict["rule_names"].append(f"{rule.__class__.__name__}_{rule.column}")
 
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(encoder_dict, file)
@@ -732,12 +739,15 @@ class LabelEncoder:
     @classmethod
     def load(cls, path: str) -> "LabelEncoder":
         base_path = Path(path).with_suffix(".replay").resolve()
+        with open(base_path / "init_args.json", "r") as file:
+                    encoder_dict = json.loads(file.read())
         rules = []
         for root, dirs, files in os.walk(str(base_path) + "/rules/"):
             for d in dirs:
-                with open(root + d + "/init_args.json", "r") as file:
-                    encoder_rule_dict = json.loads(file.read())
-                rules.append(globals()[encoder_rule_dict["_class_name"]].load(root + d))
+                if d.split(".")[0] in encoder_dict["rule_names"]:
+                    with open(root + d + "/init_args.json", "r") as file:
+                        encoder_rule_dict = json.loads(file.read())
+                    rules.append(globals()[encoder_rule_dict["_class_name"]].load(root + d))
 
         encoder = cls(rules=[])
         encoder.rules = rules

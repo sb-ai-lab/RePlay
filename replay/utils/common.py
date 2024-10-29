@@ -41,7 +41,6 @@ SavableObject = Union[
     RatioSplitter,
     TimeSplitter,
     TwoStageSplitter,
-    Dataset,
     LabelEncoder,
     LabelEncodingRule,
 ]
