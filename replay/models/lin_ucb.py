@@ -254,13 +254,16 @@ class LinUCB(HybridRecommender):
 
             for i in range(self._num_items):
                 B = log.loc[log[feature_schema.item_id_column] == i]  # noqa: N806
+                idxs_list = B[feature_schema.query_id_column].values  # noqa: F841
                 rel_list = B[feature_schema.interactions_rating_column].values
                 if not B.empty:
                     # if we have at least one user interacting with the hand i
                     cur_usrs = user_features.query(
-                        f"{feature_schema.query_id_column} in @B[feature_schema.query_id_column].values"
+                        f"{feature_schema.query_id_column} in @idxs_list"
                     ).drop(columns=[feature_schema.query_id_column])
                     self.linucb_arms[i].feature_update(cur_usrs.to_numpy(), rel_list)
+
+        dataset.to_spark()
 
     def _predict(
         self,
