@@ -44,7 +44,8 @@ def user_features(spark):
         ]
     )
     return spark.createDataFrame(
-        [(0, 2.0, 5.0), (1, 0.0, -5.0), (2, 4.0, 3.0)], schema=USER_FEATURES_SCHEMA,
+        [(0, 2.0, 5.0), (1, 0.0, -5.0), (2, 4.0, 3.0)],
+        schema=USER_FEATURES_SCHEMA,
     )
 
 
@@ -62,21 +63,26 @@ def item_features(spark):
         schema=ITEM_FEATURES_SCHEMA,
     )
 
+
 @pytest.fixture(scope="module")
 def feature_schema_linucb():
-    feature_schema = FeatureSchema([
-        FeatureInfo(column="user_idx", feature_type=FeatureType.CATEGORICAL, feature_hint=FeatureHint.QUERY_ID),
-        FeatureInfo(column="item_idx", feature_type=FeatureType.CATEGORICAL, feature_hint=FeatureHint.ITEM_ID),
-        FeatureInfo(column="rating", feature_type=FeatureType.NUMERICAL, feature_hint=FeatureHint.RATING),
-        *[
-            FeatureInfo(column=name, feature_type=FeatureType.NUMERICAL, feature_source=FeatureSource.ITEM_FEATURES)
-            for name in ["item_feature_1", "item_feature_2"]
-        ],
-        *[
-            FeatureInfo(column=name, feature_type=FeatureType.NUMERICAL, feature_source=FeatureSource.QUERY_FEATURES)
-            for name in ["user_feature_1", "user_feature_2"]
-        ],
-    ])
+    feature_schema = FeatureSchema(
+        [
+            FeatureInfo(column="user_idx", feature_type=FeatureType.CATEGORICAL, feature_hint=FeatureHint.QUERY_ID),
+            FeatureInfo(column="item_idx", feature_type=FeatureType.CATEGORICAL, feature_hint=FeatureHint.ITEM_ID),
+            FeatureInfo(column="rating", feature_type=FeatureType.NUMERICAL, feature_hint=FeatureHint.RATING),
+            *[
+                FeatureInfo(column=name, feature_type=FeatureType.NUMERICAL, feature_source=FeatureSource.ITEM_FEATURES)
+                for name in ["item_feature_1", "item_feature_2"]
+            ],
+            *[
+                FeatureInfo(
+                    column=name, feature_type=FeatureType.NUMERICAL, feature_source=FeatureSource.QUERY_FEATURES
+                )
+                for name in ["user_feature_1", "user_feature_2"]
+            ],
+        ]
+    )
     return feature_schema
 
 
@@ -93,6 +99,7 @@ def empty_dataset_linucb(log, user_features, item_features, feature_schema_linuc
     empty_dataset_linucb = create_dataset(log.limit(0), user_features, item_features, feature_schema_linucb)
 
     return empty_dataset_linucb
+
 
 @pytest.fixture(params=[LinUCB(eps=-10.0, alpha=1.0, is_hybrid=False)], scope="module")
 def fitted_model_disjoint(request, dataset_linucb):
