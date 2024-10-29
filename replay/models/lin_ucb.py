@@ -257,9 +257,9 @@ class LinUCB(HybridRecommender):
                 rel_list = B[feature_schema.interactions_rating_column].values
                 if not B.empty:
                     # if we have at least one user interacting with the hand i
-                    cur_usrs = user_features.query(
-                        f"{feature_schema.query_id_column} in @idxs_list"
-                    ).drop(columns=[feature_schema.query_id_column])
+                    cur_usrs = user_features.query(f"{feature_schema.query_id_column} in @idxs_list").drop(
+                        columns=[feature_schema.query_id_column]
+                    )
                     self.linucb_arms[i].feature_update(cur_usrs.to_numpy(), rel_list)
 
         dataset.to_spark()
