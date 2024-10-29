@@ -3,10 +3,14 @@
 
 [![GitHub License](https://img.shields.io/github/license/sb-ai-lab/RePlay)](https://github.com/sb-ai-lab/RePlay/blob/main/LICENSE)
 [![PyPI - Version](https://img.shields.io/pypi/v/replay-rec)](https://pypi.org/project/replay-rec)
+[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://sb-ai-lab.github.io/RePlay/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/replay-rec)](https://pypistats.org/packages/replay-rec)
 <br>
 [![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/sb-ai-lab/replay/main.yml)](https://github.com/sb-ai-lab/RePlay/actions/workflows/main.yml?query=branch%3Amain)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/charliermarsh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Python Versions](https://img.shields.io/pypi/pyversions/replay-rec.svg?logo=python&logoColor=white)](https://pypi.org/project/replay-rec)
 [![Join the community on GitHub Discussions](https://badgen.net/badge/join%20the%20discussion/on%20github/black?icon=github)](https://github.com/sb-ai-lab/RePlay/discussions)
+
 
 RePlay is an advanced framework designed to facilitate the development and evaluation of recommendation systems. It provides a robust set of tools covering the entire lifecycle of a recommendation system pipeline:
 
@@ -22,16 +26,118 @@ RePlay is an advanced framework designed to facilitate the development and evalu
 1. **Diverse Hardware Support:** Compatible with various hardware configurations including CPU, GPU, Multi-GPU.
 2. **Cluster Computing Integration:** Integrating with PySpark for distributed computing, enabling scalability for large-scale recommendation systems.
 
-## 📖 Documentation is available [here](https://sb-ai-lab.github.io/RePlay/).
-
 <a name="toc"></a>
 # Table of Contents
 
-* [Installation](#installation)
 * [Quickstart](#quickstart)
+* [Installation](#installation)
 * [Resources](#examples)
 * [Contributing to RePlay](#contributing)
 
+
+<a name="quickstart"></a>
+## 📈 Quickstart
+
+```bash
+pip install replay-rec[all]
+```
+
+Pyspark-based model and [fast](https://github.com/sb-ai-lab/RePlay/blob/main/examples/11_sasrec_dataframes_comparison.ipynb) polars-based data preprocessing:
+```python
+from polars import from_pandas
+from rs_datasets import MovieLens
+
+from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType
+from replay.data.dataset_utils import DatasetLabelEncoder
+from replay.metrics import HitRate, NDCG, Experiment
+from replay.models import ItemKNN
+from replay.utils.spark_utils import convert2spark
+from replay.utils.session_handler import State
+from replay.splitters import RatioSplitter
+
+spark = State().session
+
+ml_1m = MovieLens("1m")
+K = 10
+
+# convert data to polars
+interactions = from_pandas(ml_1m.ratings)
+
+# data splitting
+splitter = RatioSplitter(
+    test_size=0.3,
+    divide_column="user_id",
+    query_column="user_id",
+    item_column="item_id",
+    timestamp_column="timestamp",
+    drop_cold_items=True,
+    drop_cold_users=True,
+)
+train, test = splitter.split(interactions)
+
+# datasets creation
+feature_schema = FeatureSchema(
+    [
+        FeatureInfo(
+            column="user_id",
+            feature_type=FeatureType.CATEGORICAL,
+            feature_hint=FeatureHint.QUERY_ID,
+        ),
+        FeatureInfo(
+            column="item_id",
+            feature_type=FeatureType.CATEGORICAL,
+            feature_hint=FeatureHint.ITEM_ID,
+        ),
+        FeatureInfo(
+            column="rating",
+            feature_type=FeatureType.NUMERICAL,
+            feature_hint=FeatureHint.RATING,
+        ),
+        FeatureInfo(
+            column="timestamp",
+            feature_type=FeatureType.NUMERICAL,
+            feature_hint=FeatureHint.TIMESTAMP,
+        ),
+    ]
+)
+
+train_dataset = Dataset(feature_schema=feature_schema, interactions=train)
+test_dataset = Dataset(feature_schema=feature_schema, interactions=test)
+
+# data encoding
+encoder = DatasetLabelEncoder()
+train_dataset = encoder.fit_transform(train_dataset)
+test_dataset = encoder.transform(test_dataset)
+
+# convert datasets to spark
+train_dataset.to_spark()
+test_dataset.to_spark()
+
+# model training
+model = ItemKNN()
+model.fit(train_dataset)
+
+# model inference
+encoded_recs = model.predict(
+    dataset=train_dataset,
+    k=K,
+    queries=test_dataset.query_ids,
+    filter_seen_items=True,
+)
+
+recs = encoder.query_and_item_id_encoder.inverse_transform(encoded_recs)
+
+# model evaluation
+metrics = Experiment(
+    [NDCG(K), HitRate(K)],
+    test,
+    query_column="user_id",
+    item_column="item_id",
+    rating_column="rating",
+)
+metrics.add_result("ItemKNN", recs)
+print(metrics.results)
+```
 
 <a name="installation"></a>
 ## 🔧 Installation
@@ -70,108 +176,6 @@ pip install replay-rec[spark]==XX.YY.ZZrc0
 
 To build RePlay from sources please use the [instruction](CONTRIBUTING.md#installing-from-the-source).
 
-If you encounter an error during RePlay installation, check the [troubleshooting](https://sb-ai-lab.github.io/RePlay/pages/installation.html#troubleshooting) guide.
-
-
-<a name="quickstart"></a>
-## 📈 Quickstart (PySpark-based)
-
-```python
-from rs_datasets import MovieLens
-
-from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType
-from replay.data.dataset_utils import DatasetLabelEncoder
-from replay.metrics import HitRate, NDCG, Experiment
-from replay.models import ItemKNN
-from replay.utils.spark_utils import convert2spark
-from replay.utils.session_handler import State
-from replay.splitters import RatioSplitter
-
-spark = State().session
-
-ml_1m = MovieLens("1m")
-K=10
-
-# data preprocessing
-interactions = convert2spark(ml_1m.ratings)
-
-# data splitting
-splitter = RatioSplitter(
-    test_size=0.3,
-    divide_column="user_id",
-    query_column="user_id",
-    item_column="item_id",
-    timestamp_column="timestamp",
-    drop_cold_items=True,
-    drop_cold_users=True,
-)
-train, test = splitter.split(interactions)
-
-# dataset creating
-feature_schema = FeatureSchema(
-    [
-        FeatureInfo(
-            column="user_id",
-            feature_type=FeatureType.CATEGORICAL,
-            feature_hint=FeatureHint.QUERY_ID,
-        ),
-        FeatureInfo(
-            column="item_id",
-            feature_type=FeatureType.CATEGORICAL,
-            feature_hint=FeatureHint.ITEM_ID,
-        ),
-        FeatureInfo(
-            column="rating",
-            feature_type=FeatureType.NUMERICAL,
-            feature_hint=FeatureHint.RATING,
-        ),
-        FeatureInfo(
-            column="timestamp",
-            feature_type=FeatureType.NUMERICAL,
-            feature_hint=FeatureHint.TIMESTAMP,
-        ),
-    ]
-)
-
-train_dataset = Dataset(
-    feature_schema=feature_schema,
-    interactions=train,
-)
-test_dataset = Dataset(
-    feature_schema=feature_schema,
-    interactions=test,
-)
-
-# data encoding
-encoder = DatasetLabelEncoder()
-train_dataset = encoder.fit_transform(train_dataset)
-test_dataset = encoder.transform(test_dataset)
-
-# model training
-model = ItemKNN()
-model.fit(train_dataset)
-
-# model inference
-encoded_recs = model.predict(
-    dataset=train_dataset,
-    k=K,
-    queries=test_dataset.query_ids,
-    filter_seen_items=True,
-)
-
-recs = encoder.query_and_item_id_encoder.inverse_transform(encoded_recs)
-
-# model evaluation
-metrics = Experiment(
-    [NDCG(K), HitRate(K)],
-    test,
-    query_column="user_id",
-    item_column="item_id",
-    rating_column="rating",
-)
-metrics.add_result("ItemKNN", recs)
-print(metrics.results)
-```
 
 <a name="examples"></a>
 ## 📑  Resources
@@ -185,7 +189,10 @@ print(metrics.results)
 6. [06_item2item_recommendations.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/06_item2item_recommendations.ipynb) - Item to Item recommendations example.
 7. [07_filters.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/07_filters.ipynb) - An example of using filters.
 8. [08_recommending_for_categories.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/08_recommending_for_categories.ipynb) - An example of recommendation for product categories.
-9. [09_sasrec_example.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/09_sasrec_example.ipynb) - An example of using transformers to generate recommendations.
+9. [09_sasrec_example.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/09_sasrec_example.ipynb) - An example of using transformer-based SASRec model to generate recommendations.
+10. [10_bert4rec_example.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/10_bert4rec_example.ipynb) - An example of using transformer-based BERT4Rec model to generate recommendations.
+11. [11_sasrec_dataframes_comparison.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/11_sasrec_dataframes_comparison.ipynb) - speed comparison of using different frameworks (pandas, polars, pyspark) for data processing during SASRec training.
+12. [12_neural_ts_exp.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/12_neural_ts_exp.ipynb) - An example of using Neural Thompson Sampling bandit model (based on Wide&Deep architecture).
 
 
 ### Videos and papers
@@ -203,3 +210,4 @@ print(metrics.results)
 ## 💡 Contributing to RePlay
 
 We welcome community contributions. For details please check our [contributing guidelines](CONTRIBUTING.md).
+

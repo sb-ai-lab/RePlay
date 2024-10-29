@@ -10,7 +10,7 @@ import pandas as pd
 from numpy.random import default_rng
 
 from .session_handler import State
-from .types import PYSPARK_AVAILABLE, DataFrameLike, MissingImportType, NumType, SparkDataFrame
+from .types import PYSPARK_AVAILABLE, DataFrameLike, MissingImportType, NumType, PolarsDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.types as st
@@ -25,6 +25,12 @@ if PYSPARK_AVAILABLE:
     from pyspark.sql.types import DoubleType, IntegerType, StructField, StructType
 else:
     Column = MissingImportType
+
+
+class PolarsConvertToSparkWarning(Warning):
+    """
+    Direct PolarsDataFrame to SparkDataFrame convertation warning.
+    """
 
 
 class SparkCollectToMasterWarning(Warning):  # pragma: no cover
@@ -69,7 +75,15 @@ def convert2spark(data_frame: Optional[DataFrameLike]) -> Optional[SparkDataFram
         return None
     if isinstance(data_frame, SparkDataFrame):
         return data_frame
+
     spark = State().session
+    if isinstance(data_frame, PolarsDataFrame):
+        warnings.warn(
+            "Direct convertation PolarsDataFrame to SparkDataFrame currently is not supported, "
+            "converting to pandas first",
+            PolarsConvertToSparkWarning,
+        )
+        return spark.createDataFrame(data_frame.to_pandas())  # TODO: remove extra convertation to pandas
     return spark.createDataFrame(data_frame)
 
 
