@@ -1,3 +1,4 @@
+import warnings
 from typing import Tuple
 
 import numpy as np
@@ -194,8 +195,11 @@ class LinUCB(HybridRecommender):
             msg = "Item features are missing for fitting"
             raise ValueError(msg)
 
+        if not dataset.is_pandas:
+            warn_msg = "Dataset will be converted to pandas during internal calculations"
+            warnings.warn(warn_msg)
+            dataset.to_pandas()
         feature_schema = dataset.feature_schema
-        dataset.to_pandas()
         log = dataset.interactions
         user_features = dataset.query_features
         item_features = dataset.item_features
@@ -266,6 +270,8 @@ class LinUCB(HybridRecommender):
                     )
                     self.linucb_arms[i].feature_update(cur_usrs.to_numpy(), rel_list)
 
+        warn_msg = "Dataset will be converted to spark after internal calculations"
+        warnings.warn(warn_msg)
         dataset.to_spark()
 
     def _predict(
