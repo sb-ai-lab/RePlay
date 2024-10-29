@@ -186,11 +186,11 @@ class LinUCB(HybridRecommender):
         if dataset.query_features is None:
             msg = "User features are missing for fitting"
             raise ValueError(msg)
-        feature_schema = dataset.feature_schema
         if dataset.item_features is None:
             msg = "Item features are missing for fitting"
             raise ValueError(msg)
 
+        feature_schema = dataset.feature_schema
         dataset.to_pandas()
         log = dataset.interactions
         user_features = dataset.query_features
@@ -217,13 +217,12 @@ class LinUCB(HybridRecommender):
 
             for i in tqdm(range(self._num_items)):
                 B = log.loc[log[feature_schema.item_id_column] == i]  # noqa: N806
+                idxs_list = B[feature_schema.query_id_column].values
                 rel_list = B[feature_schema.interactions_rating_column].values
                 if not B.empty:
                     # if we have at least one user interacting with the hand i
                     cur_usrs = scs.csr_matrix(
-                        user_features.query(
-                            f"{feature_schema.query_id_column} in @B[feature_schema.query_id_column].values"
-                        )
+                        user_features.query(f"{feature_schema.query_id_column} in @idxs_list")
                         .drop(columns=[feature_schema.query_id_column])
                         .to_numpy()
                     )
@@ -279,23 +278,24 @@ class LinUCB(HybridRecommender):
             if user_features is None:
                 msg = "User features are missing for predict"
                 raise ValueError(msg)
-
             item_features = dataset.item_features.toPandas()
+            if item_features is None:
+                msg = "Item features are missing for predict"
+                raise ValueError(msg)
+
             feature_schema = dataset.feature_schema
             num_user_pred = users.count()  # assuming it is a pyspark dataset
             users = users.toPandas()
             items = items.toPandas()
             usr_idxs_list = users[feature_schema.query_id_column].values
+            itm_idxs_list = items[feature_schema.item_id_column].values  # noqa: F841
 
             usrs_feat = scs.csr_matrix(
-                user_features.query(f"{feature_schema.query_id_column} in @items[feature_schema.item_id_column].values")
+                user_features.query(f"{feature_schema.query_id_column} in @usr_idxs_list")
                 .drop(columns=[feature_schema.query_id_column])
                 .to_numpy()
             )
 
-            if item_features is None:
-                msg = "Item features are missing for predict"
-                raise ValueError(msg)
             itm_feat = scs.csr_matrix(
                 item_features.query(f"{feature_schema.item_id_column} in @itm_idxs_list")
                 .drop(columns=[feature_schema.item_id_column])
