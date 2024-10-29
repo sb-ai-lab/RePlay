@@ -500,9 +500,9 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             "default_value": self._default_value,
         }
 
-        column_type = str(type(list(self._mapping.keys())[0]))
+        column_type = str(type(next(iter(self._mapping.keys()))))
 
-        if not isinstance (column_type, (str, int, float)):
+        if not isinstance(column_type, (str, int, float)):
             msg = f"LabelEncodingRule.save() is not implemented for column type {column_type}. \
 Convert type to string, integer, or float."
             raise NotImplementedError(msg)
@@ -740,7 +740,7 @@ class LabelEncoder:
     def load(cls, path: str) -> "LabelEncoder":
         base_path = Path(path).with_suffix(".replay").resolve()
         with open(base_path / "init_args.json", "r") as file:
-                    encoder_dict = json.loads(file.read())
+            encoder_dict = json.loads(file.read())
         rules = []
         for root, dirs, files in os.walk(str(base_path) + "/rules/"):
             for d in dirs:

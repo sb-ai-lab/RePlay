@@ -6,7 +6,6 @@ from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as F
-    from pyspark.testing import assertDataFrameEqual
 
 
 @pytest.mark.spark
@@ -556,7 +555,9 @@ def test_label_encoder_save_load_inverse_transform_pandas(simple_dataframe_panda
     encoder = LabelEncoder([rule]).fit(simple_dataframe_pandas)
     encoded_data = encoder.transform(simple_dataframe_pandas)
     encoder.save("./")
-    assert simple_dataframe_pandas["user_id"].equals(LabelEncoder.load("./LabelEncoder.replay").inverse_transform(encoded_data)["user_id"])
+    assert simple_dataframe_pandas["user_id"].equals(
+        LabelEncoder.load("./LabelEncoder.replay").inverse_transform(encoded_data)["user_id"]
+    )
 
 
 @pytest.mark.core
@@ -566,7 +567,9 @@ def test_label_encoder_save_load_inverse_transform_polars(simple_dataframe_polar
     encoder = LabelEncoder([rule]).fit(simple_dataframe_polars)
     encoded_data = encoder.transform(simple_dataframe_polars)
     encoder.save("./")
-    assert simple_dataframe_polars["user_id"].equals(LabelEncoder.load("./LabelEncoder.replay").inverse_transform(encoded_data)["user_id"])
+    assert simple_dataframe_polars["user_id"].equals(
+        LabelEncoder.load("./LabelEncoder.replay").inverse_transform(encoded_data)["user_id"]
+    )
 
 
 @pytest.mark.spark
