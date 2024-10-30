@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
@@ -1043,3 +1044,27 @@ def simple_data_to_filter_polars(simple_data_to_filter_pandas):
 def simple_data_to_filter_spark(simple_data_to_filter_pandas, spark):
     df = spark.createDataFrame(simple_data_to_filter_pandas)
     return df
+
+
+@pytest.fixture(scope="module")
+def interactions_100k_pandas():
+    values = np.random.randint([1, 1], [1000, 10000], size=(int(1e5), 2))
+    data = pd.DataFrame(values, columns=["user_id", "item_id"])
+    return data
+
+
+@pytest.fixture(scope="session")
+def interactions_100k_polars():
+    values = np.random.randint([1, 1], [1000, 10000], size=(int(1e5), 2))
+    data = pd.DataFrame(values, columns=["user_id", "item_id"])
+    return pl.from_pandas(data)
+
+
+@pytest.fixture(scope="session")
+@pytest.mark.usefixtures("spark")
+def interactions_100k_spark(spark, request):
+    values = np.random.randint([1, 1], [1000, 10000], size=(int(1e5), 2))
+    schema = StructType().add("user_id", IntegerType(), False).add("item_id", IntegerType(), False)
+
+    data_spark = spark.createDataFrame(values.tolist(), schema=schema)
+    return data_spark
