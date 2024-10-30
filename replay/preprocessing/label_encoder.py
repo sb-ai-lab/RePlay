@@ -502,7 +502,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
         column_type = str(type(next(iter(self._mapping.keys()))))
 
-        if not isinstance(column_type, (str, int, float)):
+        if not isinstance(column_type, (str, int, float)):  # pragma: no cover
             msg = f"LabelEncodingRule.save() is not implemented for column type {column_type}. \
 Convert type to string, integer, or float."
             raise NotImplementedError(msg)
@@ -517,7 +517,7 @@ Convert type to string, integer, or float."
         if os.path.exists(base_path):  # pragma: no cover
             msg = "There is already LabelEncodingRule object saved at the given path. File will be overwrited."
             warnings.warn(msg)
-        else:
+        else:  # pragma: no cover
             base_path.mkdir(parents=True)
 
         with open(base_path / "init_args.json", "w+") as file:
@@ -721,10 +721,10 @@ class LabelEncoder:
         encoder_dict["_class_name"] = self.__class__.__name__
 
         base_path = Path(path + f"/{self.__class__.__name__}").with_suffix(".replay").resolve()
-        if os.path.exists(base_path):
+        if os.path.exists(base_path):  # pragma: no cover
             msg = "There is already LabelEncoder object saved at the given path. File will be overwrited."
             warnings.warn(msg)
-        else:
+        else:  # pragma: no cover
             base_path.mkdir(parents=True)
 
         encoder_dict["rule_names"] = []
