@@ -46,7 +46,6 @@ class Bert4RecModel(torch.nn.Module):
         """
         super().__init__()
 
-        self.schema = schema
         self.max_len = max_len
         self.hidden_size = hidden_size
         self.num_blocks = num_blocks
