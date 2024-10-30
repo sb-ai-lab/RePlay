@@ -6,6 +6,7 @@ from typing import Any, Callable, Union
 
 from polars import from_pandas as pl_from_pandas
 
+from replay.data.dataset import Dataset
 from replay.preprocessing import (
     LabelEncoder,
     LabelEncodingRule,
