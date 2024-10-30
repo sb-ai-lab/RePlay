@@ -57,6 +57,7 @@ class SasRecModel(torch.nn.Module):
         self.padding_idx = item_count
 
         assert schema.item_id_feature_name
+        self.schema = schema
         self.item_feature_name = schema.item_id_feature_name
 
         # Model blocks
