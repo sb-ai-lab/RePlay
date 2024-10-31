@@ -334,13 +334,13 @@ Set 'keep' or 'skip' for processing NaN."
             "is_fitted": self._is_fitted,
         }
 
-        base_path = Path(path + f"/{self.__class__.__name__}_{self._col}").with_suffix(".replay").resolve()
+        base_path = Path(path).with_suffix(".replay").resolve()
 
         if os.path.exists(base_path):  # pragma: no cover
             msg = "There is already DiscretizingRule object saved at the given path. File will be overwrited."
             warnings.warn(msg)
         else:  # pragma: no cover
-            base_path.mkdir(parents=True)
+            base_path.mkdir(parents=True, exist_ok=True)
 
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(discretizer_rule_dict, file)
@@ -561,13 +561,13 @@ Set 'keep' or 'skip' for processing NaN."
             "is_fitted": self._is_fitted,
         }
 
-        base_path = Path(path + f"/{self.__class__.__name__}_{self._col}").with_suffix(".replay").resolve()
+        base_path = Path(path).with_suffix(".replay").resolve()
 
         if os.path.exists(base_path):  # pragma: no cover
             msg = "There is already DiscretizingRule object saved at the given path. File will be overwrited."
             warnings.warn(msg)
         else:  # pragma: no cover
-            base_path.mkdir(parents=True)
+            base_path.mkdir(parents=True, exist_ok=True)
 
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(discretizer_rule_dict, file)
@@ -669,18 +669,19 @@ class Discretizer:
         discretizer_dict = {}
         discretizer_dict["_class_name"] = self.__class__.__name__
 
-        base_path = Path(path + f"/{self.__class__.__name__}").with_suffix(".replay").resolve()
+        base_path = Path(path).with_suffix(".replay").resolve()
         if os.path.exists(base_path):  # pragma: no cover
             msg = "There is already LabelEncoder object saved at the given path. File will be overwrited."
             warnings.warn(msg)
         else:  # pragma: no cover
-            base_path.mkdir(parents=True)
+            base_path.mkdir(parents=True, exist_ok=True)
 
         discretizer_dict["rule_names"] = []
 
         for rule in self.rules:
-            rule.save(str(base_path) + "/rules")
-            discretizer_dict["rule_names"].append(f"{rule.__class__.__name__}_{rule.column}")
+            path_suffix = f"{rule.__class__.__name__}_{rule.column}"
+            rule.save(str(base_path) + f"/rules/{path_suffix}")
+            discretizer_dict["rule_names"].append(path_suffix)
 
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(discretizer_dict, file)
@@ -698,6 +699,5 @@ class Discretizer:
                         discretizer_rule_dict = json.loads(file.read())
                     rules.append(globals()[discretizer_rule_dict["_class_name"]].load(root + d))
 
-        discretizer = cls(rules=[])
-        discretizer.rules = rules
+        discretizer = cls(rules=rules)
         return discretizer

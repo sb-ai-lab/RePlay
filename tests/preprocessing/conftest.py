@@ -1053,18 +1053,31 @@ def interactions_100k_pandas():
     return data
 
 
-@pytest.fixture(scope="session")
-def interactions_100k_polars():
-    values = np.random.randint([1, 1], [1000, 10000], size=(int(1e5), 2))
-    data = pd.DataFrame(values, columns=["user_id", "item_id"])
-    return pl.from_pandas(data)
+@pytest.fixture(scope="module")
+def interactions_100k_polars(interactions_100k_pandas):
+    return pl.from_pandas(interactions_100k_pandas)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 @pytest.mark.usefixtures("spark")
-def interactions_100k_spark(spark, request):
-    values = np.random.randint([1, 1], [1000, 10000], size=(int(1e5), 2))
-    schema = StructType().add("user_id", IntegerType(), False).add("item_id", IntegerType(), False)
+def interactions_100k_spark(spark, interactions_100k_pandas):
+    return spark.createDataFrame(interactions_100k_pandas.values.tolist(), schema=["user_id", "item_id"])
 
-    data_spark = spark.createDataFrame(values.tolist(), schema=schema)
-    return data_spark
+
+@pytest.fixture(scope="module")
+def interactions_100k_pandas_with_nan(interactions_100k_pandas):
+    interactions_100k_pandas_with_nan = interactions_100k_pandas.copy()
+    nan_index = np.random.choice(interactions_100k_pandas_with_nan.index, size=200, replace=False)
+    interactions_100k_pandas_with_nan.loc[nan_index, ["user_id", "item_id"]] = np.nan
+    return interactions_100k_pandas_with_nan
+
+
+@pytest.fixture(scope="module")
+def interactions_100k_polars_with_nan(interactions_100k_pandas_with_nan):
+    return pl.from_pandas(interactions_100k_pandas_with_nan)
+
+
+@pytest.fixture(scope="module")
+@pytest.mark.usefixtures("spark")
+def interactions_100k_spark_with_nan(spark, interactions_100k_pandas_with_nan):
+    return spark.createDataFrame(interactions_100k_pandas_with_nan.values.tolist(), schema=["user_id", "item_id"])
