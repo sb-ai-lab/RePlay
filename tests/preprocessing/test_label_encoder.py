@@ -518,32 +518,10 @@ def test_label_encoder_drop_strategy_empty_dataset(request, df_for_labelencoder,
 
 @pytest.mark.core
 @pytest.mark.usefixtures("simple_dataframe_pandas")
-def test_label_encoder_save_load_int_column(simple_dataframe_pandas, tmp_path):
+@pytest.mark.parametrize("col_type", ["string", "float", "int"])
+def test_label_encoder_save_load(simple_dataframe_pandas, col_type, tmp_path):
     path = (tmp_path / "encoder").resolve()
-    rule = LabelEncodingRule("user_id", default_value="last")
-    encoder = LabelEncoder([rule]).fit(simple_dataframe_pandas)
-    mapping = encoder.mapping
-    encoder.save(path)
-    assert mapping == LabelEncoder.load(path).mapping
-
-
-@pytest.mark.core
-@pytest.mark.usefixtures("simple_dataframe_pandas")
-def test_label_encoder_save_load_string_column(simple_dataframe_pandas, tmp_path):
-    path = (tmp_path / "encoder").resolve()
-    simple_dataframe_pandas["user_id"] = simple_dataframe_pandas["user_id"].astype("string")
-    rule = LabelEncodingRule("user_id", default_value="last")
-    encoder = LabelEncoder([rule]).fit(simple_dataframe_pandas)
-    mapping = encoder.mapping
-    encoder.save(path)
-    assert mapping == LabelEncoder.load(path).mapping
-
-
-@pytest.mark.core
-@pytest.mark.usefixtures("simple_dataframe_pandas")
-def test_label_encoder_save_load_float_column(simple_dataframe_pandas, tmp_path):
-    path = (tmp_path / "encoder").resolve()
-    simple_dataframe_pandas["user_id"] = simple_dataframe_pandas["user_id"].astype("float")
+    simple_dataframe_pandas["user_id"] = simple_dataframe_pandas["user_id"].astype(col_type)
     rule = LabelEncodingRule("user_id", default_value="last")
     encoder = LabelEncoder([rule]).fit(simple_dataframe_pandas)
     mapping = encoder.mapping
@@ -554,6 +532,7 @@ def test_label_encoder_save_load_float_column(simple_dataframe_pandas, tmp_path)
 @pytest.mark.core
 @pytest.mark.usefixtures("simple_dataframe_pandas")
 def test_label_encoder_save_load_inverse_transform_pandas(simple_dataframe_pandas, tmp_path):
+
     path = (tmp_path / "encoder").resolve()
     rule = LabelEncodingRule("user_id", default_value="last")
     encoder = LabelEncoder([rule]).fit(simple_dataframe_pandas)

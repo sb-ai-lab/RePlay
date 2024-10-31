@@ -538,7 +538,7 @@ Convert type to string, integer, or float."
             column_type = float
 
         encoder_rule_dict["init_args"]["mapping"] = {
-            column_type(key): value for key, value in encoder_rule_dict["init_args"]["mapping"].items()
+            column_type(key): int(value) for key, value in encoder_rule_dict["init_args"]["mapping"].items()
         }
 
         encoding_rule = cls(**encoder_rule_dict["init_args"])
