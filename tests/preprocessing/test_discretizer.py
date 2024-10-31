@@ -16,7 +16,6 @@ def test_descretizer_is_not_fitted(column, discretizing_rule, interactions_100k_
 
 @pytest.mark.core
 @pytest.mark.parametrize("column", ["item_id"])
-@pytest.mark.usefixtures("interactions_100k_pandas")
 @pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
 def test_descretizer_partial_fit(column, discretizing_rule, interactions_100k_pandas):
     rule = discretizing_rule(column, n_bins=20)
@@ -28,7 +27,6 @@ def test_descretizer_partial_fit(column, discretizing_rule, interactions_100k_pa
 
 @pytest.mark.core
 @pytest.mark.parametrize("column", ["item_id"])
-@pytest.mark.usefixtures("interactions_100k_pandas")
 @pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
 def test_descretizer_repeated_fit(column, discretizing_rule, interactions_100k_pandas):
     rule = discretizing_rule(column, n_bins=20)
@@ -39,7 +37,6 @@ def test_descretizer_repeated_fit(column, discretizing_rule, interactions_100k_p
 
 @pytest.mark.core
 @pytest.mark.parametrize("column", ["item_id"])
-@pytest.mark.usefixtures("interactions_100k_pandas")
 @pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
 def test_set_wrong_handle_invalid(column, discretizing_rule):
     with pytest.raises(ValueError):
@@ -83,7 +80,6 @@ def test_change_wrong_column_in_handle_invalid_discretizer(column, column2):
 
 @pytest.mark.core
 @pytest.mark.parametrize("column", ["item_id"])
-@pytest.mark.usefixtures("interactions_100k_pandas")
 @pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
 def test_wrong_dataframe_type(column, discretizing_rule, interactions_100k_pandas):
     rule = discretizing_rule(column, n_bins=20, handle_invalid="error")
@@ -148,7 +144,6 @@ def test_greedy_spark_without_nan_error(column, discretizing_rule, interactions_
 
 @pytest.mark.core
 @pytest.mark.parametrize("column", ["item_id"])
-@pytest.mark.usefixtures("interactions_100k_pandas")
 def test_greedy_few_rows(column, interactions_100k_pandas):
     n_bins = 20
     n_rows = 5
