@@ -518,69 +518,71 @@ def test_label_encoder_drop_strategy_empty_dataset(request, df_for_labelencoder,
 
 @pytest.mark.core
 @pytest.mark.usefixtures("simple_dataframe_pandas")
-def test_label_encoder_save_load_int_column(simple_dataframe_pandas):
+def test_label_encoder_save_load_int_column(simple_dataframe_pandas, tmp_path):
+    path = (tmp_path / "encoder").resolve()
     rule = LabelEncodingRule("user_id", default_value="last")
     encoder = LabelEncoder([rule]).fit(simple_dataframe_pandas)
     mapping = encoder.mapping
-    encoder.save("./")
-    assert mapping == LabelEncoder.load("./LabelEncoder.replay").mapping
+    encoder.save(path)
+    assert mapping == LabelEncoder.load(path).mapping
 
 
 @pytest.mark.core
 @pytest.mark.usefixtures("simple_dataframe_pandas")
-def test_label_encoder_save_load_string_column(simple_dataframe_pandas):
+def test_label_encoder_save_load_string_column(simple_dataframe_pandas, tmp_path):
+    path = (tmp_path / "encoder").resolve()
     simple_dataframe_pandas["user_id"] = simple_dataframe_pandas["user_id"].astype("string")
     rule = LabelEncodingRule("user_id", default_value="last")
     encoder = LabelEncoder([rule]).fit(simple_dataframe_pandas)
     mapping = encoder.mapping
-    encoder.save("./")
-    assert mapping == LabelEncoder.load("./LabelEncoder.replay").mapping
+    encoder.save(path)
+    assert mapping == LabelEncoder.load(path).mapping
 
 
 @pytest.mark.core
 @pytest.mark.usefixtures("simple_dataframe_pandas")
-def test_label_encoder_save_load_float_column(simple_dataframe_pandas):
+def test_label_encoder_save_load_float_column(simple_dataframe_pandas, tmp_path):
+    path = (tmp_path / "encoder").resolve()
     simple_dataframe_pandas["user_id"] = simple_dataframe_pandas["user_id"].astype("float")
     rule = LabelEncodingRule("user_id", default_value="last")
     encoder = LabelEncoder([rule]).fit(simple_dataframe_pandas)
     mapping = encoder.mapping
-    encoder.save("./")
-    assert mapping == LabelEncoder.load("./LabelEncoder.replay").mapping
+    encoder.save(path)
+    assert mapping == LabelEncoder.load(path).mapping
 
 
 @pytest.mark.core
 @pytest.mark.usefixtures("simple_dataframe_pandas")
-def test_label_encoder_save_load_inverse_transform_pandas(simple_dataframe_pandas):
+def test_label_encoder_save_load_inverse_transform_pandas(simple_dataframe_pandas, tmp_path):
+    path = (tmp_path / "encoder").resolve()
     rule = LabelEncodingRule("user_id", default_value="last")
     encoder = LabelEncoder([rule]).fit(simple_dataframe_pandas)
     encoded_data = encoder.transform(simple_dataframe_pandas)
-    encoder.save("./")
-    assert simple_dataframe_pandas["user_id"].equals(
-        LabelEncoder.load("./LabelEncoder.replay").inverse_transform(encoded_data)["user_id"]
-    )
+    encoder.save(path)
+    assert simple_dataframe_pandas["user_id"].equals(LabelEncoder.load(path).inverse_transform(encoded_data)["user_id"])
 
 
 @pytest.mark.core
 @pytest.mark.usefixtures("simple_dataframe_polars")
-def test_label_encoder_save_load_inverse_transform_polars(simple_dataframe_polars):
+def test_label_encoder_save_load_inverse_transform_polars(simple_dataframe_polars, tmp_path):
+    path = (tmp_path / "encoder").resolve()
     rule = LabelEncodingRule("user_id", default_value="last")
     encoder = LabelEncoder([rule]).fit(simple_dataframe_polars)
     encoded_data = encoder.transform(simple_dataframe_polars)
-    encoder.save("./")
-    assert simple_dataframe_polars["user_id"].equals(
-        LabelEncoder.load("./LabelEncoder.replay").inverse_transform(encoded_data)["user_id"]
-    )
+    encoder.save(path)
+    assert simple_dataframe_polars["user_id"].equals(LabelEncoder.load(path).inverse_transform(encoded_data)["user_id"])
 
 
 @pytest.mark.spark
 @pytest.mark.usefixtures("simple_dataframe")
 @pytest.mark.parametrize("column", ["user_id"])
-def test_label_encoder_save_load_inverse_transform_spark(column, simple_dataframe):
+def test_label_encoder_save_load_inverse_transform_spark(column, simple_dataframe, tmp_path):
+    path = (tmp_path / "encoder").resolve()
     rule = LabelEncodingRule(column)
     encoder = LabelEncoder([rule]).fit(simple_dataframe)
-    encoder.save("./")
+    encoder.save(path)
     encoded_data = encoder.transform(simple_dataframe)
-    rebuild_original_cols = LabelEncoder.load("./LabelEncoder.replay").inverse_transform(encoded_data)
+    rebuild_original_cols = LabelEncoder.load(path).inverse_transform(encoded_data)
     columns_order = ["user_id", "item_id", "timestamp"]
     df1 = simple_dataframe.orderBy(*columns_order).toPandas()[columns_order]
     df2 = rebuild_original_cols.orderBy(*columns_order).toPandas()[columns_order]

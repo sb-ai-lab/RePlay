@@ -50,19 +50,10 @@ if TORCH_AVAILABLE:
     from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset, SequenceTokenizer
 
     SavableObject = Union[
-        ColdUserRandomSplitter,
-        KFolds,
-        LastNSplitter,
-        NewUsersSplitter,
-        RandomSplitter,
-        RatioSplitter,
-        TimeSplitter,
-        TwoStageSplitter,
+        SavableObject,
         SequenceTokenizer,
         PandasSequentialDataset,
         PolarsSequentialDataset,
-        LabelEncoder,
-        LabelEncodingRule,
     ]
 
 
