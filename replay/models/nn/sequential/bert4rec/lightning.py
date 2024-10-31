@@ -504,6 +504,23 @@ class Bert4Rec(lightning.LightningModule):
 
         self._set_new_item_embedder_to_model(weights_new, new_vocab_size)
 
+    def get_optimizer_factory(self) -> OptimizerFactory:
+        """
+        Returns current optimizer_factory.
+        """
+        return self._optimizer_factory
+
+    def set_optimizer_factory(self, optimizer_factory: OptimizerFactory) -> None:
+        """
+        Sets new optimizer_factory.
+        :param optimizer_factory: New optimizer factory.
+        """
+        if isinstance(optimizer_factory, OptimizerFactory):
+            self._optimizer_factory = optimizer_factory
+        else:
+            msg = f"Expected optimizer_factory of type OptimizerFactory, got {type(optimizer_factory)}"
+            raise ValueError(msg)
+
     def _set_new_item_embedder_to_model(self, weights_new: torch.nn.Embedding, new_vocab_size: int):
         self._model.item_embedder.cat_embeddings[self._model.schema.item_id_feature_name] = weights_new
         if self._model.enable_embedding_tying is True:

@@ -325,3 +325,27 @@ def test_predict_step_with_big_seq_len(item_user_sequential_dataset, simple_mask
     batch = Bert4RecPredictionBatch(torch.arange(0, 4), padding_mask, {"item_id": item_sequences}, tokens_mask)
     with pytest.raises(ValueError):
         model.predict_step(batch, 0)
+
+
+@pytest.mark.torch
+def test_bert4rec_get_set_optim_factory(item_user_sequential_dataset):
+    optim_factory = FatOptimizerFactory()
+    model = Bert4Rec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        optimizer_factory=optim_factory,
+    )
+
+    assert model.get_optimizer_factory() is optim_factory
+    new_factory = FatOptimizerFactory(learning_rate=0.1)
+    model.set_optimizer_factory(new_factory)
+    assert model.get_optimizer_factory() is new_factory
+
+
+@pytest.mark.torch
+def test_bert4rec_set_invalid_optim_factory(item_user_sequential_dataset):
+    model = Bert4Rec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+    )
+    new_factory = "Let's say it's an optimizer_factory"
+    with pytest.raises(ValueError):
+        model.set_optimizer_factory(new_factory)
