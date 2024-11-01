@@ -317,7 +317,6 @@ def test_polars_nan_skip(column, discretizing_rule, interactions_100k_polars_wit
     assert all(vc.values > 0.9 * interactions_100k_polars_with_nan.shape[0] / (n_bins))
 
 
-@pytest.mark.core
 @pytest.mark.parametrize("column", ["item_id"])
 @pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
 @pytest.mark.parametrize(
@@ -384,7 +383,6 @@ def test_polars_fit_transform(column, discretizing_rule, interactions_100k_polar
     assert all(vc.values > 0.9 * interactions_100k_polars.shape[0] / (n_bins))
 
 
-@pytest.mark.core
 @pytest.mark.parametrize("column", ["item_id"])
 @pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
 @pytest.mark.parametrize(
