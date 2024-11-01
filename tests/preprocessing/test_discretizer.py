@@ -322,7 +322,11 @@ def test_polars_nan_skip(column, discretizing_rule, interactions_100k_polars_wit
 @pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
 @pytest.mark.parametrize(
     "dataset",
-    ["interactions_100k_polars_with_nan", "interactions_100k_pandas_with_nan", "interactions_100k_spark_with_nan"],
+    [
+        pytest.param("interactions_100k_polars_with_nan", marks=pytest.mark.core),
+        pytest.param("interactions_100k_pandas_with_nan", marks=pytest.mark.core),
+        pytest.param("interactions_100k_spark_with_nan", marks=pytest.mark.spark),
+    ],
 )
 def test_nan_error(column, discretizing_rule, dataset, request):
     n_bins = 20
@@ -383,7 +387,14 @@ def test_polars_fit_transform(column, discretizing_rule, interactions_100k_polar
 @pytest.mark.core
 @pytest.mark.parametrize("column", ["item_id"])
 @pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
-@pytest.mark.parametrize("dataset", ["interactions_100k_polars", "interactions_100k_pandas", "interactions_100k_spark"])
+@pytest.mark.parametrize(
+    "dataset",
+    [
+        pytest.param("interactions_100k_polars", marks=pytest.mark.core),
+        pytest.param("interactions_100k_pandas", marks=pytest.mark.core),
+        pytest.param("interactions_100k_spark", marks=pytest.mark.spark),
+    ],
+)
 def test_discretizer_save_load(column, discretizing_rule, dataset, tmp_path, request):
     path = (tmp_path / "discretizer").resolve()
     n_bins = 20
