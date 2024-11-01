@@ -1061,7 +1061,7 @@ def interactions_100k_polars(interactions_100k_pandas):
 @pytest.fixture(scope="module")
 @pytest.mark.usefixtures("spark")
 def interactions_100k_spark(spark, interactions_100k_pandas):
-    return spark.createDataFrame(interactions_100k_pandas.values.tolist(), schema=["user_id", "item_id"])
+    return spark.createDataFrame(interactions_100k_pandas)
 
 
 @pytest.fixture(scope="module")

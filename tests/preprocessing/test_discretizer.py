@@ -91,9 +91,10 @@ def test_wrong_dataframe_type(column, discretizing_rule, interactions_100k_panda
 @pytest.mark.spark
 @pytest.mark.parametrize("column", ["item_id"])
 @pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
-def test_spark_without_nan_default(column, discretizing_rule, interactions_100k_spark):
+@pytest.mark.parametrize("handle_invalid", ["keep", "skip", "error"])
+def test_spark_without_nan(column, discretizing_rule, handle_invalid, interactions_100k_spark):
     n_bins = 20
-    rule = discretizing_rule(column, n_bins=n_bins)
+    rule = discretizing_rule(column, n_bins=n_bins, handle_invalid=handle_invalid)
     discretizer = Discretizer([rule]).fit(interactions_100k_spark)
     bucketed_data = discretizer.transform(interactions_100k_spark).toPandas()
     vc = bucketed_data[column].value_counts()
@@ -104,42 +105,6 @@ def test_spark_without_nan_default(column, discretizing_rule, interactions_100k_
     assert vc.values.sum() == n_rows
     assert len(bucketed_data.columns) == len(interactions_100k_spark.columns)
     assert all(vc.values > 0.9 * n_rows / (rule.n_bins))
-
-
-@pytest.mark.spark
-@pytest.mark.parametrize("column", ["item_id"])
-@pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
-def test_spark_without_nan_skip(column, discretizing_rule, interactions_100k_spark):
-    n_bins = 20
-    rule = discretizing_rule(column, n_bins=n_bins, handle_invalid="skip")
-    discretizer = Discretizer([rule]).fit(interactions_100k_spark)
-    bucketed_data = discretizer.transform(interactions_100k_spark).toPandas()
-    vc = bucketed_data[column].value_counts()
-    n_rows = interactions_100k_spark.count()
-    assert len(vc) == n_bins
-    assert vc.index.min() == 0
-    assert vc.index.max() == n_bins - 1
-    assert vc.values.sum() == n_rows
-    assert len(bucketed_data.columns) == len(interactions_100k_spark.columns)
-    assert all(vc.values > 0.9 * n_rows / (n_bins))
-
-
-@pytest.mark.spark
-@pytest.mark.parametrize("column", ["item_id"])
-@pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
-def test_greedy_spark_without_nan_error(column, discretizing_rule, interactions_100k_spark):
-    n_bins = 20
-    rule = discretizing_rule(column, n_bins=n_bins, handle_invalid="error")
-    discretizer = Discretizer([rule]).fit(interactions_100k_spark)
-    bucketed_data = discretizer.transform(interactions_100k_spark).toPandas()
-    vc = bucketed_data[column].value_counts()
-    n_rows = interactions_100k_spark.count()
-    assert len(vc) == n_bins
-    assert vc.index.min() == 0
-    assert vc.index.max() == n_bins - 1
-    assert vc.values.sum() == n_rows
-    assert len(bucketed_data.columns) == len(interactions_100k_spark.columns)
-    assert all(vc.values > 0.9 * n_rows / (n_bins))
 
 
 @pytest.mark.core
@@ -212,9 +177,10 @@ def test_greedy_lots_of_repetitions_3(column):
 @pytest.mark.core
 @pytest.mark.parametrize("column", ["item_id"])
 @pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
-def test_pandas_without_nan_default(column, discretizing_rule, interactions_100k_pandas):
+@pytest.mark.parametrize("handle_invalid", ["keep", "skip", "error"])
+def test_pandas_without_nan(column, discretizing_rule, handle_invalid, interactions_100k_pandas):
     n_bins = 20
-    rule = discretizing_rule(column, n_bins=n_bins)
+    rule = discretizing_rule(column, n_bins=n_bins, handle_invalid=handle_invalid)
     discretizer = Discretizer([rule]).fit(interactions_100k_pandas)
     bucketed_data = discretizer.transform(interactions_100k_pandas)
     vc = bucketed_data[column].value_counts()
@@ -229,43 +195,10 @@ def test_pandas_without_nan_default(column, discretizing_rule, interactions_100k
 @pytest.mark.core
 @pytest.mark.parametrize("column", ["item_id"])
 @pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
-def test_pandas_without_nan_skip(column, discretizing_rule, interactions_100k_pandas):
+@pytest.mark.parametrize("handle_invalid", ["keep", "skip", "error"])
+def test_polars_without_nan(column, discretizing_rule, handle_invalid, interactions_100k_polars):
     n_bins = 20
-    rule = discretizing_rule(column, n_bins=n_bins, handle_invalid="skip")
-    discretizer = Discretizer([rule]).fit(interactions_100k_pandas)
-    bucketed_data = discretizer.transform(interactions_100k_pandas)
-    vc = bucketed_data[column].value_counts()
-    assert len(vc) == n_bins
-    assert vc.index.min() == 0
-    assert vc.index.max() == n_bins - 1
-    assert vc.values.sum() == interactions_100k_pandas.shape[0]
-    assert len(bucketed_data.columns) == len(interactions_100k_pandas.columns)
-    assert all(vc.values > 0.9 * interactions_100k_pandas.shape[0] / (n_bins))
-
-
-@pytest.mark.core
-@pytest.mark.parametrize("column", ["item_id"])
-@pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
-def test_pandas_without_nan_error(column, discretizing_rule, interactions_100k_pandas):
-    n_bins = 20
-    rule = discretizing_rule(column, n_bins=n_bins, handle_invalid="error")
-    discretizer = Discretizer([rule]).fit(interactions_100k_pandas)
-    bucketed_data = discretizer.transform(interactions_100k_pandas)
-    vc = bucketed_data[column].value_counts()
-    assert len(vc) == n_bins
-    assert vc.index.min() == 0
-    assert vc.index.max() == n_bins - 1
-    assert vc.values.sum() == interactions_100k_pandas.shape[0]
-    assert len(bucketed_data.columns) == len(interactions_100k_pandas.columns)
-    assert all(vc.values > 0.9 * interactions_100k_pandas.shape[0] / n_bins)
-
-
-@pytest.mark.core
-@pytest.mark.parametrize("column", ["item_id"])
-@pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
-def test_polars_without_nan_default(column, discretizing_rule, interactions_100k_polars):
-    n_bins = 20
-    rule = discretizing_rule(column, n_bins=n_bins)
+    rule = discretizing_rule(column, n_bins=n_bins, handle_invalid=handle_invalid)
     discretizer = Discretizer([rule]).fit(interactions_100k_polars)
     bucketed_data = discretizer.transform(interactions_100k_polars).to_pandas()
     vc = bucketed_data[column].value_counts()
@@ -275,40 +208,6 @@ def test_polars_without_nan_default(column, discretizing_rule, interactions_100k
     assert vc.values.sum() == interactions_100k_polars.shape[0]
     assert len(bucketed_data.columns) == len(interactions_100k_polars.columns)
     assert all(vc.values > 0.9 * interactions_100k_polars.shape[0] / (n_bins))
-
-
-@pytest.mark.core
-@pytest.mark.parametrize("column", ["item_id"])
-@pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
-def test_polars_without_nan_skip(column, discretizing_rule, interactions_100k_polars):
-    n_bins = 20
-    rule = discretizing_rule(column, n_bins=n_bins, handle_invalid="skip")
-    discretizer = Discretizer([rule]).fit(interactions_100k_polars)
-    bucketed_data = discretizer.transform(interactions_100k_polars).to_pandas()
-    vc = bucketed_data[column].value_counts()
-    assert len(vc) == n_bins
-    assert vc.index.min() == 0
-    assert vc.index.max() == n_bins - 1
-    assert vc.values.sum() == interactions_100k_polars.shape[0]
-    assert len(bucketed_data.columns) == len(interactions_100k_polars.columns)
-    assert all(vc.values > 0.9 * interactions_100k_polars.shape[0] / (n_bins))
-
-
-@pytest.mark.core
-@pytest.mark.parametrize("column", ["item_id"])
-@pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
-def test_polars_without_nan_error(column, discretizing_rule, interactions_100k_polars):
-    n_bins = 20
-    rule = discretizing_rule(column, n_bins=n_bins, handle_invalid="error")
-    discretizer = Discretizer([rule]).fit(interactions_100k_polars)
-    bucketed_data = discretizer.transform(interactions_100k_polars).to_pandas()
-    vc = bucketed_data[column].value_counts()
-    assert len(vc) == n_bins
-    assert vc.index.min() == 0
-    assert vc.index.max() == n_bins - 1
-    assert vc.values.sum() == interactions_100k_polars.shape[0]
-    assert len(bucketed_data.columns) == len(interactions_100k_polars.columns)
-    assert all(vc.values > 0.9 * interactions_100k_polars.shape[0] / n_bins)
 
 
 @pytest.mark.spark
@@ -346,16 +245,6 @@ def test_spark_nan_skip(column, discretizing_rule, interactions_100k_spark_with_
     assert vc.values.sum() == n_rows - 200
     assert len(bucketed_data.columns) == len(interactions_100k_spark_with_nan.columns)
     assert all(vc.values > 0.9 * n_rows / (n_bins))
-
-
-@pytest.mark.spark
-@pytest.mark.parametrize("column", ["item_id"])
-@pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
-def test_spark_nan_error(column, discretizing_rule, interactions_100k_spark_with_nan, spark):
-    n_bins = 20
-    rule = discretizing_rule(column, n_bins=n_bins, handle_invalid="error")
-    with pytest.raises(ValueError):
-        Discretizer([rule]).fit(interactions_100k_spark_with_nan)
 
 
 @pytest.mark.core
@@ -396,16 +285,6 @@ def test_pandas_nan_skip(column, discretizing_rule, interactions_100k_pandas_wit
 @pytest.mark.core
 @pytest.mark.parametrize("column", ["item_id"])
 @pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
-def test_pandas_nan_error(column, discretizing_rule, interactions_100k_pandas_with_nan):
-    n_bins = 20
-    rule = discretizing_rule(column, n_bins=n_bins, handle_invalid="error")
-    with pytest.raises(ValueError):
-        Discretizer([rule]).fit(interactions_100k_pandas_with_nan)
-
-
-@pytest.mark.core
-@pytest.mark.parametrize("column", ["item_id"])
-@pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
 def test_polars_nan_default(column, discretizing_rule, interactions_100k_polars_with_nan):
     n_bins = 20
     rule = discretizing_rule(column, n_bins=n_bins)
@@ -441,14 +320,17 @@ def test_polars_nan_skip(column, discretizing_rule, interactions_100k_polars_wit
 @pytest.mark.core
 @pytest.mark.parametrize("column", ["item_id"])
 @pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
-def test_polars_nan_error(column, discretizing_rule, interactions_100k_polars_with_nan):
+@pytest.mark.parametrize(
+    "dataset",
+    ["interactions_100k_polars_with_nan", "interactions_100k_pandas_with_nan", "interactions_100k_spark_with_nan"],
+)
+def test_nan_error(column, discretizing_rule, dataset, request):
     n_bins = 20
     rule = discretizing_rule(column, n_bins=n_bins, handle_invalid="error")
     with pytest.raises(ValueError):
-        Discretizer([rule]).fit(interactions_100k_polars_with_nan)
+        Discretizer([rule]).fit(request.getfixturevalue(dataset))
 
 
-# Test fit_transform
 @pytest.mark.spark
 @pytest.mark.parametrize("column", ["item_id"])
 @pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
@@ -501,37 +383,12 @@ def test_polars_fit_transform(column, discretizing_rule, interactions_100k_polar
 @pytest.mark.core
 @pytest.mark.parametrize("column", ["item_id"])
 @pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
-def test_discretizer_save_load_polars(column, discretizing_rule, interactions_100k_polars, tmp_path):
+@pytest.mark.parametrize("dataset", ["interactions_100k_polars", "interactions_100k_pandas", "interactions_100k_spark"])
+def test_discretizer_save_load(column, discretizing_rule, dataset, tmp_path, request):
     path = (tmp_path / "discretizer").resolve()
     n_bins = 20
     rule = discretizing_rule(column, n_bins=n_bins)
-    d = Discretizer([rule]).fit(interactions_100k_polars)
-    d.save(path)
-    assert rule._bins == Discretizer.load(path).rules[0]._bins
-    assert rule._handle_invalid == Discretizer.load(path).rules[0]._handle_invalid
-
-
-@pytest.mark.core
-@pytest.mark.parametrize("column", ["item_id"])
-@pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
-def test_discretizer_save_load_pandas(column, discretizing_rule, interactions_100k_pandas, tmp_path):
-    path = (tmp_path / "discretizer").resolve()
-    n_bins = 20
-    rule = discretizing_rule(column, n_bins=n_bins)
-    d = Discretizer([rule]).fit(interactions_100k_pandas)
-    d.save(path)
-    assert rule._bins == Discretizer.load(path).rules[0]._bins
-    assert rule._handle_invalid == Discretizer.load(path).rules[0]._handle_invalid
-
-
-@pytest.mark.spark
-@pytest.mark.parametrize("column", ["item_id"])
-@pytest.mark.parametrize("discretizing_rule", [GreedyDiscretizingRule, QuantileDiscretizingRule])
-def test_discretizer_save_load_spark(column, discretizing_rule, interactions_100k_spark, tmp_path):
-    path = (tmp_path / "discretizer").resolve()
-    n_bins = 20
-    rule = discretizing_rule(column, n_bins=n_bins)
-    d = Discretizer([rule]).fit(interactions_100k_spark)
+    d = Discretizer([rule]).fit(request.getfixturevalue(dataset))
     d.save(path)
     assert rule._bins == Discretizer.load(path).rules[0]._bins
     assert rule._handle_invalid == Discretizer.load(path).rules[0]._handle_invalid
