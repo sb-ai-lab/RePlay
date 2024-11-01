@@ -84,13 +84,21 @@ def test_prediction_sasrec(item_user_sequential_dataset, train_sasrec_loader):
     ],
 )
 def test_sasrec_configure_optimizers(item_user_sequential_dataset, optimizer_factory, lr_scheduler_factory):
-    model = SasRec(
-        tensor_schema=item_user_sequential_dataset._tensor_schema,
-        max_seq_len=5,
-        hidden_size=64,
-        lr_scheduler_factory=lr_scheduler_factory,
-        optimizer_factory=optimizer_factory,
-    )
+    if optimizer_factory:
+        model = SasRec(
+            tensor_schema=item_user_sequential_dataset._tensor_schema,
+            max_seq_len=5,
+            hidden_size=64,
+            lr_scheduler_factory=lr_scheduler_factory,
+            optimizer_factory=optimizer_factory,
+        )
+    else:
+        model = SasRec(
+            tensor_schema=item_user_sequential_dataset._tensor_schema,
+            max_seq_len=5,
+            hidden_size=64,
+            lr_scheduler_factory=lr_scheduler_factory,
+        )
 
     parameters = model.configure_optimizers()
     if isinstance(parameters, tuple):
@@ -316,10 +324,10 @@ def test_sasrec_get_set_optim_factory(item_user_sequential_dataset):
         optimizer_factory=optim_factory,
     )
 
-    assert model.get_optimizer_factory() is optim_factory
+    assert model.optimizer_factory is optim_factory
     new_factory = FatOptimizerFactory(learning_rate=0.1)
-    model.set_optimizer_factory(new_factory)
-    assert model.get_optimizer_factory() is new_factory
+    model.optimizer_factory = new_factory
+    assert model.optimizer_factory is new_factory
 
 
 @pytest.mark.torch
@@ -329,4 +337,4 @@ def test_sasrec_set_invalid_optim_factory(item_user_sequential_dataset):
     )
     new_factory = "Let's say it's an optimizer_factory"
     with pytest.raises(ValueError):
-        model.set_optimizer_factory(new_factory)
+        model.optimizer_factory = new_factory

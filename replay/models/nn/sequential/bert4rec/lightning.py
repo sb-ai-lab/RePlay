@@ -31,7 +31,7 @@ class Bert4Rec(lightning.LightningModule):
         loss_sample_count: Optional[int] = None,
         negative_sampling_strategy: str = "global_uniform",
         negatives_sharing: bool = False,
-        optimizer_factory: Optional[OptimizerFactory] = None,
+        optimizer_factory: OptimizerFactory = FatOptimizerFactory(),
         lr_scheduler_factory: Optional[LRSchedulerFactory] = None,
     ):
         """
@@ -65,7 +65,7 @@ class Bert4Rec(lightning.LightningModule):
         :param negatives_sharing: Apply negative sharing in calculating sampled logits.
             Default: ``False``.
         :param optimizer_factory: Optimizer factory.
-            Default: ``None``.
+            Default: ``FatOptimizerFactory``.
         :param lr_scheduler_factory: Learning rate schedule factory.
             Default: ``None``.
         """
@@ -150,8 +150,7 @@ class Bert4Rec(lightning.LightningModule):
         """
         :returns: Configured optimizer and lr scheduler.
         """
-        optimizer_factory = self._optimizer_factory or FatOptimizerFactory()
-        optimizer = optimizer_factory.create(self._model.parameters())
+        optimizer = self._optimizer_factory.create(self._model.parameters())
 
         if self._lr_scheduler_factory is None:
             return optimizer
@@ -504,13 +503,15 @@ class Bert4Rec(lightning.LightningModule):
 
         self._set_new_item_embedder_to_model(weights_new, new_vocab_size)
 
-    def get_optimizer_factory(self) -> OptimizerFactory:
+    @property
+    def optimizer_factory(self) -> OptimizerFactory:
         """
         Returns current optimizer_factory.
         """
         return self._optimizer_factory
 
-    def set_optimizer_factory(self, optimizer_factory: OptimizerFactory) -> None:
+    @optimizer_factory.setter
+    def optimizer_factory(self, optimizer_factory: OptimizerFactory) -> None:
         """
         Sets new optimizer_factory.
         :param optimizer_factory: New optimizer factory.
