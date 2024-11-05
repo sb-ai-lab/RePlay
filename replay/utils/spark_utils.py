@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 from numpy.random import default_rng
 
+from replay.utils.model_handler import deprecation_warning
+
 from .session_handler import State
 from .types import PYSPARK_AVAILABLE, DataFrameLike, MissingImportType, NumType, PolarsDataFrame, SparkDataFrame
 
@@ -23,6 +25,7 @@ if PYSPARK_AVAILABLE:
     )
     from pyspark.sql.column import _to_java_column, _to_seq
     from pyspark.sql.types import DoubleType, IntegerType, StructField, StructType
+
 else:
     Column = MissingImportType
 
@@ -759,6 +762,7 @@ def return_recs(recs: SparkDataFrame, recs_file_path: Optional[str] = None) -> O
     return None
 
 
+@deprecation_warning("saving with pickle will be removed in future versions")
 def save_picklable_to_parquet(obj: Any, path: str) -> None:
     """
     Function dumps object to disk or hdfs in parquet format.
@@ -777,6 +781,7 @@ def save_picklable_to_parquet(obj: Any, path: str) -> None:
     instance_df.write.mode("overwrite").parquet(path)
 
 
+@deprecation_warning("loading with pickle will be removed in future versions")
 def load_pickled_from_parquet(path: str) -> Any:
     """
     Function loads object from disk or hdfs,

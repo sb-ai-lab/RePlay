@@ -11,6 +11,7 @@ from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.models import *
 from replay.models.base_rec import BaseRecommender
 from replay.splitters import *
+from replay.utils.model_handler import deprecation_warning
 
 from .session_handler import State
 from .types import PYSPARK_AVAILABLE
@@ -119,6 +120,7 @@ def load(path: str, model_type=None) -> BaseRecommender:
     return model
 
 
+@deprecation_warning("saving with pickle will be removed in future versions")
 def save_encoder(encoder: DatasetLabelEncoder, path: Union[str, Path]) -> None:
     """
     Save fitted DatasetLabelEncoder to disk as a folder
@@ -134,6 +136,7 @@ def save_encoder(encoder: DatasetLabelEncoder, path: Union[str, Path]) -> None:
         pickle.dump(encoder, cached_file)
 
 
+@deprecation_warning("loading with pickle will be removed in future versions")
 def load_encoder(path: Union[str, Path]) -> DatasetLabelEncoder:
     """
     Load saved encoder from disk
@@ -148,39 +151,6 @@ def load_encoder(path: Union[str, Path]) -> DatasetLabelEncoder:
         encoder = pickle.load(f)
 
     return encoder
-
-
-def save_splitter(splitter: Splitter, path: str, overwrite: bool = False):
-    """
-    Save initialized splitter
-
-    :param splitter: Initialized splitter
-    :param path: destination where splitter files will be stored
-    """
-    init_args = splitter._init_args
-    init_args["_splitter_name"] = str(splitter)
-    spark = State().session
-    sc = spark.sparkContext
-    df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
-    if overwrite:
-        df.coalesce(1).write.mode("overwrite").json(join(path, "init_args.json"))
-    else:
-        df.coalesce(1).write.json(join(path, "init_args.json"))
-
-
-def load_splitter(path: str) -> Splitter:
-    """
-    Load splitter
-
-    :param path: path to folder
-    :return: restored Splitter
-    """
-    spark = State().session
-    args = spark.read.json(join(path, "init_args.json")).first().asDict()
-    name = args["_splitter_name"]
-    del args["_splitter_name"]
-    splitter = globals()[name]
-    return splitter(**args)
 
 
 def deprecation_warning(message: Optional[str] = None) -> Callable[..., Any]:

@@ -17,13 +17,12 @@ from replay.splitters import (
     TimeSplitter,
     TwoStageSplitter,
 )
+from replay.utils.common import load_from_replay, save_to_replay
 from replay.utils.model_handler import (
     load,
     load_encoder,
-    load_splitter,
     save,
     save_encoder,
-    save_splitter,
 )
 from tests.utils import create_dataset, sparkDataFrameEqual
 
@@ -85,10 +84,10 @@ def df():
 def test_splitter(splitter, init_args, df, tmp_path):
     path = (tmp_path / "splitter").resolve()
     splitter = splitter(**init_args)
-    save_splitter(splitter, path)
-    save_splitter(splitter, path, overwrite=True)
+    save_to_replay(splitter, path)
+    save_to_replay(splitter, path)
     train, test = splitter.split(df)
-    restored_splitter = load_splitter(path)
+    restored_splitter = load_from_replay(path)
     for arg_, value_ in init_args.items():
         assert getattr(restored_splitter, arg_) == value_
     new_train, new_test = restored_splitter.split(df)

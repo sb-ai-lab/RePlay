@@ -6,6 +6,7 @@ import pytest
 import replay
 from replay.data import FeatureHint, FeatureInfo, FeatureSchema, FeatureType
 from replay.models import (
+    KLUCB,
     SLIM,
     UCB,
     ALSWrap,
@@ -29,7 +30,7 @@ from replay.models.extensions.ann.index_stores.hdfs_index_store import HdfsIndex
 from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
 from replay.preprocessing.label_encoder import LabelEncoder, LabelEncodingRule
 from replay.utils import PYSPARK_AVAILABLE
-from replay.utils.model_handler import load_from_replay
+from replay.utils.common import load_from_replay
 from tests.utils import create_dataset, sparkDataFrameEqual
 
 if PYSPARK_AVAILABLE:
@@ -306,7 +307,9 @@ def test_wilson_ucb(model, log_unary, tmp_path):
 
 
 @pytest.mark.spark
-@pytest.mark.parametrize("model", [Wilson(), UCB(), ThompsonSampling()], ids=["wilson", "ucb", "thompson"])
+@pytest.mark.parametrize(
+    "model", [Wilson(), UCB(), ThompsonSampling(), KLUCB()], ids=["wilson", "ucb", "thompson", "klucb"]
+)
 def test_wilson_ucb_thompson_no_pickle(model, log_unary, tmp_path):
     path = (tmp_path / "model").resolve()
     dataset = create_dataset(log_unary)

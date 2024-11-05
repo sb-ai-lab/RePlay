@@ -932,7 +932,6 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         params = {name: value for name, value in self._init_args.items() if name in self._search_space}
         return any(params == trial.params for trial in self.study.trials)
 
-    @deprecation_warning("saving with pickle will be removed in future versions")
     def _save_model(self, path: str, additional_params: Optional[dict] = None):
         saved_params = {
             "query_column": self.query_column,
@@ -944,7 +943,6 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             saved_params.update(additional_params)
         save_picklable_to_parquet(saved_params, join(path, "params.dump"))
 
-    @deprecation_warning("loading with pickle will be removed in future versions")
     def _load_model(self, path: str):
         loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
         for param, value in loaded_params.items():
