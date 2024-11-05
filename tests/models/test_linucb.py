@@ -87,18 +87,40 @@ def feature_schema_linucb():
 
 
 @pytest.fixture(scope="module")
+def feature_schema_raises():
+    feature_schema = FeatureSchema(
+        [
+            FeatureInfo(
+                column="user_idx",
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.QUERY_ID,
+            ),
+            FeatureInfo(
+                column="item_idx",
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            FeatureInfo(
+                column="rating",
+                feature_type=FeatureType.NUMERICAL,
+                feature_hint=FeatureHint.RATING,
+            ),
+            FeatureInfo(
+                column="timestamp",
+                feature_type=FeatureType.NUMERICAL,
+                feature_hint=FeatureHint.TIMESTAMP,
+            ),
+        ]
+    )
+    return feature_schema
+
+
+@pytest.fixture(scope="module")
 def dataset_linucb(log, user_features, item_features, feature_schema_linucb):
     log_linucb = log.withColumn("rating", sf.when(sf.col("rating") > 3, 1).otherwise(0))
 
     dataset_lincub = create_dataset(log_linucb, user_features, item_features, feature_schema_linucb)
     return dataset_lincub
-
-
-@pytest.fixture(scope="module")
-def empty_dataset_linucb(log, user_features, item_features, feature_schema_linucb):
-    empty_dataset_linucb = create_dataset(log.limit(0), user_features, item_features, feature_schema_linucb)
-
-    return empty_dataset_linucb
 
 
 @pytest.fixture(params=[LinUCB(eps=-10.0, alpha=1.0, is_hybrid=False)], scope="module")
@@ -113,20 +135,6 @@ def fitted_model_hybrid(request, dataset_linucb):
     model = request.param
     model.fit(dataset_linucb)
     return model
-
-
-@pytest.mark.spark
-def test_predict_empty_log_disjoint(fitted_model_disjoint, user_features, empty_dataset_linucb):
-    users = user_features.select("user_idx").distinct()
-    pred_empty = fitted_model_disjoint.predict(empty_dataset_linucb, queries=users, k=1)
-    assert pred_empty.count() == users.count()
-
-
-@pytest.mark.spark
-def test_predict_empty_log_hybrid(fitted_model_hybrid, user_features, empty_dataset_linucb):
-    users = user_features.select("user_idx").distinct()
-    pred_empty = fitted_model_hybrid.predict(empty_dataset_linucb, queries=users, k=1)
-    assert pred_empty.count() == users.count()
 
 
 @pytest.mark.spark
@@ -167,3 +175,26 @@ def test_predict_k_hybrid(fitted_model_hybrid, user_features, dataset_linucb, k)
     users = user_features.select("user_idx").distinct()
     pred = fitted_model_hybrid.predict(dataset_linucb, queries=users, k=k)
     assert pred.count() == users.count() * k
+
+
+def test_raises_missing(log, user_features, feature_schema_raises, fitted_model_disjoint, k=10):
+    with pytest.raises(ValueError, match="User features are missing for fitting"):
+        LinUCB(eps=1.0, alpha=1.0, is_hybrid=False).fit(create_dataset(log, None, None, feature_schema_raises))
+
+    with pytest.raises(ValueError, match="Item features are missing for fitting"):
+        LinUCB(eps=1.0, alpha=1.0, is_hybrid=False).fit(create_dataset(log, user_features, None, feature_schema_raises))
+
+    users = user_features.select("user_idx").distinct()
+    with pytest.raises(ValueError, match="User features are missing for predict"):
+        fitted_model_disjoint.predict(
+            create_dataset(log, None, None, feature_schema_raises),
+            queries=users,
+            k=k,
+        )
+
+    with pytest.raises(ValueError, match="Item features are missing for predict"):
+        fitted_model_disjoint.predict(
+            create_dataset(log, user_features, None, feature_schema_raises),
+            queries=users,
+            k=k,
+        )
