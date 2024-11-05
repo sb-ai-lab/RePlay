@@ -170,10 +170,11 @@ class LinUCB(HybridRecommender):
     5         2         3   -112.249722
 
     """
+
     _search_space = {
-            "eps": {"type": "uniform", "args": [-10.0, 10.0]},
-            "alpha": {"type": "uniform", "args": [0.001, 10.0]},
-        }
+        "eps": {"type": "uniform", "args": [-10.0, 10.0]},
+        "alpha": {"type": "uniform", "args": [0.001, 10.0]},
+    }
     _study = None  # field required for proper optuna's optimization
     linucb_arms: List[Union[DisjointArm, HybridArm]]  # initialize only when working within fit method
     rel_matrix: np.array  # matrix with relevance scores from predict method
