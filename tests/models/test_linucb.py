@@ -177,6 +177,7 @@ def test_predict_k_hybrid(fitted_model_hybrid, user_features, dataset_linucb, k)
     assert pred.count() == users.count() * k
 
 
+@pytest.mark.spark
 def test_raises_missing(log, user_features, feature_schema_raises, fitted_model_disjoint, k=10):
     with pytest.raises(ValueError, match="User features are missing for fitting"):
         LinUCB(eps=1.0, alpha=1.0, is_hybrid=False).fit(create_dataset(log, None, None, feature_schema_raises))
