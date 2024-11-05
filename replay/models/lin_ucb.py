@@ -219,6 +219,10 @@ class LinUCB(HybridRecommender):
         item_features = dataset.item_features
 
         self._num_items = item_features.shape[0]
+
+        if len(feature_schema.categorical_features) > 2:
+            msg = "Categorical features are not supported"
+            raise ValueError(msg)
         self._user_dim_size = user_features.shape[1] - 1
         self._item_dim_size = item_features.shape[1] - 1
 
@@ -315,8 +319,11 @@ class LinUCB(HybridRecommender):
         user_features = dataset.query_features
         item_features = dataset.item_features
         big_k = min(oversample * k, item_features.shape[0])
-
         rel_matrix = np.zeros((num_user_pred, self._num_items), dtype=float)
+
+        if len(feature_schema.categorical_features) > 2:
+            msg = "Categorical features are not supported"
+            raise ValueError(msg)
         if self.is_hybrid:
             items = items.toPandas()
             usr_idxs_list = users[feature_schema.query_id_column].values
