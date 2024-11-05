@@ -170,8 +170,13 @@ class LinUCB(HybridRecommender):
     5         2         3   -112.249722
 
     """
-
+    _search_space = {
+            "eps": {"type": "uniform", "args": [-10.0, 10.0]},
+            "alpha": {"type": "uniform", "args": [0.001, 10.0]},
+        }
+    _study = None  # field required for proper optuna's optimization
     linucb_arms: List[Union[DisjointArm, HybridArm]]  # initialize only when working within fit method
+    rel_matrix: np.array  # matrix with relevance scores from predict method
 
     def __init__(
         self,
@@ -187,12 +192,6 @@ class LinUCB(HybridRecommender):
         self.is_hybrid = is_hybrid
         self.eps = eps
         self.alpha = alpha
-
-        self._study = None  # field required for proper optuna's optimization
-        self._search_space = {
-            "eps": {"type": "uniform", "args": [-10.0, 10.0]},
-            "alpha": {"type": "uniform", "args": [0.001, 10.0]},
-        }
 
     @property
     def _init_args(self):
@@ -210,7 +209,7 @@ class LinUCB(HybridRecommender):
             raise ValueError(msg)
 
         if not dataset.is_pandas:
-            warn_msg = "Dataset will be converted to pandas during internal calculations"
+            warn_msg = "Dataset will be converted to pandas during internal calculations in fit"
             warnings.warn(warn_msg)
             dataset.to_pandas()
         feature_schema = dataset.feature_schema
@@ -221,16 +220,17 @@ class LinUCB(HybridRecommender):
         self._num_items = item_features.shape[0]
         self._user_dim_size = user_features.shape[1] - 1
         self._item_dim_size = item_features.shape[1] - 1
+
         # now initialize an arm object for each potential arm instance
         if self.is_hybrid:
-            k = self._user_dim_size * self._item_dim_size
-            self.A_0 = scs.csr_matrix(np.identity(k))
-            self.b_0 = np.zeros(k, dtype=float)
+            hybrid_features_k = self._user_dim_size * self._item_dim_size
+            self.A_0 = scs.csr_matrix(np.identity(hybrid_features_k))
+            self.b_0 = np.zeros(hybrid_features_k, dtype=float)
             self.linucb_arms = [
                 HybridArm(
                     arm_index=i,
                     d=self._user_dim_size,
-                    k=k,
+                    k=hybrid_features_k,
                     eps=self.eps,
                     alpha=self.alpha,
                 )
@@ -284,7 +284,7 @@ class LinUCB(HybridRecommender):
                     )
                     self.linucb_arms[i].feature_update(cur_usrs.to_numpy(), rel_list)
 
-        warn_msg = "Dataset will be converted to spark after internal calculations"
+        warn_msg = "Dataset will be converted to spark after internal calculations in fit"
         warnings.warn(warn_msg)
         dataset.to_spark()
 
@@ -297,19 +297,26 @@ class LinUCB(HybridRecommender):
         filter_seen_items: bool = True,  # noqa: ARG002
         oversample: int = 20,
     ) -> SparkDataFrame:
-        if self.is_hybrid:
-            user_features = dataset.query_features.toPandas()
-            if user_features is None:
-                msg = "User features are missing for predict"
-                raise ValueError(msg)
-            item_features = dataset.item_features.toPandas()
-            if item_features is None:
-                msg = "Item features are missing for predict"
-                raise ValueError(msg)
+        if dataset.query_features is None:
+            msg = "User features are missing for predict"
+            raise ValueError(msg)
+        if dataset.item_features is None:
+            msg = "Item features are missing for predict"
+            raise ValueError(msg)
 
-            feature_schema = dataset.feature_schema
-            num_user_pred = users.count()  # assuming it is a pyspark dataset
+        if not dataset.is_pandas:
+            warn_msg = "Dataset and users/items will be converted to pandas during internal calculations in predict"
+            warnings.warn(warn_msg)
+            dataset.to_pandas()
             users = users.toPandas()
+            num_user_pred = users.shape[0]
+        feature_schema = dataset.feature_schema
+        user_features = dataset.query_features
+        item_features = dataset.item_features
+        big_k = min(oversample * k, item_features.shape[0])
+
+        rel_matrix = np.zeros((num_user_pred, self._num_items), dtype=float)
+        if self.is_hybrid:
             items = items.toPandas()
             usr_idxs_list = users[feature_schema.query_id_column].values
             itm_idxs_list = items[feature_schema.item_id_column].values  # noqa: F841
@@ -325,7 +332,6 @@ class LinUCB(HybridRecommender):
                 .drop(columns=[feature_schema.item_id_column])
                 .to_numpy()
             )
-            rel_matrix = np.zeros((num_user_pred, self._num_items), dtype=float)
 
             # fill in relevance matrix
             for i in tqdm(range(self._num_items)):
@@ -344,7 +350,6 @@ class LinUCB(HybridRecommender):
                 rel_matrix[:, i] += np.array(self.eps * np.sqrt(s))[:, 0]
 
             # select top k predictions from each row (unsorted ones)
-            big_k = min(oversample * k, dataset.item_features.count())
             topk_indices = np.argpartition(rel_matrix, -big_k, axis=1)[:, -big_k:]
             rows_inds, _ = np.indices((num_user_pred, big_k))
             # result df
@@ -359,25 +364,14 @@ class LinUCB(HybridRecommender):
                     feature_schema.interactions_rating_column: predict_rels,
                 }
             )
-            return convert2spark(res_df)
 
         else:
-            user_features = dataset.query_features.toPandas()
-            if user_features is None:
-                msg = "User features are missing for predict"
-                raise ValueError(msg)
-
-            feature_schema = dataset.feature_schema
-            num_user_pred = users.count()  # assuming it is a pyspark dataset
-            users = users.toPandas()
-
             idxs_list = users[feature_schema.query_id_column].values
             usrs_feat = (
                 user_features.query(f"{feature_schema.query_id_column} in @idxs_list")
                 .drop(columns=[feature_schema.query_id_column])
                 .to_numpy()
             )
-            rel_matrix = np.zeros((num_user_pred, self._num_items), dtype=float)
             # fill in relevance matrix
             for i in range(self._num_items):
                 rel_matrix[:, i] = (
@@ -385,7 +379,6 @@ class LinUCB(HybridRecommender):
                     + usrs_feat @ self.linucb_arms[i].theta
                 )
             # select top k predictions from each row (unsorted ones)
-            big_k = min(oversample * k, dataset.item_features.count())
             topk_indices = np.argpartition(rel_matrix, -big_k, axis=1)[:, -big_k:]
             rows_inds, _ = np.indices((num_user_pred, big_k))
             # result df
@@ -400,4 +393,8 @@ class LinUCB(HybridRecommender):
                     feature_schema.interactions_rating_column: predict_rels,
                 }
             )
-            return convert2spark(res_df)
+
+        warn_msg = "Dataset will be converted to spark after internal calculations in predict"
+        warnings.warn(warn_msg)
+        dataset.to_spark()
+        return convert2spark(res_df)
