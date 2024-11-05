@@ -1,5 +1,5 @@
 import warnings
-from typing import Tuple
+from typing import List, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -103,8 +103,9 @@ class LinUCB(HybridRecommender):
         to ensure proper convergence and prevent numerical instability (since relationships to learn are linear).
 
     >>> import pandas as pd
-    >>> from replay.data.dataset import Dataset, FeatureSchema, FeatureInfo, FeatureHint, FeatureType
-    >>> from replay.utils.spark_utils import convert2spark
+    >>> from replay.data.dataset import (
+    ...     Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureSource, FeatureType
+    ... )
     >>> interactions = pd.DataFrame({"user_id": [0, 1, 2, 2], "item_id": [0, 1, 0, 1], "rating": [1, 0, 0, 0]})
     >>> user_features = pd.DataFrame(
     ...     {"user_id": [0, 1, 2], "usr_feat_1": [1, 2, 3], "usr_feat_2": [4, 5, 6], "usr_feat_3": [7, 8, 9]}
@@ -134,6 +135,18 @@ class LinUCB(HybridRecommender):
     ...            feature_type=FeatureType.NUMERICAL,
     ...            feature_hint=FeatureHint.RATING,
     ...        ),
+    ...        *[
+    ...            FeatureInfo(
+    ...                column=name, feature_type=FeatureType.NUMERICAL, feature_source=FeatureSource.ITEM_FEATURES,
+    ...            )
+    ...            for name in ["itm_feat_1", "itm_feat_2", "itm_feat_3"]
+    ...        ],
+    ...        *[
+    ...            FeatureInfo(
+    ...                column=name, feature_type=FeatureType.NUMERICAL, feature_source=FeatureSource.QUERY_FEATURES
+    ...            )
+    ...            for name in ["usr_feat_1", "usr_feat_2", "usr_feat_3"]
+    ...        ],
     ...    ]
     ... )
     >>> dataset = Dataset(
@@ -158,6 +171,8 @@ class LinUCB(HybridRecommender):
 
     """
 
+    linucb_arms: List[Union[DisjointArm, HybridArm]]  # initialize only when working within fit method
+
     def __init__(
         self,
         eps: float,
@@ -172,7 +187,6 @@ class LinUCB(HybridRecommender):
         self.is_hybrid = is_hybrid
         self.eps = eps
         self.alpha = alpha
-        self.linucb_arms = None  # initialize only when working within fit method
 
         self._study = None  # field required for proper optuna's optimization
         self._search_space = {
