@@ -13,7 +13,7 @@ from replay.data import Dataset, FeatureHint, FeatureSchema, FeatureSource, Feat
 from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.preprocessing import LabelEncoder, LabelEncodingRule
 from replay.preprocessing.label_encoder import HandleUnknownStrategies
-from replay.utils.model_handler import deprecation_warning
+from replay.utils import deprecation_warning
 
 from .schema import TensorFeatureInfo, TensorFeatureSource, TensorSchema
 from .sequential_dataset import PandasSequentialDataset, PolarsSequentialDataset, SequentialDataset

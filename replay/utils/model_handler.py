@@ -7,11 +7,11 @@ from os.path import join
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
-from replay.data.dataset_utils.dataset_label_encoder import DatasetLabelEncoder
+from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.models import *
 from replay.models.base_rec import BaseRecommender
 from replay.splitters import *
-from replay.utils.model_handler import deprecation_warning
+from replay.utils import deprecation_warning
 
 from .session_handler import State
 from .types import PYSPARK_AVAILABLE

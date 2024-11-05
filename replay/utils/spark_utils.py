@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from numpy.random import default_rng
 
-from replay.utils.model_handler import deprecation_warning
+from replay.utils import deprecation_warning
 
 from .session_handler import State
 from .types import PYSPARK_AVAILABLE, DataFrameLike, MissingImportType, NumType, PolarsDataFrame, SparkDataFrame
