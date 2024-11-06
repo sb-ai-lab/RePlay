@@ -205,7 +205,10 @@ class LinUCB(HybridRecommender):
         if dataset.item_features is None:
             msg = "Item features are missing"
             raise ValueError(msg)
-        if len(dataset.feature_schema.categorical_features) > 2:
+        if (
+            len(dataset.feature_schema.query_features.categorical_features) > 0
+            or len(dataset.feature_schema.item_features.categorical_features) > 0
+        ):
             msg = "Categorical features are not supported"
             raise ValueError(msg)
 
