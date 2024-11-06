@@ -197,32 +197,35 @@ class LinUCB(HybridRecommender):
     @property
     def _init_args(self):
         return {"is_hybrid": self.is_hybrid}
+    
+    def _verify_features(self, dataset: Dataset):
+        if dataset.query_features is None:
+            msg = "User features are missing"
+            raise ValueError(msg)
+        if dataset.item_features is None:
+            msg = "Item features are missing"
+            raise ValueError(msg)
+        if len(dataset.feature_schema.categorical_features) > 2:
+            msg = "Categorical features are not supported"
+            raise ValueError(msg)
 
     def _fit(
         self,
         dataset: Dataset,
     ) -> None:
-        if dataset.query_features is None:
-            msg = "User features are missing for fitting"
-            raise ValueError(msg)
-        if dataset.item_features is None:
-            msg = "Item features are missing for fitting"
-            raise ValueError(msg)
+        self._verify_features(dataset)
 
         if not dataset.is_pandas:
             warn_msg = "Dataset will be converted to pandas during internal calculations in fit"
             warnings.warn(warn_msg)
             dataset.to_pandas()
+
         feature_schema = dataset.feature_schema
         log = dataset.interactions
         user_features = dataset.query_features
         item_features = dataset.item_features
 
         self._num_items = item_features.shape[0]
-
-        if len(feature_schema.categorical_features) > 2:
-            msg = "Categorical features are not supported"
-            raise ValueError(msg)
         self._user_dim_size = user_features.shape[1] - 1
         self._item_dim_size = item_features.shape[1] - 1
 
@@ -302,28 +305,22 @@ class LinUCB(HybridRecommender):
         filter_seen_items: bool = True,  # noqa: ARG002
         oversample: int = 20,
     ) -> SparkDataFrame:
-        if dataset.query_features is None:
-            msg = "User features are missing for predict"
-            raise ValueError(msg)
-        if dataset.item_features is None:
-            msg = "Item features are missing for predict"
-            raise ValueError(msg)
+        self._verify_features(dataset)
 
         if not dataset.is_pandas:
-            warn_msg = "Dataset and users/items will be converted to pandas during internal calculations in predict"
+            warn_msg = "Dataset will be converted to pandas during internal calculations in predict"
             warnings.warn(warn_msg)
             dataset.to_pandas()
-            users = users.toPandas()
-            num_user_pred = users.shape[0]
+
         feature_schema = dataset.feature_schema
         user_features = dataset.query_features
         item_features = dataset.item_features
         big_k = min(oversample * k, item_features.shape[0])
+
+        users = users.toPandas()
+        num_user_pred = users.shape[0]
         rel_matrix = np.zeros((num_user_pred, self._num_items), dtype=float)
 
-        if len(feature_schema.categorical_features) > 2:
-            msg = "Categorical features are not supported"
-            raise ValueError(msg)
         if self.is_hybrid:
             items = items.toPandas()
             usr_idxs_list = users[feature_schema.query_id_column].values
@@ -334,7 +331,6 @@ class LinUCB(HybridRecommender):
                 .drop(columns=[feature_schema.query_id_column])
                 .to_numpy()
             )
-
             itm_feat = scs.csr_matrix(
                 item_features.query(f"{feature_schema.item_id_column} in @itm_idxs_list")
                 .drop(columns=[feature_schema.item_id_column])
