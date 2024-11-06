@@ -10,7 +10,7 @@ from tests.utils import create_dataset
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
-    from pyspark.sql.types import DoubleType, IntegerType, StructField, StructType
+    from pyspark.sql.types import DoubleType, IntegerType, StringType, StructField, StructType
 
     INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "rating")
 
@@ -116,8 +116,32 @@ def feature_schema_raises():
 
 
 @pytest.fixture(scope="module")
-def dataset_with_categorical(log, user_features, item_features):
-    log_with_categorical = log.withColumn("cat_col_raises", sf.lit(1))
+def item_features_with_categorical(spark, feature_schema_linucb):
+    ITEM_FEATURES_SCHEMA_WITH_CATEGORICAL = StructType(
+        [
+            StructField("item_idx", IntegerType(), False),
+            StructField("item_feature_1", DoubleType(), True),
+            StructField("item_feature_2", DoubleType(), True),
+            StructField("cat_col_raises", StringType(), True),
+        ]
+    )
+    return spark.createDataFrame(
+        [
+            (0, 4.0, 5.0, "cat_val_1"),
+            (1, 5.0, 4.0, "cat_val_2"),
+            (2, 2.0, 3.0, "cat_val_3"),
+            (3, 3.0, -1.0, "cat_val_4"),
+            (4, 4.0, 3.0, "cat_val_5"),
+            (5, 3.0, -1.0, "cat_val_6"),
+        ],
+        schema=ITEM_FEATURES_SCHEMA_WITH_CATEGORICAL,
+    )
+
+
+@pytest.fixture(scope="module")
+def dataset_with_categorical(log, user_features, item_features_with_categorical):
+    log_linucb = log.withColumn("rating", sf.when(sf.col("rating") > 3, 1).otherwise(0))
+
     feature_schema_with_categorical = FeatureSchema(
         [
             FeatureInfo(
@@ -140,15 +164,25 @@ def dataset_with_categorical(log, user_features, item_features):
                 feature_type=FeatureType.NUMERICAL,
                 feature_hint=FeatureHint.TIMESTAMP,
             ),
+            *[
+                FeatureInfo(column=name, feature_type=FeatureType.NUMERICAL, feature_source=FeatureSource.ITEM_FEATURES)
+                for name in ["item_feature_1", "item_feature_2"]
+            ],
             FeatureInfo(
                 column="cat_col_raises",
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=FeatureSource.QUERY_FEATURES,
+                feature_source=FeatureSource.ITEM_FEATURES,
             ),
+            *[
+                FeatureInfo(
+                    column=name, feature_type=FeatureType.NUMERICAL, feature_source=FeatureSource.QUERY_FEATURES
+                )
+                for name in ["user_feature_1", "user_feature_2"]
+            ],
         ]
     )
     dataset_with_categorical = create_dataset(
-        log_with_categorical, user_features, item_features, feature_schema_with_categorical
+        log_linucb, user_features, item_features_with_categorical, feature_schema_with_categorical
     )
     return dataset_with_categorical
 
