@@ -23,7 +23,6 @@ def get_spark_session(
     spark_memory: Optional[int] = None,
     shuffle_partitions: Optional[int] = None,
     core_count: Optional[int] = None,
-    enable_hive_support: bool = False,
 ) -> SparkSession:
     """
     Get default SparkSession
@@ -35,9 +34,6 @@ def get_spark_session(
         If ``None`` then checking out environment variable ``REPLAY_SPARK_CORE_COUNT``,
         if variable is not set then using ``-1``.
         Default: ``None``.
-    :param enable_hive_support: Hive support.
-        If ``False`` disables Hive support in Spark session and enables otherwise.
-        Default: ``False``.
     """
     if os.environ.get("SCRIPT_ENV", None) == "cluster":  # pragma: no cover
         return SparkSession.builder.getOrCreate()
@@ -92,9 +88,6 @@ def get_spark_session(
         .config("spark.files.overwrite", "true")
         .master(f"local[{'*' if core_count == -1 else core_count}]")
     )
-
-    if enable_hive_support:  # pragma: no cover
-        spark_session_builder.enableHiveSupport()
 
     return spark_session_builder.getOrCreate()
 
