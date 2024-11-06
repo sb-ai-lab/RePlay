@@ -116,6 +116,44 @@ def feature_schema_raises():
 
 
 @pytest.fixture(scope="module")
+def dataset_with_categorical(log, user_features, item_features):
+    log_with_categorical = log.withColumn("cat_col_raises", sf.lit(1))
+    feature_schema_with_categorical = FeatureSchema(
+        [
+            FeatureInfo(
+                column="user_idx",
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.QUERY_ID,
+            ),
+            FeatureInfo(
+                column="item_idx",
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            FeatureInfo(
+                column="rating",
+                feature_type=FeatureType.NUMERICAL,
+                feature_hint=FeatureHint.RATING,
+            ),
+            FeatureInfo(
+                column="timestamp",
+                feature_type=FeatureType.NUMERICAL,
+                feature_hint=FeatureHint.TIMESTAMP,
+            ),
+            FeatureInfo(
+                column="cat_col_raises",
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=FeatureSource.QUERY_FEATURES,
+            ),
+        ]
+    )
+    dataset_with_categorical = create_dataset(
+        log_with_categorical, user_features, item_features, feature_schema_with_categorical
+    )
+    return dataset_with_categorical
+
+
+@pytest.fixture(scope="module")
 def dataset_linucb(log, user_features, item_features, feature_schema_linucb):
     log_linucb = log.withColumn("rating", sf.when(sf.col("rating") > 3, 1).otherwise(0))
 
@@ -178,24 +216,36 @@ def test_predict_k_hybrid(fitted_model_hybrid, user_features, dataset_linucb, k)
 
 
 @pytest.mark.spark
-def test_raises_missing(log, user_features, feature_schema_raises, fitted_model_disjoint, k=10):
+def test_fit_raises(log, user_features, feature_schema_raises, dataset_with_categorical):
+    model = LinUCB(eps=1.0, alpha=1.0, is_hybrid=False)
+
     with pytest.raises(ValueError, match="User features are missing for fitting"):
-        LinUCB(eps=1.0, alpha=1.0, is_hybrid=False).fit(create_dataset(log, None, None, feature_schema_raises))
-
+        model.fit(create_dataset(log, None, None, feature_schema_raises))
     with pytest.raises(ValueError, match="Item features are missing for fitting"):
-        LinUCB(eps=1.0, alpha=1.0, is_hybrid=False).fit(create_dataset(log, user_features, None, feature_schema_raises))
+        model.fit(create_dataset(log, user_features, None, feature_schema_raises))
 
+    with pytest.raises(ValueError, match="Categorical features are not supported"):
+        model.fit(dataset_with_categorical)
+
+
+@pytest.mark.spark
+def test_predict_raises(
+    log, user_features, feature_schema_raises, dataset_with_categorical, fitted_model_disjoint, k=10
+):
     users = user_features.select("user_idx").distinct()
+
     with pytest.raises(ValueError, match="User features are missing for predict"):
         fitted_model_disjoint.predict(
             create_dataset(log, None, None, feature_schema_raises),
             queries=users,
             k=k,
         )
-
     with pytest.raises(ValueError, match="Item features are missing for predict"):
         fitted_model_disjoint.predict(
             create_dataset(log, user_features, None, feature_schema_raises),
             queries=users,
             k=k,
         )
+
+    with pytest.raises(ValueError, match="Categorical features are not supported"):
+        fitted_model_disjoint.predict(dataset_with_categorical, queries=users, k=k)
