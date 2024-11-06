@@ -182,7 +182,7 @@ class LinUCB(HybridRecommender):
     def __init__(
         self,
         eps: float,
-        alpha: float,
+        alpha: float = 1.0,
         is_hybrid: bool = False,
     ):
         """
@@ -197,7 +197,7 @@ class LinUCB(HybridRecommender):
     @property
     def _init_args(self):
         return {"is_hybrid": self.is_hybrid}
-    
+
     def _verify_features(self, dataset: Dataset):
         if dataset.query_features is None:
             msg = "User features are missing"
