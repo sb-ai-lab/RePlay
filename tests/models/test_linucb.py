@@ -219,9 +219,9 @@ def test_predict_k_hybrid(fitted_model_hybrid, user_features, dataset_linucb, k)
 def test_fit_raises(log, user_features, feature_schema_raises, dataset_with_categorical):
     model = LinUCB(eps=1.0, alpha=1.0, is_hybrid=False)
 
-    with pytest.raises(ValueError, match="User features are missing for fitting"):
+    with pytest.raises(ValueError, match="User features are missing"):
         model.fit(create_dataset(log, None, None, feature_schema_raises))
-    with pytest.raises(ValueError, match="Item features are missing for fitting"):
+    with pytest.raises(ValueError, match="Item features are missing"):
         model.fit(create_dataset(log, user_features, None, feature_schema_raises))
 
     with pytest.raises(ValueError, match="Categorical features are not supported"):
@@ -234,13 +234,13 @@ def test_predict_raises(
 ):
     users = user_features.select("user_idx").distinct()
 
-    with pytest.raises(ValueError, match="User features are missing for predict"):
+    with pytest.raises(ValueError, match="User features are missing"):
         fitted_model_disjoint.predict(
             create_dataset(log, None, None, feature_schema_raises),
             queries=users,
             k=k,
         )
-    with pytest.raises(ValueError, match="Item features are missing for predict"):
+    with pytest.raises(ValueError, match="Item features are missing"):
         fitted_model_disjoint.predict(
             create_dataset(log, user_features, None, feature_schema_raises),
             queries=users,
