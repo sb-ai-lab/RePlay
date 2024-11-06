@@ -7,6 +7,22 @@ from typing import Any, Callable, Union
 from polars import from_pandas as pl_from_pandas
 
 from replay.data.dataset import Dataset
+from replay.models import (
+    KLUCB,
+    SLIM,
+    UCB,
+    ALSWrap,
+    AssociationRulesItemRec,
+    CatPopRec,
+    ClusterRec,
+    ItemKNN,
+    PopRec,
+    QueryPopRec,
+    RandomRec,
+    ThompsonSampling,
+    Wilson,
+    Word2VecRec,
+)
 from replay.preprocessing import (
     LabelEncoder,
     LabelEncodingRule,
@@ -33,6 +49,20 @@ from replay.utils.spark_utils import (
 )
 
 SavableObject = Union[
+    KLUCB,
+    SLIM,
+    UCB,
+    ALSWrap,
+    AssociationRulesItemRec,
+    CatPopRec,
+    ClusterRec,
+    ItemKNN,
+    PopRec,
+    QueryPopRec,
+    RandomRec,
+    ThompsonSampling,
+    Wilson,
+    Word2VecRec,
     ColdUserRandomSplitter,
     KFolds,
     LastNSplitter,
