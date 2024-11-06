@@ -33,7 +33,7 @@ class SasRec(lightning.LightningModule):
         loss_sample_count: Optional[int] = None,
         negative_sampling_strategy: str = "global_uniform",
         negatives_sharing: bool = False,
-        optimizer_factory: Optional[OptimizerFactory] = None,
+        optimizer_factory: OptimizerFactory = FatOptimizerFactory(),
         lr_scheduler_factory: Optional[LRSchedulerFactory] = None,
     ):
         """
@@ -63,7 +63,7 @@ class SasRec(lightning.LightningModule):
         :param negatives_sharing: Apply negative sharing in calculating sampled logits.
             Default: ``False``.
         :param optimizer_factory: Optimizer factory.
-            Default: ``None``.
+            Default: ``FatOptimizerFactory``.
         :param lr_scheduler_factory: Learning rate schedule factory.
             Default: ``None``.
         """
@@ -143,8 +143,7 @@ class SasRec(lightning.LightningModule):
         """
         :returns: Configured optimizer and lr scheduler.
         """
-        optimizer_factory = self._optimizer_factory or FatOptimizerFactory()
-        optimizer = optimizer_factory.create(self._model.parameters())
+        optimizer = self._optimizer_factory.create(self._model.parameters())
 
         if self._lr_scheduler_factory is None:
             return optimizer
@@ -479,6 +478,25 @@ class SasRec(lightning.LightningModule):
 
         self._set_new_item_embedder_to_model(new_embedding, new_vocab_size)
 
+    @property
+    def optimizer_factory(self) -> OptimizerFactory:
+        """
+        Returns current optimizer_factory.
+        """
+        return self._optimizer_factory
+
+    @optimizer_factory.setter
+    def optimizer_factory(self, optimizer_factory: OptimizerFactory) -> None:
+        """
+        Sets new optimizer_factory.
+        :param optimizer_factory: New optimizer factory.
+        """
+        if isinstance(optimizer_factory, OptimizerFactory):
+            self._optimizer_factory = optimizer_factory
+        else:
+            msg = f"Expected optimizer_factory of type OptimizerFactory, got {type(optimizer_factory)}"
+            raise ValueError(msg)
+
     def _set_new_item_embedder_to_model(self, new_embedding: torch.nn.Embedding, new_vocab_size: int):
         self._model.item_embedder.item_emb = new_embedding
         self._model._head._item_embedder = self._model.item_embedder
@@ -486,11 +504,6 @@ class SasRec(lightning.LightningModule):
         self._model.item_count = new_vocab_size
         self._model.padding_idx = new_vocab_size
         self._model.masking.padding_idx = new_vocab_size
-        self._model.candidates_to_score = torch.tensor(
-            list(range(new_embedding.weight.data.shape[0] - 1)),
-            device=self._model.candidates_to_score.device,
-            dtype=torch.long,
-        )
         self._schema.item_id_features[self._schema.item_id_feature_name]._set_cardinality(
             new_embedding.weight.data.shape[0] - 1
         )

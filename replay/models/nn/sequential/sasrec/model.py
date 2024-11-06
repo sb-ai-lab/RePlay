@@ -57,8 +57,8 @@ class SasRecModel(torch.nn.Module):
         self.padding_idx = item_count
 
         assert schema.item_id_feature_name
+        self.schema = schema
         self.item_feature_name = schema.item_id_feature_name
-        self.register_buffer("candidates_to_score", torch.LongTensor(list(range(self.item_count))))
 
         # Model blocks
         self.masking = SasRecMasks(
@@ -205,7 +205,6 @@ class SasRecMasks:
         :param padding_idx: Padding indices.
         """
         assert schema.item_id_feature_name
-        self.schema = schema
         self.item_feature_name = schema.item_id_feature_name
         self.padding_idx = padding_idx
 
@@ -223,8 +222,8 @@ class SasRecMasks:
         input_sequence = feature_tensor[self.item_feature_name]
 
         attention_mask = ~torch.tril(
-            torch.ones((input_sequence.shape[1], input_sequence.shape[1]), dtype=torch.bool)
-        ).to(padding_mask.device)
+            torch.ones((input_sequence.shape[1], input_sequence.shape[1]), dtype=torch.bool, device=padding_mask.device)
+        )
 
         output_feature_tensor = dict(feature_tensor)
         output_feature_tensor[self.item_feature_name] = input_sequence.masked_fill(

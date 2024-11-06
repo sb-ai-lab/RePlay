@@ -3,6 +3,7 @@ import pytest
 
 from replay.preprocessing import LabelEncoder, LabelEncodingRule
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame
+from tests.utils import sparkDataFrameEqual
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as F
@@ -10,7 +11,6 @@ if PYSPARK_AVAILABLE:
 
 @pytest.mark.spark
 @pytest.mark.parametrize("column", ["user_id"])
-@pytest.mark.usefixtures("simple_dataframe")
 def test_label_encoder_spark(column, simple_dataframe):
     rule = LabelEncodingRule(column)
     encoder = LabelEncoder([rule]).fit(simple_dataframe)
@@ -27,7 +27,6 @@ def test_label_encoder_spark(column, simple_dataframe):
 
 @pytest.mark.spark
 @pytest.mark.parametrize("column", ["user_id"])
-@pytest.mark.usefixtures("simple_dataframe")
 def test_label_encoder_load_rule_spark(column, simple_dataframe):
     rule = LabelEncodingRule(column)
     encoder = LabelEncoder([rule])
@@ -136,10 +135,6 @@ def test_label_encoder_pandas_polars_wrong_inplace_transform(column, dataframe, 
 
 
 @pytest.mark.core
-@pytest.mark.usefixtures(
-    "pandas_df_for_labelencoder",
-    "pandas_df_for_labelencoder_modified",
-)
 @pytest.mark.parametrize(
     "df_for_labelencoder, df_for_labelencoder_modified",
     [
@@ -188,10 +183,6 @@ def test_none_type_passed_as_default_value_pandas_polars(
 
 
 @pytest.mark.spark
-@pytest.mark.usefixtures(
-    "spark_df_for_labelencoder",
-    "spark_df_for_labelencoder_modified",
-)
 def test_label_encoder_with_handled_null_values_spark(
     spark_df_for_labelencoder,
     spark_df_for_labelencoder_modified,
@@ -208,10 +199,6 @@ def test_label_encoder_with_handled_null_values_spark(
 
 
 @pytest.mark.spark
-@pytest.mark.usefixtures(
-    "spark_df_for_labelencoder",
-    "spark_df_for_labelencoder_modified",
-)
 def test_label_encoder_with_null_values_spark(
     spark_df_for_labelencoder,
     spark_df_for_labelencoder_modified,
@@ -267,9 +254,6 @@ def test_label_encoder_with_default_value_in_seen_labels(
 
 
 @pytest.mark.spark
-@pytest.mark.usefixtures(
-    "spark",
-)
 def test_label_encoder_undetectable_type_spark(spark):
     data = []
 
@@ -341,10 +325,6 @@ def test_pandas_polars_partial_fit(
 
 
 @pytest.mark.spark
-@pytest.mark.usefixtures(
-    "spark_df_for_labelencoder",
-    "spark_df_for_labelencoder_modified",
-)
 def test_spark_partial_fit(spark_df_for_labelencoder, spark_df_for_labelencoder_modified):
     df = spark_df_for_labelencoder
     new_df = spark_df_for_labelencoder_modified
@@ -393,11 +373,6 @@ def test_partial_fit_to_unfitted_encoder(
 
 
 @pytest.mark.core
-@pytest.mark.usefixtures(
-    "pandas_df_for_labelencoder",
-    "pandas_df_for_labelencoder_modified",
-    "pandas_df_for_labelencoder_new_data",
-)
 @pytest.mark.parametrize(
     "df_for_labelencoder, df_for_labelencoder_modified, df_for_labelencoder_new_data",
     [
@@ -430,7 +405,6 @@ def test_default_value_after_partial_fit(
 
 
 @pytest.mark.core
-@pytest.mark.usefixtures("simple_dataframe_pandas")
 def test_label_encoder_pandas_transform_optimization(simple_dataframe_pandas):
     rule = LabelEncodingRule("user_id", default_value="last")
     encoder = LabelEncoder([rule]).fit(simple_dataframe_pandas)
@@ -445,7 +419,6 @@ def test_label_encoder_pandas_transform_optimization(simple_dataframe_pandas):
 
 
 @pytest.mark.core
-@pytest.mark.usefixtures("dataframe_not_implemented")
 def test_label_encoder_not_implemented_df(dataframe_not_implemented):
     rule = LabelEncodingRule("user_id", default_value="last")
     with pytest.raises(NotImplementedError):
@@ -514,3 +487,39 @@ def test_label_encoder_drop_strategy_empty_dataset(request, df_for_labelencoder,
         assert transformed.is_empty()
     else:
         assert transformed.rdd.isEmpty()
+
+
+@pytest.mark.core
+@pytest.mark.parametrize("col_type", ["string", "float", "int"])
+def test_label_encoder_save_load(simple_dataframe_pandas, col_type, tmp_path):
+    path = (tmp_path / "encoder").resolve()
+    simple_dataframe_pandas["user_id"] = simple_dataframe_pandas["user_id"].astype(col_type)
+    rule = LabelEncodingRule("user_id", default_value="last")
+    encoder = LabelEncoder([rule]).fit(simple_dataframe_pandas)
+    mapping = encoder.mapping
+    encoder.save(path)
+    assert mapping == LabelEncoder.load(path).mapping
+
+
+@pytest.mark.core
+@pytest.mark.parametrize("dataset", ["simple_dataframe_pandas", "simple_dataframe_polars"])
+def test_label_encoder_save_load_inverse_transform(dataset, tmp_path, request):
+    dataset = request.getfixturevalue(dataset)
+    path = (tmp_path / "encoder").resolve()
+    rule = LabelEncodingRule("user_id", default_value="last")
+    encoder = LabelEncoder([rule]).fit(dataset)
+    encoded_data = encoder.transform(dataset)
+    encoder.save(path)
+    assert dataset["user_id"].equals(LabelEncoder.load(path).inverse_transform(encoded_data)["user_id"])
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize("column", ["user_id"])
+def test_label_encoder_save_load_inverse_transform_spark(column, simple_dataframe, tmp_path):
+    path = (tmp_path / "encoder").resolve()
+    rule = LabelEncodingRule(column)
+    encoder = LabelEncoder([rule]).fit(simple_dataframe)
+    encoder.save(path)
+    encoded_data = encoder.transform(simple_dataframe)
+    rebuild_original_cols = LabelEncoder.load(path).inverse_transform(encoded_data)
+    sparkDataFrameEqual(simple_dataframe, rebuild_original_cols)
