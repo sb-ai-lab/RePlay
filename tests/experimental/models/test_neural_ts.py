@@ -107,8 +107,8 @@ def test_equal_preds(model, user_features, item_features, log, tmp_path):
     torch.manual_seed(SEED)
 
     base_pred = model.predict(log, 5, user_features=user_features, item_features=item_features)
-    model.model_save(path)
-    model.model_load(path)
+    model.save(path)
+    model.load(path)
     torch.manual_seed(SEED)
 
     new_pred = model.predict(log, 5, user_features=user_features, item_features=item_features)

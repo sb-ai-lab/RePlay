@@ -716,9 +716,11 @@ class NeuralTS(HybridRecommender):
                 )
             )
 
-        self.size_wide_features, self.size_continuous_features, self.size_cat_features = (
-            train_dataset.get_size_features()
-        )
+        (
+            self.size_wide_features,
+            self.size_continuous_features,
+            self.size_cat_features,
+        ) = train_dataset.get_size_features()
         self.model = WideDeep(
             dim_head=self.dim_head,
             deep_out_dim=self.deep_out_dim,
@@ -925,7 +927,7 @@ class NeuralTS(HybridRecommender):
             "size_cat_features": self.size_cat_features,
         }
 
-    def model_save(self, dir_name):
+    def save(self, dir_name):
         """
         This function saves the model.
         """
@@ -948,7 +950,7 @@ class NeuralTS(HybridRecommender):
             os.path.join(dir_name, "fit_info.pth"),
         )
 
-    def model_load(self, dir_name):
+    def load(self, dir_name):
         """
         This function loads the model.
         """
