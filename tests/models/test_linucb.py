@@ -116,7 +116,7 @@ def feature_schema_raises():
 
 
 @pytest.fixture(scope="module")
-def item_features_with_categorical(spark, feature_schema_linucb):
+def item_features_with_categorical(spark):
     ITEM_FEATURES_SCHEMA_WITH_CATEGORICAL = StructType(
         [
             StructField("item_idx", IntegerType(), False),
