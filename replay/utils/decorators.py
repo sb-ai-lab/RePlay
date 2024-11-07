@@ -1,6 +1,7 @@
-from typing import Union, Optional, Callable, Any
-import warnings
 import functools
+import warnings
+from typing import Any, Callable, Optional
+
 
 def deprecation_warning(message: Optional[str] = None) -> Callable[..., Any]:
     """

@@ -1,4 +1,3 @@
-
 import json
 import os
 import pickle
@@ -10,10 +9,10 @@ from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.models import *
 from replay.models.base_rec import BaseRecommender
 from replay.splitters import *
+from replay.utils.decorators import deprecation_warning
 
 from .session_handler import State
 from .types import PYSPARK_AVAILABLE
-from replay.utils.decorators import deprecation_warning
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import SparkSession
@@ -152,6 +151,7 @@ def load_encoder(path: Union[str, Path]) -> "DatasetLabelEncoder":
         encoder = pickle.load(f)
 
     return encoder
+
 
 @deprecation_warning("saving with pickle will be removed in future versions")
 def save_splitter(splitter: Splitter, path: str, overwrite: bool = False):
