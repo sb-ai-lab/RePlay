@@ -72,7 +72,7 @@ class ALSWrap(Recommender, ItemVectorModel):
         self.model.write().overwrite().save(model_path)
         model_dict["model_path"] = model_path
 
-        with open(base_path / "init_args.json", "w+") as file:
+        with open(base_path / "init_args.json", "w") as file:
             json.dump(model_dict, file)
 
     @classmethod

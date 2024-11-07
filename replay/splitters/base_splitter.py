@@ -81,7 +81,7 @@ class Splitter(ABC):
         splitter_dict["init_args"] = self._init_args
         splitter_dict["_class_name"] = str(self)
 
-        with open(base_path / "init_args.json", "w+") as file:
+        with open(base_path / "init_args.json", "w") as file:
             json.dump(splitter_dict, file)
 
     @classmethod

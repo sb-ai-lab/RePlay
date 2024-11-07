@@ -1,3 +1,4 @@
+
 import json
 import os
 import pickle
@@ -9,15 +10,13 @@ from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.models import *
 from replay.models.base_rec import BaseRecommender
 from replay.splitters import *
-from replay.utils import deprecation_warning
 
 from .session_handler import State
 from .types import PYSPARK_AVAILABLE
+from replay.utils.decorators import deprecation_warning
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import SparkSession
-
-    from .spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
 
     def get_fs(spark: SparkSession):
         """
@@ -42,7 +41,7 @@ if PYSPARK_AVAILABLE:
         return [str(f.getPath()) for f in statuses]
 
 
-def save(model: BaseRecommender, path: Union[str, Path], overwrite: bool = False):
+def save(model: "BaseRecommender", path: Union[str, Path], overwrite: bool = False):
     """
     Save fitted model to disk as a folder
 
@@ -50,6 +49,8 @@ def save(model: BaseRecommender, path: Union[str, Path], overwrite: bool = False
     :param path: destination where model files will be stored
     :return:
     """
+    from .spark_utils import save_picklable_to_parquet
+
     if isinstance(path, Path):
         path = str(path)
 
@@ -85,13 +86,15 @@ def save(model: BaseRecommender, path: Union[str, Path], overwrite: bool = False
         save_picklable_to_parquet(model.study, join(path, "study"))
 
 
-def load(path: str, model_type=None) -> BaseRecommender:
+def load(path: str, model_type=None) -> "BaseRecommender":
     """
     Load saved model from disk
 
     :param path: path to model folder
     :return: Restored trained model
     """
+    from .spark_utils import load_pickled_from_parquet
+
     spark = State().session
     args = spark.read.json(join(path, "init_args.json")).first().asDict(recursive=True)
     name = args["_model_name"]
@@ -119,9 +122,9 @@ def load(path: str, model_type=None) -> BaseRecommender:
 
 
 @deprecation_warning("saving with pickle will be removed in future versions")
-def save_encoder(encoder: DatasetLabelEncoder, path: Union[str, Path]) -> None:
+def save_encoder(encoder: "DatasetLabelEncoder", path: Union[str, Path]) -> None:
     """
-    Save fitted DatasetLabelEncoder to disk as a folder
+    Save fitted "DatasetLabelEncoder" to disk as a folder
 
     :param encoder: Trained encoder
     :param path: destination where encoder files will be stored
@@ -135,12 +138,12 @@ def save_encoder(encoder: DatasetLabelEncoder, path: Union[str, Path]) -> None:
 
 
 @deprecation_warning("loading with pickle will be removed in future versions")
-def load_encoder(path: Union[str, Path]) -> DatasetLabelEncoder:
+def load_encoder(path: Union[str, Path]) -> "DatasetLabelEncoder":
     """
     Load saved encoder from disk
 
     :param path: path to folder
-    :return: restored DatasetLabelEncoder
+    :return: restored "DatasetLabelEncoder"
     """
     if isinstance(path, Path):
         path = str(path)
@@ -149,3 +152,37 @@ def load_encoder(path: Union[str, Path]) -> DatasetLabelEncoder:
         encoder = pickle.load(f)
 
     return encoder
+
+@deprecation_warning("saving with pickle will be removed in future versions")
+def save_splitter(splitter: Splitter, path: str, overwrite: bool = False):
+    """
+    Save initialized splitter
+
+    :param splitter: Initialized splitter
+    :param path: destination where splitter files will be stored
+    """
+    init_args = splitter._init_args
+    init_args["_splitter_name"] = str(splitter)
+    spark = State().session
+    sc = spark.sparkContext
+    df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
+    if overwrite:
+        df.coalesce(1).write.mode("overwrite").json(join(path, "init_args.json"))
+    else:
+        df.coalesce(1).write.json(join(path, "init_args.json"))
+
+
+@deprecation_warning("loading with pickle will be removed in future versions")
+def load_splitter(path: str) -> Splitter:
+    """
+    Load splitter
+
+    :param path: path to folder
+    :return: restored Splitter
+    """
+    spark = State().session
+    args = spark.read.json(join(path, "init_args.json")).first().asDict()
+    name = args["_splitter_name"]
+    del args["_splitter_name"]
+    splitter = globals()[name]
+    return splitter(**args)

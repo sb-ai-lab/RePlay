@@ -1334,7 +1334,7 @@ def test_load_with_unknown_df_type(data_dict, request):
         dataset_dict = json.loads(file.read())
     for df_key in ["interactions", "item_features", "query_features"]:
         dataset_dict["init_args"][df_key] = "new_df_type"
-    with open(base_path / "init_args.json", "w+") as file:
+    with open(base_path / "init_args.json", "w") as file:
         json.dump(dataset_dict, file)
     with pytest.raises(TypeError):
         Dataset.load(path)

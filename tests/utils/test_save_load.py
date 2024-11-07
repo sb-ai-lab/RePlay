@@ -21,8 +21,10 @@ from replay.utils.common import load_from_replay, save_to_replay
 from replay.utils.model_handler import (
     load,
     load_encoder,
+    load_splitter,
     save,
     save_encoder,
+    save_splitter,
 )
 from tests.utils import create_dataset, sparkDataFrameEqual
 
@@ -88,6 +90,49 @@ def test_splitter(splitter, init_args, df, tmp_path):
     save_to_replay(splitter, path)
     train, test = splitter.split(df)
     restored_splitter = load_from_replay(path)
+    for arg_, value_ in init_args.items():
+        assert getattr(restored_splitter, arg_) == value_
+    new_train, new_test = restored_splitter.split(df)
+    assert new_train.shape == train.shape
+    assert new_test.shape == test.shape
+
+
+@pytest.mark.core
+@pytest.mark.parametrize(
+    "splitter, init_args",
+    [
+        (TimeSplitter, {"time_threshold": 0.8, "query_column": "user_idx", "item_column": "item_idx"}),
+        (LastNSplitter, {"N": 2, "query_column": "user_idx", "divide_column": "user_idx", "item_column": "item_idx"}),
+        (
+            RatioSplitter,
+            {"test_size": 0.8, "query_column": "user_idx", "divide_column": "user_idx", "item_column": "item_idx"},
+        ),
+        (RandomSplitter, {"test_size": 0.8, "seed": 123, "item_column": "item_idx"}),
+        (NewUsersSplitter, {"test_size": 0.8, "query_column": "user_idx", "item_column": "item_idx"}),
+        (
+            ColdUserRandomSplitter,
+            {"test_size": 0.8, "seed": 123, "query_column": "user_idx", "item_column": "item_idx"},
+        ),
+        (
+            TwoStageSplitter,
+            {
+                "second_divide_size": 1,
+                "first_divide_size": 0.2,
+                "seed": 123,
+                "query_column": "user_idx",
+                "first_divide_column": "user_idx",
+                "item_column": "item_idx",
+            },
+        ),
+    ],
+)
+def test_save_load_splitter(splitter, init_args, df, tmp_path):
+    path = (tmp_path / "splitter").resolve()
+    splitter = splitter(**init_args)
+    save_splitter(splitter, path)
+    save_splitter(splitter, path, overwrite=True)
+    train, test = splitter.split(df)
+    restored_splitter = load_splitter(path)
     for arg_, value_ in init_args.items():
         assert getattr(restored_splitter, arg_) == value_
     new_train, new_test = restored_splitter.split(df)

@@ -198,7 +198,7 @@ class UCB(NonPersonalizedRecommender):
 
         model_dict = self._save(base_path, additional_params={"fill": self.fill})
 
-        with open(base_path / "init_args.json", "w+") as file:
+        with open(base_path / "init_args.json", "w") as file:
             json.dump(model_dict, file)
 
     @classmethod

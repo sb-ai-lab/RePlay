@@ -117,7 +117,7 @@ class SequentialDataset(abc.ABC):
             "sequences_path": "sequences.json",
         }
 
-        with open(base_path / "init_args.json", "w+") as file:
+        with open(base_path / "init_args.json", "w") as file:
             json.dump(sequential_dict, file)
 
 

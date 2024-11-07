@@ -13,7 +13,7 @@ from replay.data import Dataset, FeatureHint, FeatureSchema, FeatureSource, Feat
 from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.preprocessing import LabelEncoder, LabelEncodingRule
 from replay.preprocessing.label_encoder import HandleUnknownStrategies
-from replay.utils import deprecation_warning
+from replay.utils.decorators import deprecation_warning
 
 from .schema import TensorFeatureInfo, TensorFeatureSource, TensorSchema
 from .sequential_dataset import PandasSequentialDataset, PolarsSequentialDataset, SequentialDataset
@@ -491,7 +491,7 @@ class SequenceTokenizer:
             base_path = Path(path).with_suffix(".replay").resolve()
             base_path.mkdir(parents=True, exist_ok=True)
 
-            with open(base_path / "init_args.json", "w+") as file:
+            with open(base_path / "init_args.json", "w") as file:
                 json.dump(tokenizer_dict, file)
         else:
             with open(path, "wb") as file:

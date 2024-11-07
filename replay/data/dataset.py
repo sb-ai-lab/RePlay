@@ -285,7 +285,7 @@ class Dataset:
         base_path = Path(path).with_suffix(".replay").resolve()
         base_path.mkdir(parents=True, exist_ok=True)
 
-        with open(base_path / "init_args.json", "w+") as file:
+        with open(base_path / "init_args.json", "w") as file:
             json.dump(dataset_dict, file)
 
         df_data = {

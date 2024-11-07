@@ -239,7 +239,7 @@ class ItemKNN(NeighbourRec):
 
         model_dict = self._save(base_path)
 
-        with open(base_path / "init_args.json", "w+") as file:
+        with open(base_path / "init_args.json", "w") as file:
             json.dump(model_dict, file)
 
     @classmethod

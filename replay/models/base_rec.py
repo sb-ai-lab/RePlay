@@ -28,7 +28,7 @@ from optuna.samplers import TPESampler
 from replay.data import Dataset, get_schema
 from replay.metrics import NDCG, Metric
 from replay.optimization.optuna_objective import MainObjective, SplitData
-from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame, deprecation_warning
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 from replay.utils.session_handler import State
 from replay.utils.spark_utils import SparkCollectToMasterWarning
 
@@ -1469,7 +1469,6 @@ class NonPersonalizedRecommender(Recommender, ABC):
     def _dataframes(self):
         return {"item_popularity": self.item_popularity}
 
-    @deprecation_warning("saving with pickle will be removed in future versions")
     def _save_model(self, path: str, additional_params: Optional[dict] = None):  # noqa: ARG002
         super()._save_model(path, additional_params={"fill": self.fill})
 

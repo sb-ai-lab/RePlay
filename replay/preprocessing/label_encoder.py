@@ -520,7 +520,7 @@ Convert type to string, integer, or float."
         else:  # pragma: no cover
             base_path.mkdir(parents=True, exist_ok=True)
 
-        with open(base_path / "init_args.json", "w+") as file:
+        with open(base_path / "init_args.json", "w") as file:
             json.dump(encoder_rule_dict, file)
 
     @classmethod
@@ -734,7 +734,7 @@ class LabelEncoder:
             rule.save(str(base_path) + f"/rules/{path_suffix}")
             encoder_dict["rule_names"].append(path_suffix)
 
-        with open(base_path / "init_args.json", "w+") as file:
+        with open(base_path / "init_args.json", "w") as file:
             json.dump(encoder_dict, file)
 
     @classmethod

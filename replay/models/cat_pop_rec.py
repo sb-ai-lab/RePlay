@@ -316,7 +316,7 @@ class CatPopRec(IsSavable, RecommenderCommons):
             self.fit_items.write.mode("overwrite").parquet(path_to_save)
             model_dict["dataframes_paths"]["fit_items"] = path_to_save
 
-        with open(base_path / "init_args.json", "w+") as file:
+        with open(base_path / "init_args.json", "w") as file:
             json.dump(model_dict, file)
 
     @classmethod

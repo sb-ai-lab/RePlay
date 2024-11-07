@@ -256,7 +256,7 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
             model_dict["index_path"] = str(base_path)
             self._save_index(str(base_path))
 
-        with open(base_path / "init_args.json", "w+") as file:
+        with open(base_path / "init_args.json", "w") as file:
             json.dump(model_dict, file)
 
     @classmethod
