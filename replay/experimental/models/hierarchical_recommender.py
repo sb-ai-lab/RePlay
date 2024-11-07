@@ -157,7 +157,7 @@ class Node:
             self.children = None
 
         self.clusterer = self.tree._get_clusterer(self)
-        self.recommender = self.tree._get_recommender(self)
+        self.recommender = self.tree._get_recommender()
 
     def get_num_children(self):
         return len(self.children)
