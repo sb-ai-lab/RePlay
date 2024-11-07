@@ -18,7 +18,7 @@ from pyspark.sql.types import TimestampType
 
 import replay.utils.session_handler
 from replay.utils import spark_utils as utils
-from replay.utils.common import _check_if_dataframe
+from replay.utils.decorators import _check_if_dataframe
 from replay.utils.time import get_item_recency
 
 datetime = partial(datetime, tzinfo=timezone.utc)
