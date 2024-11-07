@@ -402,32 +402,35 @@ class NeuralTS(HybridRecommender):
     <https://dl.acm.org/doi/pdf/10.1145/3383313.3412214>`_  based on `Wide&Deep model
     <https://arxiv.org/abs/1606.07792>`_.
 
-    :param user_cols: cols_user = {'continuous_cols':List[str], 'cat_embed_cols':List[str], 'wide_cols': List[str]},
-    where List[str] -- some column names from user_features dataframe, which is input to the fit method,
-    or empty List
-    :param item_cols: cols_item = {'continuous_cols':List[str], 'cat_embed_cols':List[str], 'wide_cols': List[str]},
-    where List[str] -- some column names from item_features dataframe, which is input to the fit method,
-    or empty List
-    :param dim_head: output size for WideDeep model head
-    :param deep_out_dim: output size for the Deep model
-    :param hidden_layers: list of hidden layer sizes for Deep model
+    :param user_cols: user_cols = {'continuous_cols':List[str], 'cat_embed_cols':List[str], 'wide_cols': List[str]},
+        where List[str] -- some column names from user_features dataframe, which is input to the fit method,
+        or empty List
+    :param item_cols: item_cols = {'continuous_cols':List[str], 'cat_embed_cols':List[str], 'wide_cols': List[str]},
+        where List[str] -- some column names from item_features dataframe, which is input to the fit method,
+        or empty List
     :param embedding_sizes: list of length three in which
-    embedding_sizes[0] = embedding size for users,
-    embedding_sizes[1] = embedding size for items,
-    embedding_sizes[2] = embedding size for pair (users, items)
+        embedding_sizes[0] = embedding size for users,
+        embedding_sizes[1] = embedding size for items,
+        embedding_sizes[2] = embedding size for pair (users, items)
+    :param hidden_layers: list of hidden layer sizes for Deep model
     :param wide_out_dim: output size for the Wide model
+    :param deep_out_dim: output size for the Deep model
     :param head_dropout: probability of an element to be zeroed for WideDeep model head
     :param deep_dropout: probability of an element to be zeroed for Deep model
+    :param dim_head: output size for WideDeep model head
     :param n_epochs: number of epochs for model training
     :param opt_lr: learning rate for the AdamW optimizer
     :param lr_min: minimum learning rate value for the CosineAnnealingLR learning rate scheduler
     :param use_gpu: if true, the model will be trained on the GPU
-    :param plot_dir: file name where the training graphs will be saved, if None, the graphs will not be saved
     :param use_warp_loss: if true, then warp loss will be used otherwise weighted logistic loss.
     :param cnt_neg_samples: number of additional negative examples for each user
     :param cnt_samples_for_predict: number of sampled predictions for one user,
-    which are used to estimate the mean and variance of relevance
+        which are used to estimate the mean and variance of relevance
     :param exploration_coef:  exploration coefficient
+    :param plot_dir: file name where the training graphs will be saved, if None, the graphs will not be saved
+    :param cnt_users: number of users, used in Wide&Deep model initialization
+    :param cnt_items: number of items, used in Wide&Deep model initialization
+
     """
 
     def __init__(
