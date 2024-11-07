@@ -71,7 +71,7 @@ def get_spark_session(
         shuffle_partitions = os.cpu_count() * 3
     driver_memory = f"{spark_memory}g"
     user_home = os.environ["HOME"]
-    spark = (
+    spark_session_builder = (
         SparkSession.builder.config("spark.driver.memory", driver_memory)
         .config(
             "spark.driver.extraJavaOptions",
@@ -87,10 +87,9 @@ def get_spark_session(
         .config("spark.kryoserializer.buffer.max", "256m")
         .config("spark.files.overwrite", "true")
         .master(f"local[{'*' if core_count == -1 else core_count}]")
-        .enableHiveSupport()
-        .getOrCreate()
     )
-    return spark
+
+    return spark_session_builder.getOrCreate()
 
 
 def logger_with_settings() -> logging.Logger:
