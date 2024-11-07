@@ -16,6 +16,7 @@ ___________________
     "Random Recommender", "PySpark"
     "UCB", "PySpark"
     "KL-UCB", "PySpark/Python CPU"
+    "LinUCB", "PySpark/Python CPU"
     "Thompson Sampling", "PySpark"
     "K-Nearest Neighbours", "PySpark"
     "Alternating Least Squares", "PySpark"
@@ -27,6 +28,7 @@ ___________________
     "MultVAE (Experimental)", "Python CPU/GPU"
     "DDPG (Experimental)", "Python CPU"
     "DT4Rec (Experimental)", "Python CPU/GPU"
+    "NeuralTS (Experimental)", "Python CPU/GPU"
     "ADMM SLIM (Experimental)", "Python CPU"
     "Wrapper for implicit (Experimental)", "Python CPU"
     "Wrapper for LightFM (Experimental)", "Python CPU"
@@ -86,6 +88,11 @@ UCB Recommender
 KL-UCB Recommender
 ``````````````````
 .. autoclass:: replay.models.KLUCB
+   :special-members: __init__
+
+LinUCB Recommender
+``````````````````
+.. autoclass:: replay.models.LinUCB
    :special-members: __init__
 
 Thompson Sampling
@@ -280,6 +287,11 @@ DDPG (Experimental)
 DT4Rec (Experimental)
 ```````````````````````````
 .. autoclass:: replay.experimental.models.dt4rec.dt4rec.DT4Rec
+    :special-members: __init__
+
+NeuralTS (Experimental)
+```````````````````````````
+.. autoclass:: replay.experimental.models.NeuralTS
     :special-members: __init__
 
 CQL Recommender (Experimental)
