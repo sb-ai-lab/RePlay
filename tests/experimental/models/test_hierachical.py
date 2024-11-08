@@ -33,6 +33,7 @@ def fitted_model(log_u_lin_ucb, user_features, item_features, random_state=42):
     model.fit(log_u_lin_ucb, user_features=user_features, item_features=item_features)
     return model
 
+
 @pytest.mark.spark
 def test_predict(fitted_model, log_u_lin_ucb, user_features, item_features):
     users = log_u_lin_ucb.select("user_idx").distinct()
