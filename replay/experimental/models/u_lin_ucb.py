@@ -49,7 +49,7 @@ class ULinUCB(HybridRecommender):
         user_features = user_features.orderBy("user_idx").drop("user_idx").toPandas()
         item_features = item_features.orderBy("item_idx").drop("item_idx").toPandas()
 
-        self._num_users, self._num_user_features = user_features.shape
+        self._num_users, _ = user_features.shape
         self._num_items, self._num_item_features = item_features.shape
 
         self._init_params()
@@ -72,8 +72,9 @@ class ULinUCB(HybridRecommender):
         user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
         item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
         filter_seen_items: bool = True,  # noqa: ARG002
+        oversample: int = 20,
     ) -> SparkDataFrame:
-        extended_k = 10 * k
+        extended_k = oversample * k
 
         user_idx = users.toPandas()["user_idx"].astype(int).to_numpy()
 
