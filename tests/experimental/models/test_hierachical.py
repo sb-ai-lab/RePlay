@@ -29,9 +29,7 @@ def item_features(spark):
 
 @pytest.fixture(scope="module")
 def fitted_model(log_u_lin_ucb, user_features, item_features, random_state=42):
-    model = HierarchicalRecommender(
-        depth=2, cluster_model=KMeans(n_clusters=2, random_state=random_state)
-    )
+    model = HierarchicalRecommender(depth=2, cluster_model=KMeans(n_clusters=2, random_state=random_state))
     model.fit(log_u_lin_ucb, user_features=user_features, item_features=item_features)
     return model
 
