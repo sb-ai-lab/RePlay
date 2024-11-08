@@ -22,7 +22,7 @@ class ULinUCB(HybridRecommender):
 
     def __init__(
         self,
-        alpha: float = 0.5,
+        alpha: float = -2.0,
     ):
         """
         :param alpha: exploration coefficient
