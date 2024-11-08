@@ -297,7 +297,7 @@ NeuralTS (Experimental)
     :special-members: __init__
 
 ULinUCB Recommender (Experimental)
-```````
+``````````````````````````````````
 .. autoclass:: replay.experimental.models.ULinUCB
     :special-members: __init__
 
