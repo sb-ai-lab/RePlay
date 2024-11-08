@@ -14,6 +14,13 @@ def log_u_lin_ucb(log2):
 
 
 @pytest.fixture(scope="module")
+def user_features(spark):
+    return spark.createDataFrame([(0, 2.0, 5.0), (1, 0.0, -5.0), (2, 4.0, 3.0)]).toDF(
+        "user_idx", "user_feature_1", "user_feature_2"
+    )
+
+
+@pytest.fixture(scope="module")
 def item_features(spark):
     return spark.createDataFrame([(0, 4.0, 5.0), (1, 5.0, 4.0), (2, 5.0, 1.0), (3, 0.0, 4.0)]).toDF(
         "item_idx", "item_feature_1", "item_feature_2"
@@ -21,19 +28,19 @@ def item_features(spark):
 
 
 @pytest.fixture(scope="module")
-def fitted_model(log_u_lin_ucb):
+def fitted_model(log_u_lin_ucb, user_features, item_features):
     model = ULinUCB()
-    model.fit(log_u_lin_ucb, user_features=None, item_features=item_features)
+    model.fit(log_u_lin_ucb, user_features=user_features, item_features=item_features)
     return model
 
 
 @pytest.mark.spark
-def test_predict_empty_log(fitted_model, log_u_lin_ucb, seed):
-    fitted_model.seed = seed
+def test_predict_empty_log(fitted_model, log_u_lin_ucb, user_features, item_features):
 
+    empty_log = log_u_lin_ucb.limit(0)
     users = log_u_lin_ucb.select("user_idx").distinct()
-    pred = fitted_model._predict(
-        log_u_lin_ucb.limit(0), k=1, users=users, items=list(range(10)), user_features=None, item_features=item_features
+    pred = fitted_model.predict(
+        empty_log, k=1, users=users, items=list(range(10)), user_features=user_features, item_features=item_features
     )
 
     assert pred.count() == users.count()
