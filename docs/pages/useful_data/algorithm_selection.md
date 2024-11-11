@@ -32,6 +32,7 @@ The same goes for new items.
 |Wilson Recommender         |Collaborative    | binary ratings                         | + | - |
 |UCB                        |Collaborative    | binary ratings                         | + | + |
 |KL-UCB                     |Collaborative    | binary ratings                         | + | + |
+|LinUCB                     |Collaborative    | binary ratings                         | + | - |
 |Random Recommender         |Collaborative    | converted to unary ratings             | + | + |
 |K-Nearest Neighbours       |Collaborative    | converted to unary ratings             | + | - |
 |Alternating Least Squares  |Collaborative    | implicit feedback                      | - | - |

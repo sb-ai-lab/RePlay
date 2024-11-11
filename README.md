@@ -193,7 +193,8 @@ To build RePlay from sources please use the [instruction](CONTRIBUTING.md#instal
 10. [10_bert4rec_example.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/10_bert4rec_example.ipynb) - An example of using transformer-based BERT4Rec model to generate recommendations.
 11. [11_sasrec_dataframes_comparison.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/11_sasrec_dataframes_comparison.ipynb) - speed comparison of using different frameworks (pandas, polars, pyspark) for data processing during SASRec training.
 12. [12_neural_ts_exp.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/12_neural_ts_exp.ipynb) - An example of using Neural Thompson Sampling bandit model (based on Wide&Deep architecture).
-
+13. [13_personalized_bandit_comparison.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/13_personalized_bandit_comparison.ipynb) - A comparison of context-free and contextual bandit models.
+14. [14_hierarchical_recommender.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/14_hierarchical_recommender.ipynb) - An example of using HierarchicalRecommender with user-disjoint LinUCB.
 
 ### Videos and papers
 * **Video guides**:
