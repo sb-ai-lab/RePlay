@@ -10,9 +10,7 @@ from replay.experimental.models.hierarchical_recommender import HierarchicalReco
 
 @pytest.fixture(scope="module")
 def log_u_lin_ucb(log2):
-    return log2.withColumn(
-        "relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0)
-    )
+    return log2.withColumn("relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0))
 
 
 @pytest.fixture(scope="module")
