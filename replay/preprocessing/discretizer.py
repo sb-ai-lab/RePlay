@@ -3,7 +3,7 @@ import json
 import os
 import warnings
 from pathlib import Path
-from typing import Dict, Literal, Sequence
+from typing import Dict, List, Literal, Sequence
 
 import numpy as np
 import polars as pl
@@ -16,7 +16,6 @@ from replay.utils import (
     PolarsDataFrame,
     SparkDataFrame,
 )
-from replay.utils.spark_utils import SparkCollectToMasterWarning
 
 if PYSPARK_AVAILABLE:  # pragma: no cover
     from pyspark.ml.feature import Bucketizer, QuantileDiscretizer
@@ -107,7 +106,25 @@ class GreedyDiscretizingRule(BaseDiscretizingRule):
     def n_bins(self) -> str:
         return self._n_bins
 
-    def _greedy_bin_find(self, distinct_values, counts, num_distinct_values, max_bin, total_cnt, min_data_in_bin):
+    def _greedy_bin_find(
+        self,
+        distinct_values: np.ndarray,
+        counts: np.ndarray,
+        num_distinct_values: int,
+        max_bin: int,
+        total_cnt: int,
+        min_data_in_bin: int,
+    ) -> List[float]:
+        """
+        Computes bound for bins.
+
+        :param distinct_values: Array of unique values.
+        :param counts: Number of samples corresponding to the every unique value.
+        :param num_distinct_values: Number of unique value.
+        :param max_bin: Maximum bin number.
+        :param total_cnt: Total number of samples.
+        :param min_data_in_bin: Minimum number of samples in one bin.
+        """
         bin_upper_bound = []
         assert max_bin > 0
 
@@ -177,15 +194,15 @@ class GreedyDiscretizingRule(BaseDiscretizingRule):
         return bin_upper_bound
 
     def _fit_spark(self, df: SparkDataFrame) -> None:
-        warn_msg = (
-            "Spark Data Frame will be collected to master node, this may lead to OOM exception for larger dataset."
-        )
-        warnings.warn(warn_msg, SparkCollectToMasterWarning)
+        warn_msg = "DataFrame will be partially converted to the Pandas type during internal calculations in 'fit'"
+        warnings.warn(warn_msg)
         vc = df.groupBy(self._col).count().orderBy(self._col)
-        _index = vc.select(self._col).rdd.flatMap(lambda x: x).collect()  # pragma: no cover
-        _values = vc.select("count").rdd.flatMap(lambda x: x).collect()  # pragma: no cover
+        _index = vc.select(self._col).toPandas()[self._col]
+        _values = vc.select("count").toPandas()["count"]
         bins = [-float("inf")]
-        bins += self._greedy_bin_find(_index, _values, vc.count(), self._n_bins + 1, df.count(), self._min_data_in_bin)
+        bins += self._greedy_bin_find(
+            _index.values, _values.values, _values.shape[0], self._n_bins + 1, df.count(), self._min_data_in_bin
+        )
         self._bins = bins
 
     def _fit_pandas(self, df: PandasDataFrame) -> None:
