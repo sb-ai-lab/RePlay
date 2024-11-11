@@ -34,7 +34,7 @@ def fitted_model(log_u_lin_ucb, user_features, item_features, random_state=42):
     return model
 
 
-@pytest.mark.spark
+@pytest.mark.experimental
 def test_predict(fitted_model, log_u_lin_ucb, user_features, item_features):
     users = log_u_lin_ucb.select("user_idx").distinct()
     pred = fitted_model.predict(

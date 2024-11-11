@@ -34,7 +34,7 @@ def fitted_model(log_u_lin_ucb, user_features, item_features):
     return model
 
 
-@pytest.mark.spark
+@pytest.mark.experimental
 def test_predict_empty_log(fitted_model, log_u_lin_ucb, user_features, item_features):
     empty_log = log_u_lin_ucb.limit(0)
     users = log_u_lin_ucb.select("user_idx").distinct()
