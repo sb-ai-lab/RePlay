@@ -33,6 +33,8 @@ ___________________
     "Wrapper for implicit (Experimental)", "Python CPU"
     "Wrapper for LightFM (Experimental)", "Python CPU"
     "RL-based CQL Recommender (Experimental)", "PySpark"
+    "ULinUCB (Experimental)", "Python CPU"
+    "Hierarchical Recommender (Experimental)", "PySpark"
 
 To get more info on how to choose base model, please see this  :doc:`page </pages/useful_data/algorithm_selection>`.
 
@@ -294,6 +296,11 @@ NeuralTS (Experimental)
 .. autoclass:: replay.experimental.models.NeuralTS
     :special-members: __init__
 
+ULinUCB Recommender (Experimental)
+``````````````````````````````````
+.. autoclass:: replay.experimental.models.ULinUCB
+    :special-members: __init__
+
 CQL Recommender (Experimental)
 ```````````````````````````````````
 Conservative Q-Learning (CQL) algorithm is a SAC-based data-driven deep reinforcement learning algorithm, 
@@ -302,6 +309,15 @@ which achieves state-of-the-art performance in offline RL problems.
 .. image:: /images/cql_comparison.png
 
 .. autoclass:: replay.experimental.models.cql.CQL
+    :special-members: __init__
+
+
+Hierarchical models
+___________________
+
+Hierarchical Recommender (Experimental)
+```````````````````````````````````````
+.. autoclass:: replay.experimental.models.HierarchicalRecommender
     :special-members: __init__
 
 
