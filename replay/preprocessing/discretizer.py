@@ -151,13 +151,9 @@ class GreedyDiscretizingRule(BaseDiscretizingRule):
             rest_bin_cnt = max_bin
             rest_sample_cnt = total_cnt
 
-            is_big_count_value = [False] * num_distinct_values
-
-            for i in range(num_distinct_values):
-                if counts[i] >= mean_bin_size:
-                    is_big_count_value[i] = True
-                    rest_bin_cnt -= 1
-                    rest_sample_cnt -= counts[i]
+            is_big_count_value = counts >= mean_bin_size
+            rest_bin_cnt -= np.sum(is_big_count_value)
+            rest_sample_cnt -= np.sum(counts[is_big_count_value])
 
             mean_bin_size = rest_sample_cnt / rest_bin_cnt
             upper_bounds = [float("Inf")] * max_bin
