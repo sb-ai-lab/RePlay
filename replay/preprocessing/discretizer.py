@@ -192,12 +192,15 @@ class GreedyDiscretizingRule(BaseDiscretizingRule):
     def _fit_spark(self, df: SparkDataFrame) -> None:
         warn_msg = "DataFrame will be partially converted to the Pandas type during internal calculations in 'fit'"
         warnings.warn(warn_msg)
-        vc = df.groupBy(self._col).count().orderBy(self._col)
-        _index = vc.select(self._col).toPandas()[self._col]
-        _values = vc.select("count").toPandas()["count"]
+        value_counts = df.groupBy(self._col).count().orderBy(self._col).toPandas()
         bins = [-float("inf")]
         bins += self._greedy_bin_find(
-            _index.values, _values.values, _values.shape[0], self._n_bins + 1, df.count(), self._min_data_in_bin
+            value_counts[self._col].values,
+            value_counts["count"].values,
+            value_counts.shape[0],
+            self._n_bins + 1,
+            df.count(),
+            self._min_data_in_bin,
         )
         self._bins = bins
 
