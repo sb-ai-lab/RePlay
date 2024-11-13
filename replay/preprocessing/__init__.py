@@ -6,6 +6,12 @@ This module contains tools for preprocessing data including:
 """
 
 from .converter import CSRConverter
+from .discretizer import (
+    Discretizer,
+    GreedyDiscretizingRule,
+    HandleInvalidStrategies,
+    QuantileDiscretizingRule,
+)
 from .history_based_fp import (
     ConditionalPopularityProcessor,
     EmptyFeatureProcessor,
