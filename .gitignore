@@ -183,6 +183,12 @@ airflow.yaml
 
 # temporary
 examples/tests
+outputs
 
 ### d3rlpy logs
 d3rlpy_logs/
+
+# datasets
+replay_benchmarks/data
+# logs and checkpoints
+replay_benchmarks/artifacts
