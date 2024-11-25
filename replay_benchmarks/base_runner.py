@@ -117,6 +117,8 @@ class BaseRunner(ABC):
         interactions[self.timestamp_column] = interactions[
             self.timestamp_column
         ].astype("int64")
+        if dataset_name == "megamarket":
+            interactions = interactions[interactions.event == 2] # take only purchase
         interactions.to_parquet(interactions_file)
 
     def _download_rs_dataset(
@@ -127,9 +129,13 @@ class BaseRunner(ABC):
             version = dataset_name.split("_")[1]
             movielens = MovieLens(version=version, path=data_path)
             interactions = movielens.ratings
+            interactions = interactions[interactions[self.dataset_cfg["feature_schema"]["rating_column"]] > self.dataset_cfg["preprocess"]["min_rating"]]
         elif dataset_name == "netflix":
             netflix = Netflix(path=data_path)
-            interactions = pd.concat([netflix.train, netflix.test]).fillna(5)
+            interactions = pd.concat([netflix.train, netflix.test]).fillna(5).reset_index(drop=True)
+            interactions = interactions[interactions[self.dataset_cfg["feature_schema"]["rating_column"]] > self.dataset_cfg["preprocess"]["min_rating"]]
+            interactions = interactions.sort_values(by=[self.user_column, self.timestamp_column])
+            interactions[self.timestamp_column] += interactions.groupby([self.user_column, self.timestamp_column]).cumcount()
         else:
             raise ValueError(f"Unsupported dataset: {dataset_name}")
 
@@ -174,38 +180,39 @@ class BaseRunner(ABC):
         validation_events, validation_gt = splitter.split(test_events)
         train_events = validation_events
 
-        # Limit number of gt events in val and test:
+        # Limit number of gt events in val and test only if max_num_test_interactions is not null
+        max_test_interactions = self.dataset_cfg["preprocess"]["max_num_test_interactions"]
         logging.info(
-            f"Distribution of seq_len in validation before filtering:\n{validation_gt.groupby(self.user_column)[self.item_column].agg('count').describe()}."
-        )
-        validation_gt = NumInteractionsFilter(
-            num_interactions=self.dataset_cfg["preprocess"][
-                "max_num_test_interactions"
-            ],
-            first=True,
-            query_column=self.user_column,
-            item_column=self.item_column,
-            timestamp_column=self.timestamp_column,
-        ).transform(validation_gt)
+                f"Distribution of seq_len in validation:\n{validation_gt.groupby(self.user_column)[self.item_column].agg('count').describe()}."
+            )
         logging.info(
-            f"Distribution of seq_len in validation  after filtering:\n{validation_gt.groupby(self.user_column)[self.item_column].agg('count').describe()}."
-        )
+                f"Distribution of seq_len in test:\n{test_gt.groupby(self.user_column)[self.item_column].agg('count').describe()}."
+            )
+        if max_test_interactions is not None:
+            
+            validation_gt = NumInteractionsFilter(
+                num_interactions=max_test_interactions,
+                first=True,
+                query_column=self.user_column,
+                item_column=self.item_column,
+                timestamp_column=self.timestamp_column,
+            ).transform(validation_gt)
+            logging.info(
+                f"Distribution of seq_len in validation  after filtering:\n{validation_gt.groupby(self.user_column)[self.item_column].agg('count').describe()}."
+            )
 
-        logging.info(
-            f"Distribution of seq_len in test before filtering:\n{test_gt.groupby(self.user_column)[self.item_column].agg('count').describe()}."
-        )
-        test_gt = NumInteractionsFilter(
-            num_interactions=self.dataset_cfg["preprocess"][
-                "max_num_test_interactions"
-            ],
-            first=True,
-            query_column=self.user_column,
-            item_column=self.item_column,
-            timestamp_column=self.timestamp_column,
-        ).transform(test_gt)
-        logging.info(
-            f"Distribution of seq_len in test after filtering:\n{test_gt.groupby(self.user_column)[self.item_column].agg('count').describe()}."
-        )
+            test_gt = NumInteractionsFilter(
+                num_interactions=max_test_interactions,
+                first=True,
+                query_column=self.user_column,
+                item_column=self.item_column,
+                timestamp_column=self.timestamp_column,
+            ).transform(test_gt)
+            logging.info(
+                f"Distribution of seq_len in test after filtering:\n{test_gt.groupby(self.user_column)[self.item_column].agg('count').describe()}."
+            )
+        else:
+            logging.info("max_num_test_interactions is null. Skipping filtration.")
 
         return train_events, validation_events, validation_gt, test_events, test_gt
 
