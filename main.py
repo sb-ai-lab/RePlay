@@ -19,7 +19,7 @@ def main() -> None:
     logging.info("Configuration:\n%s", yaml.dump(config))
 
     seed_everything(config["env"]["SEED"])
-    logging.info("Fixing seed: ", config["env"]["SEED"])
+    logging.info(f"Fixing seed: {config['env']['SEED']}")
 
     if config["mode"]["name"] == "train":
         runner = TrainRunner(config)
