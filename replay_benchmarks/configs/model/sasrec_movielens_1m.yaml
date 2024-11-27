@@ -1,0 +1,17 @@
+model:
+  name: sasrec
+
+  params:
+    model_params:
+      block_count: 2
+      head_count: 2
+      max_seq_len: 200
+      hidden_size: 300
+      dropout_rate: 0.5
+      loss_type: SCE
+    training_params:
+      embedding_dim: 300
+      learning_rate: 0.001
+      batch_size: 512
+      num_workers: 4
+      max_epochs: 30
