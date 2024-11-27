@@ -247,7 +247,7 @@ class BaseRunner(ABC):
 
     def build_tensor_schema(self) -> TensorSchema:
         """Build TensorSchema for the sequential model."""
-        embedding_dim = self.model_cfg["embedding_dim"]
+        embedding_dim = self.model_cfg["training_params"]["embedding_dim"]
         item_feature_name = "item_id_seq"
 
         return TensorSchema(
