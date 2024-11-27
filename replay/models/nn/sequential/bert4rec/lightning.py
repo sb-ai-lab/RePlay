@@ -4,8 +4,8 @@ from typing import Any, Dict, Optional, Tuple, Union, cast
 import lightning
 import torch
 
-from replay_dev.data.nn import TensorMap, TensorSchema
-from replay_dev.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
+from replay.data.nn import TensorMap, TensorSchema
+from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
 
 from .dataset import Bert4RecPredictionBatch, Bert4RecTrainingBatch, Bert4RecValidationBatch, _shift_features
 from .model import Bert4RecModel, CatFeatureEmbedding
