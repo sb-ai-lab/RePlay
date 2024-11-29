@@ -68,6 +68,14 @@ class Bert4Rec(lightning.LightningModule):
             Default: ``global_uniform``.
         :param negatives_sharing: Apply negative sharing in calculating sampled logits.
             Default: ``False``.
+        :param n_buckets: Number of buckets for SCE loss.
+            Default: ``100``
+        :param bucket_size_x: Size of x buckets for SCE loss.
+            Default: ``100``
+        :param bucket_size_y: Size of y buckets for SCE loss.
+            Default: ``100``
+        :param mix_x: Mix states embeddings with random matrix for SCE loss.
+            Default: ``False``
         :param optimizer_factory: Optimizer factory.
             Default: ``FatOptimizerFactory``.
         :param lr_scheduler_factory: Learning rate schedule factory.
