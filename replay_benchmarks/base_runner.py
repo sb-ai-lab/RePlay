@@ -180,6 +180,9 @@ class BaseRunner(ABC):
         validation_events, validation_gt = splitter.split(test_events)
         train_events = validation_events
 
+        test_gt = test_gt[test_gt[self.item_column].isin(train_events[self.item_column])]
+        test_gt = test_gt[test_gt[self.user_column].isin(train_events[self.user_column])]
+
         # Limit number of gt events in val and test only if max_num_test_interactions is not null
         max_test_interactions = self.dataset_cfg["preprocess"]["max_num_test_interactions"]
         logging.info(
@@ -247,7 +250,7 @@ class BaseRunner(ABC):
 
     def build_tensor_schema(self) -> TensorSchema:
         """Build TensorSchema for the sequential model."""
-        embedding_dim = self.model_cfg["embedding_dim"]
+        embedding_dim = self.model_cfg["training_params"]["embedding_dim"]
         item_feature_name = "item_id_seq"
 
         return TensorSchema(
