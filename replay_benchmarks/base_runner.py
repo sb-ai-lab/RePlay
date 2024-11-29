@@ -181,7 +181,7 @@ class BaseRunner(ABC):
         train_events = validation_events
 
         test_gt = test_gt[test_gt[self.item_column].isin(train_events[self.item_column])]
-        self.test_gt = test_gt[test_gt[self.user_column].isin(train_events[self.user_column])]
+        test_gt = test_gt[test_gt[self.user_column].isin(train_events[self.user_column])]
 
         # Limit number of gt events in val and test only if max_num_test_interactions is not null
         max_test_interactions = self.dataset_cfg["preprocess"]["max_num_test_interactions"]
