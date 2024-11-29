@@ -8,7 +8,7 @@ model:
       max_seq_len: 400
       hidden_size: 128
       dropout_rate: 0.1
-      loss_type: BCE
+      loss_type: BCE # CE, BCE, SCE
       loss_sample_count: 500
     training_params:
       embedding_dim: 300
