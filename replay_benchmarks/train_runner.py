@@ -37,15 +37,11 @@ class TrainRunner(BaseRunner):
         """Initialize the model based on the configuration."""
         model_config = {
             "tensor_schema": self.tensor_schema,
-            "block_count": self.model_cfg["block_count"],
-            "head_count": self.model_cfg["head_count"],
-            "max_seq_len": self.model_cfg["max_sequence_length"],
-            "hidden_size": self.model_cfg["hidden_size"],
-            "dropout_rate": self.model_cfg["dropout_rate"],
             "optimizer_factory": FatOptimizerFactory(
-                learning_rate=self.model_cfg["learning_rate"]
+                learning_rate=self.model_cfg["training_params"]["learning_rate"]
             ),
         }
+        model_config.update(self.model_cfg["model_params"])
 
         if self.model_name.lower() == "sasrec":
             return SasRec(**model_config)
@@ -76,25 +72,25 @@ class TrainRunner(BaseRunner):
             ),
         }
 
-        try:
+        if self.model_name.lower() in dataset_mapping:
             TrainingDataset, ValidationDataset, PredictionDataset = dataset_mapping[
                 self.model_name.lower()
             ]
-        except KeyError:
+        else:
             raise ValueError(
                 f"Unsupported model type for dataloaders: {self.model_name}"
             )
 
         common_params = {
-            "batch_size": self.model_cfg["batch_size"],
-            "num_workers": self.model_cfg["num_workers"],
+            "batch_size": self.model_cfg["training_params"]["batch_size"],
+            "num_workers": self.model_cfg["training_params"]["num_workers"],
             "pin_memory": True,
         }
 
         train_dataloader = DataLoader(
             dataset=TrainingDataset(
                 seq_train_dataset,
-                max_sequence_length=self.model_cfg["max_sequence_length"],
+                max_sequence_length=self.model_cfg["model_params"]["max_seq_len"],
             ),
             shuffle=True,
             **common_params,
@@ -104,14 +100,14 @@ class TrainRunner(BaseRunner):
                 seq_validation_dataset,
                 seq_validation_gt,
                 seq_train_dataset,
-                max_sequence_length=self.model_cfg["max_sequence_length"],
+                max_sequence_length=self.model_cfg["model_params"]["max_seq_len"],
             ),
             **common_params,
         )
         prediction_dataloader = DataLoader(
             dataset=PredictionDataset(
                 seq_test_dataset,
-                max_sequence_length=self.model_cfg["max_sequence_length"],
+                max_sequence_length=self.model_cfg["model_params"]["max_seq_len"],
             ),
             **common_params,
         )
@@ -191,7 +187,7 @@ class TrainRunner(BaseRunner):
         )
 
         trainer = L.Trainer(
-            max_epochs=self.model_cfg["max_epochs"],
+            max_epochs=self.model_cfg["training_params"]["max_epochs"],
             callbacks=[checkpoint_callback, validation_metrics_callback],
             logger=self.logger,
         )

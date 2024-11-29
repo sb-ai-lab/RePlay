@@ -1,10 +1,11 @@
 defaults:
-  - dataset: megamarket
+  - dataset: movielens_1m
   - model: sasrec
   - mode: train
   - acceleration: null
 
 env:
+  SEED: 42
   CUDA_DEVICE_ORDER: "PCI_BUS_ID" 
   OMP_NUM_THREADS: "4"
   CUDA_VISIBLE_DEVICES: "0"
