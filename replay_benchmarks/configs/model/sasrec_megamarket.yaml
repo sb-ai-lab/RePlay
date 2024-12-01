@@ -1,5 +1,5 @@
 model:
-  name: bert4rec
+  name: sasrec
 
   params:
     model_params:
@@ -8,11 +8,11 @@ model:
       max_seq_len: 200
       hidden_size: 312
       dropout_rate: 0.15
-      loss_type: CE # CE, BCE, SCE
+      loss_type: BCE # CE, BCE, SCE
       loss_sample_count: 500
     training_params:
       embedding_dim: 312
       learning_rate: 0.001
       batch_size: 128
       num_workers: 4
-      max_epochs: 100
+      max_epochs: 200
