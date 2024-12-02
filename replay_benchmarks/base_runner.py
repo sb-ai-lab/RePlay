@@ -26,6 +26,7 @@ class BaseRunner(ABC):
     def __init__(self, config):
         self.config = config
         self.model_name = config["model"]["name"]
+        self.model_save_name = config["model"]["save_name"]
         self.dataset_name = config["dataset"]["name"]
         self.dataset_cfg = config["dataset"]
         self.model_cfg = config["model"]["params"]
