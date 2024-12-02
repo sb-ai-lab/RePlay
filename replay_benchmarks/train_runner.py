@@ -252,7 +252,7 @@ class TrainRunner(BaseRunner):
 
         trainer = L.Trainer(
             max_epochs=self.model_cfg["training_params"]["max_epochs"],
-            callbacks=[checkpoint_callback, early_stopping, validation_metrics_callback, timer_callback],
+            callbacks=[checkpoint_callback, early_stopping, validation_metrics_callback],
             logger=[self.csv_logger, self.tb_logger],
             profiler=profiler
         )
