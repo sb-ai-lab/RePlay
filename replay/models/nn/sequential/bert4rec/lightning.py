@@ -345,7 +345,7 @@ class Bert4Rec(lightning.LightningModule):
         labels_mask = (~padding_mask) + tokens_mask
         masked_tokens = ~labels_mask
 
-        pad_token = feature_tensors[self._model.item_feature_name].view(-1)[~padding_mask.view(-1)][0]
+        pad_token = feature_tensors[self._schema.item_id_feature_name].view(-1)[~padding_mask.view(-1)][0]
         emb = self._model.forward_step(feature_tensors, padding_mask, tokens_mask)
         hd = torch.tensor(emb.shape[-1])
 
