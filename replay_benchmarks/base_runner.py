@@ -56,12 +56,12 @@ class BaseRunner(ABC):
             [
                 FeatureInfo(
                     column=self.user_column,
-                    feature_hint=FeatureHint.QUERY_ID,
+                    feature_hint=self.user_column,
                     feature_type=FeatureType.CATEGORICAL,
                 ),
                 FeatureInfo(
                     column=self.item_column,
-                    feature_hint=FeatureHint.ITEM_ID,
+                    feature_hint=self.item_column,
                     feature_type=FeatureType.CATEGORICAL,
                 ),
             ]
