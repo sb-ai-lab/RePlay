@@ -6,7 +6,8 @@ from pathlib import Path
 import torch
 import lightning as L
 from lightning.pytorch.loggers import CSVLogger, TensorBoardLogger
-from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping, Timer
+from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+from lightning.pytorch.profilers import SimpleProfiler
 from torch.utils.data import DataLoader
 from torch.profiler import profile, ProfilerActivity
 
@@ -213,15 +214,6 @@ class TrainRunner(BaseRunner):
         self.tokenizer.save(f"{save_path}/sequence_tokenizer")
         logging.info(f"Best model saved at: {save_path}")
 
-    def save_training_time(self, timer_callback):
-        training_valid_time = {
-            'Training time, sec': round(timer_callback.time_elapsed("train"), 5),
-            'Validation time, sec': round(timer_callback.time_elapsed("validate"), 5)
-
-        }
-        with open(os.path.join(self.csv_logger.log_dir, "time_logs.yaml"), 'w') as file:
-            yaml.dump(training_valid_time, file)
-
     def run(self):
         """Execute the training pipeline."""
         train_dataloader, val_dataloader, prediction_dataloader = (
@@ -256,12 +248,13 @@ class TrainRunner(BaseRunner):
             postprocessors=[RemoveSeenItems(self.seq_val_dataset)],
         )
 
-        timer_callback = Timer()
+        profiler = SimpleProfiler(dirpath = self.csv_logger.log_dir, filename = 'simple_profiler')
 
         trainer = L.Trainer(
             max_epochs=self.model_cfg["training_params"]["max_epochs"],
             callbacks=[checkpoint_callback, early_stopping, validation_metrics_callback, timer_callback],
             logger=[self.csv_logger, self.tb_logger],
+            profiler=profiler
         )
 
         logging.info("Starting training...")
@@ -317,6 +310,4 @@ class TrainRunner(BaseRunner):
                 f"{self.model_name}_{self.dataset_name}_test_metrics.csv",
             ),
         )
-
-        self.save_training_time(timer_callback)
 
