@@ -1,18 +1,32 @@
 import logging
 import os
+from pathlib import Path
 
+import torch
 import lightning as L
-from lightning.pytorch.loggers import CSVLogger
-from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.loggers import CSVLogger, TensorBoardLogger
+from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from torch.utils.data import DataLoader
-from torch.profiler import profile, record_function, ProfilerActivity, schedule
+from torch.profiler import profile, ProfilerActivity
 
 from replay_benchmarks.base_runner import BaseRunner
-from replay.metrics import OfflineMetrics, Recall, Precision, MAP, NDCG, HitRate, MRR
+from replay.metrics import (
+    OfflineMetrics,
+    Recall,
+    Precision,
+    MAP,
+    NDCG,
+    HitRate,
+    MRR,
+    Coverage,
+)
 from replay.metrics.torch_metrics_builder import metrics_to_df
 from replay.models.nn.sequential import SasRec, Bert4Rec
 from replay.models.nn.optimizer_utils import FatOptimizerFactory
-from replay.models.nn.sequential.callbacks import ValidationMetricsCallback
+from replay.models.nn.sequential.callbacks import (
+    ValidationMetricsCallback,
+    PandasPredictionCallback,
+)
 from replay.models.nn.sequential.postprocessors import RemoveSeenItems
 from replay.models.nn.sequential.sasrec import (
     SasRecTrainingDataset,
@@ -29,11 +43,29 @@ from replay.models.nn.sequential.bert4rec import (
 class TrainRunner(BaseRunner):
     def __init__(self, config):
         super().__init__(config)
-        self.logger = CSVLogger(
-            save_dir=config["paths"]["log_dir"], name=self.model_name
-        )
+        self.item_count = None
+        self.raw_test_gt = None
+        self.seq_val_dataset = None
+        self.seq_test_dataset = None
 
-    def initialize_model(self):
+        # Loggers
+        log_dir = Path(config["paths"]["log_dir"]) / self.dataset_name / self.model_name
+        self.csv_logger = CSVLogger(save_dir=log_dir / "csv_logs")
+        self.tb_logger = TensorBoardLogger(save_dir=log_dir / "tb_logs")
+
+        self._check_paths()
+
+    def _check_paths(self):
+        """Ensure all required directories exist."""
+        required_paths = [
+            self.config["paths"]["log_dir"],
+            self.config["paths"]["checkpoint_dir"],
+            self.config["paths"]["results_dir"],
+        ]
+        for path in required_paths:
+            Path(path).mkdir(parents=True, exist_ok=True)
+
+    def _initialize_model(self):
         """Initialize the model based on the configuration."""
         model_config = {
             "tensor_schema": self.tensor_schema,
@@ -50,7 +82,7 @@ class TrainRunner(BaseRunner):
         else:
             raise ValueError(f"Unsupported model type: {self.model_name}")
 
-    def prepare_dataloaders(
+    def _prepare_dataloaders(
         self,
         seq_train_dataset,
         seq_validation_dataset,
@@ -58,7 +90,8 @@ class TrainRunner(BaseRunner):
         seq_test_dataset,
     ):
         """Initialize dataloaders for training, validation, and testing."""
-        logging.info("Preparing dataloaders objects...")
+        logging.info("Preparing dataloaders...")
+
         dataset_mapping = {
             "sasrec": (
                 SasRecTrainingDataset,
@@ -72,15 +105,13 @@ class TrainRunner(BaseRunner):
             ),
         }
 
-        if self.model_name.lower() in dataset_mapping:
-            TrainingDataset, ValidationDataset, PredictionDataset = dataset_mapping[
-                self.model_name.lower()
-            ]
-        else:
+        datasets = dataset_mapping.get(self.model_name.lower())
+        if not datasets:
             raise ValueError(
                 f"Unsupported model type for dataloaders: {self.model_name}"
             )
 
+        TrainingDataset, ValidationDataset, PredictionDataset = datasets
         common_params = {
             "batch_size": self.model_cfg["training_params"]["batch_size"],
             "num_workers": self.model_cfg["training_params"]["num_workers"],
@@ -114,6 +145,39 @@ class TrainRunner(BaseRunner):
 
         return train_dataloader, val_dataloader, prediction_dataloader
 
+    def _load_dataloaders(self):
+        """Loads data and prepares dataloaders."""
+        logging.info("Preparing datasets for training.")
+        train_events, validation_events, validation_gt, test_events, test_gt = (
+            self.load_data()
+        )
+        self.raw_test_gt = test_gt
+
+        train_dataset, val_dataset, val_gt_dataset, test_dataset, test_gt_dataset = (
+            self.prepare_datasets(
+                train_events, validation_events, validation_gt, test_events, test_gt
+            )
+        )
+        self.item_count = train_dataset.item_count
+
+        (
+            seq_train_dataset,
+            seq_validation_dataset,
+            seq_validation_gt,
+            seq_test_dataset,
+        ) = self.prepare_seq_datasets(
+            train_dataset, val_dataset, val_gt_dataset, test_dataset, test_gt_dataset
+        )
+        self.seq_val_dataset = seq_validation_dataset
+        self.seq_test_dataset = seq_test_dataset
+
+        return self._prepare_dataloaders(
+            seq_train_dataset,
+            seq_validation_dataset,
+            seq_validation_gt,
+            seq_test_dataset,
+        )
+
     def calculate_metrics(self, predictions, ground_truth):
         """Calculate and return the desired metrics based on the predictions."""
         top_k = self.config["metrics"]["ks"]
@@ -125,86 +189,119 @@ class TrainRunner(BaseRunner):
             MRR(top_k),
             HitRate(top_k),
         ]
-        init_args = {"query_column": "user_id", "rating_column": "score"}
-
-        metrics = OfflineMetrics(metrics_list, **init_args)(predictions, ground_truth)
+        metrics = OfflineMetrics(
+            metrics_list, query_column="user_id", rating_column="score"
+        )(predictions, ground_truth)
         return metrics_to_df(metrics)
 
-    def save_model(self, model, checkpoint_callback):
+    def save_model(self, trainer, best_model):
         """Save the best model checkpoint to the specified directory."""
-        best_model_path = checkpoint_callback.best_model_path
-        save_path = self.config["paths"]["model_dir"]
-        model.load_from_checkpoint(best_model_path).save(
-            f"{save_path}/{self.model_name}_best.pt"
+        save_path = os.path.join(
+            self.config["paths"]["checkpoint_dir"],
+            f"{self.model_name}_{self.dataset_name}",
         )
-        logging.info(f"Best model saved at: {save_path}/{self.model_name}_best.pt")
+        torch.save(
+            {
+                "model_state_dict": best_model.state_dict(),
+                "optimizer_state_dict": trainer.optimizers[0].state_dict(),
+                "config": self.model_cfg,
+            },
+            f"{save_path}/{self.model_name}_checkpoint.pth",
+        )
+
+        self.tokenizer.save(f"{save_path}/sequence_tokenizer")
+        logging.info(f"Best model saved at: {save_path}")
 
     def run(self):
         """Execute the training pipeline."""
-        logging.info("Preparing datasets for training.")
-        train_events, validation_events, validation_gt, test_events, test_gt = (
-            self.load_data()
-        )
-
-        train_dataset, val_dataset, val_gt_dataset, test_dataset, test_gt_dataset = (
-            self.prepare_datasets(
-                train_events, validation_events, validation_gt, test_events, test_gt
-            )
-        )
-
-        (
-            seq_train_dataset,
-            seq_validation_dataset,
-            seq_validation_gt,
-            seq_test_dataset,
-        ) = self.prepare_seq_datasets(
-            train_dataset, val_dataset, val_gt_dataset, test_dataset, test_gt_dataset
-        )
-
         train_dataloader, val_dataloader, prediction_dataloader = (
-            self.prepare_dataloaders(
-                seq_train_dataset,
-                seq_validation_dataset,
-                seq_validation_gt,
-                seq_test_dataset,
-            )
+            self._load_dataloaders()
         )
 
-        model = self.initialize_model()
+        logging.info("Initializing model...")
+        model = self._initialize_model()
+
         checkpoint_callback = ModelCheckpoint(
-            dirpath=self.config["paths"]["checkpoint_dir"],
+            dirpath=os.path.join(
+                self.config["paths"]["checkpoint_dir"],
+                f"{self.model_name}_{self.dataset_name}",
+            ),
             save_top_k=1,
             verbose=True,
-            monitor="recall@10",
+            monitor="ndcg@10",
             mode="max",
+        )
+
+        early_stopping = EarlyStopping(
+            monitor="ndcg@10",
+            patience=self.model_cfg["training_params"]["max_epochs"] // 10,
+            mode="max",
+            verbose=True,
         )
 
         validation_metrics_callback = ValidationMetricsCallback(
             metrics=self.config["metrics"]["types"],
             ks=self.config["metrics"]["ks"],
-            item_count=train_dataset.item_count,
-            postprocessors=[RemoveSeenItems(seq_validation_dataset)],
+            item_count=self.item_count,
+            postprocessors=[RemoveSeenItems(self.seq_val_dataset)],
         )
 
         trainer = L.Trainer(
             max_epochs=self.model_cfg["training_params"]["max_epochs"],
-            callbacks=[checkpoint_callback, validation_metrics_callback],
-            logger=self.logger,
+            callbacks=[checkpoint_callback, early_stopping, validation_metrics_callback],
+            logger=[self.csv_logger, self.tb_logger],
         )
 
-        logging.info("Starting model training.")
-        with profile(
-            activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-            record_shapes=True,
-            with_flops=True,
-            profile_memory=True,
-        ) as prof:
-            trainer.fit(model, train_dataloader, val_dataloader)
-
-        prof.export_chrome_trace(
-            os.path.join(
-                self.config["paths"]["log_dir"],
-                f"{self.model_name}_{self.dataset_name}_profile.json",
+        logging.info("Starting training...")
+        if self.config["mode"]["profiler"]["enabled"]:
+            with profile(
+                activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                record_shapes=True,
+                with_flops=True,
+                profile_memory=True,
+            ) as prof:
+                trainer.fit(model, train_dataloader, val_dataloader)
+            logging.info(
+                prof.key_averages().table(
+                    sort_by="self_cuda_time_total",
+                    row_limit=self.config["mode"]["profiler"].get("row_limit", 10),
+                )
             )
+            prof.export_chrome_trace(
+                os.path.join(
+                    self.config["paths"]["log_dir"],
+                    f"{self.model_name}_{self.dataset_name}_profile.json",
+                )
+            )
+        else:
+            trainer.fit(model, train_dataloader, val_dataloader)
+        if self.model_name.lower() == "sasrec":
+            best_model = SasRec.load_from_checkpoint(checkpoint_callback.best_model_path)
+        elif self.model_name.lower() == "bert4rec":
+            best_model = Bert4Rec.load_from_checkpoint(checkpoint_callback.best_model_path)
+        self.save_model(trainer, best_model)
+
+        logging.info("Evaluating on test set...")
+        pandas_prediction_callback = PandasPredictionCallback(
+            top_k=max(self.config["metrics"]["ks"]),
+            query_column="user_id",
+            item_column="item_id",
+            rating_column="score",
+            postprocessors=[RemoveSeenItems(self.seq_test_dataset)],
         )
-        logging.info("Training completed.")
+        L.Trainer(callbacks=[pandas_prediction_callback], inference_mode=True).predict(
+            best_model, dataloaders=prediction_dataloader, return_predictions=False
+        )
+
+        result = pandas_prediction_callback.get_result()
+        recommendations = self.tokenizer.query_and_item_id_encoder.inverse_transform(
+            result
+        )
+        test_metrics = self.calculate_metrics(recommendations, self.raw_test_gt)
+        logging.info(test_metrics)
+        test_metrics.to_csv(
+            os.path.join(
+                self.config["paths"]["results_dir"],
+                f"{self.model_name}_{self.dataset_name}_test_metrics.csv",
+            ),
+        )

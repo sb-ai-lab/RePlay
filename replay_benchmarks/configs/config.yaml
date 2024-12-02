@@ -1,6 +1,6 @@
 defaults:
-  - dataset: movielens_1m
-  - model: sasrec
+  - dataset: zvuk
+  - model: sasrec_zvuk
   - mode: train
   - acceleration: null
 
@@ -12,7 +12,6 @@ env:
 
 paths:
   data_dir: "replay_benchmarks/data/"
-  model_dir: "replay_benchmarks/artifacts/models/"
   log_dir: "replay_benchmarks/artifacts/logs/"
   checkpoint_dir: "replay_benchmarks/artifacts/checkpoints/"
   results_dir: "replay_benchmarks/artifacts/results/"
@@ -25,6 +24,7 @@ metrics:
     - precision
     - map
     - mrr
+    - coverage
   ks:
     - 1
     - 5

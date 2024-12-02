@@ -13,6 +13,6 @@ model:
     training_params:
       embedding_dim: 312
       learning_rate: 0.001
-      batch_size: 128
+      batch_size: 64
       num_workers: 4
       max_epochs: 100
