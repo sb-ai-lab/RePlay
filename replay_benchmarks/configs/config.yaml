@@ -1,6 +1,6 @@
 defaults:
   - dataset: zvuk
-  - model: sasrec_zvuk
+  - model: bert4rec_zvuk
   - mode: train
   - acceleration: null
 
