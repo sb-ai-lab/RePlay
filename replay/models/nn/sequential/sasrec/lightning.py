@@ -333,7 +333,9 @@ class SasRec(lightning.LightningModule):
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
 
-        pad_token = feature_tensors[self._model.item_feature_name].view(-1)[~padding_mask.view(-1)][0]
+
+        print(self._schema.item_id_features, self._model.item_feature_name)
+        pad_token = feature_tensors[self._schema.item_id_feature_name].view(-1)[~padding_mask.view(-1)][0]
         emb = self._model.forward_step(feature_tensors, padding_mask)[target_padding_mask]
         hd = torch.tensor(emb.shape[-1])
 
