@@ -94,6 +94,8 @@ class DatasetManager:
         ].astype("int64")
         if dataset_name == "megamarket":
             interactions = interactions[interactions.event == 2]  # take only purchase
+        if dataset_name == "zvuk":
+            interactions.rename(columns={'track_id': 'item_id'}, inplace=True)
         interactions.to_parquet(interactions_file)
 
     def _download_rs_dataset(
