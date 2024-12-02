@@ -1,11 +1,12 @@
 import logging
 import os
+import yaml
 from pathlib import Path
 
 import torch
 import lightning as L
 from lightning.pytorch.loggers import CSVLogger, TensorBoardLogger
-from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping, Timer
 from torch.utils.data import DataLoader
 from torch.profiler import profile, ProfilerActivity
 
@@ -49,9 +50,9 @@ class TrainRunner(BaseRunner):
         self.seq_test_dataset = None
 
         # Loggers
-        log_dir = Path(config["paths"]["log_dir"]) / self.dataset_name / self.model_name
-        self.csv_logger = CSVLogger(save_dir=log_dir / "csv_logs")
-        self.tb_logger = TensorBoardLogger(save_dir=log_dir / "tb_logs")
+        self.log_dir = Path(config["paths"]["log_dir"]) / self.dataset_name / self.model_save_name
+        self.csv_logger = CSVLogger(save_dir=self.log_dir / "csv_logs")
+        self.tb_logger = TensorBoardLogger(save_dir=self.log_dir / "tb_logs")
 
         self._check_paths()
 
@@ -75,9 +76,9 @@ class TrainRunner(BaseRunner):
         }
         model_config.update(self.model_cfg["model_params"])
 
-        if self.model_name.lower() == "sasrec":
+        if "sasrec" in self.model_name.lower():
             return SasRec(**model_config)
-        elif self.model_name.lower() == "bert4rec":
+        elif "bert4rec" in self.model_name.lower():
             return Bert4Rec(**model_config)
         else:
             raise ValueError(f"Unsupported model type: {self.model_name}")
@@ -212,6 +213,15 @@ class TrainRunner(BaseRunner):
         self.tokenizer.save(f"{save_path}/sequence_tokenizer")
         logging.info(f"Best model saved at: {save_path}")
 
+    def save_training_time(self, timer_callback):
+        training_valid_time = {
+            'Training time, sec': round(timer_callback.time_elapsed("train"), 5),
+            'Validation time, sec': round(timer_callback.time_elapsed("validate"), 5)
+
+        }
+        with open(os.path.join(self.csv_logger.log_dir, "time_logs.yaml"), 'w') as file:
+            yaml.dump(training_valid_time, file)
+
     def run(self):
         """Execute the training pipeline."""
         train_dataloader, val_dataloader, prediction_dataloader = (
@@ -246,9 +256,11 @@ class TrainRunner(BaseRunner):
             postprocessors=[RemoveSeenItems(self.seq_val_dataset)],
         )
 
+        timer_callback = Timer()
+
         trainer = L.Trainer(
             max_epochs=self.model_cfg["training_params"]["max_epochs"],
-            callbacks=[checkpoint_callback, early_stopping, validation_metrics_callback],
+            callbacks=[checkpoint_callback, early_stopping, validation_metrics_callback, timer_callback],
             logger=[self.csv_logger, self.tb_logger],
         )
 
@@ -305,3 +317,6 @@ class TrainRunner(BaseRunner):
                 f"{self.model_name}_{self.dataset_name}_test_metrics.csv",
             ),
         )
+
+        self.save_training_time(timer_callback)
+
