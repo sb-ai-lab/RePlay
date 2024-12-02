@@ -4,7 +4,7 @@ dataset:
 
   feature_schema:
     query_column: "user_id"
-    item_column: "track_id"
+    item_column: "item_id"
     rating_column: "play_duration"
     timestamp_column: "datetime"
 
