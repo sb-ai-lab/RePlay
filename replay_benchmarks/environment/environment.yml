@@ -1,0 +1,22 @@
+name: env
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - numpy
+  - pandas
+  - pyspark
+  - hdfs3
+  - scikit-learn
+  - seaborn
+  - scipy
+  - sqlite
+  - h5py
+  - ipykernel
+  - matplotlib
+  - pip
+  - pyparsing
+  - pytest
+  - redis
+  - requests
+  - setuptools
