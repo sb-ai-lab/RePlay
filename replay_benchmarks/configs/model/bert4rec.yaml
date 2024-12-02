@@ -9,6 +9,7 @@ model:
       hidden_size: 312
       dropout_rate: 0.15
       loss_type: CE # CE, BCE, SCE
+      loss_sample_count: Null
     training_params:
       embedding_dim: 312
       learning_rate: 0.002

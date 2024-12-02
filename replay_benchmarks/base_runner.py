@@ -3,9 +3,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import Tuple
 
-import pandas as pd
-from rs_datasets import MovieLens, Netflix
-
+from replay_benchmarks.preprocessing import DatasetManager
 from replay.data import (
     FeatureHint,
     FeatureInfo,
@@ -14,8 +12,6 @@ from replay.data import (
     FeatureType,
     Dataset,
 )
-from replay.preprocessing.filters import MinCountFilter, NumInteractionsFilter
-from replay.splitters import TimeSplitter
 from replay.utils import DataFrameLike
 from replay.data.nn import (
     SequenceTokenizer,
@@ -24,12 +20,6 @@ from replay.data.nn import (
     TensorSchema,
     TensorFeatureInfo,
 )
-
-DATASET_MAPPINGS = {
-    "zvuk": {"kaggle": "alexxl/zvuk-dataset", "file": "zvuk-interactions.parquet"},
-    "megamarket": {"kaggle": "alexxl/megamarket", "file": "megamarket.parquet"},
-}
-SUPPORTED_RS_DATASETS = ["movielens", "netflix"]
 
 
 class BaseRunner(ABC):
@@ -44,180 +34,20 @@ class BaseRunner(ABC):
         self.user_column = self.dataset_cfg["feature_schema"]["query_column"]
         self.timestamp_column = self.dataset_cfg["feature_schema"]["timestamp_column"]
         self.tokenizer = None
-        self.interactions = None
-        self.user_features = None
-        self.item_features = None
+        self.dataset_manager = DatasetManager(config)
         self.tensor_schema = self.build_tensor_schema()
         self.setup_environment()
 
-    def load_data(
-        self,
-    ) -> Tuple[
-        DataFrameLike, DataFrameLike, DataFrameLike, DataFrameLike, DataFrameLike
-    ]:
-        """Load dataset and split into train, validation, and test sets."""
-        dataset_name = self.dataset_cfg["name"]
-        data_path = self.dataset_cfg["path"]
-        interactions_file = os.path.join(data_path, "interactions.parquet")
-
-        if not os.path.exists(interactions_file):
-            logging.info(f"Dataset not found at {interactions_file}. Downloading...")
-            self._download_dataset(data_path, dataset_name, interactions_file)
-
-        logging.info(f"Dataset is loaded from {interactions_file}")
-        interactions = pd.read_parquet(interactions_file)
-        self.interactions = self._filter_data(interactions)
-
-        splitter = TimeSplitter(
-            time_threshold=self.dataset_cfg["preprocess"]["global_split_ratio"],
-            drop_cold_users=True,
-            drop_cold_items=True,
-            item_column=self.item_column,
-            query_column=self.user_column,
-            timestamp_column=self.timestamp_column,
+    def load_data(self):
+        """Load preprocessed data splits."""
+        splits = self.dataset_manager.load_data()
+        return (
+            splits["train"],
+            splits["validation"],
+            splits["validation_gt"],
+            splits["test"],
+            splits["test_gt"],
         )
-
-        train_events, validation_events, validation_gt, test_events, test_gt = (
-            self._split_data(splitter, self.interactions)
-        )
-        logging.info("Data split into train, validation, and test sets")
-        return train_events, validation_events, validation_gt, test_events, test_gt
-
-    def _download_dataset(
-        self, data_path: str, dataset_name: str, interactions_file: str
-    ):
-        """Download dataset from Kaggle or rs_datasets."""
-        if dataset_name in DATASET_MAPPINGS:
-            self._download_kaggle_dataset(data_path, dataset_name, interactions_file)
-        elif any(ds in dataset_name for ds in SUPPORTED_RS_DATASETS):
-            self._download_rs_dataset(data_path, dataset_name, interactions_file)
-        else:
-            raise ValueError(f"Unsupported dataset: {dataset_name}")
-
-    def _download_kaggle_dataset(
-        self, data_path: str, dataset_name: str, interactions_file: str
-    ) -> None:
-        from kaggle.api.kaggle_api_extended import KaggleApi
-
-        """Download dataset from Kaggle."""
-        kaggle_info = DATASET_MAPPINGS[dataset_name]
-        kaggle_dataset = kaggle_info["kaggle"]
-        raw_data_file = os.path.join(data_path, kaggle_info["file"])
-
-        os.environ.setdefault("KAGGLE_USERNAME", "recsysaccelerate")
-        os.environ.setdefault("KAGGLE_KEY", "6363e91b656fea576c39e4f55dcc1d00")
-
-        api = KaggleApi()
-        api.authenticate()
-
-        api.dataset_download_files(kaggle_dataset, path=data_path, unzip=True)
-        logging.info(f"Dataset downloaded and extracted to {data_path}")
-
-        interactions = pd.read_parquet(raw_data_file)
-        interactions[self.timestamp_column] = interactions[
-            self.timestamp_column
-        ].astype("int64")
-        if dataset_name == "megamarket":
-            interactions = interactions[interactions.event == 2] # take only purchase
-        interactions.to_parquet(interactions_file)
-
-    def _download_rs_dataset(
-        self, data_path: str, dataset_name: str, interactions_file: str
-    ) -> None:
-        """Download dataset from rs_datasets."""
-        if "movielens" in dataset_name:
-            version = dataset_name.split("_")[1]
-            movielens = MovieLens(version=version, path=data_path)
-            interactions = movielens.ratings
-            interactions = interactions[interactions[self.dataset_cfg["feature_schema"]["rating_column"]] > self.dataset_cfg["preprocess"]["min_rating"]]
-        elif dataset_name == "netflix":
-            netflix = Netflix(path=data_path)
-            interactions = pd.concat([netflix.train, netflix.test]).fillna(5).reset_index(drop=True)
-            interactions = interactions[interactions[self.dataset_cfg["feature_schema"]["rating_column"]] > self.dataset_cfg["preprocess"]["min_rating"]]
-            interactions = interactions.sort_values(by=[self.user_column, self.timestamp_column])
-            interactions[self.timestamp_column] += interactions.groupby([self.user_column, self.timestamp_column]).cumcount()
-        else:
-            raise ValueError(f"Unsupported dataset: {dataset_name}")
-
-        interactions[self.timestamp_column] = interactions[
-            self.timestamp_column
-        ].astype("int64")
-        interactions.to_parquet(interactions_file)
-
-    def _filter_data(self, interactions: pd.DataFrame):
-        """Filters raw data based on minimum interaction counts."""
-
-        def log_min_counts(data: pd.DataFrame, message_prefix: str):
-            user_min = data.groupby(self.user_column).size().min()
-            item_min = data.groupby(self.item_column).size().min()
-            logging.info(
-                f"{message_prefix} - Min items per user: {user_min}, Min users per item: {item_min}"
-            )
-
-        log_min_counts(interactions, "Before filtering")
-
-        interactions_filtered = MinCountFilter(
-            num_entries=self.dataset_cfg["preprocess"]["min_users_per_item"],
-            groupby_column=self.item_column,
-        ).transform(interactions)
-
-        interactions_filtered = MinCountFilter(
-            num_entries=self.dataset_cfg["preprocess"]["min_items_per_user"],
-            groupby_column=self.user_column,
-        ).transform(interactions_filtered)
-
-        log_min_counts(interactions_filtered, "After filtering")
-
-        return interactions_filtered
-
-    def _split_data(
-        self, splitter: TimeSplitter, interactions: pd.DataFrame
-    ) -> Tuple[
-        DataFrameLike, DataFrameLike, DataFrameLike, DataFrameLike, DataFrameLike
-    ]:
-        """Split data for training, validation, and testing."""
-        test_events, test_gt = splitter.split(interactions)
-        validation_events, validation_gt = splitter.split(test_events)
-        train_events = validation_events
-
-        test_gt = test_gt[test_gt[self.item_column].isin(train_events[self.item_column])]
-        test_gt = test_gt[test_gt[self.user_column].isin(train_events[self.user_column])]
-
-        # Limit number of gt events in val and test only if max_num_test_interactions is not null
-        max_test_interactions = self.dataset_cfg["preprocess"]["max_num_test_interactions"]
-        logging.info(
-                f"Distribution of seq_len in validation:\n{validation_gt.groupby(self.user_column)[self.item_column].agg('count').describe()}."
-            )
-        logging.info(
-                f"Distribution of seq_len in test:\n{test_gt.groupby(self.user_column)[self.item_column].agg('count').describe()}."
-            )
-        if max_test_interactions is not None:
-            
-            validation_gt = NumInteractionsFilter(
-                num_interactions=max_test_interactions,
-                first=True,
-                query_column=self.user_column,
-                item_column=self.item_column,
-                timestamp_column=self.timestamp_column,
-            ).transform(validation_gt)
-            logging.info(
-                f"Distribution of seq_len in validation  after filtering:\n{validation_gt.groupby(self.user_column)[self.item_column].agg('count').describe()}."
-            )
-
-            test_gt = NumInteractionsFilter(
-                num_interactions=max_test_interactions,
-                first=True,
-                query_column=self.user_column,
-                item_column=self.item_column,
-                timestamp_column=self.timestamp_column,
-            ).transform(test_gt)
-            logging.info(
-                f"Distribution of seq_len in test after filtering:\n{test_gt.groupby(self.user_column)[self.item_column].agg('count').describe()}."
-            )
-        else:
-            logging.info("max_num_test_interactions is null. Skipping filtration.")
-
-        return train_events, validation_events, validation_gt, test_events, test_gt
 
     def prepare_feature_schema(self, is_ground_truth: bool) -> FeatureSchema:
         """Prepare the feature schema based on whether ground truth is needed."""
@@ -285,16 +115,12 @@ class BaseRunner(ABC):
         train_dataset = Dataset(
             feature_schema=feature_schema,
             interactions=train_events,
-            query_features=self.user_features,
-            item_features=self.item_features,
             check_consistency=True,
             categorical_encoded=False,
         )
         validation_dataset = Dataset(
             feature_schema=feature_schema,
             interactions=validation_events,
-            query_features=self.user_features,
-            item_features=self.item_features,
             check_consistency=True,
             categorical_encoded=False,
         )
@@ -307,8 +133,6 @@ class BaseRunner(ABC):
         test_dataset = Dataset(
             feature_schema=feature_schema,
             interactions=test_events,
-            query_features=self.user_features,
-            item_features=self.item_features,
             check_consistency=True,
             categorical_encoded=False,
         )
@@ -356,6 +180,7 @@ class BaseRunner(ABC):
 
     def _initialize_tokenizer(self, train_dataset: Dataset) -> SequenceTokenizer:
         """Initialize and fit the SequenceTokenizer."""
+        logging.info("Initializing and fitting SequenceTokenizer.")
         tokenizer = SequenceTokenizer(
             self.tensor_schema, allow_collect_to_master=True, handle_unknown_rule="drop"
         )

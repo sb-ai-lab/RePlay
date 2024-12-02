@@ -8,7 +8,10 @@ import yaml
 from replay_benchmarks.utils.conf import load_config, seed_everything
 from replay_benchmarks import TrainRunner, InferRunner
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
 warnings.filterwarnings("ignore")
 
 
