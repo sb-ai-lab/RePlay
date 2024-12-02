@@ -1,5 +1,6 @@
 model:
   name: bert4rec
+  save_name: bert4rec_CE
 
   params:
     model_params:

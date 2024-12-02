@@ -1,5 +1,6 @@
 model:
   name: sasrec
+  save_name: sasrec_BCE
 
   params:
     model_params:

@@ -1,11 +1,13 @@
 import logging
 import os
+import yaml
 from pathlib import Path
 
 import torch
 import lightning as L
 from lightning.pytorch.loggers import CSVLogger, TensorBoardLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+from lightning.pytorch.profilers import SimpleProfiler
 from torch.utils.data import DataLoader
 from torch.profiler import profile, ProfilerActivity
 
@@ -49,9 +51,9 @@ class TrainRunner(BaseRunner):
         self.seq_test_dataset = None
 
         # Loggers
-        log_dir = Path(config["paths"]["log_dir"]) / self.dataset_name / self.model_name
-        self.csv_logger = CSVLogger(save_dir=log_dir / "csv_logs")
-        self.tb_logger = TensorBoardLogger(save_dir=log_dir / "tb_logs")
+        self.log_dir = Path(config["paths"]["log_dir"]) / self.dataset_name / self.model_save_name
+        self.csv_logger = CSVLogger(save_dir=self.log_dir / "csv_logs")
+        self.tb_logger = TensorBoardLogger(save_dir=self.log_dir / "tb_logs")
 
         self._check_paths()
 
@@ -75,9 +77,9 @@ class TrainRunner(BaseRunner):
         }
         model_config.update(self.model_cfg["model_params"])
 
-        if self.model_name.lower() == "sasrec":
+        if "sasrec" in self.model_name.lower():
             return SasRec(**model_config)
-        elif self.model_name.lower() == "bert4rec":
+        elif "bert4rec" in self.model_name.lower():
             return Bert4Rec(**model_config)
         else:
             raise ValueError(f"Unsupported model type: {self.model_name}")
@@ -198,7 +200,7 @@ class TrainRunner(BaseRunner):
         """Save the best model checkpoint to the specified directory."""
         save_path = os.path.join(
             self.config["paths"]["checkpoint_dir"],
-            f"{self.model_name}_{self.dataset_name}",
+            f"{self.model_save_name}_{self.dataset_name}",
         )
         torch.save(
             {
@@ -206,7 +208,7 @@ class TrainRunner(BaseRunner):
                 "optimizer_state_dict": trainer.optimizers[0].state_dict(),
                 "config": self.model_cfg,
             },
-            f"{save_path}/{self.model_name}_checkpoint.pth",
+            f"{save_path}/{self.model_save_name}_checkpoint.pth",
         )
 
         self.tokenizer.save(f"{save_path}/sequence_tokenizer")
@@ -224,7 +226,7 @@ class TrainRunner(BaseRunner):
         checkpoint_callback = ModelCheckpoint(
             dirpath=os.path.join(
                 self.config["paths"]["checkpoint_dir"],
-                f"{self.model_name}_{self.dataset_name}",
+                f"{self.model_save_name}_{self.dataset_name}",
             ),
             save_top_k=1,
             verbose=True,
@@ -246,10 +248,13 @@ class TrainRunner(BaseRunner):
             postprocessors=[RemoveSeenItems(self.seq_val_dataset)],
         )
 
+        profiler = SimpleProfiler(dirpath = self.csv_logger.log_dir, filename = 'simple_profiler')
+
         trainer = L.Trainer(
             max_epochs=self.model_cfg["training_params"]["max_epochs"],
             callbacks=[checkpoint_callback, early_stopping, validation_metrics_callback],
             logger=[self.csv_logger, self.tb_logger],
+            profiler=profiler
         )
 
         logging.info("Starting training...")
@@ -270,7 +275,7 @@ class TrainRunner(BaseRunner):
             prof.export_chrome_trace(
                 os.path.join(
                     self.config["paths"]["log_dir"],
-                    f"{self.model_name}_{self.dataset_name}_profile.json",
+                    f"{self.model_save_name}_{self.dataset_name}_profile.json",
                 )
             )
         else:
@@ -302,6 +307,7 @@ class TrainRunner(BaseRunner):
         test_metrics.to_csv(
             os.path.join(
                 self.config["paths"]["results_dir"],
-                f"{self.model_name}_{self.dataset_name}_test_metrics.csv",
+                f"{self.model_save_name}_{self.dataset_name}_test_metrics.csv",
             ),
         )
+
