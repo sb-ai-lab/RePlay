@@ -200,7 +200,7 @@ class TrainRunner(BaseRunner):
         """Save the best model checkpoint to the specified directory."""
         save_path = os.path.join(
             self.config["paths"]["checkpoint_dir"],
-            f"{self.model_name}_{self.dataset_name}",
+            f"{self.model_save_name}_{self.dataset_name}",
         )
         torch.save(
             {
@@ -208,7 +208,7 @@ class TrainRunner(BaseRunner):
                 "optimizer_state_dict": trainer.optimizers[0].state_dict(),
                 "config": self.model_cfg,
             },
-            f"{save_path}/{self.model_name}_checkpoint.pth",
+            f"{save_path}/{self.model_save_name}_checkpoint.pth",
         )
 
         self.tokenizer.save(f"{save_path}/sequence_tokenizer")
@@ -226,7 +226,7 @@ class TrainRunner(BaseRunner):
         checkpoint_callback = ModelCheckpoint(
             dirpath=os.path.join(
                 self.config["paths"]["checkpoint_dir"],
-                f"{self.model_name}_{self.dataset_name}",
+                f"{self.model_save_name}_{self.dataset_name}",
             ),
             save_top_k=1,
             verbose=True,
@@ -275,7 +275,7 @@ class TrainRunner(BaseRunner):
             prof.export_chrome_trace(
                 os.path.join(
                     self.config["paths"]["log_dir"],
-                    f"{self.model_name}_{self.dataset_name}_profile.json",
+                    f"{self.model_save_name}_{self.dataset_name}_profile.json",
                 )
             )
         else:
@@ -307,7 +307,7 @@ class TrainRunner(BaseRunner):
         test_metrics.to_csv(
             os.path.join(
                 self.config["paths"]["results_dir"],
-                f"{self.model_name}_{self.dataset_name}_test_metrics.csv",
+                f"{self.model_save_name}_{self.dataset_name}_test_metrics.csv",
             ),
         )
 
