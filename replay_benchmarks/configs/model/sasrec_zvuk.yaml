@@ -6,7 +6,7 @@ model:
     model_params:
       block_count: 2
       head_count: 2
-      max_seq_len: 200
+      max_seq_len: 100
       hidden_size: 312
       dropout_rate: 0.15
       loss_type: BCE # CE, BCE, SCE
@@ -16,4 +16,4 @@ model:
       learning_rate: 0.001
       batch_size: 64
       num_workers: 4
-      max_epochs: 200
+      max_epochs: 10
