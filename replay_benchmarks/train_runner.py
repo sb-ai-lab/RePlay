@@ -236,7 +236,7 @@ class TrainRunner(BaseRunner):
 
         early_stopping = EarlyStopping(
             monitor="ndcg@10",
-            patience=self.model_cfg["training_params"]["max_epochs"] // 10,
+            patience=self.model_cfg["training_params"]["patience"],
             mode="max",
             verbose=True,
         )

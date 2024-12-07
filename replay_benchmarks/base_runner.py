@@ -110,35 +110,32 @@ class BaseRunner(ABC):
     ) -> Tuple[Dataset, Dataset, Dataset, Dataset, Dataset]:
         """Prepare Dataset objects for training, validation, and testing."""
         logging.info("Preparing Dataset objects...")
-        feature_schema = self.prepare_feature_schema(is_ground_truth=False)
-        ground_truth_schema = self.prepare_feature_schema(is_ground_truth=True)
-
         train_dataset = Dataset(
-            feature_schema=feature_schema,
+            feature_schema=self.prepare_feature_schema(is_ground_truth=False),
             interactions=train_events,
             check_consistency=True,
             categorical_encoded=False,
         )
         validation_dataset = Dataset(
-            feature_schema=feature_schema,
+            feature_schema=self.prepare_feature_schema(is_ground_truth=False),
             interactions=validation_events,
             check_consistency=True,
             categorical_encoded=False,
         )
         validation_gt_dataset = Dataset(
-            feature_schema=ground_truth_schema,
+            feature_schema=self.prepare_feature_schema(is_ground_truth=True),
             interactions=validation_gt,
             check_consistency=True,
             categorical_encoded=False,
         )
         test_dataset = Dataset(
-            feature_schema=feature_schema,
+            feature_schema=self.prepare_feature_schema(is_ground_truth=False),
             interactions=test_events,
             check_consistency=True,
             categorical_encoded=False,
         )
         test_gt_dataset = Dataset(
-            feature_schema=ground_truth_schema,
+            feature_schema=self.prepare_feature_schema(is_ground_truth=True),
             interactions=test_gt,
             check_consistency=True,
             categorical_encoded=False,
