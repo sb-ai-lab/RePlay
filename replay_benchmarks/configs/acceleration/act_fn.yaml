@@ -1,0 +1,8 @@
+acceleration:
+  model:
+    acceleration_config:
+      precision: null #32, bf16 / only for inference
+      transformer_block: 
+        pff_block:
+          act_fn: silu
+      head: linear_head

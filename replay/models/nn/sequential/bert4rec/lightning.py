@@ -37,6 +37,7 @@ class Bert4Rec(lightning.LightningModule):
         mix_x: bool = False,
         optimizer_factory: OptimizerFactory = FatOptimizerFactory(),
         lr_scheduler_factory: Optional[LRSchedulerFactory] = None,
+        acceleration_config: Optional[dict] = None
     ):
         """
         :param tensor_schema (TensorSchema): Tensor schema of features.
@@ -93,7 +94,15 @@ class Bert4Rec(lightning.LightningModule):
             dropout=dropout_rate,
             enable_positional_embedding=enable_positional_embedding,
             enable_embedding_tying=enable_embedding_tying,
+            acceleration_config=acceleration_config
         )
+        
+        if acceleration_config:
+            if acceleration_config["precision"] == "bf16":
+                self._model = self._model.to(torch.bfloat16)
+            elif acceleration_config["precision"] == "fp16":
+                self._model = self._model.to(torch.float16)
+
         self._loss_type = loss_type
         self._loss_sample_count = loss_sample_count
         self._negative_sampling_strategy = negative_sampling_strategy

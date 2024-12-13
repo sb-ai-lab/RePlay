@@ -80,6 +80,9 @@ class TrainRunner(BaseRunner):
         if "sasrec" in self.model_name.lower():
             return SasRec(**model_config)
         elif "bert4rec" in self.model_name.lower():
+            if self.config.get("acceleration"):
+                if self.config["acceleration"].get("model"):
+                    model_config.update(self.config["acceleration"]["model"])
             return Bert4Rec(**model_config)
         else:
             raise ValueError(f"Unsupported model type: {self.model_name}")
@@ -254,7 +257,8 @@ class TrainRunner(BaseRunner):
             max_epochs=self.model_cfg["training_params"]["max_epochs"],
             callbacks=[checkpoint_callback, early_stopping, validation_metrics_callback],
             logger=[self.csv_logger, self.tb_logger],
-            profiler=profiler
+            profiler=profiler,
+            precision=self.model_cfg["training_params"]["precision"]
         )
 
         logging.info("Starting training...")
