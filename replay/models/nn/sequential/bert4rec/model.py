@@ -4,6 +4,11 @@ from abc import ABC, abstractmethod
 from typing import Dict, Optional, Union
 
 import torch
+import torch.nn as nn
+
+from bitsandbytes.triton.int8_matmul_mixed_dequantize import int8_matmul_mixed_dequantize
+from bitsandbytes.triton.quantize_rowwise import quantize_rowwise
+from bitsandbytes.triton.triton_utils import is_triton_available
 
 from replay.data.nn import TensorFeatureInfo, TensorMap, TensorSchema
 
@@ -102,6 +107,8 @@ class Bert4RecModel(torch.nn.Module):
                 if  acceleration_config.get("head"):
                     if acceleration_config["head"] == "linear_head":
                         self._head = LinearHead(hidden_size, self.item_count)
+                    elif acceleration_config["head"] == "swichback_head":
+                        self._head = SwichBackHead(hidden_size, self.item_count)
             else:
                 self._head = ClassificationHead(hidden_size, self.item_count)
 
@@ -510,6 +517,89 @@ class LinearHead(torch.nn.Module):
          
         logits = self.linear(out_embeddings)
         return logits
+
+
+class _switchback_global(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, X_3D, W, bias):
+        X = X_3D.view(-1, X_3D.size(-1))
+        X_int8, state_X = quantize_rowwise(X)
+        W_int8, state_W = quantize_rowwise(W)
+        ctx.save_for_backward = X, W, bias
+        res = int8_matmul_mixed_dequantize(X_int8, W_int8.t(), state_X, state_W, bias).view(*X_3D.size()[:-1], -1)
+        return res
+
+    @staticmethod
+    def backward(ctx, grad_output_3D):
+        input, weight, bias = ctx.save_for_backward
+        grad_output = grad_output_3D.reshape(-1, grad_output_3D.size(-1))
+        grad_input = grad_weight = grad_bias = None
+        if ctx.needs_input_grad[0]:
+            grad_input = grad_output.matmul(weight.to(grad_output.dtype)).view(*grad_output_3D.size()[:-1], -1)
+        if ctx.needs_input_grad[1]:
+            grad_weight = grad_output.t().matmul(input.to(grad_output.dtype))
+        if bias is not None and ctx.needs_input_grad[2]:
+            grad_bias = grad_output.sum(0)
+        return grad_input, grad_weight, grad_bias
+       
+class SwitchBackLinear(nn.Linear):
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        bias: bool = True,
+        device=None,
+        dtype=None,
+    ):
+        super().__init__(in_features, out_features, bias, device, dtype)
+
+        if not is_triton_available():
+            raise ImportError("""Could not import triton. Please install triton to use SwitchBackLinear.
+                               Alternatively, you can use bnb.nn.SwitchBackLinearBnb, but it will be slower""")
+        self._fn = _switchback_global
+
+
+class SwichBackHead(BaseHead):
+
+    def __init__(self, hidden_size: int, n_items: int) -> None:
+        """
+        :param hidden_size: Hidden size of transformer.
+        :param n_items: Number of items.
+        """
+        super().__init__()
+        self.linear = SwitchBackLinear(hidden_size, n_items, bias=True)
+
+    def get_item_embeddings(self) -> torch.Tensor:
+        """
+        :returns: Item embeddings.
+        """
+        return self.linear.weight
+
+    def get_bias(self) -> torch.Tensor:
+        """
+        :returns: Bias tensor.
+        """
+        return self.linear.bias
+    
+    def forward(self, out_embeddings: torch.Tensor, item_ids: Optional[torch.LongTensor] = None) -> torch.Tensor:
+        """
+        Override the forward to use SwitchBackLinear's custom forward logic.
+
+        :param out_embeddings: Embeddings after `forward step`.
+        :param item_ids: Item ids to calculate scores.
+            Default: ``None``.
+
+        :returns: Calculated logits.
+        """
+        if item_ids is not None:
+            item_embeddings = self.linear.weight[item_ids]
+            bias = self.linear.bias[item_ids]
+        else:
+            item_embeddings = self.linear.weight
+            bias = self.linear.bias
+        logits = self.linear._fn.apply(out_embeddings, item_embeddings, bias)
+        return logits
+
 
 class TransformerBlock(torch.nn.Module):
     """
