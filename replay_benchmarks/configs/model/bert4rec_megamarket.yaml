@@ -18,3 +18,4 @@ model:
       num_workers: 4
       patience: 10
       max_epochs: 10
+      precision: null #default 32, bf16-mixed

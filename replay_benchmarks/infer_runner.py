@@ -23,12 +23,17 @@ class InferRunner(BaseRunner):
         if self.model_name.lower() == "sasrec":
             model = SasRec(**model_config)
         elif self.model_name.lower() == "bert4rec":
+            if self.config.get("acceleration"):
+                if self.config["acceleration"].get("model"):
+                    acceleration_config = self.config["acceleration"]["model"]
+                    model_config.update(acceleration_config)
             model = Bert4Rec(**model_config)
         else:
             raise ValueError(f"Model {self.model_name} not recognized.")
 
         model = model.load_from_checkpoint(self.config["paths"]["checkpoint_dir"])
         model.eval()
+
         return model
 
     def run(self):

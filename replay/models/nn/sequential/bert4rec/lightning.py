@@ -37,6 +37,7 @@ class Bert4Rec(lightning.LightningModule):
         mix_x: bool = False,
         optimizer_factory: OptimizerFactory = FatOptimizerFactory(),
         lr_scheduler_factory: Optional[LRSchedulerFactory] = None,
+        acceleration_config: Optional[dict] = None
     ):
         """
         :param tensor_schema (TensorSchema): Tensor schema of features.
@@ -79,6 +80,8 @@ class Bert4Rec(lightning.LightningModule):
         :param optimizer_factory: Optimizer factory.
             Default: ``FatOptimizerFactory``.
         :param lr_scheduler_factory: Learning rate schedule factory.
+            Default: ``None``
+        :param acceleration_config: Parameters for acceleration.
             Default: ``None``.
         """
         super().__init__()
@@ -93,7 +96,19 @@ class Bert4Rec(lightning.LightningModule):
             dropout=dropout_rate,
             enable_positional_embedding=enable_positional_embedding,
             enable_embedding_tying=enable_embedding_tying,
+            acceleration_config=acceleration_config
         )
+        
+        if acceleration_config:
+            if acceleration_config["dtype"] == "fp32":
+                pass
+            elif acceleration_config["dtype"] == "bf16":
+                self._model = self._model.to(torch.bfloat16)
+            elif acceleration_config["dtype"] == "fp16":
+                self._model = self._model.to(torch.float16)
+            else:
+                raise ValueError(f"dtype in acceleration config is not supported")
+
         self._loss_type = loss_type
         self._loss_sample_count = loss_sample_count
         self._negative_sampling_strategy = negative_sampling_strategy
