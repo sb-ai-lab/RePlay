@@ -1,0 +1,33 @@
+name: Build Docs
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push and pull request events but only for the main branch
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, refactoring]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  build_docs:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      - name: Install full package
+        run: |
+          python -m venv venv
+          . ./venv/bin/activate
+          pip install --upgrade pip wheel poetry==1.5.1 lightfm==1.17
+          poetry cache clear pypi --all
+          ./poetry_wrapper.sh --experimental install --all-extras
+      - name: Build docs
+        run: |
+          . ./venv/bin/activate
+          make -C docs clean html

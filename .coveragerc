@@ -1,0 +1,4 @@
+[run]
+omit =
+        replay/models/extensions/ann/index_stores/hdfs_index_store.py
+        replay/experimental/*

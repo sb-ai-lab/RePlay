@@ -1,0 +1,15 @@
+dataset:
+  name: zvuk
+  path: "./replay_benchmarks/data/zvuk"
+
+  feature_schema:
+    query_column: "user_id"
+    item_column: "item_id"
+    rating_column: "play_duration"
+    timestamp_column: "datetime"
+
+  preprocess:
+    global_split_ratio: 0.1
+    max_num_test_interactions: 200
+    min_users_per_item: 5
+    min_items_per_user: 3

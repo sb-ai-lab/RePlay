@@ -1,0 +1,21 @@
+model:
+  name: sasrec
+  save_name: sasrec_BCE
+
+  params:
+    model_params:
+      block_count: 2
+      head_count: 2
+      max_seq_len: 100
+      hidden_size: 312
+      dropout_rate: 0.15
+      loss_type: BCE # CE, BCE, SCE
+      loss_sample_count: 500
+    training_params:
+      embedding_dim: 312
+      learning_rate: 0.001
+      batch_size: 64
+      num_workers: 4
+      patience: 10
+      max_epochs: 10
+      precision: null #default 32, bf16-mixed

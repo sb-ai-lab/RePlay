@@ -1,92 +1,214 @@
-# transformers_acceleration
+<img src="docs/images/replay_logo_color.svg" height="50"/>
+<br>
+
+[![GitHub License](https://img.shields.io/github/license/sb-ai-lab/RePlay)](https://github.com/sb-ai-lab/RePlay/blob/main/LICENSE)
+[![PyPI - Version](https://img.shields.io/pypi/v/replay-rec)](https://pypi.org/project/replay-rec)
+[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://sb-ai-lab.github.io/RePlay/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/replay-rec)](https://pypistats.org/packages/replay-rec)
+<br>
+[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/sb-ai-lab/replay/main.yml)](https://github.com/sb-ai-lab/RePlay/actions/workflows/main.yml?query=branch%3Amain)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/charliermarsh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Python Versions](https://img.shields.io/pypi/pyversions/replay-rec.svg?logo=python&logoColor=white)](https://pypi.org/project/replay-rec)
+[![Join the community on GitHub Discussions](https://badgen.net/badge/join%20the%20discussion/on%20github/black?icon=github)](https://github.com/sb-ai-lab/RePlay/discussions)
 
 
+RePlay is an advanced framework designed to facilitate the development and evaluation of recommendation systems. It provides a robust set of tools covering the entire lifecycle of a recommendation system pipeline:
 
-## Getting started
+## 🚀 Features:
+* **Data Preprocessing and Splitting:** Streamlines the data preparation process for recommendation systems, ensuring optimal data structure and format for efficient processing.
+* **Wide Range of Recommendation Models:** Enables building of recommendation models from State-of-the-Art to commonly-used baselines and evaluate their performance and quality.
+* **Hyperparameter Optimization:** Offers tools for fine-tuning model parameters to achieve the best possible performance, reducing the complexity of the optimization process.
+* **Comprehensive Evaluation Metrics:** Incorporates a wide range of evaluation metrics to assess the accuracy and effectiveness of recommendation models.
+* **Model Ensemble and Hybridization:** Supports combining predictions from multiple models and creating two-level (ensemble) models to enhance the quality of recommendations.
+* **Seamless Mode Transition:** Facilitates easy transition from offline experimentation to online production environments, ensuring scalability and flexibility.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## 💻 Hardware and Environment Compatibility:
+1. **Diverse Hardware Support:** Compatible with various hardware configurations including CPU, GPU, Multi-GPU.
+2. **Cluster Computing Integration:** Integrating with PySpark for distributed computing, enabling scalability for large-scale recommendation systems.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+<a name="toc"></a>
+# Table of Contents
 
-## Add your files
+* [Quickstart](#quickstart)
+* [Installation](#installation)
+* [Resources](#examples)
+* [Contributing to RePlay](#contributing)
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
 
+<a name="quickstart"></a>
+## 📈 Quickstart
+
+```bash
+pip install replay-rec[all]
 ```
-cd existing_repo
-git remote add origin https://tech-point.ailabtools.org/ai-lab-pmo/mltools/recsys/sequential-rs/transformers_acceleration.git
-git branch -M master
-git push -uf origin master
+
+Pyspark-based model and [fast](https://github.com/sb-ai-lab/RePlay/blob/main/examples/11_sasrec_dataframes_comparison.ipynb) polars-based data preprocessing:
+```python
+from polars import from_pandas
+from rs_datasets import MovieLens
+
+from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType
+from replay.data.dataset_utils import DatasetLabelEncoder
+from replay.metrics import HitRate, NDCG, Experiment
+from replay.models import ItemKNN
+from replay.utils.spark_utils import convert2spark
+from replay.utils.session_handler import State
+from replay.splitters import RatioSplitter
+
+spark = State().session
+
+ml_1m = MovieLens("1m")
+K = 10
+
+# convert data to polars
+interactions = from_pandas(ml_1m.ratings)
+
+# data splitting
+splitter = RatioSplitter(
+    test_size=0.3,
+    divide_column="user_id",
+    query_column="user_id",
+    item_column="item_id",
+    timestamp_column="timestamp",
+    drop_cold_items=True,
+    drop_cold_users=True,
+)
+train, test = splitter.split(interactions)
+
+# datasets creation
+feature_schema = FeatureSchema(
+    [
+        FeatureInfo(
+            column="user_id",
+            feature_type=FeatureType.CATEGORICAL,
+            feature_hint=FeatureHint.QUERY_ID,
+        ),
+        FeatureInfo(
+            column="item_id",
+            feature_type=FeatureType.CATEGORICAL,
+            feature_hint=FeatureHint.ITEM_ID,
+        ),
+        FeatureInfo(
+            column="rating",
+            feature_type=FeatureType.NUMERICAL,
+            feature_hint=FeatureHint.RATING,
+        ),
+        FeatureInfo(
+            column="timestamp",
+            feature_type=FeatureType.NUMERICAL,
+            feature_hint=FeatureHint.TIMESTAMP,
+        ),
+    ]
+)
+
+train_dataset = Dataset(feature_schema=feature_schema, interactions=train)
+test_dataset = Dataset(feature_schema=feature_schema, interactions=test)
+
+# data encoding
+encoder = DatasetLabelEncoder()
+train_dataset = encoder.fit_transform(train_dataset)
+test_dataset = encoder.transform(test_dataset)
+
+# convert datasets to spark
+train_dataset.to_spark()
+test_dataset.to_spark()
+
+# model training
+model = ItemKNN()
+model.fit(train_dataset)
+
+# model inference
+encoded_recs = model.predict(
+    dataset=train_dataset,
+    k=K,
+    queries=test_dataset.query_ids,
+    filter_seen_items=True,
+)
+
+recs = encoder.query_and_item_id_encoder.inverse_transform(encoded_recs)
+
+# model evaluation
+metrics = Experiment(
+    [NDCG(K), HitRate(K)],
+    test,
+    query_column="user_id",
+    item_column="item_id",
+    rating_column="rating",
+)
+metrics.add_result("ItemKNN", recs)
+print(metrics.results)
 ```
 
-## Integrate with your tools
+<a name="installation"></a>
+## 🔧 Installation
 
-- [ ] [Set up project integrations](https://tech-point.ailabtools.org/ai-lab-pmo/mltools/recsys/sequential-rs/transformers_acceleration/-/settings/integrations)
+Installation via `pip` package manager is recommended by default:
 
-## Collaborate with your team
+```bash
+pip install replay-rec
+```
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+In this case it will be installed the `core` package without `PySpark` and `PyTorch` dependencies.
+Also `experimental` submodule will not be installed.
 
-## Test and Deploy
+To install `experimental` submodule please specify the version with `rc0` suffix.
+For example:
 
-Use the built-in continuous integration in GitLab.
+```bash
+pip install replay-rec==XX.YY.ZZrc0
+```
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### Extras
 
-***
+In addition to the core package, several extras are also provided, including:
+- `[spark]`: Install PySpark functionality
+- `[torch]`: Install PyTorch and Lightning functionality
+- `[all]`: `[spark]` `[torch]`
 
-# Editing this README
+Example:
+```bash
+# Install core package with PySpark dependency
+pip install replay-rec[spark]
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!).  Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+# Install package with experimental submodule and PySpark dependency
+pip install replay-rec[spark]==XX.YY.ZZrc0
+```
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+To build RePlay from sources please use the [instruction](CONTRIBUTING.md#installing-from-the-source).
 
-## Name
-Choose a self-explaining name for your project.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+<a name="examples"></a>
+## 📑  Resources
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+### Usage examples
+1. [01_replay_basics.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/01_replay_basics.ipynb) - get started with RePlay.
+2. [02_models_comparison.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/02_models_comparison.ipynb) - reproducible models comparison on [MovieLens-1M dataset](https://grouplens.org/datasets/movielens/1m/).
+3. [03_features_preprocessing_and_lightFM.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/03_features_preprocessing_and_lightFM.ipynb) - LightFM example with pyspark for feature preprocessing.
+4. [04_splitters.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/04_splitters.ipynb) - An example of using RePlay data splitters.
+5. [05_feature_generators.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/05_feature_generators.ipynb) - Feature generation with RePlay.
+6. [06_item2item_recommendations.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/06_item2item_recommendations.ipynb) - Item to Item recommendations example.
+7. [07_filters.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/07_filters.ipynb) - An example of using filters.
+8. [08_recommending_for_categories.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/08_recommending_for_categories.ipynb) - An example of recommendation for product categories.
+9. [09_sasrec_example.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/09_sasrec_example.ipynb) - An example of using transformer-based SASRec model to generate recommendations.
+10. [10_bert4rec_example.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/10_bert4rec_example.ipynb) - An example of using transformer-based BERT4Rec model to generate recommendations.
+11. [11_sasrec_dataframes_comparison.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/11_sasrec_dataframes_comparison.ipynb) - speed comparison of using different frameworks (pandas, polars, pyspark) for data processing during SASRec training.
+12. [12_neural_ts_exp.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/12_neural_ts_exp.ipynb) - An example of using Neural Thompson Sampling bandit model (based on Wide&Deep architecture).
+13. [13_personalized_bandit_comparison.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/13_personalized_bandit_comparison.ipynb) - A comparison of context-free and contextual bandit models.
+14. [14_hierarchical_recommender.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/14_hierarchical_recommender.ipynb) - An example of using HierarchicalRecommender with user-disjoint LinUCB.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+### Videos and papers
+* **Video guides**:
+	- [Replay for offline recommendations, AI Journey 2021](https://www.youtube.com/watch?v=ejQZKGAG0xs)
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+* **Research papers**:
+    - [RePlay: a Recommendation Framework for Experimentation and Production Use](https://arxiv.org/abs/2409.07272) Alexey Vasilev, Anna Volodkevich, Denis Kulandin, Tatiana Bysheva, Anton Klenitskiy. In The 18th ACM Conference on Recommender Systems (RecSys '24)
+	- [Turning Dross Into Gold Loss: is BERT4Rec really better than SASRec?](https://doi.org/10.1145/3604915.3610644) Anton Klenitskiy, Alexey Vasilev. In The 17th ACM Conference on Recommender Systems (RecSys '23)
+    - [The Long Tail of Context: Does it Exist and Matter?](https://arxiv.org/abs/2210.01023). Konstantin Bauman, Alexey Vasilev, Alexander Tuzhilin. In Workshop on Context-Aware Recommender Systems (CARS) (RecSys '22)
+    - [Multiobjective Evaluation of Reinforcement Learning Based Recommender Systems](https://doi.org/10.1145/3523227.3551485). Alexey Grishanov, Anastasia Ianina, Konstantin Vorontsov. In The 16th ACM Conference on Recommender Systems (RecSys '22)
+    - [Quality Metrics in Recommender Systems: Do We Calculate Metrics Consistently?](https://doi.org/10.1145/3460231.3478848) Yan-Martin Tamm, Rinchin Damdinov, Alexey Vasilev. In The 15th ACM Conference on Recommender Systems (RecSys '21)
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+<a name="contributing"></a>
+## 💡 Contributing to RePlay
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+We welcome community contributions. For details please check our [contributing guidelines](CONTRIBUTING.md).
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
