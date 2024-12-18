@@ -31,8 +31,13 @@ class Bert4Rec(lightning.LightningModule):
         loss_sample_count: Optional[int] = None,
         negative_sampling_strategy: str = "global_uniform",
         negatives_sharing: bool = False,
+        n_buckets: int = 100,
+        bucket_size_x: int = 100,
+        bucket_size_y: int = 100,
+        mix_x: bool = False,
         optimizer_factory: OptimizerFactory = FatOptimizerFactory(),
         lr_scheduler_factory: Optional[LRSchedulerFactory] = None,
+        acceleration_config: Optional[dict] = None
     ):
         """
         :param tensor_schema (TensorSchema): Tensor schema of features.
@@ -64,9 +69,19 @@ class Bert4Rec(lightning.LightningModule):
             Default: ``global_uniform``.
         :param negatives_sharing: Apply negative sharing in calculating sampled logits.
             Default: ``False``.
+        :param n_buckets: Number of buckets for SCE loss.
+            Default: ``100``
+        :param bucket_size_x: Size of x buckets for SCE loss.
+            Default: ``100``
+        :param bucket_size_y: Size of y buckets for SCE loss.
+            Default: ``100``
+        :param mix_x: Mix states embeddings with random matrix for SCE loss.
+            Default: ``False``
         :param optimizer_factory: Optimizer factory.
             Default: ``FatOptimizerFactory``.
         :param lr_scheduler_factory: Learning rate schedule factory.
+            Default: ``None``
+        :param acceleration_config: Parameters for acceleration.
             Default: ``None``.
         """
         super().__init__()
@@ -81,7 +96,19 @@ class Bert4Rec(lightning.LightningModule):
             dropout=dropout_rate,
             enable_positional_embedding=enable_positional_embedding,
             enable_embedding_tying=enable_embedding_tying,
+            acceleration_config=acceleration_config
         )
+        
+        if acceleration_config:
+            if acceleration_config["dtype"] == "fp32":
+                pass
+            elif acceleration_config["dtype"] == "bf16":
+                self._model = self._model.to(torch.bfloat16)
+            elif acceleration_config["dtype"] == "fp16":
+                self._model = self._model.to(torch.float16)
+            else:
+                raise ValueError(f"dtype in acceleration config is not supported")
+
         self._loss_type = loss_type
         self._loss_sample_count = loss_sample_count
         self._negative_sampling_strategy = negative_sampling_strategy
@@ -90,6 +117,10 @@ class Bert4Rec(lightning.LightningModule):
         self._lr_scheduler_factory = lr_scheduler_factory
         self._loss = self._create_loss()
         self._schema = tensor_schema
+        self._n_buckets = n_buckets
+        self._bucket_size_x = bucket_size_x
+        self._bucket_size_y = bucket_size_y
+        self._mix_x = mix_x
         assert negative_sampling_strategy in {"global_uniform", "inbatch"}
 
         item_count = tensor_schema.item_id_features.item().cardinality
@@ -207,6 +238,8 @@ class Bert4Rec(lightning.LightningModule):
             loss_func = self._compute_loss_bce if self._loss_sample_count is None else self._compute_loss_bce_sampled
         elif self._loss_type == "CE":
             loss_func = self._compute_loss_ce if self._loss_sample_count is None else self._compute_loss_ce_sampled
+        elif self._loss_type == "SCE":
+            loss_func = self._compute_loss_scalable_ce
         else:
             msg = f"Not supported loss type: {self._loss_type}"
             raise ValueError(msg)
@@ -325,6 +358,64 @@ class Bert4Rec(lightning.LightningModule):
         labels_flat = torch.zeros(positive_logits.size(0), dtype=torch.long, device=padding_mask.device)
         loss = self._loss(logits, labels_flat)
         return loss
+    
+    def _compute_loss_scalable_ce(
+        self,
+        feature_tensors: TensorMap,
+        positive_labels: torch.LongTensor,
+        padding_mask: torch.BoolTensor,
+        tokens_mask: torch.BoolTensor,
+    ) -> torch.Tensor:
+        
+        labels_mask = (~padding_mask) + tokens_mask
+        masked_tokens = ~labels_mask
+
+        pad_token = feature_tensors[self._schema.item_id_feature_name].view(-1)[~padding_mask.view(-1)][0]
+        emb = self._model.forward_step(feature_tensors, padding_mask, tokens_mask)
+        hd = torch.tensor(emb.shape[-1])
+
+        x = emb.view(-1, hd)
+        y = positive_labels.view(-1)
+        w = self.get_all_embeddings()["item_embedding"]
+
+        correct_class_logits_ = (x * torch.index_select(w, dim=0, index=y)).sum(dim=1) # (bs,)
+
+        with torch.no_grad():
+            if self._mix_x:
+                omega = 1/torch.sqrt(torch.sqrt(hd)) * torch.randn(x.shape[0], self._n_buckets, device=x.device)
+                buckets = omega.T @ x
+                del omega
+            else:
+                buckets = 1/torch.sqrt(torch.sqrt(hd)) * torch.randn(self._n_buckets, hd, device=x.device) # (n_b, hd)
+
+        with torch.no_grad():
+            x_bucket = buckets @ x.T # (n_b, hd) x (hd, b) -> (n_b, b)
+            x_bucket[:, ~padding_mask.view(-1)] = float('-inf')
+            _, top_x_bucket = torch.topk(x_bucket, dim=1, k=self._bucket_size_x) # (n_b, bs_x)
+            del x_bucket
+
+            y_bucket = buckets @ w.T # (n_b, hd) x (hd, n_cl) -> (n_b, n_cl)
+
+            y_bucket[:, pad_token] = float('-inf')
+            _, top_y_bucket = torch.topk(y_bucket, dim=1, k=self._bucket_size_y) # (n_b, bs_y)
+            del y_bucket
+
+        x_bucket = torch.gather(x, 0, top_x_bucket.view(-1, 1).expand(-1, hd)).view(self._n_buckets, self._bucket_size_x, hd) # (n_b, bs_x, hd)
+        y_bucket = torch.gather(w, 0, top_y_bucket.view(-1, 1).expand(-1, hd)).view(self._n_buckets, self._bucket_size_y, hd) # (n_b, bs_y, hd)
+        
+        wrong_class_logits = (x_bucket @ y_bucket.transpose(-1, -2)) # (n_b, bs_x, bs_y)
+        mask = torch.index_select(y, dim=0, index=top_x_bucket.view(-1)).view(self._n_buckets, self._bucket_size_x)[:, :, None] == top_y_bucket[:, None, :] # (n_b, bs_x, bs_y)
+        wrong_class_logits = wrong_class_logits.masked_fill(mask, float('-inf')) # (n_b, bs_x, bs_y)
+        correct_class_logits = torch.index_select(correct_class_logits_, dim=0, index=top_x_bucket.view(-1)).view(self._n_buckets, self._bucket_size_x)[:, :, None] # (n_b, bs_x, 1)
+        logits = torch.cat((wrong_class_logits, correct_class_logits), dim=2) # (n_b, bs_x, bs_y + 1)
+
+        loss_ = torch.nn.functional.cross_entropy(logits.view(-1, logits.shape[-1]), (logits.shape[-1] - 1) * torch.ones(logits.shape[0] * logits.shape[1], dtype=torch.int64, device=logits.device), reduction='none') # (n_b * bs_x,)
+        loss = torch.zeros(x.shape[0], device=x.device, dtype=x.dtype)
+        loss.scatter_reduce_(0, top_x_bucket.view(-1), loss_, reduce='amax', include_self=False)
+        loss = loss[(loss != 0) & (masked_tokens).view(-1)]
+        loss = torch.mean(loss)
+
+        return loss
 
     def _get_sampled_logits(
         self,
@@ -412,7 +503,7 @@ class Bert4Rec(lightning.LightningModule):
         if self._loss_type == "BCE":
             return torch.nn.BCEWithLogitsLoss(reduction="sum")
 
-        if self._loss_type == "CE":
+        if self._loss_type == "CE" or self._loss_type == "SCE":
             return torch.nn.CrossEntropyLoss()
 
         msg = "Not supported loss_type"
