@@ -20,9 +20,11 @@ RUN pip install rs_datasets
 RUN pip install Ninja==1.11.1.1
 RUN pip install -U tensorboard
 
+RUN pip3 install triton
+RUN pip3 install bitsandbytes
+RUN sed -i 's/tl\.libdevice\.llrint/tl\.extra\.cuda\.libdevice\.llrint/g' \
+    /opt/conda/lib/python3.11/site-packages/bitsandbytes/triton/quantize_global.py \
+    /opt/conda/lib/python3.11/site-packages/bitsandbytes/triton/quantize_rowwise.py \
+    /opt/conda/lib/python3.11/site-packages/bitsandbytes/triton/quantize_columnwise_and_transpose.py
 
-# ENV CUDACXX=/usr/local/cuda/bin/nvcc
-# RUN cd /home/RecSys/cutlass && mkdir build && cd build && cmake .. -DCUTLASS_NVCC_ARCHS=75
-
-
-CMD ["/bin/bash"]
+CMD ["bash"]
