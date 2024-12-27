@@ -26,8 +26,9 @@ from replay.utils import (
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
-    from pyspark.sql.types import LongType, StructType
+    from pyspark.sql.types import LongType, StructType, StructField
     from pyspark.storagelevel import StorageLevel
+    from pyspark.ml.feature import StringIndexer
 
 HandleUnknownStrategies = Literal["error", "use_default_value", "drop"]
 
@@ -167,15 +168,20 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
     def _fit_spark(self, df: SparkDataFrame) -> None:
         unique_col_values = df.select(self._col).distinct().persist(StorageLevel.MEMORY_ONLY)
-
+        indexer = StringIndexer(
+            inputCol=self._col, outputCol=self._target_col, handleInvalid="error", stringOrderType="alphabetAsc" #TODO: убрать error
+            ).fit(unique_col_values)
+        labels = indexer.labels.copy() # copy is necessary
+        # TODO: падает на 16ГБ оперативы, если взять 1 миллиард элементов (10**9). Возможно нужно заменить на функции Spark
+        # TODO: оптимальный детерменированный способ - одна партиция и скользящее окно, прибавляющее + 1. Он тоже O(N)
+        encoded_values = [(labels[i], i) for i in range(len(labels))] # TODO: Можно ускорить при помощи numpy или других способов
+        schema = (
+            StructType()
+            .add(self._col, df.schema[self._col].dataType, True)
+            .add(self._target_col, LongType(), True)
+        )
         mapping_on_spark = (
-            unique_col_values.rdd.zipWithIndex()
-            .toDF(
-                StructType()
-                .add("_1", StructType().add(self._col, df.schema[self._col].dataType, True), True)
-                .add("_2", LongType(), True)
-            )
-            .select(sf.col(f"_1.{self._col}").alias(self._col), sf.col("_2").alias(self._target_col))
+            get_spark_session().createDataFrame(encoded_values, schema)
             .persist(StorageLevel.MEMORY_ONLY)
         )
 
@@ -230,24 +236,28 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         already_fitted = list(self._mapping.keys())
         new_values = {x[self._col] for x in df.select(self._col).distinct().collect()} - set(already_fitted)
         new_values_list = [[x] for x in new_values]
-        new_values_df: SparkDataFrame = get_spark_session().createDataFrame(new_values_list, schema=[self._col])
-        new_unique_values = new_values_df.join(df, on=self._col, how="left").select(self._col)
+        assert len(new_values_list) > 0, "There is no new values in input dataframe"
+        new_unique_values_df: SparkDataFrame = get_spark_session().createDataFrame(new_values_list, schema=[self._col])
+        indexer = StringIndexer(
+            inputCol=self._col, outputCol=self._target_col, handleInvalid="error", stringOrderType="alphabetAsc" #TODO: убрать error
+            ).fit(new_unique_values_df)
 
-        new_data: dict = (
-            new_unique_values.rdd.zipWithIndex()
-            .toDF(
-                StructType()
-                .add("_1", StructType().add(self._col, df.schema[self._col].dataType), True)
-                .add("_2", LongType(), True)
-            )
-            .select(sf.col(f"_1.{self._col}").alias(self._col), sf.col("_2").alias(self._target_col))
-            .withColumn(self._target_col, sf.col(self._target_col) + max_value)
-            .rdd.collectAsMap()
+        new_values_df = new_unique_values_df.join(df, on=self._col, how="left").select(self._col)
+        new_values_transformed_df = (
+            indexer.transform(new_values_df)
+            .withColumn(
+                self._target_col, 
+                sf.round(sf.col(f"{self._col}_encoded")).cast(LongType()) + max_value
+                )
         )
-        self._mapping.update(new_data)
-        self._inverse_mapping.update({v: k for k, v in new_data.items()})
-        self._inverse_mapping_list.extend(new_data.keys())
-        new_unique_values.unpersist()
+        if self._target_col != f"{self._col}_encoded":
+            new_values_transformed_df.drop(f"{self._col}_encoded")
+        new_values_transformed_map = new_values_transformed_df.rdd.collectAsMap()
+
+        self._mapping.update(new_values_transformed_map)
+        self._inverse_mapping.update({v: k for k, v in new_values_transformed_map.items()})
+        self._inverse_mapping_list.extend(new_values_transformed_map.keys())
+        new_values_df.unpersist()
 
     def _partial_fit_pandas(self, df: PandasDataFrame) -> None:
         assert self._mapping is not None
