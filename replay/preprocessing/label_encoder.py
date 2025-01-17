@@ -775,13 +775,14 @@ class LabelEncoder:
     >>> new_encoder = LabelEncoder([
     ...    LabelEncodingRule("user_id", encoder.mapping["user_id"]),
     ...    LabelEncodingRule("item_1", encoder.mapping["item_1"]),
-    ...    LabelEncodingRule("item_2", encoder.mapping["item_2"])
+    ...    LabelEncodingRule("item_2", encoder.mapping["item_2"]),
+    ...    GroupedLabelEncodingRule("list", encoder.mapping["list"]),
     ... ])
     >>> new_encoder.inverse_transform(mapped_interactions)
-        user_id	item_1	item_2	list
-    0	u1	    item_1	item_1	[1, 2, 3]
-    1	u2	    item_2	item_2	[3, 4, 5]
-    2	u3	    item_3	item_3	[-1, -2, 4]
+      user_id item_1 item_2	list
+    0      u1 item_1 item_1	[1, 2, 3]
+    1      u2 item_2 item_2	[3, 4, 5]
+    2      u3 item_3 item_3	[-1, -2, 4]
     <BLANKLINE>
     """
 
