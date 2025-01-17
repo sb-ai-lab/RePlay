@@ -25,7 +25,10 @@ from replay.utils import (
 )
 
 if PYSPARK_AVAILABLE:
-    from pyspark.sql import functions as sf
+    from pyspark.sql import (
+        Window,
+        functions as sf,
+    )
     from pyspark.sql.types import LongType, StructType
     from pyspark.storagelevel import StorageLevel
 
@@ -570,7 +573,7 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
         if isinstance(df, PandasDataFrame):
             self._fit_pandas(df[[self.column]].explode(self.column))
         elif isinstance(df, SparkDataFrame):
-            self._fit_spark(df.select(self.column).explode(self.column))
+            self._fit_spark(df.select(self.column).withColumn(self.column, sf.explode(self.column)))
         elif isinstance(df, PolarsDataFrame):
             self._fit_polars(df.select(self.column).explode(self.column))
         else:
@@ -625,15 +628,48 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
         default_value = len(self._mapping) if self._default_value == "last" else self._default_value
 
         if isinstance(df, PandasDataFrame):
-            transformed_df = df.drop("int_cat_list", axis=1)
+            transformed_df = df.drop(self.column, axis=1)
             df2transform = df[[self.column]].explode(self.column).reset_index(names=self._FAKE_INDEX_COLUMN_NAME)
-            transformed_column = self._transform_pandas(df2transform, default_value)
-            transformed_column = transformed_column.groupby(self._FAKE_INDEX_COLUMN_NAME).agg(list)
-            transformed_df = transformed_df.insert(list(df.columns).index(self.column), self.column, transformed_column)
+            encoded_df = self._transform_pandas(df2transform, default_value)
+            encoded_df = encoded_df.groupby(self._FAKE_INDEX_COLUMN_NAME).agg(list)
+            transformed_df[self.column] = encoded_df[self.column]
         elif isinstance(df, SparkDataFrame):
-            transformed_df = self._transform_spark(df, default_value)
+            initial_partitions = df.rdd.getNumPartitions()
+            df_with_index = df.withColumn(
+                self._FAKE_INDEX_COLUMN_NAME, sf.row_number().over(Window.partitionBy(sf.lit(0)).orderBy(sf.lit(0)))
+            ).repartition(initial_partitions)
+            transformed_df = df_with_index.drop(self.column)
+            df2transform = (
+                df_with_index.select(self.column, self._FAKE_INDEX_COLUMN_NAME)
+                .withColumn(self.column, sf.explode(self.column))
+                .withColumn(
+                    self._FAKE_INDEX_COLUMN_NAME + "_1",
+                    sf.row_number().over(Window.partitionBy(self._FAKE_INDEX_COLUMN_NAME).orderBy(sf.lit(0))),
+                )
+                .repartition(initial_partitions)
+            )
+            encoded_df = self._transform_spark(df2transform, default_value)
+            encoded_df = (
+                encoded_df.withColumn(
+                    self.column,
+                    sf.collect_list(self.column).over(
+                        Window.partitionBy(self._FAKE_INDEX_COLUMN_NAME).orderBy(self._FAKE_INDEX_COLUMN_NAME + "_1")
+                    ),
+                )
+                .groupBy(self._FAKE_INDEX_COLUMN_NAME)
+                .agg(sf.max(self.column).alias(self.column))
+                .select(self.column, self._FAKE_INDEX_COLUMN_NAME)
+                .repartition(initial_partitions)
+            )
+            transformed_df = transformed_df.join(encoded_df, how="left", on=self._FAKE_INDEX_COLUMN_NAME).drop(
+                self._FAKE_INDEX_COLUMN_NAME
+            )
         elif isinstance(df, PolarsDataFrame):
-            transformed_df = self._transform_polars(df, default_value)
+            transformed_df = df.drop(self.column)
+            df2transform = df.select(self.column).with_row_index(name=self._FAKE_INDEX_COLUMN_NAME).explode(self.column)
+            encoded_df = self._transform_polars(df2transform, default_value)
+            encoded_df = encoded_df.group_by(self._FAKE_INDEX_COLUMN_NAME).agg(pl.col(self.column))
+            transformed_df.with_columns(encoded_df[self.column].alias(self.column))
         else:
             msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
             raise NotImplementedError(msg)
@@ -651,11 +687,48 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
             raise RuntimeError(msg)
 
         if isinstance(df, PandasDataFrame):
-            transformed_df = self._inverse_transform_pandas(df)
+            transformed_df = df.drop(self.column, axis=1)
+            df2transform = df[[self.column]].explode(self.column).reset_index(names=self._FAKE_INDEX_COLUMN_NAME)
+            decoded_df = self._inverse_transform_pandas(df2transform)
+            decoded_df = decoded_df.groupby(self._FAKE_INDEX_COLUMN_NAME).agg(list)
+            transformed_df[self.column] = decoded_df[self.column]
         elif isinstance(df, SparkDataFrame):
-            transformed_df = self._inverse_transform_spark(df)
+            initial_partitions = df.rdd.getNumPartitions()
+            df_with_index = df.withColumn(
+                self._FAKE_INDEX_COLUMN_NAME, sf.row_number().over(Window.partitionBy(sf.lit(0)).orderBy(sf.lit(0)))
+            ).repartition(initial_partitions)
+            transformed_df = df_with_index.drop(self.column)
+            df2transform = (
+                df_with_index.select(self.column, self._FAKE_INDEX_COLUMN_NAME)
+                .withColumn(self.column, sf.explode(self.column))
+                .withColumn(
+                    self._FAKE_INDEX_COLUMN_NAME + "_1",
+                    sf.row_number().over(Window.partitionBy(self._FAKE_INDEX_COLUMN_NAME).orderBy(sf.lit(0))),
+                )
+                .repartition(initial_partitions)
+            )
+            decoded_df = self._inverse_transform_spark(df2transform)
+            decoded_df = (
+                decoded_df.withColumn(
+                    self.column,
+                    sf.collect_list(self.column).over(
+                        Window.partitionBy(self._FAKE_INDEX_COLUMN_NAME).orderBy(self._FAKE_INDEX_COLUMN_NAME + "_1")
+                    ),
+                )
+                .groupBy(self._FAKE_INDEX_COLUMN_NAME)
+                .agg(sf.max(self.column).alias(self.column))
+                .select(self.column, self._FAKE_INDEX_COLUMN_NAME)
+                .repartition(initial_partitions)
+            )
+            transformed_df = transformed_df.join(decoded_df, how="left", on=self._FAKE_INDEX_COLUMN_NAME).drop(
+                self._FAKE_INDEX_COLUMN_NAME
+            )
         elif isinstance(df, PolarsDataFrame):
-            transformed_df = self._inverse_transform_polars(df)
+            transformed_df = df.drop(self.column)
+            df2transform = df.select(self.column).with_row_index(name=self._FAKE_INDEX_COLUMN_NAME).explode(self.column)
+            decoded_df = self._inverse_transform_polars(df2transform)
+            decoded_df = decoded_df.group_by(self._FAKE_INDEX_COLUMN_NAME).agg(pl.col(self.column))
+            transformed_df.with_columns(decoded_df[self.column].alias(self.column))
         else:
             msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
             raise NotImplementedError(msg)
@@ -668,42 +741,47 @@ class LabelEncoder:
 
     >>> import pandas as pd
     >>> user_interactions = pd.DataFrame([
-    ...    ("u1", "item_1", "item_1"),
-    ...    ("u2", "item_2", "item_2"),
-    ...    ("u3", "item_3", "item_3"),
-    ... ], columns=["user_id", "item_1", "item_2"])
+    ...     ("u1", "item_1", "item_1", [1, 2, 3]),
+    ...     ("u2", "item_2", "item_2", [3, 4, 5]),
+    ...     ("u3", "item_3", "item_3", [-1, -2, 4]),
+    ... ], columns=["user_id", "item_1", "item_2", "list"])
     >>> user_interactions
-      user_id  item_1  item_2
-    0      u1  item_1  item_1
-    1      u2  item_2  item_2
-    2      u3  item_3  item_3
-    >>> encoder = LabelEncoder(
-    ...    [LabelEncodingRule("user_id"), LabelEncodingRule("item_1"), LabelEncodingRule("item_2")]
-    ... )
+        user_id	item_1	item_2	list
+    0	u1	    item_1	item_1	[1, 2, 3]
+    1	u2	    item_2	item_2	[3, 4, 5]
+    2	u3	    item_3	item_3	[-1, -2, 4]
+    >>> encoder = LabelEncoder([
+    ...     LabelEncodingRule("user_id"),
+    ...     LabelEncodingRule("item_1"),
+    ...     LabelEncodingRule("item_2"),
+    ...     GroupedLabelEncodingRule("list"),
+    ... ])
     >>> mapped_interactions = encoder.fit_transform(user_interactions)
     >>> mapped_interactions
-       user_id  item_1  item_2
-    0        0       0       0
-    1        1       1       1
-    2        2       2       2
+       user_id  item_1  item_2  list
+    0        0       0       0  [0, 1, 2]
+    1        1       1       1  [2, 3, 4]
+    2        2       2       2  [5, 6, 3]
     >>> encoder.mapping
     {'user_id': {'u1': 0, 'u2': 1, 'u3': 2},
     'item_1': {'item_1': 0, 'item_2': 1, 'item_3': 2},
-    'item_2': {'item_1': 0, 'item_2': 1, 'item_3': 2}}
+    'item_2': {'item_1': 0, 'item_2': 1, 'item_3': 2},
+    'list': {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, -1: 5, -2: 6}}
     >>> encoder.inverse_mapping
     {'user_id': {0: 'u1', 1: 'u2', 2: 'u3'},
     'item_1': {0: 'item_1', 1: 'item_2', 2: 'item_3'},
-    'item_2': {0: 'item_1', 1: 'item_2', 2: 'item_3'}}
+    'item_2': {0: 'item_1', 1: 'item_2', 2: 'item_3'},
+    'list': {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: -1, 6: -2}}
     >>> new_encoder = LabelEncoder([
     ...    LabelEncodingRule("user_id", encoder.mapping["user_id"]),
     ...    LabelEncodingRule("item_1", encoder.mapping["item_1"]),
     ...    LabelEncodingRule("item_2", encoder.mapping["item_2"])
     ... ])
     >>> new_encoder.inverse_transform(mapped_interactions)
-      user_id  item_1  item_2
-    0      u1  item_1  item_1
-    1      u2  item_2  item_2
-    2      u3  item_3  item_3
+      	user_id	item_1	item_2	list
+    0	u1	    item_1	item_1	[1, 2, 3]
+    1	u2	    item_2	item_2	[3, 4, 5]
+    2	u3	    item_3	item_3	[-1, -2, 4]
     <BLANKLINE>
     """
 
