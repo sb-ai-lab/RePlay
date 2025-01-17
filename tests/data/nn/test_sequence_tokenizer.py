@@ -2,7 +2,6 @@ import os
 import shutil
 from typing import Optional
 
-import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
@@ -21,12 +20,30 @@ if TORCH_AVAILABLE:
         TensorFeatureSource,
         TensorSchema,
     )
-    from replay.data.nn.sequence_tokenizer import _SequenceProcessor
-    from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
+    from replay.data.nn.sequence_tokenizer import _PandasSequenceProcessor, _PolarsSequenceProcessor
 else:
     TensorSchema = MissingImportType
     SequentialDataset = MissingImportType
     PandasSequentialDataset = MissingImportType
+
+
+def _compare_sequence(
+    dataset: SequentialDataset,
+    tokenizer: SequenceTokenizer,
+    feature_name: str,
+    answers: dict,
+    feature_inverse_mapping: Optional[dict] = None,
+):
+    for query in dataset.get_all_query_ids():
+        sequence = dataset.get_sequence_by_query_id(query, feature_name).tolist()
+        if feature_inverse_mapping:
+            if isinstance(sequence[0], list):
+                sequence = [[feature_inverse_mapping[y] for y in x] for x in sequence]
+            else:
+                sequence = [feature_inverse_mapping[x] for x in sequence]
+        query = tokenizer.query_id_encoder.inverse_mapping["user_id"][query]
+        assert len(sequence) == len(answers[query])
+        assert sequence == answers[query]
 
 
 @pytest.mark.torch
@@ -53,9 +70,122 @@ def test_item_ids_are_grouped_to_sequences(dataset, only_item_id_schema: TensorS
 
 @pytest.mark.torch
 @pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
-def test_item_ids_are_grouped_to_sequences_with_subset(dataset, item_id_and_item_feature_schema: TensorSchema, request):
+def test_query_features_are_grouped_to_sequences(dataset, request):
     data = request.getfixturevalue(dataset)
-    tokenizer = SequenceTokenizer(item_id_and_item_feature_schema).fit(data)
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "timestamp",
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp"),
+                feature_hint=FeatureHint.TIMESTAMP,
+            ),
+            TensorFeatureInfo(
+                "user_cat_seq",
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat"),
+            ),
+            TensorFeatureInfo(
+                "user_cat_list_seq",
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL_LIST,
+                feature_source=TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat_list"),
+            ),
+            TensorFeatureInfo(
+                "user_cat",
+                is_seq=False,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat"),
+            ),
+            TensorFeatureInfo(
+                "user_cat_list",
+                is_seq=False,
+                feature_type=FeatureType.CATEGORICAL_LIST,
+                feature_source=TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat_list"),
+            ),
+        ]
+    )
+    tokenizer = SequenceTokenizer(schema)
+    sequential_dataset = tokenizer.fit_transform(data)
+
+    _compare_sequence(
+        sequential_dataset,
+        tokenizer,
+        "item_id",
+        answers={
+            1: [1, 2],
+            2: [1, 3, 4],
+            3: [2],
+            4: [1, 2, 3, 4, 5, 6],
+        },
+        feature_inverse_mapping=tokenizer.item_id_encoder.inverse_mapping["item_id"],
+    )
+    _compare_sequence(
+        sequential_dataset,
+        tokenizer,
+        "user_cat_seq",
+        answers={
+            1: [1, 1],
+            2: [2, 2, 2],
+            3: [1],
+            4: [1, 1, 1, 1, 1, 1],
+        },
+        feature_inverse_mapping=tokenizer.query_features_encoder.inverse_mapping["user_cat"],
+    )
+    _compare_sequence(
+        sequential_dataset,
+        tokenizer,
+        "user_cat_list_seq",
+        answers={
+            1: [[1, 2], [1, 2]],
+            2: [[4, 3], [4, 3], [4, 3]],
+            3: [[5, 7, 6]],
+            4: [[8], [8], [8], [8], [8], [8]],
+        },
+        feature_inverse_mapping=tokenizer.query_features_encoder.inverse_mapping["user_cat_list"],
+    )
+    _compare_sequence(
+        sequential_dataset,
+        tokenizer,
+        "user_cat",
+        answers={
+            1: [1],
+            2: [2],
+            3: [1],
+            4: [1],
+        },
+        feature_inverse_mapping=tokenizer.query_features_encoder.inverse_mapping["user_cat"],
+    )
+    _compare_sequence(
+        sequential_dataset,
+        tokenizer,
+        "user_cat_list",
+        answers={
+            1: [1, 2],
+            2: [4, 3],
+            3: [5, 7, 6],
+            4: [8],
+        },
+        feature_inverse_mapping=tokenizer.query_features_encoder.inverse_mapping["user_cat_list"],
+    )
+
+
+@pytest.mark.torch
+@pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
+def test_item_ids_are_grouped_to_sequences_with_subset(
+    dataset, item_id_and_item_features_schema: TensorSchema, request
+):
+    data = request.getfixturevalue(dataset)
+    tokenizer = SequenceTokenizer(item_id_and_item_features_schema).fit(data)
     sequential_dataset = tokenizer.transform(data, tensor_features_to_keep=["item_id"])
 
     answers = {
@@ -116,7 +246,7 @@ def test_interactions_features_are_grouped_to_sequences(dataset, request):
                 "item_id",
                 feature_type=FeatureType.CATEGORICAL,
                 is_seq=True,
-                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
                 cardinality=6,
                 feature_hint=FeatureHint.ITEM_ID,
             ),
@@ -124,7 +254,7 @@ def test_interactions_features_are_grouped_to_sequences(dataset, request):
                 "timestamp",
                 feature_type=FeatureType.NUMERICAL,
                 is_seq=True,
-                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp")],
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp"),
                 feature_hint=FeatureHint.TIMESTAMP,
             ),
         ]
@@ -152,7 +282,7 @@ def test_mismatch_of_features_type_raises_error(dataset, request):
                 "item_id",
                 feature_type=FeatureType.CATEGORICAL,
                 is_seq=True,
-                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
                 cardinality=6,
                 feature_hint=FeatureHint.ITEM_ID,
             ),
@@ -160,7 +290,7 @@ def test_mismatch_of_features_type_raises_error(dataset, request):
                 "timestamp",
                 feature_type=FeatureType.CATEGORICAL,
                 is_seq=True,
-                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp")],
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp"),
                 feature_hint=FeatureHint.TIMESTAMP,
             ),
         ]
@@ -172,23 +302,63 @@ def test_mismatch_of_features_type_raises_error(dataset, request):
 
 @pytest.mark.torch
 @pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
-def test_item_features_are_grouped_to_sequences(dataset, item_id_and_item_feature_schema: TensorSchema, request):
+def test_item_features_are_grouped_to_sequences(dataset, item_id_and_item_features_schema: TensorSchema, request):
     data = request.getfixturevalue(dataset)
-    tokenizer = SequenceTokenizer(item_id_and_item_feature_schema)
+    tokenizer = SequenceTokenizer(item_id_and_item_features_schema)
     sequential_dataset = tokenizer.fit_transform(data)
 
-    answers = {
-        1: [2, 3],
-        2: [2, 4, 5],
-        3: [3],
-        4: [2, 3, 4, 5, 6, 7],
-    }
     _compare_sequence(
         sequential_dataset,
         tokenizer,
-        "some_item_feature",
-        answers,
-        tokenizer.item_features_encoder.inverse_mapping["some_item_feature"],
+        "item_num",
+        answers={
+            1: [[1.1], [1.2]],
+            2: [[1.1], [1.3], [1.4]],
+            3: [[1.2]],
+            4: [[1.1], [1.2], [1.3], [1.4], [1.5], [1.6]],
+        },
+    )
+    _compare_sequence(
+        sequential_dataset,
+        tokenizer,
+        "item_num_list",
+        answers={
+            1: [[0.5, 2.3], [-1.0, 1.1]],
+            2: [[0.5, 2.3], [4.2, 4.8], [-1.1, 0.0]],
+            3: [[-1.0, 1.1]],
+            4: [[0.5, 2.3], [-1.0, 1.1], [4.2, 4.8], [-1.1, 0.0], [-1.9, 0.12], [2.3, 1.87]],
+        },
+    )
+    _compare_sequence(
+        sequential_dataset,
+        tokenizer,
+        "item_cat",
+        answers={
+            1: [2, 3],
+            2: [2, 4, 5],
+            3: [3],
+            4: [2, 3, 4, 5, 6, 7],
+        },
+        feature_inverse_mapping=tokenizer.item_features_encoder.inverse_mapping["item_cat"],
+    )
+    _compare_sequence(
+        sequential_dataset,
+        tokenizer,
+        "item_cat_list",
+        answers={
+            1: [["Animation", "Fantasy"], ["Comedy", "Nature"]],
+            2: [["Animation", "Fantasy"], ["Children's", "Action"], ["Nature", "Children's"]],
+            3: [["Comedy", "Nature"]],
+            4: [
+                ["Animation", "Fantasy"],
+                ["Comedy", "Nature"],
+                ["Children's", "Action"],
+                ["Nature", "Children's"],
+                ["Animation", "Comedy"],
+                ["Fantasy", "Nature"],
+            ],
+        },
+        feature_inverse_mapping=tokenizer.item_features_encoder.inverse_mapping["item_cat_list"],
     )
 
 
@@ -196,22 +366,24 @@ def test_item_features_are_grouped_to_sequences(dataset, item_id_and_item_featur
 @pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
 def test_user_features_are_grouped_to_sequences(dataset, request):
     data = request.getfixturevalue(dataset)
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "some_user_feature",
-            cardinality=2,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.QUERY_FEATURES, "some_user_feature"),
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "user_cat",
+                cardinality=2,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat"),
+            ),
+        ]
     )
 
     tokenizer = SequenceTokenizer(schema)
@@ -226,9 +398,9 @@ def test_user_features_are_grouped_to_sequences(dataset, request):
     _compare_sequence(
         sequential_dataset,
         tokenizer,
-        "some_user_feature",
+        "user_cat",
         answers,
-        tokenizer.query_features_encoder.inverse_mapping["some_user_feature"],
+        tokenizer.query_features_encoder.inverse_mapping["user_cat"],
     )
 
 
@@ -236,22 +408,24 @@ def test_user_features_are_grouped_to_sequences(dataset, request):
 @pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
 def test_user_features_handled_as_scalars(dataset, request):
     data = request.getfixturevalue(dataset)
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "some_user_feature",
-            cardinality=2,
-            is_seq=False,
-            feature_source=TensorFeatureSource(FeatureSource.QUERY_FEATURES, "some_user_feature"),
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "user_cat",
+                cardinality=2,
+                is_seq=False,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat"),
+            ),
+        ]
     )
     tokenizer = SequenceTokenizer(schema)
     sequential_dataset = tokenizer.fit_transform(data)
@@ -264,9 +438,9 @@ def test_user_features_handled_as_scalars(dataset, request):
     _compare_sequence(
         sequential_dataset,
         tokenizer,
-        "some_user_feature",
+        "user_cat",
         answers,
-        tokenizer.query_features_encoder.inverse_mapping["some_user_feature"],
+        tokenizer.query_features_encoder.inverse_mapping["user_cat"],
     )
 
 
@@ -274,68 +448,91 @@ def test_user_features_handled_as_scalars(dataset, request):
 @pytest.mark.parametrize("dataset", ["small_numerical_dataset", "small_numerical_dataset_polars"])
 def test_process_numerical_features(dataset, request):
     data = request.getfixturevalue(dataset)
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .numerical(
-            "feature",
-            tensor_dim=1,
-            is_seq=True,
-            feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "feature")],
-        )
-        .numerical(
-            "some_item_feature",
-            tensor_dim=1,
-            is_seq=True,
-            feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "some_item_feature")],
-        )
-        .numerical(
-            "doubled_feature",
-            tensor_dim=2,
-            is_seq=True,
-            feature_sources=[
-                TensorFeatureSource(FeatureSource.INTERACTIONS, "num_feature"),
-                TensorFeatureSource(FeatureSource.INTERACTIONS, "num_feature2"),
-            ],
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "feature",
+                tensor_dim=1,
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "feature"),
+            ),
+            TensorFeatureInfo(
+                "item_num",
+                tensor_dim=1,
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+                feature_source=TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_num"),
+            ),
+            TensorFeatureInfo(
+                "doubled_feature",
+                tensor_dim=2,
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "num_feature"),
+            ),
+            TensorFeatureInfo(
+                "num_list_feature",
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL_LIST,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "num_list_feature"),
+            ),
+            TensorFeatureInfo(
+                "timestamp",
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp"),
+                feature_hint=FeatureHint.TIMESTAMP,
+            ),
+        ]
     )
     tokenizer = SequenceTokenizer(schema)
     sequential_dataset = tokenizer.fit_transform(data)
 
     answers = {
-        1: [[2.0], [3.0]],
-        2: [[2.0], [4.0], [5.0]],
-        3: [[3.0]],
-        4: [[2.0], [3.0], [4.0], [5.0], [6.0], [7.0]],
+        1: [[1.1], [1.2]],
+        2: [[1.1], [1.3], [1.4]],
+        3: [[1.2]],
+        4: [[1.1], [1.2], [1.3], [1.4], [1.5], [1.6]],
     }
     _compare_sequence(
         sequential_dataset,
         tokenizer,
-        "some_item_feature",
+        "item_num",
         answers,
     )
-    for num_feature_name in ["feature", "some_item_feature", "doubled_feature"]:
+    for num_feature_name in ["feature", "item_num", "doubled_feature"]:
         for query in sequential_dataset.get_all_query_ids():
             query_decoded = tokenizer.query_id_encoder.inverse_mapping["user_id"][query]
             seq = sequential_dataset.get_sequence_by_query_id(query, num_feature_name)
-            assert seq.shape == (
-                len(answers[query_decoded]),
-                len(tokenizer.tensor_schema.get(num_feature_name).feature_sources),
-            )
+            assert seq.shape == (len(answers[query_decoded]), 1)
+
+    _compare_sequence(
+        sequential_dataset,
+        tokenizer,
+        "num_list_feature",
+        answers={
+            1: [[-1.0, 1.0], [-1.1, 1.14]],
+            2: [[-1.2, 1.028], [-1.3, 1.34], [-1.4, 1.93]],
+            3: [[-1.5, 1.9]],
+            4: [[-1.6, 1.8], [-1.7, 1.7], [-1.8, 1.6], [-1.9, 1.5], [-1.95, 1.4], [-1.55, 1.3]],
+        },
+    )
 
 
 @pytest.mark.torch
 @pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
-def test_tokenizer_properties(item_id_and_item_feature_schema, dataset, request):
+def test_tokenizer_properties(item_id_and_item_features_schema, dataset, request):
     data = request.getfixturevalue(dataset)
-    tokenizer = SequenceTokenizer(item_id_and_item_feature_schema).fit(data)
+    tokenizer = SequenceTokenizer(item_id_and_item_features_schema).fit(data)
     assert isinstance(tokenizer.tensor_schema, TensorSchema)
     assert isinstance(tokenizer.query_id_encoder, LabelEncoder)
     assert isinstance(tokenizer.item_id_encoder, LabelEncoder)
@@ -419,29 +616,32 @@ def test_matching_schema_dataset_exceptions(fake_schema, dataset, request, subse
 )
 def test_invalid_tensor_schema_and_dataset(dataset, request, feature_name, source_table, exception_msg):
     data = request.getfixturevalue(dataset)
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            feature_name,
-            cardinality=2,
-            is_seq=True,
-            feature_source=TensorFeatureSource(source_table, feature_name),
-        )
-        .categorical(
-            "user_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id"),
-            feature_hint=FeatureHint.QUERY_ID,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                feature_name,
+                cardinality=2,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(source_table, feature_name),
+            ),
+            TensorFeatureInfo(
+                "user_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id"),
+                feature_hint=FeatureHint.QUERY_ID,
+            ),
+        ]
     )
 
     with pytest.raises(ValueError) as exc:
@@ -472,23 +672,25 @@ def test_invalid_tensor_schema_and_dataset(dataset, request, feature_name, sourc
 )
 def test_items_users_names_mismatch(dataset, request, user_hint, item_hint, exception_msg):
     data = request.getfixturevalue(dataset)
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-            feature_hint=item_hint,
-        )
-        .categorical(
-            "user_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id"),
-            feature_hint=user_hint,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_hint=item_hint,
+            ),
+            TensorFeatureInfo(
+                "user_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id"),
+                feature_hint=user_hint,
+            ),
+        ]
     )
 
     with pytest.raises(ValueError) as exc:
@@ -504,22 +706,24 @@ def test_items_users_names_mismatch(dataset, request, user_hint, item_hint, exce
 @pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
 def test_item_id_feature_not_specified(dataset, request):
     data = request.getfixturevalue(dataset)
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-        )
-        .categorical(
-            "user_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id"),
-            feature_hint=FeatureHint.QUERY_ID,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+            ),
+            TensorFeatureInfo(
+                "user_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id"),
+                feature_hint=FeatureHint.QUERY_ID,
+            ),
+        ]
     )
 
     with pytest.raises(ValueError) as exc:
@@ -532,47 +736,23 @@ def test_item_id_feature_not_specified(dataset, request):
 
 
 @pytest.mark.torch
-def test_invalid_source_table():
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "feature",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource("", "feature"),
-        )
-        .build()
-    )
-
-    with pytest.raises(AssertionError) as exc:
-        SequenceTokenizer._get_features_filter_from_schema(schema, "user_id", "item_id")
-
-    assert str(exc.value) == "Unknown tensor feature source"
-
-
-@pytest.mark.torch
 @pytest.mark.parametrize("dataset", [pd.DataFrame(), pl.DataFrame()])
 def test_unknown_source_table_in_cat_processor(dataset):
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource("", "item_id"),
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource("", "item_id"),
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+        ]
     )
     with pytest.raises(AssertionError) as exc:
-        _SequenceProcessor(schema, "user_id", "item_id", dataset).process_feature("item_id")
+        processor_class = _PolarsSequenceProcessor if isinstance(dataset, pl.DataFrame) else _PandasSequenceProcessor
+        processor_class(schema, "user_id", "item_id", dataset)._process_feature("item_id")
 
     assert str(exc.value) == "Unknown tensor feature source table"
 
@@ -581,18 +761,20 @@ def test_unknown_source_table_in_cat_processor(dataset):
 @pytest.mark.parametrize("dataset_type", [pd.DataFrame, pl.DataFrame])
 def test_unknown_source_table_in_num_processor(dataset_type):
     dataset = dataset_type({"item_id": [1, 2, 3], "user_id": [1, 2, 3]})
-    schema = (
-        TensorSchemaBuilder()
-        .numerical(
-            "num_feature",
-            tensor_dim=6,
-            is_seq=True,
-            feature_sources=[TensorFeatureSource("", "num_feature")],
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "num_feature",
+                tensor_dim=6,
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+                feature_source=TensorFeatureSource("", "num_feature"),
+            ),
+        ]
     )
     with pytest.raises(AssertionError) as exc:
-        _SequenceProcessor(schema, "user_id", "item_id", dataset).process_feature("num_feature")
+        processor_class = _PolarsSequenceProcessor if isinstance(dataset, pl.DataFrame) else _PandasSequenceProcessor
+        processor_class(schema, "user_id", "item_id", dataset)._process_feature("num_feature")
 
     assert str(exc.value) == "Unknown tensor feature source table"
 
@@ -600,43 +782,25 @@ def test_unknown_source_table_in_num_processor(dataset_type):
 @pytest.mark.torch
 @pytest.mark.parametrize("dataset_type", [pd.DataFrame, pl.DataFrame])
 def test_unknown_feature_type_in_process(dataset_type):
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+        ]
     )
     schema["item_id"]._feature_type = None
     dataset = dataset_type({"user_id": [1, 2, 3], "item_id": [1, 2, 3]})
     with pytest.raises(AssertionError) as exc:
-        if isinstance(dataset, pl.DataFrame):
-            _SequenceProcessor(schema, "user_id", "item_id", dataset).process_features_polars()
-        else:
-            _SequenceProcessor(schema, "user_id", "item_id", dataset).process_feature("item_id")
+        processor_class = _PolarsSequenceProcessor if dataset is pl.DataFrame else _PandasSequenceProcessor
+        processor_class(schema, "user_id", "item_id", dataset)._process_feature("item_id")
 
     assert str(exc.value) == "Unknown tensor feature type"
-
-
-def _compare_sequence(
-    dataset: SequentialDataset,
-    tokenizer: SequenceTokenizer,
-    feature_name: str,
-    answers: dict,
-    feature_inverse_mapping: Optional[dict] = None,
-):
-    for query in dataset.get_all_query_ids():
-        sequence = [
-            feature_inverse_mapping[x] if feature_inverse_mapping else x
-            for x in dataset.get_sequence_by_query_id(query, feature_name)
-        ]
-        query = tokenizer.query_id_encoder.inverse_mapping["user_id"][query]
-        assert len(sequence) == len(answers[query])
-        assert (sequence == np.array(answers[query])).all()
 
 
 @pytest.mark.torch
@@ -696,43 +860,40 @@ def test_my(item_id_and_timestamp_schema, dataset, request):
 @pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
 @pytest.mark.parametrize("use_pickle, extension", [(True, "pth"), (False, "replay")])
 def test_save_and_load_different_features_to_keep(
-    dataset, request, use_pickle, extension, item_id_and_item_feature_schema: TensorSchema
+    dataset, request, use_pickle, extension, item_id_and_item_features_schema: TensorSchema
 ):
     data = request.getfixturevalue(dataset)
-    tokenizer = SequenceTokenizer(item_id_and_item_feature_schema).fit(data)
+    tokenizer = SequenceTokenizer(item_id_and_item_features_schema).fit(data)
     item_id_transformed = tokenizer.transform(data, tensor_features_to_keep=["item_id"])
 
     tokenizer.save(f"sequence_tokenizer.{extension}", use_pickle=use_pickle)
     del tokenizer
 
     tokenizer = SequenceTokenizer.load(f"sequence_tokenizer.{extension}", use_pickle=use_pickle)
-    some_item_feature_transformed = tokenizer.transform(data, tensor_features_to_keep=["some_item_feature"])
+    some_item_feature_transformed = tokenizer.transform(data, tensor_features_to_keep=["item_num"])
 
-    answers = {
-        1: [1, 2],
-        2: [1, 3, 4],
-        3: [2],
-        4: [1, 2, 3, 4, 5, 6],
-    }
     _compare_sequence(
         item_id_transformed,
         tokenizer,
         "item_id",
-        answers,
-        tokenizer.item_id_encoder.inverse_mapping["item_id"],
+        answers={
+            1: [1, 2],
+            2: [1, 3, 4],
+            3: [2],
+            4: [1, 2, 3, 4, 5, 6],
+        },
+        feature_inverse_mapping=tokenizer.item_id_encoder.inverse_mapping["item_id"],
     )
-    answers = {
-        1: [2, 3],
-        2: [2, 4, 5],
-        3: [3],
-        4: [2, 3, 4, 5, 6, 7],
-    }
     _compare_sequence(
         some_item_feature_transformed,
         tokenizer,
-        "some_item_feature",
-        answers,
-        tokenizer.item_features_encoder.inverse_mapping["some_item_feature"],
+        "item_num",
+        answers={
+            1: [[1.1], [1.2]],
+            2: [[1.1], [1.3], [1.4]],
+            3: [[1.2]],
+            4: [[1.1], [1.2], [1.3], [1.4], [1.5], [1.6]],
+        },
     )
     try:
         os.remove(f"sequence_tokenizer.{extension}")

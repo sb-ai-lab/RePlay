@@ -4,7 +4,6 @@ from typing import (
     Iterable,
     Iterator,
     KeysView,
-    List,
     Mapping,
     Optional,
     Sequence,
@@ -70,13 +69,15 @@ class TensorFeatureInfo:
     Information about a tensor feature.
     """
 
+    DEFAULT_EMBEDDING_DIM = 64
+
     def __init__(
         self,
         name: str,
         feature_type: FeatureType,
         is_seq: bool = False,
         feature_hint: Optional[FeatureHint] = None,
-        feature_sources: Optional[List[TensorFeatureSource]] = None,
+        feature_source: Optional[TensorFeatureSource] = None,
         cardinality: Optional[int] = None,
         embedding_dim: Optional[int] = None,
         tensor_dim: Optional[int] = None,
@@ -89,7 +90,7 @@ class TensorFeatureInfo:
         :param feature_hint: hint to models about feature
             (is timestamp, is rating, is query_id, is item_id),
             default: ``None``.
-        :param feature_sources: columns names and DataFrames feature came from,
+        :param feature_source: column name from DataFrame feature came from,
             default: ``None``.
         :param cardinality: cardinality of categorical feature, required for ids columns,
             optional for others,
@@ -101,7 +102,7 @@ class TensorFeatureInfo:
         """
         self._name = name
         self._feature_hint = feature_hint
-        self._feature_sources = feature_sources
+        self._feature_source = feature_source
         self._is_seq = is_seq
 
         if not isinstance(feature_type, FeatureType):
@@ -109,18 +110,17 @@ class TensorFeatureInfo:
             raise ValueError(msg)
         self._feature_type = feature_type
 
-        if feature_type == FeatureType.NUMERICAL and (cardinality or embedding_dim):
+        if feature_type in [FeatureType.NUMERICAL, FeatureType.NUMERICAL_LIST] and (cardinality or embedding_dim):
             msg = "Cardinality and embedding dimensions are needed only with categorical feature type."
             raise ValueError(msg)
         self._cardinality = cardinality
 
-        if feature_type == FeatureType.CATEGORICAL and tensor_dim:
+        if feature_type in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST] and tensor_dim:
             msg = "Tensor dimensions is needed only with numerical feature type."
             raise ValueError(msg)
 
-        if feature_type == FeatureType.CATEGORICAL:
-            default_embedding_dim = 64
-            self._embedding_dim = embedding_dim or default_embedding_dim
+        if feature_type in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]:
+            self._embedding_dim = embedding_dim or self.DEFAULT_EMBEDDING_DIM
         else:
             self._tensor_dim = tensor_dim
 
@@ -148,30 +148,15 @@ class TensorFeatureInfo:
     def _set_feature_hint(self, hint: FeatureHint) -> None:
         self._feature_hint = hint
 
-    @property
-    def feature_sources(self) -> Optional[List[TensorFeatureSource]]:
-        """
-        :returns: List of sources feature came from.
-        """
-        return self._feature_sources
-
-    def _set_feature_sources(self, sources: List[TensorFeatureSource]) -> None:
-        self._feature_sources = sources
+    def _set_feature_source(self, source: TensorFeatureSource) -> None:
+        self._feature_source = source
 
     @property
     def feature_source(self) -> Optional[TensorFeatureSource]:
         """
         :returns: Dataframe info of feature.
         """
-        source = self.feature_sources
-        if not source:
-            return None
-
-        if len(source) > 1:
-            msg = "Only one element feature sources can be converted to single feature source."
-            raise ValueError(msg)
-        assert isinstance(self.feature_sources, list)
-        return self.feature_sources[0]
+        return self._feature_source
 
     @property
     def is_seq(self) -> bool:
@@ -185,21 +170,28 @@ class TensorFeatureInfo:
         """
         :returns: Flag that feature is categorical.
         """
-        return self.feature_type == FeatureType.CATEGORICAL
+        return self.feature_type in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]
 
     @property
     def is_num(self) -> bool:
         """
         :returns: Flag that feature is numerical.
         """
-        return self.feature_type == FeatureType.NUMERICAL
+        return self.feature_type in [FeatureType.NUMERICAL, FeatureType.NUMERICAL_LIST]
+
+    @property
+    def is_list(self) -> bool:
+        """
+        :returns: Flag that feature is numerical list or categorical list.
+        """
+        return self.feature_type in [FeatureType.CATEGORICAL_LIST, FeatureType.NUMERICAL_LIST]
 
     @property
     def cardinality(self) -> Optional[int]:
         """
         :returns: Cardinality of the feature.
         """
-        if self.feature_type != FeatureType.CATEGORICAL:
+        if self.feature_type not in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]:
             msg = f"Can not get cardinality because feature type of {self.name} column is not categorical."
             raise RuntimeError(msg)
         return self._cardinality
@@ -212,7 +204,7 @@ class TensorFeatureInfo:
         """
         :returns: Dimensions of the numerical feature.
         """
-        if self.feature_type != FeatureType.NUMERICAL:
+        if self.feature_type not in [FeatureType.NUMERICAL, FeatureType.NUMERICAL_LIST]:
             msg = f"Can not get tensor dimensions because feature type of {self.name} feature is not numerical."
             raise RuntimeError(msg)
         return self._tensor_dim
@@ -225,7 +217,7 @@ class TensorFeatureInfo:
         """
         :returns: Embedding dimensions of the feature.
         """
-        if self.feature_type != FeatureType.CATEGORICAL:
+        if self.feature_type not in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]:
             msg = f"Can not get embedding dimensions because feature type of {self.name} feature is not categorical."
             raise RuntimeError(msg)
         return self._embedding_dim
@@ -317,14 +309,16 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
         """
         :returns: Sequence of categorical features in a schema.
         """
-        return self.filter(feature_type=FeatureType.CATEGORICAL)
+        return self.filter(feature_type=FeatureType.CATEGORICAL) + self.filter(
+            feature_type=FeatureType.CATEGORICAL_LIST
+        )
 
     @property
     def numerical_features(self) -> "TensorSchema":
         """
         :returns: Sequence of numerical features in a schema.
         """
-        return self.filter(feature_type=FeatureType.NUMERICAL)
+        return self.filter(feature_type=FeatureType.NUMERICAL) + self.filter(feature_type=FeatureType.NUMERICAL_LIST)
 
     @property
     def query_id_features(self) -> "TensorSchema":
@@ -418,14 +412,30 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
                 "feature_type": feature.feature_type.name,
                 "is_seq": feature.is_seq,
                 "feature_hint": feature.feature_hint.name if feature.feature_hint else None,
-                "feature_sources": (
-                    [{"source": x.source.name, "column": x.column, "index": x.index} for x in feature.feature_sources]
-                    if feature.feature_sources
+                "feature_source": (
+                    {
+                        "source": feature.feature_source.source.name,
+                        "column": feature.feature_source.column,
+                        "index": feature.feature_source.index,
+                    }
+                    if feature.feature_source
                     else None
                 ),
-                "cardinality": feature.cardinality if feature.feature_type == FeatureType.CATEGORICAL else None,
-                "embedding_dim": feature.embedding_dim if feature.feature_type == FeatureType.CATEGORICAL else None,
-                "tensor_dim": feature.tensor_dim if feature.feature_type == FeatureType.NUMERICAL else None,
+                "cardinality": (
+                    feature.cardinality
+                    if feature.feature_type in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]
+                    else None
+                ),
+                "embedding_dim": (
+                    feature.embedding_dim
+                    if feature.feature_type in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]
+                    else None
+                ),
+                "tensor_dim": (
+                    feature.tensor_dim
+                    if feature.feature_type in [FeatureType.NUMERICAL, FeatureType.NUMERICAL_LIST]
+                    else None
+                ),
             }
             for feature in self.all_features
         ]
@@ -435,12 +445,13 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
     def _create_object_by_args(cls, args: Dict) -> "TensorSchema":
         features_list = []
         for feature_data in args:
-            feature_data["feature_sources"] = (
-                [
-                    TensorFeatureSource(source=FeatureSource[x["source"]], column=x["column"], index=x["index"])
-                    for x in feature_data["feature_sources"]
-                ]
-                if feature_data["feature_sources"]
+            feature_data["feature_source"] = (
+                TensorFeatureSource(
+                    source=FeatureSource[feature_data["feature_source"]["source"]],
+                    column=feature_data["feature_source"]["column"],
+                    index=feature_data["feature_source"]["index"],
+                )
+                if feature_data["feature_source"]
                 else None
             )
             f_type = feature_data["feature_type"]

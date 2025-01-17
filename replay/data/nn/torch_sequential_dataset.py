@@ -90,7 +90,6 @@ class TorchSequentialDataset(TorchDataset):
         sequence = self._sequential.get_sequence(sequence_index, feature.name)
         if feature.is_seq:
             sequence = sequence[sequence_offset : sequence_offset + self._max_sequence_length]
-
         tensor_dtype = self._get_tensor_dtype(feature)
         tensor_sequence = torch.tensor(sequence, dtype=tensor_dtype)
         if feature.is_seq:
