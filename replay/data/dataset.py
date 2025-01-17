@@ -458,6 +458,8 @@ class Dataset:
             if feature.feature_hint in [FeatureHint.ITEM_ID, FeatureHint.QUERY_ID]:
                 return nunique(self._ids_feature_map[feature.feature_hint], column)
             assert feature.feature_source
+            if feature.feature_type == FeatureType.CATEGORICAL_LIST:
+                return nunique(self._feature_source_map[feature.feature_source].explode(column), column)
             return nunique(self._feature_source_map[feature.feature_source], column)
 
         return callback
