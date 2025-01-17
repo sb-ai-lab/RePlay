@@ -18,5 +18,5 @@ from .history_based_fp import (
     HistoryBasedFeaturesProcessor,
     LogStatFeaturesProcessor,
 )
-from .label_encoder import LabelEncoder, LabelEncodingRule
+from .label_encoder import LabelEncoder, LabelEncodingRule, GroupedLabelEncodingRule
 from .sessionizer import Sessionizer

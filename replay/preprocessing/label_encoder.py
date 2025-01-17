@@ -81,7 +81,7 @@ class BaseLabelEncodingRule(abc.ABC):  # pragma: no cover
 
 class LabelEncodingRule(BaseLabelEncodingRule):
     """
-    Implementation of the encoding rule for categorical variables of PySpark and Pandas Data Frames.
+    Implementation of the encoding rule for categorical variables of PySpark, Pandas and Polars Data Frames.
     Encodes target labels with value between 0 and n_classes-1 for the given column.
     It is recommended to use together with the LabelEncoder.
     """
@@ -545,6 +545,121 @@ Convert type to string, integer, or float."
         encoding_rule._target_col = encoder_rule_dict["fitted_args"]["target_col"]
         encoding_rule._is_fitted = encoder_rule_dict["fitted_args"]["is_fitted"]
         return encoding_rule
+
+
+class GroupedLabelEncodingRule(LabelEncodingRule):
+    """
+    Implementation of the encoding rule for grouped categorical variables of PySpark, Pandas and Polars Data Frames.
+    Grouped means that one cell of the table contains a list with categorical values.
+    Encodes target labels with value between 0 and n_classes-1 for the given column.
+    It is recommended to use together with the LabelEncoder.
+    """
+
+    _FAKE_INDEX_COLUMN_NAME: str = "__index__"
+
+    def fit(self, df: DataFrameLike) -> "GroupedLabelEncodingRule":
+        """
+        Fits encoder to input dataframe.
+
+        :param df: input dataframe.
+        :returns: fitted EncodingRule.
+        """
+        if self._mapping is not None:
+            return self
+
+        if isinstance(df, PandasDataFrame):
+            self._fit_pandas(df[[self.column]].explode(self.column))
+        elif isinstance(df, SparkDataFrame):
+            self._fit_spark(df.select(self.column).explode(self.column))
+        elif isinstance(df, PolarsDataFrame):
+            self._fit_polars(df.select(self.column).explode(self.column))
+        else:
+            msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
+            raise NotImplementedError(msg)
+        self._inverse_mapping = self._make_inverse_mapping()
+        self._inverse_mapping_list = self._make_inverse_mapping_list()
+        if self._handle_unknown == "use_default_value" and self._default_value in self._inverse_mapping:
+            msg = (
+                "The used value for default_value "
+                f"{self._default_value} is one of the "
+                "values already used for encoding the "
+                "seen labels."
+            )
+            raise ValueError(msg)
+        self._is_fitted = True
+        return self
+
+    def partial_fit(self, df: DataFrameLike) -> "LabelEncodingRule":
+        """
+        Fits new data to already fitted encoder.
+
+        :param df: input dataframe.
+        :returns: fitted EncodingRule.
+        """
+        if self._mapping is None:
+            return self.fit(df)
+        if isinstance(df, SparkDataFrame):
+            self._partial_fit_spark(df.select(self.column).explode(self.column))
+        elif isinstance(df, PandasDataFrame):
+            self._partial_fit_pandas(df[[self.column]].explode(self.column))
+        elif isinstance(df, PolarsDataFrame):
+            self._partial_fit_polars(df.select(self.column).explode(self.column))
+        else:
+            msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
+            raise NotImplementedError(msg)
+
+        self._is_fitted = True
+        return self
+
+    def transform(self, df: DataFrameLike) -> DataFrameLike:
+        """
+        Transforms input dataframe with fitted encoder.
+
+        :param df: input dataframe.
+        :returns: transformed dataframe.
+        """
+        if self._mapping is None:
+            msg = "Label encoder is not fitted"
+            raise RuntimeError(msg)
+
+        default_value = len(self._mapping) if self._default_value == "last" else self._default_value
+
+        if isinstance(df, PandasDataFrame):
+            transformed_df = df.drop("int_cat_list", axis=1)
+            df2transform = df[[self.column]].explode(self.column).reset_index(names=self._FAKE_INDEX_COLUMN_NAME)
+            transformed_column = self._transform_pandas(df2transform, default_value)
+            transformed_column = transformed_column.groupby(self._FAKE_INDEX_COLUMN_NAME).agg(list)
+            transformed_df = transformed_df.insert(list(df.columns).index(self.column), self.column, transformed_column)
+        elif isinstance(df, SparkDataFrame):
+            transformed_df = self._transform_spark(df, default_value)
+        elif isinstance(df, PolarsDataFrame):
+            transformed_df = self._transform_polars(df, default_value)
+        else:
+            msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
+            raise NotImplementedError(msg)
+        return transformed_df
+
+    def inverse_transform(self, df: DataFrameLike) -> DataFrameLike:
+        """
+        Reverse transform of transformed dataframe.
+
+        :param df: transformed dataframe.
+        :returns: initial dataframe.
+        """
+        if self._mapping is None:
+            msg = "Label encoder is not fitted"
+            raise RuntimeError(msg)
+
+        if isinstance(df, PandasDataFrame):
+            transformed_df = self._inverse_transform_pandas(df)
+        elif isinstance(df, SparkDataFrame):
+            transformed_df = self._inverse_transform_spark(df)
+        elif isinstance(df, PolarsDataFrame):
+            transformed_df = self._inverse_transform_polars(df)
+        else:
+            msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
+            raise NotImplementedError(msg)
+        return transformed_df
 
 
 class LabelEncoder:
