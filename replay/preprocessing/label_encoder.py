@@ -778,7 +778,7 @@ class LabelEncoder:
     ...    LabelEncodingRule("item_2", encoder.mapping["item_2"])
     ... ])
     >>> new_encoder.inverse_transform(mapped_interactions)
-      	user_id	item_1	item_2	list
+        user_id	item_1	item_2	list
     0	u1	    item_1	item_1	[1, 2, 3]
     1	u2	    item_2	item_2	[3, 4, 5]
     2	u3	    item_3	item_3	[-1, -2, 4]
