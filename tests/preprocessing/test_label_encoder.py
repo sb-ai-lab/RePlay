@@ -367,13 +367,14 @@ def test_spark_partial_fit(df_name, modified_df_name, is_grouped_encoder, reques
     encoder.fit(df)
     encoder.partial_fit(new_df)
 
-    mapped_data = encoder.transform(df)
-    rebuild_original_cols = encoder.inverse_transform(mapped_data)
-    sparkDataFrameEqual(df, rebuild_original_cols)
-
-    mapped_data = encoder.transform(new_df)
-    rebuild_original_cols = encoder.inverse_transform(mapped_data)
-    sparkDataFrameEqual(new_df, rebuild_original_cols)
+    for dataset in [df, new_df]:
+        mapped_data = encoder.transform(dataset)
+        rebuild_original_cols = (
+            encoder.inverse_transform(mapped_data)
+            .withColumn("item1", F.col("item1"))
+            .withColumn("item2", F.col("item2"))
+        )
+        sparkDataFrameEqual(dataset, rebuild_original_cols)
 
 
 @pytest.mark.core
