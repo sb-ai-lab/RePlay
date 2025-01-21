@@ -32,7 +32,7 @@ def test_label_encoder_spark(column, df_name, is_grouped_encoder, request):
     df1 = df.orderBy(*columns_order).toPandas()[columns_order]
     df2 = rebuild_original_cols.orderBy(*columns_order).toPandas()[columns_order]
 
-    sparkDataFrameEqual(df, rebuild_original_cols)
+    pd.testing.assert_frame_equal(df1, df2)
 
 
 @pytest.mark.spark
