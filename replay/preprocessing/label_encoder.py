@@ -592,7 +592,7 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
         self._is_fitted = True
         return self
 
-    def partial_fit(self, df: DataFrameLike) -> "LabelEncodingRule":
+    def partial_fit(self, df: DataFrameLike) -> "GroupedLabelEncodingRule":
         """
         Fits new data to already fitted encoder.
 
