@@ -26,9 +26,13 @@ def test_label_encoder_spark(column, df_name, is_grouped_encoder, request):
     encoder = LabelEncoder([rule]).fit(df)
 
     mapped_data = encoder.transform(df)
-    rebuild_original_cols = encoder.inverse_transform(mapped_data)
+    rebuild_original_cols = encoder.inverse_transform(mapped_data).withColumn(column, F.col(column))
 
-    sparkDataFrameEqual(df, rebuild_original_cols)
+    columns_order = ["user_id", "item_id", "timestamp"]
+    df1 = df.orderBy(*columns_order).toPandas()[columns_order]
+    df2 = rebuild_original_cols.orderBy(*columns_order).toPandas()[columns_order]
+
+    pd.testing.assert_frame_equal(df1, df2)
 
 
 @pytest.mark.spark
