@@ -11,27 +11,46 @@ if PYSPARK_AVAILABLE:
 
 
 @pytest.fixture(scope="module")
-def spark_df_for_labelencoder(spark):
-    data = [
-        ("u1", "item_1", "item_1"),
-        ("u2", "item_2", "item_2"),
-    ]
-    return spark.createDataFrame(data, schema=["user_id", "item1", "item2"])
-
-
-@pytest.fixture(scope="module")
-def spark_df_for_labelencoder_modified(spark):
-    data = [
-        ("u1", "item_1", "item_1"),
-        ("u2", "item_2", "item_2"),
-        ("u3", "item_3", "item_3"),
-    ]
-    return spark.createDataFrame(data, schema=["user_id", "item1", "item2"])
-
-
-@pytest.fixture(scope="module")
 def pandas_df_for_labelencoder():
-    return pd.DataFrame({"user": ["u1", "u2"], "item1": ["item_1", "item_2"], "item2": ["item_1", "item_2"]})
+    return pd.DataFrame({"user_id": ["u1", "u2"], "item1": ["item_1", "item_2"], "item2": ["item_1", "item_2"]})
+
+
+@pytest.fixture(scope="module")
+def pandas_df_for_labelencoder_modified():
+    return pd.DataFrame(
+        {
+            "user_id": ["u1", "u2", "u3"],
+            "item1": ["item_1", "item_2", "item_3"],
+            "item2": ["item_1", "item_2", "item_3"],
+        }
+    )
+
+
+@pytest.fixture(scope="module")
+def pandas_df_for_labelencoder_new_data():
+    return pd.DataFrame({"user_id": ["u4"], "item1": ["item_4"], "item2": ["item_4"]})
+
+
+@pytest.fixture(scope="module")
+def pandas_df_for_grouped_labelencoder():
+    return pd.DataFrame(
+        {
+            "user_id": [["u1", "u2"], ["u2", "u3"]],
+            "item1": [["item_2", "item_1"], ["item_2", "item_3"]],
+            "item2": [["item_2", "item_1"], ["item_1", "item_3"]],
+        }
+    )
+
+
+@pytest.fixture(scope="module")
+def pandas_df_for_grouped_labelencoder_modified():
+    return pd.DataFrame(
+        {
+            "user_id": [["u1", "u2"], ["u2", "u3"]],
+            "item1": [["item_2", "item_4"], ["item_2", "item_3"]],
+            "item2": [["item_2", "item_1"], ["item_4", "item_3"]],
+        }
+    )
 
 
 @pytest.fixture(scope="module")
@@ -40,10 +59,8 @@ def polars_df_for_labelencoder(pandas_df_for_labelencoder):
 
 
 @pytest.fixture(scope="module")
-def pandas_df_for_labelencoder_modified():
-    return pd.DataFrame(
-        {"user": ["u1", "u2", "u3"], "item1": ["item_1", "item_2", "item_3"], "item2": ["item_1", "item_2", "item_3"]}
-    )
+def spark_df_for_labelencoder(spark, pandas_df_for_labelencoder):
+    return spark.createDataFrame(pandas_df_for_labelencoder)
 
 
 @pytest.fixture(scope="module")
@@ -52,13 +69,33 @@ def polars_df_for_labelencoder_modified(pandas_df_for_labelencoder_modified):
 
 
 @pytest.fixture(scope="module")
-def pandas_df_for_labelencoder_new_data():
-    return pd.DataFrame({"user": ["u4"], "item1": ["item_4"], "item2": ["item_4"]})
+def spark_df_for_labelencoder_modified(spark, pandas_df_for_labelencoder_modified):
+    return spark.createDataFrame(pandas_df_for_labelencoder_modified)
 
 
 @pytest.fixture(scope="module")
 def polars_df_for_labelencoder_new_data(pandas_df_for_labelencoder_new_data):
     return pl.from_pandas(pandas_df_for_labelencoder_new_data)
+
+
+@pytest.fixture(scope="module")
+def polars_df_for_grouped_labelencoder(pandas_df_for_grouped_labelencoder):
+    return pl.from_pandas(pandas_df_for_grouped_labelencoder)
+
+
+@pytest.fixture(scope="module")
+def spark_df_for_grouped_labelencoder(spark, pandas_df_for_grouped_labelencoder):
+    return spark.createDataFrame(pandas_df_for_grouped_labelencoder)
+
+
+@pytest.fixture(scope="module")
+def polars_df_for_grouped_labelencoder_modified(pandas_df_for_grouped_labelencoder_modified):
+    return pl.from_pandas(pandas_df_for_grouped_labelencoder_modified)
+
+
+@pytest.fixture(scope="module")
+def spark_df_for_grouped_labelencoder_modified(spark, pandas_df_for_grouped_labelencoder_modified):
+    return spark.createDataFrame(pandas_df_for_grouped_labelencoder_modified)
 
 
 @pytest.fixture(scope="module")
@@ -843,6 +880,11 @@ def simple_dataframe_array_pandas():
         (1, [1, 0], 19841),
     ]
     return pd.DataFrame(data_array, columns=columns_array)
+
+
+@pytest.fixture(scope="module")
+def simple_dataframe_array_polars(simple_dataframe_array_pandas):
+    return pl.from_pandas(simple_dataframe_array_pandas)
 
 
 @pytest.fixture(scope="module")

@@ -1,7 +1,6 @@
-import pandas as pd
 import pytest
 
-from replay.preprocessing import LabelEncoder, LabelEncodingRule
+from replay.preprocessing import GroupedLabelEncodingRule, LabelEncoder, LabelEncodingRule
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame
 from tests.utils import sparkDataFrameEqual
 
@@ -10,53 +9,67 @@ if PYSPARK_AVAILABLE:
 
 
 @pytest.mark.spark
-@pytest.mark.parametrize("column", ["user_id"])
-def test_label_encoder_spark(column, simple_dataframe):
-    rule = LabelEncodingRule(column)
-    encoder = LabelEncoder([rule]).fit(simple_dataframe)
+@pytest.mark.parametrize(
+    "column, df_name, is_grouped_encoder",
+    [
+        pytest.param("user_id", "simple_dataframe", False),
+        pytest.param("item_id", "simple_dataframe_array", True),
+        pytest.param("item_id_list", "simple_dataframe_target_ordered", True),
+    ],
+)
+def test_label_encoder_spark(column, df_name, is_grouped_encoder, request):
+    df = request.getfixturevalue(df_name)
+    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule = rule_class(column)
+    encoder = LabelEncoder([rule]).fit(df)
 
-    mapped_data = encoder.transform(simple_dataframe)
-    rebuild_original_cols = encoder.inverse_transform(mapped_data).withColumn(column, F.col(column))
+    mapped_data = encoder.transform(df)
+    rebuild_original_cols = encoder.inverse_transform(mapped_data)
 
-    columns_order = ["user_id", "item_id", "timestamp"]
-    df1 = simple_dataframe.orderBy(*columns_order).toPandas()[columns_order]
-    df2 = rebuild_original_cols.orderBy(*columns_order).toPandas()[columns_order]
-
-    pd.testing.assert_frame_equal(df1, df2)
+    sparkDataFrameEqual(df, rebuild_original_cols)
 
 
 @pytest.mark.spark
-@pytest.mark.parametrize("column", ["user_id"])
-def test_label_encoder_load_rule_spark(column, simple_dataframe):
-    rule = LabelEncodingRule(column)
+@pytest.mark.parametrize(
+    "column, df_name, is_grouped_encoder",
+    [
+        pytest.param("user_id", "simple_dataframe", False),
+        pytest.param("item_id", "simple_dataframe_array", True),
+        pytest.param("item_id_list", "simple_dataframe_target_ordered", True),
+    ],
+)
+def test_label_encoder_load_rule_spark(column, df_name, is_grouped_encoder, request):
+    df = request.getfixturevalue(df_name)
+    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule = rule_class(column)
     encoder = LabelEncoder([rule])
-    mapped_data = encoder.fit_transform(simple_dataframe)
+    mapped_data = encoder.fit_transform(df)
     mapping = encoder.mapping[column]
 
-    new_encoder = LabelEncoder([LabelEncodingRule(column, mapping)])
-    new_encoder.fit(simple_dataframe)
-
+    trained_rule = (
+        GroupedLabelEncodingRule(column, mapping) if is_grouped_encoder else LabelEncodingRule(column, mapping)
+    )
+    new_encoder = LabelEncoder([trained_rule])
+    new_encoder.fit(df)
     rebuild_original_cols = new_encoder.inverse_transform(mapped_data).withColumn(column, F.col(column))
 
-    columns_order = ["user_id", "item_id", "timestamp"]
-    df1 = simple_dataframe.orderBy(*columns_order).toPandas()[columns_order]
-    df2 = rebuild_original_cols.orderBy(*columns_order).toPandas()[columns_order]
-
-    pd.testing.assert_frame_equal(df1, df2)
+    sparkDataFrameEqual(df, rebuild_original_cols)
 
 
 @pytest.mark.core
-@pytest.mark.parametrize("column", ["user_id", "item_id"])
 @pytest.mark.parametrize(
-    "dataframe",
+    "column, df_name, is_grouped_encoder",
     [
-        ("simple_dataframe_pandas"),
-        ("simple_dataframe_polars"),
+        pytest.param("user_id", "simple_dataframe_pandas", False),
+        pytest.param("user_id", "simple_dataframe_polars", False),
+        pytest.param("item_id", "simple_dataframe_array_pandas", True),
+        pytest.param("item_id", "simple_dataframe_array_polars", True),
     ],
 )
-def test_label_encoder_pandas_polars(column, dataframe, request):
-    df = request.getfixturevalue(dataframe)
-    rule = LabelEncodingRule(column, default_value="last")
+def test_label_encoder_pandas_polars(column, df_name, is_grouped_encoder, request):
+    df = request.getfixturevalue(df_name)
+    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule = rule_class(column, default_value="last")
     encoder = LabelEncoder([rule]).fit(df)
 
     mapped_data = encoder.transform(df)
@@ -69,22 +82,27 @@ def test_label_encoder_pandas_polars(column, dataframe, request):
 
 
 @pytest.mark.core
-@pytest.mark.parametrize("column", ["user_id", "item_id"])
 @pytest.mark.parametrize(
-    "dataframe",
+    "column, df_name, is_grouped_encoder",
     [
-        ("simple_dataframe_pandas"),
-        ("simple_dataframe_polars"),
+        pytest.param("user_id", "simple_dataframe_pandas", False),
+        pytest.param("user_id", "simple_dataframe_polars", False),
+        pytest.param("item_id", "simple_dataframe_array_pandas", True),
+        pytest.param("item_id", "simple_dataframe_array_polars", True),
     ],
 )
-def test_label_encoder_load_rule_pandas_polars(column, dataframe, request):
-    df = request.getfixturevalue(dataframe)
-    rule = LabelEncodingRule(column)
+def test_label_encoder_load_rule_pandas_polars(column, df_name, is_grouped_encoder, request):
+    df = request.getfixturevalue(df_name)
+    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule = rule_class(column)
     encoder = LabelEncoder([rule])
     mapped_data = encoder.fit_transform(df)
     mapping = encoder.mapping[column]
 
-    new_encoder = LabelEncoder([LabelEncodingRule(column, mapping)])
+    trained_rule = (
+        GroupedLabelEncodingRule(column, mapping) if is_grouped_encoder else LabelEncodingRule(column, mapping)
+    )
+    new_encoder = LabelEncoder([trained_rule])
     new_encoder.fit(df)
 
     rebuild_original_cols = new_encoder.inverse_transform(mapped_data)
@@ -95,15 +113,19 @@ def test_label_encoder_load_rule_pandas_polars(column, dataframe, request):
 
 @pytest.mark.core
 @pytest.mark.parametrize(
-    "dataframe",
+    "column, df_name, is_grouped_encoder",
     [
-        ("simple_dataframe_pandas"),
-        ("simple_dataframe_polars"),
+        pytest.param("user_id", "simple_dataframe_pandas", False),
+        pytest.param("user_id", "simple_dataframe_polars", False),
+        pytest.param("item_id", "simple_dataframe_array_pandas", True),
+        pytest.param("item_id", "simple_dataframe_array_polars", True),
     ],
 )
-def test_label_encoder_is_not_fitted(dataframe, request):
-    df = request.getfixturevalue(dataframe)
-    encoder = LabelEncoder([LabelEncodingRule("user_id")])
+def test_label_encoder_is_not_fitted(column, df_name, is_grouped_encoder, request):
+    df = request.getfixturevalue(df_name)
+    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule = rule_class(column)
+    encoder = LabelEncoder([rule])
 
     with pytest.raises(RuntimeError):
         encoder.mapping()
@@ -234,22 +256,22 @@ def test_label_encoder_with_null_values_pandas_polars(
 
 @pytest.mark.core
 @pytest.mark.parametrize(
-    "df_for_labelencoder",
+    "df_name, is_grouped_encoder",
     [
-        ("pandas_df_for_labelencoder"),
-        ("polars_df_for_labelencoder"),
+        ("pandas_df_for_labelencoder", False),
+        ("polars_df_for_labelencoder", False),
+        ("polars_df_for_grouped_labelencoder", True),
+        ("polars_df_for_grouped_labelencoder", True),
     ],
 )
-def test_label_encoder_with_default_value_in_seen_labels(
-    df_for_labelencoder,
-    request,
-):
-    df_labelencoder = request.getfixturevalue(df_for_labelencoder)
-    encoder = LabelEncoder([LabelEncodingRule("item1", handle_unknown="use_default_value", default_value=1)])
+def test_label_encoder_with_default_value_in_seen_labels(df_name, is_grouped_encoder, request):
+    df_labelencoder = request.getfixturevalue(df_name)
+    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    encoder = LabelEncoder([rule_class("item1", handle_unknown="use_default_value", default_value=1)])
     with pytest.raises(ValueError):
         encoder.fit(df_labelencoder)
 
-    encoder = LabelEncoder([LabelEncodingRule("item1", handle_unknown="use_default_value", default_value=-1)])
+    encoder = LabelEncoder([rule_class("item1", handle_unknown="use_default_value", default_value=-1)])
     encoder.fit(df_labelencoder)
 
 
@@ -295,81 +317,88 @@ def test_label_encoder_value_errors():
 
 @pytest.mark.core
 @pytest.mark.parametrize(
-    "df_for_labelencoder, df_for_labelencoder_modified",
+    "df_name, modified_df_name, is_grouped_encoder",
     [
-        ("pandas_df_for_labelencoder", "pandas_df_for_labelencoder_modified"),
-        ("polars_df_for_labelencoder", "polars_df_for_labelencoder_modified"),
+        ("pandas_df_for_labelencoder", "pandas_df_for_labelencoder_modified", False),
+        ("polars_df_for_labelencoder", "polars_df_for_labelencoder_modified", False),
+        ("pandas_df_for_grouped_labelencoder", "pandas_df_for_grouped_labelencoder_modified", True),
+        ("polars_df_for_grouped_labelencoder", "polars_df_for_grouped_labelencoder_modified", True),
     ],
 )
 def test_pandas_polars_partial_fit(
-    df_for_labelencoder,
-    df_for_labelencoder_modified,
+    df_name,
+    modified_df_name,
+    is_grouped_encoder,
     request,
 ):
-    df = request.getfixturevalue(df_for_labelencoder)
-    new_df = request.getfixturevalue(df_for_labelencoder_modified)
+    df = request.getfixturevalue(df_name)
+    new_df = request.getfixturevalue(modified_df_name)
+    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
 
-    encoder = LabelEncoder([LabelEncodingRule("item1"), LabelEncodingRule("item2")])
+    encoder = LabelEncoder([rule_class("item1"), rule_class("item2")])
     encoder.fit(df)
     encoder.partial_fit(new_df)
-    transformed = encoder.transform(new_df)
 
-    assert sorted(transformed["item1"].to_list()) == [0, 1, 2]
-    assert sorted(transformed["item2"].to_list()) == [0, 1, 2]
-    assert "item_1" in encoder.mapping["item1"]
-    assert "item_2" in encoder.mapping["item1"]
-    assert "item_3" in encoder.mapping["item1"]
-    assert "item_1" in encoder.mapping["item2"]
-    assert "item_2" in encoder.mapping["item2"]
-    assert "item_3" in encoder.mapping["item2"]
+    mapped_data = encoder.transform(new_df)
+    rebuild_original_cols = encoder.inverse_transform(mapped_data)
+    changed_interactions = new_df[rebuild_original_cols.columns]
+    assert changed_interactions.equals(rebuild_original_cols)
+
+    mapped_data = encoder.transform(df)
+    rebuild_original_cols = encoder.inverse_transform(mapped_data)
+    changed_interactions = df[rebuild_original_cols.columns]
+    assert changed_interactions.equals(rebuild_original_cols)
 
 
 @pytest.mark.spark
-def test_spark_partial_fit(spark_df_for_labelencoder, spark_df_for_labelencoder_modified):
-    df = spark_df_for_labelencoder
-    new_df = spark_df_for_labelencoder_modified
+@pytest.mark.parametrize(
+    "df_name, modified_df_name, is_grouped_encoder",
+    [
+        ("spark_df_for_labelencoder", "spark_df_for_labelencoder_modified", False),
+        ("spark_df_for_grouped_labelencoder", "spark_df_for_grouped_labelencoder_modified", True),
+    ],
+)
+def test_spark_partial_fit(df_name, modified_df_name, is_grouped_encoder, request):
+    df = request.getfixturevalue(df_name)
+    new_df = request.getfixturevalue(modified_df_name)
 
-    encoder = LabelEncoder([LabelEncodingRule("item1"), LabelEncodingRule("item2")])
+    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    encoder = LabelEncoder([rule_class("item1"), rule_class("item2")])
     encoder.fit(df)
     encoder.partial_fit(new_df)
-    transformed = encoder.transform(new_df)
 
-    item1_encoded = [x["item1"] for x in transformed.select("item1").collect()]
-    item2_encoded = [x["item2"] for x in transformed.select("item2").collect()]
+    mapped_data = encoder.transform(df)
+    rebuild_original_cols = encoder.inverse_transform(mapped_data)
+    sparkDataFrameEqual(df, rebuild_original_cols)
 
-    assert sorted(item1_encoded) == [0, 1, 2]
-    assert sorted(item2_encoded) == [0, 1, 2]
-    assert "item_1" in encoder.mapping["item1"]
-    assert "item_2" in encoder.mapping["item1"]
-    assert "item_3" in encoder.mapping["item1"]
-    assert "item_1" in encoder.mapping["item2"]
-    assert "item_2" in encoder.mapping["item2"]
-    assert "item_3" in encoder.mapping["item2"]
+    mapped_data = encoder.transform(new_df)
+    rebuild_original_cols = encoder.inverse_transform(mapped_data)
+    sparkDataFrameEqual(new_df, rebuild_original_cols)
 
 
 @pytest.mark.core
 @pytest.mark.parametrize(
-    "df_for_labelencoder",
+    "df_name, is_grouped_encoder",
     [
-        ("pandas_df_for_labelencoder"),
-        ("polars_df_for_labelencoder"),
+        ("pandas_df_for_labelencoder", False),
+        ("polars_df_for_labelencoder", False),
+        ("pandas_df_for_grouped_labelencoder", True),
+        ("polars_df_for_grouped_labelencoder", True),
     ],
 )
 def test_partial_fit_to_unfitted_encoder(
-    df_for_labelencoder,
+    df_name,
+    is_grouped_encoder,
     request,
 ):
-    df = request.getfixturevalue(df_for_labelencoder)
-    encoder = LabelEncoder([LabelEncodingRule("item1"), LabelEncodingRule("item2")])
+    df = request.getfixturevalue(df_name)
+    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    encoder = LabelEncoder([rule_class("item1"), rule_class("item2")])
     encoder.partial_fit(df)
-    transformed = encoder.transform(df)
-
-    assert sorted(transformed["item1"].to_list()) == [0, 1]
-    assert sorted(transformed["item2"].to_list()) == [0, 1]
-    assert "item_1" in encoder.mapping["item1"]
-    assert "item_2" in encoder.mapping["item1"]
-    assert "item_1" in encoder.mapping["item2"]
-    assert "item_2" in encoder.mapping["item2"]
+    mapped_data = encoder.transform(df)
+    rebuild_original_cols = encoder.inverse_transform(mapped_data)
+    changed_interactions = df[rebuild_original_cols.columns]
+    assert changed_interactions.equals(rebuild_original_cols)
 
 
 @pytest.mark.core
@@ -419,8 +448,11 @@ def test_label_encoder_pandas_transform_optimization(simple_dataframe_pandas):
 
 
 @pytest.mark.core
-def test_label_encoder_not_implemented_df(dataframe_not_implemented):
-    rule = LabelEncodingRule("user_id", default_value="last")
+@pytest.mark.parametrize("is_grouped_encoder", [False, True])
+def test_label_encoder_not_implemented_df(is_grouped_encoder, dataframe_not_implemented):
+    column, default_value = "user_id", "last"
+    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule = rule_class(column, default_value=default_value)
     with pytest.raises(NotImplementedError):
         LabelEncoder([rule]).fit(dataframe_not_implemented)
 

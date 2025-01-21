@@ -602,7 +602,7 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
         if self._mapping is None:
             return self.fit(df)
         if isinstance(df, SparkDataFrame):
-            self._partial_fit_spark(df.select(self.column).explode(self.column))
+            self._partial_fit_spark(df.select(self.column).withColumn(self.column, sf.explode(self.column)))
         elif isinstance(df, PandasDataFrame):
             self._partial_fit_pandas(df[[self.column]].explode(self.column))
         elif isinstance(df, PolarsDataFrame):
@@ -634,10 +634,9 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
             encoded_df = encoded_df.groupby(self._FAKE_INDEX_COLUMN_NAME).agg(list)
             transformed_df[self.column] = encoded_df[self.column]
         elif isinstance(df, SparkDataFrame):
-            initial_partitions = df.rdd.getNumPartitions()
             df_with_index = df.withColumn(
                 self._FAKE_INDEX_COLUMN_NAME, sf.row_number().over(Window.partitionBy(sf.lit(0)).orderBy(sf.lit(0)))
-            ).repartition(initial_partitions)
+            )
             transformed_df = df_with_index.drop(self.column)
             df2transform = (
                 df_with_index.select(self.column, self._FAKE_INDEX_COLUMN_NAME)
@@ -646,7 +645,6 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
                     self._FAKE_INDEX_COLUMN_NAME + "_1",
                     sf.row_number().over(Window.partitionBy(self._FAKE_INDEX_COLUMN_NAME).orderBy(sf.lit(0))),
                 )
-                .repartition(initial_partitions)
             )
             encoded_df = self._transform_spark(df2transform, default_value)
             encoded_df = (
@@ -659,7 +657,6 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
                 .groupBy(self._FAKE_INDEX_COLUMN_NAME)
                 .agg(sf.max(self.column).alias(self.column))
                 .select(self.column, self._FAKE_INDEX_COLUMN_NAME)
-                .repartition(initial_partitions)
             )
             transformed_df = transformed_df.join(encoded_df, how="left", on=self._FAKE_INDEX_COLUMN_NAME).drop(
                 self._FAKE_INDEX_COLUMN_NAME
@@ -669,7 +666,7 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
             df2transform = df.select(self.column).with_row_index(name=self._FAKE_INDEX_COLUMN_NAME).explode(self.column)
             encoded_df = self._transform_polars(df2transform, default_value)
             encoded_df = encoded_df.group_by(self._FAKE_INDEX_COLUMN_NAME).agg(pl.col(self.column))
-            transformed_df.with_columns(encoded_df[self.column].alias(self.column))
+            transformed_df = transformed_df.with_columns(encoded_df[self.column].alias(self.column))
         else:
             msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
             raise NotImplementedError(msg)
@@ -693,10 +690,9 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
             decoded_df = decoded_df.groupby(self._FAKE_INDEX_COLUMN_NAME).agg(list)
             transformed_df[self.column] = decoded_df[self.column]
         elif isinstance(df, SparkDataFrame):
-            initial_partitions = df.rdd.getNumPartitions()
             df_with_index = df.withColumn(
                 self._FAKE_INDEX_COLUMN_NAME, sf.row_number().over(Window.partitionBy(sf.lit(0)).orderBy(sf.lit(0)))
-            ).repartition(initial_partitions)
+            )
             transformed_df = df_with_index.drop(self.column)
             df2transform = (
                 df_with_index.select(self.column, self._FAKE_INDEX_COLUMN_NAME)
@@ -705,7 +701,6 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
                     self._FAKE_INDEX_COLUMN_NAME + "_1",
                     sf.row_number().over(Window.partitionBy(self._FAKE_INDEX_COLUMN_NAME).orderBy(sf.lit(0))),
                 )
-                .repartition(initial_partitions)
             )
             decoded_df = self._inverse_transform_spark(df2transform)
             decoded_df = (
@@ -718,7 +713,6 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
                 .groupBy(self._FAKE_INDEX_COLUMN_NAME)
                 .agg(sf.max(self.column).alias(self.column))
                 .select(self.column, self._FAKE_INDEX_COLUMN_NAME)
-                .repartition(initial_partitions)
             )
             transformed_df = transformed_df.join(decoded_df, how="left", on=self._FAKE_INDEX_COLUMN_NAME).drop(
                 self._FAKE_INDEX_COLUMN_NAME
