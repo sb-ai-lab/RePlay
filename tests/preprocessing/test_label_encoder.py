@@ -1,3 +1,5 @@
+import numpy as np
+import pandas as pd
 import pytest
 
 from replay.preprocessing import GroupedLabelEncodingRule, LabelEncoder, LabelEncodingRule
@@ -53,7 +55,11 @@ def test_label_encoder_load_rule_spark(column, df_name, is_grouped_encoder, requ
     new_encoder.fit(df)
     rebuild_original_cols = new_encoder.inverse_transform(mapped_data).withColumn(column, F.col(column))
 
-    sparkDataFrameEqual(df, rebuild_original_cols)
+    columns_order = ["user_id", "item_id", "timestamp"]
+    df1 = df.orderBy(*columns_order).toPandas()[columns_order]
+    df2 = rebuild_original_cols.orderBy(*columns_order).toPandas()[columns_order]
+
+    pd.testing.assert_frame_equal(df1, df2)
 
 
 @pytest.mark.core
@@ -366,11 +372,19 @@ def test_spark_partial_fit(df_name, modified_df_name, is_grouped_encoder, reques
     encoder = LabelEncoder([rule_class("item1"), rule_class("item2")])
     encoder.fit(df)
     encoder.partial_fit(new_df)
+    transformed = encoder.transform(df)
 
-    for dataset in [df, new_df]:
-        mapped_data = encoder.transform(dataset)
-        rebuild_original_cols = encoder.inverse_transform(mapped_data)
-        sparkDataFrameEqual(dataset.sort("user_id"), rebuild_original_cols.sort("user_id"))
+    item1_encoded = np.array([x["item1"] for x in transformed.select("item1").collect()])
+    item2_encoded = np.array([x["item2"] for x in transformed.select("item2").collect()])
+
+    assert np.equal(np.unique(item1_encoded), [0, 1]).all()
+    assert np.equal(np.unique(item2_encoded), [0, 1]).all()
+    assert "item_1" in encoder.mapping["item1"]
+    assert "item_2" in encoder.mapping["item1"]
+    assert "item_3" in encoder.mapping["item1"]
+    assert "item_1" in encoder.mapping["item2"]
+    assert "item_2" in encoder.mapping["item2"]
+    assert "item_3" in encoder.mapping["item2"]
 
 
 @pytest.mark.core

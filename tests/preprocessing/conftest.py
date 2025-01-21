@@ -35,9 +35,9 @@ def pandas_df_for_labelencoder_new_data():
 def pandas_df_for_grouped_labelencoder():
     return pd.DataFrame(
         {
-            "user_id": [["u1", "u2"], ["u2", "u3"]],
-            "item1": [["item_2", "item_1"], ["item_2", "item_3"]],
-            "item2": [["item_2", "item_1"], ["item_1", "item_3"]],
+            "user_id": [["u1", "u2"], ["u2", "u1"]],
+            "item1": [["item_2", "item_1"], ["item_2", "item_2"]],
+            "item2": [["item_1", "item_1"], ["item_1", "item_2"]],
         }
     )
 
@@ -47,8 +47,8 @@ def pandas_df_for_grouped_labelencoder_modified():
     return pd.DataFrame(
         {
             "user_id": [["u1", "u2"], ["u2", "u3"]],
-            "item1": [["item_2", "item_4"], ["item_2", "item_3"]],
-            "item2": [["item_2", "item_1"], ["item_4", "item_3"]],
+            "item1": [["item_2", "item_3"], ["item_2", "item_1"]],
+            "item2": [["item_2", "item_1"], ["item_3", "item_3"]],
         }
     )
 
