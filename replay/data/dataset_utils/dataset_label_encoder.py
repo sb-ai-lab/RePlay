@@ -9,7 +9,7 @@ import warnings
 from typing import Dict, Iterable, Iterator, Optional, Sequence, Set, Union
 
 from replay.data import Dataset, FeatureHint, FeatureSchema, FeatureSource, FeatureType
-from replay.preprocessing import LabelEncoder, LabelEncodingRule
+from replay.preprocessing import LabelEncoder, LabelEncodingRule, GroupedLabelEncodingRule
 from replay.preprocessing.label_encoder import HandleUnknownStrategies
 
 
@@ -62,12 +62,11 @@ class DatasetLabelEncoder:
 
         self._fill_features_columns(dataset.feature_schema)
         for column, feature_info in dataset.feature_schema.categorical_features.items():
-            encoding_rule = LabelEncodingRule(
+            encoding_rule_class = GroupedLabelEncodingRule if feature_info.feature_type == FeatureType.CATEGORICAL_LIST else LabelEncodingRule
+            encoding_rule = encoding_rule_class(
                 column, handle_unknown=self._handle_unknown_rule, default_value=self._default_value_rule
             )
-            if feature_info.feature_type == FeatureType.CATEGORICAL_LIST:
-                warnings.warn("TODO Categorical List Encoder Fit")
-            elif feature_info.feature_hint == FeatureHint.QUERY_ID:
+            if feature_info.feature_hint == FeatureHint.QUERY_ID:
                 if dataset.query_features is None:
                     encoding_rule.fit(dataset.interactions)
                 else:
@@ -116,9 +115,7 @@ class DatasetLabelEncoder:
 
             encoding_rule = self._encoding_rules[column]
 
-            if feature_info.feature_type == FeatureType.CATEGORICAL_LIST:
-                warnings.warn("TODO Categorical List Encoder Transform")
-            elif feature_info.feature_hint == FeatureHint.QUERY_ID:
+            if feature_info.feature_hint == FeatureHint.QUERY_ID:
                 interactions = encoding_rule.transform(interactions)
                 if query_features is not None:
                     query_features = encoding_rule.transform(query_features)
