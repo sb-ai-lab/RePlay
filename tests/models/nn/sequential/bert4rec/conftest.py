@@ -48,9 +48,7 @@ def fitted_bert4rec(feature_schema_for_bert4rec):
             is_seq=True,
             cardinality=train_dataset.item_count,
             feature_type=FeatureType.CATEGORICAL,
-            feature_sources=[
-                TensorFeatureSource(FeatureSource.INTERACTIONS, train_dataset.feature_schema.item_id_column)
-            ],
+            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, train_dataset.feature_schema.item_id_column),
             feature_hint=FeatureHint.ITEM_ID,
         )
     )
@@ -84,9 +82,7 @@ def fitted_bert4rec_enable_embedding_tying(feature_schema_for_bert4rec):
             is_seq=True,
             cardinality=train_dataset.item_count,
             feature_type=FeatureType.CATEGORICAL,
-            feature_sources=[
-                TensorFeatureSource(FeatureSource.INTERACTIONS, train_dataset.feature_schema.item_id_column)
-            ],
+            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, train_dataset.feature_schema.item_id_column),
             feature_hint=FeatureHint.ITEM_ID,
         )
     )
