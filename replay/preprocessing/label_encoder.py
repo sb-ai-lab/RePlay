@@ -10,6 +10,7 @@ import abc
 import json
 import os
 import warnings
+from itertools import chain
 from pathlib import Path
 from typing import Dict, List, Literal, Mapping, Optional, Sequence, Union
 
@@ -614,63 +615,139 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
         self._is_fitted = True
         return self
 
-    def transform(self, df: DataFrameLike) -> DataFrameLike:
-        """
-        Transforms input dataframe with fitted encoder.
+    def _transform_spark(self, df: SparkDataFrame, default_value: Optional[int]) -> SparkDataFrame:
+        map_expr = sf.create_map([sf.lit(x) for x in chain(*self.get_mapping().items())])
+        encoded_df = df.withColumn(self._target_col, sf.transform(self.column, lambda x: map_expr.getItem(x)))
 
-        :param df: input dataframe.
-        :returns: transformed dataframe.
-        """
-        if self._mapping is None:
-            msg = "Label encoder is not fitted"
-            raise RuntimeError(msg)
-
-        default_value = len(self._mapping) if self._default_value == "last" else self._default_value
-
-        if isinstance(df, PandasDataFrame):
-            transformed_df = df.drop(self.column, axis=1)
-            df2transform = df[[self.column]].explode(self.column).reset_index(names=self._FAKE_INDEX_COLUMN_NAME)
-            encoded_df = self._transform_pandas(df2transform, default_value)
-            encoded_df = encoded_df.groupby(self._FAKE_INDEX_COLUMN_NAME).agg(list)
-            transformed_df[self.column] = encoded_df[self.column]
-        elif isinstance(df, SparkDataFrame):
-            df_with_index = df.withColumn(
-                self._FAKE_INDEX_COLUMN_NAME, sf.row_number().over(Window.partitionBy(sf.lit(0)).orderBy(sf.lit(0)))
-            )
-            transformed_df = df_with_index.drop(self.column)
-            df2transform = (
-                df_with_index.select(self.column, self._FAKE_INDEX_COLUMN_NAME)
-                .withColumn(self.column, sf.explode(self.column))
-                .withColumn(
-                    self._FAKE_INDEX_COLUMN_NAME + "_1",
-                    sf.row_number().over(Window.partitionBy(self._FAKE_INDEX_COLUMN_NAME).orderBy(sf.lit(0))),
+        if self._handle_unknown == "drop":
+            encoded_df = encoded_df.withColumn(self._target_col, sf.filter(self._target_col, lambda x: x.isNotNull()))
+            if encoded_df.select(sf.max(sf.size(self._target_col))).first()[0] == 0:
+                warnings.warn(
+                    f"You are trying to transform dataframe with all values are unknown for {self._col}, "
+                    "with `handle_unknown_strategy=drop` leads to empty dataframe",
+                    LabelEncoderTransformWarning,
                 )
-            )
-            encoded_df = self._transform_spark(df2transform, default_value)
-            encoded_df = (
-                encoded_df.withColumn(
-                    self.column,
-                    sf.collect_list(self.column).over(
-                        Window.partitionBy(self._FAKE_INDEX_COLUMN_NAME).orderBy(self._FAKE_INDEX_COLUMN_NAME + "_1")
-                    ),
-                )
-                .groupBy(self._FAKE_INDEX_COLUMN_NAME)
-                .agg(sf.max(self.column).alias(self.column))
-                .select(self.column, self._FAKE_INDEX_COLUMN_NAME)
-            )
-            transformed_df = transformed_df.join(encoded_df, how="left", on=self._FAKE_INDEX_COLUMN_NAME).drop(
-                self._FAKE_INDEX_COLUMN_NAME
-            )
-        elif isinstance(df, PolarsDataFrame):
-            transformed_df = df.drop(self.column)
-            df2transform = df.select(self.column).with_row_index(name=self._FAKE_INDEX_COLUMN_NAME).explode(self.column)
-            encoded_df = self._transform_polars(df2transform, default_value)
-            encoded_df = encoded_df.group_by(self._FAKE_INDEX_COLUMN_NAME).agg(pl.col(self.column))
-            transformed_df = transformed_df.with_columns(encoded_df[self.column].alias(self.column))
+        elif self._handle_unknown == "error":
+            if (
+                encoded_df.select(sf.sum(sf.array_contains(self._target_col, -1).isNull().cast("integer"))).first()[0]
+                != 0
+            ):
+                msg = f"Found unknown labels in column {self._col} during transform"
+                raise ValueError(msg)
         else:
-            msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
-            raise NotImplementedError(msg)
-        return transformed_df
+            if default_value:
+                encoded_df = encoded_df.withColumn(
+                    self._target_col,
+                    sf.transform(self._target_col, lambda x: sf.when(x.isNull(), default_value).otherwise(x)),
+                )
+
+        result_df = encoded_df.drop(self._col).withColumnRenamed(self._target_col, self._col)
+        return result_df
+
+    def _transform_pandas(self, df: PandasDataFrame, default_value: Optional[int]) -> PandasDataFrame:
+        mapping = self.get_mapping()
+        joined_df = df.copy()
+        if self._handle_unknown == "drop":
+            max_array_len = 0
+
+            def encode_func(array_col):
+                nonlocal mapping, max_array_len
+                res = []
+                for x in array_col:
+                    cur_len = 0
+                    mapped = mapping.get(x)
+                    if mapped is not None:
+                        res.append(mapped)
+                        cur_len += 1
+                    max_array_len = max(max_array_len, cur_len)
+                return res
+
+            joined_df[self._target_col] = joined_df[self._col].apply(encode_func)
+            if max_array_len == 0:
+                warnings.warn(
+                    f"You are trying to transform dataframe with all values are unknown for {self._col}, "
+                    "with `handle_unknown_strategy=drop` leads to empty dataframe",
+                    LabelEncoderTransformWarning,
+                )
+        elif self._handle_unknown == "error":
+            none_count = 0
+
+            def encode_func(array_col):
+                nonlocal mapping, none_count
+                res = []
+                for x in array_col:
+                    mapped = mapping.get(x)
+                    if mapped is None:
+                        none_count += 1
+                    else:
+                        res.append(mapped)
+                return res
+
+            joined_df[self._target_col] = joined_df[self._col].apply(encode_func)
+            if none_count != 0:
+                msg = f"Found unknown labels in column {self._col} during transform"
+                raise ValueError(msg)
+        else:
+
+            def encode_func(array_col):
+                nonlocal mapping
+                return [mapping.get(x, default_value) for x in array_col]
+
+            joined_df[self._target_col] = joined_df[self._col].apply(encode_func)
+
+        result_df = joined_df.drop(self._col, axis=1).rename(columns={self._target_col: self._col})
+        return result_df
+
+    def _transform_polars(self, df: PolarsDataFrame, default_value: Optional[int]) -> SparkDataFrame:
+        mapping = self.get_mapping()
+        if self._handle_unknown == "drop":
+
+            def map_genres(array_col):
+                nonlocal mapping
+                return [mapping.get(x) for x in array_col]
+
+            transformed_df = df.with_columns(
+                pl.col(self._col)
+                .map_elements(map_genres, return_dtype=pl.List(pl.Int64))
+                .list.drop_nulls()
+                .alias(self._target_col)
+            )
+            if (
+                transformed_df.with_columns(pl.col(self._target_col).list.len()).select(pl.sum(self._target_col)).item()
+                == 0
+            ):
+                warnings.warn(
+                    f"You are trying to transform dataframe with all values are unknown for {self._col}, "
+                    "with `handle_unknown_strategy=drop` leads to empty dataframe",
+                    LabelEncoderTransformWarning,
+                )
+        elif self._handle_unknown == "error":
+
+            def map_genres(array_col):
+                nonlocal mapping
+                return [mapping.get(x) for x in array_col]
+
+            transformed_df = df.with_columns(
+                pl.col(self._col).map_elements(map_genres, return_dtype=pl.List(pl.Int64)).alias(self._target_col)
+            )
+            none_checker = transformed_df.with_columns(
+                pl.col(self._target_col).list.contains(pl.lit(None, dtype=pl.Int64)).cast(pl.Int64)
+            )
+            if none_checker.select(pl.sum(self._target_col)).item() != 0:
+                msg = f"Found unknown labels in column {self._col} during transform"
+                raise ValueError(msg)
+        else:
+
+            def map_genres(array_col):
+                nonlocal mapping
+                return [mapping.get(x, default_value) for x in array_col]
+
+            transformed_df = df.with_columns(
+                pl.col(self._col).map_elements(map_genres, return_dtype=pl.List(pl.Int64)).alias(self._target_col)
+            )
+
+        result_df = transformed_df.drop(self._col).rename({self._target_col: self._col})
+        return result_df
 
     def inverse_transform(self, df: DataFrameLike) -> DataFrameLike:
         """
