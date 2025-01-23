@@ -453,7 +453,7 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
 
         if len(duplicates) > 0:
             msg = (
-                "Features column names should be unique, exept ITEM_ID and QUERY_ID columns. "
+                "Features column names should be unique, except ITEM_ID and QUERY_ID columns. "
                 f"{duplicates} columns are not unique."
             )
             raise ValueError(msg)

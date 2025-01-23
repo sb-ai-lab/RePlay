@@ -119,7 +119,7 @@ class TensorFeatureInfo:
             msg = "Tensor dimensions is needed only with numerical feature type."
             raise ValueError(msg)
 
-        if feature_type == FeatureType.CATEGORICAL:
+        if feature_type in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]:
             self._embedding_dim = embedding_dim or self.DEFAULT_EMBEDDING_DIM
         else:
             self._tensor_dim = tensor_dim

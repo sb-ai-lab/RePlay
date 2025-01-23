@@ -16,10 +16,10 @@ if TORCH_AVAILABLE:
         PandasSequentialDataset,
         SequentialDataset,
         TensorFeatureInfo,
+        TensorSchema,
         TorchSequentialDataset,
         TorchSequentialValidationDataset,
     )
-    from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
 else:
     PandasSequentialDataset = MissingImportType
     SequentialDataset = MissingImportType
@@ -205,15 +205,16 @@ def test_common_query_ids(sequential_dataset):
         ],
     )
 
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+        ]
     )
 
     new_dataset = PandasSequentialDataset(
@@ -243,16 +244,17 @@ def test_common_query_ids(sequential_dataset):
     ],
 )
 def test_schemes_mismatch(tensor_schema, feature_name, cardinality, exception_msg):
-    tensor_schema_gt = (
-        TensorSchemaBuilder()
-        .categorical(
-            feature_name,
-            cardinality=cardinality,
-            is_seq=True,
-            embedding_dim=64,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .build()
+    tensor_schema_gt = TensorSchema(
+        [
+            TensorFeatureInfo(
+                feature_name,
+                cardinality=cardinality,
+                is_seq=True,
+                embedding_dim=64,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+        ]
     )
 
     with pytest.raises(ValueError) as exc:

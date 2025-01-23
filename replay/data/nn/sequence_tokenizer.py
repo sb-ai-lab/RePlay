@@ -294,11 +294,11 @@ class SequenceTokenizer:
                 raise ValueError(msg)
 
             if not tensor_feature.is_seq:
-                if tensor_feature.feature_source == FeatureSource.INTERACTIONS:
+                if tensor_feature.feature_source.source == FeatureSource.INTERACTIONS:
                     msg = "Interaction features must be treated as sequential"
                     raise ValueError(msg)
 
-                if tensor_feature.feature_source == FeatureSource.ITEM_FEATURES:
+                if tensor_feature.feature_source.source == FeatureSource.ITEM_FEATURES:
                     msg = "Item features must be treated as sequential"
                     raise ValueError(msg)
 
@@ -540,15 +540,15 @@ class _BaseSequenceProcessor(Generic[_T]):
         assert False, "Unknown tensor feature source table"
 
     @abc.abstractmethod
-    def _process_cat_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> _T:
+    def _process_cat_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> _T:  # pragma: no cover
         pass
 
     @abc.abstractmethod
-    def _process_cat_query_feature(self, tensor_feature: TensorFeatureInfo) -> _T:
+    def _process_cat_query_feature(self, tensor_feature: TensorFeatureInfo) -> _T:  # pragma: no cover
         pass
 
     @abc.abstractmethod
-    def _process_cat_item_feature(self, tensor_feature: TensorFeatureInfo) -> _T:
+    def _process_cat_item_feature(self, tensor_feature: TensorFeatureInfo) -> _T:  # pragma: no cover
         pass
 
 
@@ -788,7 +788,9 @@ class _PolarsSequenceProcessor(_BaseSequenceProcessor[PolarsDataFrame]):
         assert source is not None
 
         if not tensor_feature.is_seq:
-            result = self._query_features.select(self._query_id_column, source.column).rename({source.column: tensor_feature.name})
+            result = self._query_features.select(self._query_id_column, source.column).rename(
+                {source.column: tensor_feature.name}
+            )
             if not tensor_feature.is_list:
                 result = result.with_columns(pl.col(tensor_feature.name).cast(pl.List(pl.Int64)))
             return result
@@ -796,12 +798,13 @@ class _PolarsSequenceProcessor(_BaseSequenceProcessor[PolarsDataFrame]):
         lengths = self._grouped_interactions.select(
             self._query_id_column, pl.col(self._item_id_column).list.len().alias("len")
         )
-        result = lengths.join(self._query_features.select(self._query_id_column, source.column), on=self._query_id_column, how="left")
+        result = lengths.join(
+            self._query_features.select(self._query_id_column, source.column), on=self._query_id_column, how="left"
+        )
 
         if tensor_feature.is_list:
             return (
-                result
-                .map_rows(
+                result.map_rows(
                     lambda x: (
                         x[0],
                         [x[2]] * x[1],

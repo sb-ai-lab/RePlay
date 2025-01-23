@@ -90,15 +90,11 @@ class TorchSequentialDataset(TorchDataset):
         sequence = self._sequential.get_sequence(sequence_index, feature.name)
         if feature.is_seq:
             sequence = sequence[sequence_offset : sequence_offset + self._max_sequence_length]
-        if feature.name == "user_cat_not_seq":
-            print(f"{feature.name=}, {sequence=}")
         tensor_dtype = self._get_tensor_dtype(feature)
         tensor_sequence = torch.tensor(sequence, dtype=tensor_dtype)
         if feature.is_seq:
             tensor_sequence = self._pad_sequence(tensor_sequence)
 
-        if feature.name == "user_cat_not_seq":
-            print(f"{tensor_sequence=}")
         return tensor_sequence
 
     def _pad_sequence(self, sequence: torch.Tensor) -> torch.Tensor:

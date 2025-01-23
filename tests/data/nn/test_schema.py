@@ -6,7 +6,6 @@ from replay.utils import TORCH_AVAILABLE
 if TORCH_AVAILABLE:
     from replay.data.nn import TensorFeatureInfo, TensorFeatureSource
     from replay.data.nn.schema import TensorSchema
-    from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
 
 
 @pytest.mark.torch
@@ -24,27 +23,23 @@ def test_tensor_feature_properties(some_num_tensor_feature, some_cat_tensor_feat
     assert some_cat_tensor_feature.cardinality == some_cat_tensor_feature.embedding_dim
     assert some_num_tensor_feature.tensor_dim == 1
     assert isinstance(some_cat_tensor_feature.feature_source, TensorFeatureSource)
-    assert len(some_num_tensor_feature.feature_sources) == 2
-    assert len(some_cat_tensor_feature.feature_sources) == 1
     assert some_cat_tensor_feature.feature_source.index == 0
     assert feature.feature_source is None
 
 
 @pytest.mark.torch
 def test_tensor_scheme_properties(fake_schema, tensor_schema):
-    schema = (
-        TensorSchemaBuilder()
-        .numerical(
-            "item_id",
-            tensor_dim=2,
-            is_seq=True,
-            feature_sources=[
-                TensorFeatureSource(FeatureSource.INTERACTIONS, "item_feature1"),
-                TensorFeatureSource(FeatureSource.INTERACTIONS, "item_feature2"),
-            ],
-            feature_hint=FeatureHint.RATING,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_feature1"),
+                feature_hint=FeatureHint.RATING,
+                tensor_dim=2,
+            ),
+        ]
     )
 
     with pytest.raises(ValueError) as exc1:
@@ -82,17 +77,12 @@ def test_invalid_tensor_feature_type(some_num_tensor_feature):
 @pytest.mark.torch
 def test_tensor_feature_setters(some_num_tensor_feature, some_cat_tensor_feature):
     some_num_tensor_feature._set_feature_hint(FeatureHint.RATING)
-    some_num_tensor_feature._set_feature_sources(
-        [
-            TensorFeatureSource(FeatureSource.INTERACTIONS, "fake1"),
-        ]
-    )
+    some_num_tensor_feature._set_feature_source(TensorFeatureSource(FeatureSource.INTERACTIONS, "fake1"))
     some_num_tensor_feature._set_tensor_dim(42)
     some_cat_tensor_feature._set_cardinality(42)
     some_cat_tensor_feature._set_embedding_dim(42)
 
     assert some_num_tensor_feature.feature_hint == FeatureHint.RATING
-    assert len(some_cat_tensor_feature.feature_sources) == 1
     assert some_num_tensor_feature.tensor_dim == 42
     assert some_cat_tensor_feature.cardinality == 42
     assert some_cat_tensor_feature.embedding_dim == 42
@@ -117,29 +107,19 @@ def test_tensor_feature_invalid_init():
             tensor_dim=42,
         )
 
-    with pytest.raises(ValueError) as exc4:
-        TensorFeatureInfo(
-            name="fake",
-            feature_type=FeatureType.NUMERICAL,
-            feature_sources=[
-                TensorFeatureSource(FeatureSource.INTERACTIONS, "fake1", 0),
-                TensorFeatureSource(FeatureSource.INTERACTIONS, "fake2", 1),
-            ],
-        ).feature_source
-
-    with pytest.raises(RuntimeError) as exc5:
+    with pytest.raises(RuntimeError) as exc4:
         TensorFeatureInfo(
             name="fake",
             feature_type=FeatureType.NUMERICAL,
         ).cardinality
 
-    with pytest.raises(RuntimeError) as exc6:
+    with pytest.raises(RuntimeError) as exc5:
         TensorFeatureInfo(
             name="fake",
             feature_type=FeatureType.CATEGORICAL,
         ).tensor_dim
 
-    with pytest.raises(RuntimeError) as exc7:
+    with pytest.raises(RuntimeError) as exc6:
         TensorFeatureInfo(
             name="fake",
             feature_type=FeatureType.NUMERICAL,
@@ -148,10 +128,9 @@ def test_tensor_feature_invalid_init():
     assert str(exc1.value) == "Unknown feature type"
     assert str(exc2.value) == "Cardinality and embedding dimensions are needed only with categorical feature type."
     assert str(exc3.value) == "Tensor dimensions is needed only with numerical feature type."
-    assert str(exc4.value) == "Only one element feature sources can be converted to single feature source."
-    assert str(exc5.value) == "Can not get cardinality because feature type of fake column is not categorical."
-    assert str(exc6.value) == "Can not get tensor dimensions because feature type of fake feature is not numerical."
-    assert str(exc7.value) == (
+    assert str(exc4.value) == "Can not get cardinality because feature type of fake column is not categorical."
+    assert str(exc5.value) == "Can not get tensor dimensions because feature type of fake feature is not numerical."
+    assert str(exc6.value) == (
         "Can not get embedding dimensions because" " feature type of fake feature is not categorical."
     )
 
@@ -164,14 +143,14 @@ def test_tensor_scheme_inits():
             feature_type=FeatureType.CATEGORICAL,
             feature_hint=FeatureHint.ITEM_ID,
             cardinality=6,
-            feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
         ),
         TensorFeatureInfo(
             "user_id",
             feature_type=FeatureType.CATEGORICAL,
             feature_hint=FeatureHint.QUERY_ID,
             cardinality=6,
-            feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id")],
+            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id"),
         ),
     ]
 
@@ -179,25 +158,32 @@ def test_tensor_scheme_inits():
         "rating",
         feature_type=FeatureType.NUMERICAL,
         tensor_dim=6,
-        feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "rating")],
+        feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "rating"),
     )
 
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "user_id",
-            cardinality=6,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id"),
-            feature_hint=FeatureHint.QUERY_ID,
-        )
-        .numerical("rating", tensor_dim=6, feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "rating")])
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "user_id",
+                cardinality=6,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id"),
+                feature_hint=FeatureHint.QUERY_ID,
+            ),
+            TensorFeatureInfo(
+                "rating",
+                tensor_dim=6,
+                feature_type=FeatureType.NUMERICAL,
+                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "rating"),
+            ),
+        ]
     )
 
     assert TensorSchema(features_list) is not None
