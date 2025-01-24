@@ -167,7 +167,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         return inverse_mapping_list
 
     def _fit_spark(self, df: SparkDataFrame) -> None:
-        unique_col_values = df.select(self._col).distinct().persist(StorageLevel.MEMORY_ONLY)
+        unique_col_values = df.select(self._col).distinct()
         window_function_give_ids = Window.orderBy(self._col)
 
         mapping_on_spark = (
@@ -177,12 +177,9 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             .withColumn(self._target_col, sf.col(self._target_col) - 1)
             .drop("temp_ones")
             .select(self._col, self._target_col)
-            .persist(StorageLevel.MEMORY_ONLY)
         )
 
         self._mapping = mapping_on_spark.rdd.collectAsMap()
-        mapping_on_spark.unpersist()
-        unique_col_values.unpersist()
 
     def _fit_pandas(self, df: PandasDataFrame) -> None:
         unique_col_values = df[self._col].drop_duplicates().reset_index(drop=True)
