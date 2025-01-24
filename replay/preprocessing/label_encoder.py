@@ -26,9 +26,7 @@ from replay.utils import (
 )
 
 if PYSPARK_AVAILABLE:
-    from pyspark.sql import (
-        functions as sf,
-    )
+    from pyspark.sql import Window, functions as sf
     from pyspark.sql.types import LongType, StructType
     from pyspark.storagelevel import StorageLevel
 
@@ -170,15 +168,15 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
     def _fit_spark(self, df: SparkDataFrame) -> None:
         unique_col_values = df.select(self._col).distinct().persist(StorageLevel.MEMORY_ONLY)
+        window_function_give_ids = Window.orderBy(self._col)
 
         mapping_on_spark = (
-            unique_col_values.rdd.zipWithIndex()
-            .toDF(
-                StructType()
-                .add("_1", StructType().add(self._col, df.schema[self._col].dataType, True), True)
-                .add("_2", LongType(), True)
-            )
-            .select(sf.col(f"_1.{self._col}").alias(self._col), sf.col("_2").alias(self._target_col))
+            unique_col_values
+            .withColumn("temp_ones", sf.lit(1))
+            .withColumn(self._target_col, sf.row_number().over(window_function_give_ids).cast(LongType()))
+            .withColumn(self._target_col, sf.col(self._target_col) - 1)
+            .drop("temp_ones")
+            .select(self._col, self._target_col)
             .persist(StorageLevel.MEMORY_ONLY)
         )
 
