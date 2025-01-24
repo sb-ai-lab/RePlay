@@ -194,6 +194,56 @@ def test_label_encoder_with_handled_null_values_pandas_polars(
 @pytest.mark.parametrize(
     "df_for_labelencoder, df_for_labelencoder_modified",
     [
+        ("pandas_df_for_grouped_labelencoder", "pandas_df_for_grouped_labelencoder_modified"),
+        ("polars_df_for_grouped_labelencoder", "polars_df_for_grouped_labelencoder_modified"),
+    ],
+)
+def test_grouped_label_encoder_with_handled_null_values_pandas_polars(
+    df_for_labelencoder,
+    df_for_labelencoder_modified,
+    request,
+):
+    df_labelencoder = request.getfixturevalue(df_for_labelencoder)
+    df_labelencoder_modified = request.getfixturevalue(df_for_labelencoder_modified)
+    encoder = LabelEncoder([GroupedLabelEncodingRule("item1"), GroupedLabelEncodingRule("item2")])
+    encoder.fit(df_labelencoder)
+    encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"})
+    encoder.set_default_values({"item1": "last", "item2": 5})
+    mapped_interactions = encoder.transform(df_labelencoder_modified)
+
+    if isinstance(mapped_interactions, PandasDataFrame):
+        items1 = mapped_interactions["item1"].explode().unique().tolist()
+        items2 = mapped_interactions["item2"].explode().unique().tolist()
+    else:
+        items1 = mapped_interactions["item1"].explode().unique().to_list()
+        items2 = mapped_interactions["item2"].explode().unique().to_list()
+
+    assert set(items1) == {0, 1, 2}
+    assert set(items2) == {0, 1, 5}
+
+
+@pytest.mark.spark
+def test_grouped_label_encoder_with_handled_null_values_spark(
+    spark_df_for_grouped_labelencoder,
+    spark_df_for_grouped_labelencoder_modified,
+):
+    encoder = LabelEncoder([GroupedLabelEncodingRule("item1"), GroupedLabelEncodingRule("item2")])
+    encoder.fit(spark_df_for_grouped_labelencoder)
+    encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"})
+    encoder.set_default_values({"item1": "last", "item2": 5})
+    mapped_interactions = encoder.transform(spark_df_for_grouped_labelencoder_modified)
+
+    items1 = [x[0] for x in mapped_interactions.select(F.explode("item1")).collect()]
+    items2 = [x[0] for x in mapped_interactions.select(F.explode("item2")).collect()]
+
+    assert set(items1) == {0, 1, 2}
+    assert set(items2) == {0, 1, 5}
+
+
+@pytest.mark.core
+@pytest.mark.parametrize(
+    "df_for_labelencoder, df_for_labelencoder_modified",
+    [
         ("pandas_df_for_labelencoder", "pandas_df_for_labelencoder_modified"),
         ("polars_df_for_labelencoder", "polars_df_for_labelencoder_modified"),
     ],
@@ -231,37 +281,48 @@ def test_label_encoder_with_handled_null_values_spark(
 
 
 @pytest.mark.spark
-def test_label_encoder_with_null_values_spark(
-    spark_df_for_labelencoder,
-    spark_df_for_labelencoder_modified,
-):
-    encoder = LabelEncoder([LabelEncodingRule("item1"), LabelEncodingRule("item2")])
-    encoder.fit(spark_df_for_labelencoder)
+@pytest.mark.parametrize(
+    "df_name, modified_df_name, is_grouped_encoder",
+    [
+        pytest.param("spark_df_for_labelencoder", "spark_df_for_labelencoder_modified", False),
+        pytest.param("spark_df_for_grouped_labelencoder", "spark_df_for_grouped_labelencoder_modified", True),
+    ],
+)
+def test_label_encoder_with_null_values_spark(df_name, modified_df_name, is_grouped_encoder, request):
+    df = request.getfixturevalue(df_name)
+    df_modified = request.getfixturevalue(modified_df_name)
+    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    encoder = LabelEncoder([rule_class("item1"), rule_class("item2")])
+    encoder.fit(df)
     encoder.set_default_values({"item1": None, "item2": "last"})
     with pytest.raises(ValueError):
-        encoder.transform(spark_df_for_labelencoder_modified)
+        encoder.transform(df_modified)
 
 
 @pytest.mark.core
 @pytest.mark.parametrize(
-    "df_for_labelencoder, df_for_labelencoder_modified",
+    "df_name, modified_df_name, is_grouped_encoder",
     [
-        ("pandas_df_for_labelencoder", "pandas_df_for_labelencoder_modified"),
-        ("polars_df_for_labelencoder", "polars_df_for_labelencoder_modified"),
+        ("pandas_df_for_labelencoder", "pandas_df_for_labelencoder_modified", False),
+        ("polars_df_for_labelencoder", "polars_df_for_labelencoder_modified", False),
+        ("pandas_df_for_grouped_labelencoder", "pandas_df_for_grouped_labelencoder_modified", True),
+        ("polars_df_for_grouped_labelencoder", "polars_df_for_grouped_labelencoder_modified", True),
     ],
 )
 def test_label_encoder_with_null_values_pandas_polars(
-    df_for_labelencoder,
-    df_for_labelencoder_modified,
+    df_name,
+    modified_df_name,
+    is_grouped_encoder,
     request,
 ):
-    df_labelencoder = request.getfixturevalue(df_for_labelencoder)
-    df_labelencoder_modified = request.getfixturevalue(df_for_labelencoder_modified)
-    encoder = LabelEncoder([LabelEncodingRule("item1"), LabelEncodingRule("item2")])
-    encoder.fit(df_labelencoder)
+    df = request.getfixturevalue(df_name)
+    df_modified = request.getfixturevalue(modified_df_name)
+    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    encoder = LabelEncoder([rule_class("item1"), rule_class("item2")])
+    encoder.fit(df)
     encoder.set_default_values({"item1": "last", "item2": 5})
     with pytest.raises(ValueError):
-        encoder.transform(df_labelencoder_modified)
+        encoder.transform(df_modified)
 
 
 @pytest.mark.core
@@ -513,6 +574,41 @@ def test_label_encoder_drop_strategy(request, df_for_labelencoder, df_for_labele
 
 
 @pytest.mark.parametrize(
+    "df_for_labelencoder, df_for_labelencoder_modified",
+    [
+        pytest.param(
+            "pandas_df_for_grouped_labelencoder", "pandas_df_for_grouped_labelencoder_modified", marks=pytest.mark.core
+        ),
+        pytest.param(
+            "polars_df_for_grouped_labelencoder", "polars_df_for_grouped_labelencoder_modified", marks=pytest.mark.core
+        ),
+        pytest.param(
+            "spark_df_for_grouped_labelencoder", "spark_df_for_grouped_labelencoder_modified", marks=pytest.mark.spark
+        ),
+    ],
+)
+def test_grouped_label_encoder_drop_strategy(request, df_for_labelencoder, df_for_labelencoder_modified):
+    df = request.getfixturevalue(df_for_labelencoder)
+    df_modified = request.getfixturevalue(df_for_labelencoder_modified)
+
+    encoder = LabelEncoder([GroupedLabelEncodingRule("item1", handle_unknown="drop")])
+    encoder.fit(df)
+    transformed = encoder.transform(df_modified)
+    inversed = encoder.inverse_transform(transformed)
+
+    if isinstance(inversed, PandasDataFrame):
+        items = inversed["item1"].explode().unique().tolist()
+    elif isinstance(inversed, PolarsDataFrame):
+        items = inversed["item1"].explode().unique().to_list()
+    else:
+        items = [x[0] for x in inversed.select(F.explode("item1")).collect()]
+
+    assert "item_1" in items
+    assert "item_2" in items
+    assert "item_3" not in items
+
+
+@pytest.mark.parametrize(
     "df_for_labelencoder, df_for_labelencoder_new_data",
     [
         pytest.param("pandas_df_for_labelencoder", "pandas_df_for_labelencoder_new_data", marks=pytest.mark.core),
@@ -534,6 +630,36 @@ def test_label_encoder_drop_strategy_empty_dataset(request, df_for_labelencoder,
         assert transformed.is_empty()
     else:
         assert transformed.rdd.isEmpty()
+
+
+@pytest.mark.parametrize(
+    "df_for_labelencoder, df_for_labelencoder_new_data",
+    [
+        pytest.param(
+            "pandas_df_for_grouped_labelencoder", "pandas_df_for_grouped_labelencoder_new_data", marks=pytest.mark.core
+        ),
+        pytest.param(
+            "polars_df_for_grouped_labelencoder", "polars_df_for_grouped_labelencoder_new_data", marks=pytest.mark.core
+        ),
+        pytest.param(
+            "spark_df_for_grouped_labelencoder", "spark_df_for_grouped_labelencoder_new_data", marks=pytest.mark.spark
+        ),
+    ],
+)
+def test_grouped_label_encoder_drop_strategy_empty_dataset(request, df_for_labelencoder, df_for_labelencoder_new_data):
+    df = request.getfixturevalue(df_for_labelencoder)
+    df_new = request.getfixturevalue(df_for_labelencoder_new_data)
+
+    encoder = LabelEncoder([GroupedLabelEncodingRule("item1", handle_unknown="drop")])
+    encoder.fit(df)
+    transformed = encoder.transform(df_new)
+
+    if isinstance(transformed, PandasDataFrame):
+        assert transformed["item1"].apply(len).max() == 0
+    elif isinstance(transformed, PolarsDataFrame):
+        assert transformed["item1"].list.len().max() == 0
+    else:
+        assert transformed.select(F.max(F.size("item1"))).first()[0] == 0
 
 
 @pytest.mark.core

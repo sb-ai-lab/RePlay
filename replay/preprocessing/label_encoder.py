@@ -27,7 +27,6 @@ from replay.utils import (
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import (
-        Window,
         functions as sf,
     )
     from pyspark.sql.types import LongType, StructType
@@ -702,13 +701,13 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
         mapping = self.get_mapping()
         if self._handle_unknown == "drop":
 
-            def map_genres(array_col):
+            def encode_func(array_col):
                 nonlocal mapping
                 return [mapping.get(x) for x in array_col]
 
             transformed_df = df.with_columns(
                 pl.col(self._col)
-                .map_elements(map_genres, return_dtype=pl.List(pl.Int64))
+                .map_elements(encode_func, return_dtype=pl.List(pl.Int64))
                 .list.drop_nulls()
                 .alias(self._target_col)
             )
@@ -723,12 +722,12 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
                 )
         elif self._handle_unknown == "error":
 
-            def map_genres(array_col):
+            def encode_func(array_col):
                 nonlocal mapping
                 return [mapping.get(x) for x in array_col]
 
             transformed_df = df.with_columns(
-                pl.col(self._col).map_elements(map_genres, return_dtype=pl.List(pl.Int64)).alias(self._target_col)
+                pl.col(self._col).map_elements(encode_func, return_dtype=pl.List(pl.Int64)).alias(self._target_col)
             )
             none_checker = transformed_df.with_columns(
                 pl.col(self._target_col).list.contains(pl.lit(None, dtype=pl.Int64)).cast(pl.Int64)
@@ -738,72 +737,39 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
                 raise ValueError(msg)
         else:
 
-            def map_genres(array_col):
+            def encode_func(array_col):
                 nonlocal mapping
                 return [mapping.get(x, default_value) for x in array_col]
 
             transformed_df = df.with_columns(
-                pl.col(self._col).map_elements(map_genres, return_dtype=pl.List(pl.Int64)).alias(self._target_col)
+                pl.col(self._col).map_elements(encode_func, return_dtype=pl.List(pl.Int64)).alias(self._target_col)
             )
 
         result_df = transformed_df.drop(self._col).rename({self._target_col: self._col})
         return result_df
 
-    def inverse_transform(self, df: DataFrameLike) -> DataFrameLike:
-        """
-        Reverse transform of transformed dataframe.
+    def _inverse_transform_pandas(self, df: PandasDataFrame) -> PandasDataFrame:
+        decoded_df = df.copy()
 
-        :param df: transformed dataframe.
-        :returns: initial dataframe.
-        """
-        if self._mapping is None:
-            msg = "Label encoder is not fitted"
-            raise RuntimeError(msg)
+        def decode_func(array_col):
+            return [self._inverse_mapping_list[x] for x in array_col]
 
-        if isinstance(df, PandasDataFrame):
-            transformed_df = df.drop(self.column, axis=1)
-            df2transform = df[[self.column]].explode(self.column).reset_index(names=self._FAKE_INDEX_COLUMN_NAME)
-            decoded_df = self._inverse_transform_pandas(df2transform)
-            decoded_df = decoded_df.groupby(self._FAKE_INDEX_COLUMN_NAME).agg(list)
-            transformed_df[self.column] = decoded_df[self.column]
-        elif isinstance(df, SparkDataFrame):
-            df_with_index = df.withColumn(
-                self._FAKE_INDEX_COLUMN_NAME, sf.row_number().over(Window.partitionBy(sf.lit(0)).orderBy(sf.lit(0)))
-            )
-            transformed_df = df_with_index.drop(self.column)
-            df2transform = (
-                df_with_index.select(self.column, self._FAKE_INDEX_COLUMN_NAME)
-                .withColumn(self.column, sf.explode(self.column))
-                .withColumn(
-                    self._FAKE_INDEX_COLUMN_NAME + "_1",
-                    sf.row_number().over(Window.partitionBy(self._FAKE_INDEX_COLUMN_NAME).orderBy(sf.lit(0))),
-                )
-            )
-            decoded_df = self._inverse_transform_spark(df2transform)
-            decoded_df = (
-                decoded_df.withColumn(
-                    self.column,
-                    sf.collect_list(self.column).over(
-                        Window.partitionBy(self._FAKE_INDEX_COLUMN_NAME).orderBy(self._FAKE_INDEX_COLUMN_NAME + "_1")
-                    ),
-                )
-                .groupBy(self._FAKE_INDEX_COLUMN_NAME)
-                .agg(sf.max(self.column).alias(self.column))
-                .select(self.column, self._FAKE_INDEX_COLUMN_NAME)
-            )
-            transformed_df = transformed_df.join(decoded_df, how="left", on=self._FAKE_INDEX_COLUMN_NAME).drop(
-                self._FAKE_INDEX_COLUMN_NAME
-            )
-        elif isinstance(df, PolarsDataFrame):
-            transformed_df = df.drop(self.column)
-            df2transform = df.select(self.column).with_row_index(name=self._FAKE_INDEX_COLUMN_NAME).explode(self.column)
-            decoded_df = self._inverse_transform_polars(df2transform)
-            decoded_df = decoded_df.group_by(self._FAKE_INDEX_COLUMN_NAME).agg(pl.col(self.column))
-            transformed_df.with_columns(decoded_df[self.column].alias(self.column))
-        else:
-            msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
-            raise NotImplementedError(msg)
+        decoded_df[self._col] = decoded_df[self._col].apply(decode_func)
+        return decoded_df
+
+    def _inverse_transform_polars(self, df: PolarsDataFrame) -> PolarsDataFrame:
+        def decode_func(array_col):
+            return [self._inverse_mapping_list[x] for x in array_col]
+
+        transformed_df = df.with_columns(pl.col(self._col).map_elements(decode_func))
         return transformed_df
+
+    def _inverse_transform_spark(self, df: SparkDataFrame) -> SparkDataFrame:
+        array_expr = sf.array([sf.lit(x) for x in self._inverse_mapping_list])
+        decoded_df = df.withColumn(
+            self._target_col, sf.transform(self._col, lambda x: sf.element_at(array_expr, x + 1))
+        )
+        return decoded_df.drop(self._col).withColumnRenamed(self._target_col, self._col)
 
 
 class LabelEncoder:

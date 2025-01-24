@@ -32,6 +32,11 @@ def pandas_df_for_labelencoder_new_data():
 
 
 @pytest.fixture(scope="module")
+def pandas_df_for_grouped_labelencoder_new_data():
+    return pd.DataFrame({"user_id": [["u4", "u5"]], "item1": [["item_4", "item_5"]], "item2": [["item_4", "item_5"]]})
+
+
+@pytest.fixture(scope="module")
 def pandas_df_for_grouped_labelencoder():
     return pd.DataFrame(
         {
@@ -79,6 +84,11 @@ def polars_df_for_labelencoder_new_data(pandas_df_for_labelencoder_new_data):
 
 
 @pytest.fixture(scope="module")
+def polars_df_for_grouped_labelencoder_new_data(pandas_df_for_grouped_labelencoder_new_data):
+    return pl.from_pandas(pandas_df_for_grouped_labelencoder_new_data)
+
+
+@pytest.fixture(scope="module")
 def polars_df_for_grouped_labelencoder(pandas_df_for_grouped_labelencoder):
     return pl.from_pandas(pandas_df_for_grouped_labelencoder)
 
@@ -101,6 +111,11 @@ def spark_df_for_grouped_labelencoder_modified(spark, pandas_df_for_grouped_labe
 @pytest.fixture(scope="module")
 def spark_df_for_labelencoder_new_data(pandas_df_for_labelencoder_new_data, spark):
     return spark.createDataFrame(pandas_df_for_labelencoder_new_data)
+
+
+@pytest.fixture(scope="module")
+def spark_df_for_grouped_labelencoder_new_data(pandas_df_for_grouped_labelencoder_new_data, spark):
+    return spark.createDataFrame(pandas_df_for_grouped_labelencoder_new_data)
 
 
 @pytest.fixture(scope="module")
