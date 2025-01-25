@@ -698,19 +698,18 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
         return result_df
 
     def _transform_polars(self, df: PolarsDataFrame, default_value: Optional[int]) -> SparkDataFrame:
-        mapping = self.get_mapping()
-        if self._handle_unknown == "drop":
-
-            def encode_func(array_col):
-                nonlocal mapping
-                return [mapping.get(x) for x in array_col]
-
-            transformed_df = df.with_columns(
-                pl.col(self._col)
-                .map_elements(encode_func, return_dtype=pl.List(pl.Int64))
-                .list.drop_nulls()
-                .alias(self._target_col)
+        transformed_df = df.with_columns(
+            pl.col(self._col)
+            .list.eval(
+                pl.element().replace_strict(
+                    self.get_mapping(), default=default_value if self._handle_unknown == "use_default_value" else None
+                ),
+                parallel=True,
             )
+            .alias(self._target_col)
+        )
+        if self._handle_unknown == "drop":
+            transformed_df = transformed_df.with_columns(pl.col(self._target_col).list.drop_nulls())
             if (
                 transformed_df.with_columns(pl.col(self._target_col).list.len()).select(pl.sum(self._target_col)).item()
                 == 0
@@ -721,29 +720,12 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
                     LabelEncoderTransformWarning,
                 )
         elif self._handle_unknown == "error":
-
-            def encode_func(array_col):
-                nonlocal mapping
-                return [mapping.get(x) for x in array_col]
-
-            transformed_df = df.with_columns(
-                pl.col(self._col).map_elements(encode_func, return_dtype=pl.List(pl.Int64)).alias(self._target_col)
-            )
             none_checker = transformed_df.with_columns(
                 pl.col(self._target_col).list.contains(pl.lit(None, dtype=pl.Int64)).cast(pl.Int64)
             )
             if none_checker.select(pl.sum(self._target_col)).item() != 0:
                 msg = f"Found unknown labels in column {self._col} during transform"
                 raise ValueError(msg)
-        else:
-
-            def encode_func(array_col):
-                nonlocal mapping
-                return [mapping.get(x, default_value) for x in array_col]
-
-            transformed_df = df.with_columns(
-                pl.col(self._col).map_elements(encode_func, return_dtype=pl.List(pl.Int64)).alias(self._target_col)
-            )
 
         result_df = transformed_df.drop(self._col).rename({self._target_col: self._col})
         return result_df
@@ -758,10 +740,13 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
         return decoded_df
 
     def _inverse_transform_polars(self, df: PolarsDataFrame) -> PolarsDataFrame:
-        def decode_func(array_col):
-            return [self._inverse_mapping_list[x] for x in array_col]
-
-        transformed_df = df.with_columns(pl.col(self._col).map_elements(decode_func))
+        mapping_size = len(self._inverse_mapping_list)
+        transformed_df = df.with_columns(
+            pl.col(self._col).list.eval(
+                pl.element().replace_strict(old=list(range(mapping_size)), new=self._inverse_mapping_list),
+                parallel=True,
+            )
+        )
         return transformed_df
 
     def _inverse_transform_spark(self, df: SparkDataFrame) -> SparkDataFrame:
