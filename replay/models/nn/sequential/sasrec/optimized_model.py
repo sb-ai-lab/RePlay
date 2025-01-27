@@ -1,13 +1,8 @@
-from typing import Optional
-
-import torch
-
-
-
 import os
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 import openvino as ov
+import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -69,29 +64,20 @@ class OptimizedSasRec:
 
         self._core = ov.Core()
         self._set_io_names(onnx_path)
-        self._set_input_params(
-            self._mode, batch_size, max_seq_len, num_candidates_to_score
-        )
+        self._set_input_params(self._mode, batch_size, max_seq_len, num_candidates_to_score)
 
         model_input_scheme = [
-            (input_name, [self._batch_size, self._max_seq_len])
-            for input_name in self._inputs_names[:2]
+            (input_name, [self._batch_size, self._max_seq_len]) for input_name in self._inputs_names[:2]
         ]
         if self._num_candidates_to_score is not None:
-            model_input_scheme += [
-                (self._inputs_names[2], [self._num_candidates_to_score])
-            ]
+            model_input_scheme += [(self._inputs_names[2], [self._num_candidates_to_score])]
         model_onnx = ov.convert_model(
             onnx_path,
             input=model_input_scheme,
         )
-        self._model = self._core.compile_model(
-            model=model_onnx, device_name=device_name
-        )
+        self._model = self._core.compile_model(model=model_onnx, device_name=device_name)
 
-    def _prepare_prediction_batch(
-        self, batch: SasRecPredictionBatch
-    ) -> SasRecPredictionBatch:
+    def _prepare_prediction_batch(self, batch: SasRecPredictionBatch) -> SasRecPredictionBatch:
         if self._mode == "dynamic_one_query":
             return batch
 
@@ -111,9 +97,7 @@ class OptimizedSasRec:
                     (self._max_seq_len - sequence_item_count, 0),
                     value=0,
                 )
-            padding_mask = torch.nn.functional.pad(
-                padding_mask, (self._max_seq_len - sequence_item_count, 0), value=0
-            )
+            padding_mask = torch.nn.functional.pad(padding_mask, (self._max_seq_len - sequence_item_count, 0), value=0)
             batch = SasRecPredictionBatch(query_id, padding_mask, features)
         return batch
 
@@ -131,7 +115,8 @@ class OptimizedSasRec:
         :return: Tensor with scores.
         """
         if self._num_candidates_to_score is None and candidates_to_score is not None:
-            msg = "If num_candidates_to_score equals 0, it is impossible to infer the model with passed candidates_to_score."
+            msg = "If num_candidates_to_score equals 0, \
+it is impossible to infer the model with passed candidates_to_score."
             raise ValueError(msg)
         batch = self._prepare_prediction_batch(batch)
         model_inputs = {
@@ -159,13 +144,9 @@ class OptimizedSasRec:
         :param show_progress_bar: Whether to enable to progress bar.
             Default: ``False``.
         """
-        for batch in tqdm(
-            dataloader, desc="Predicting Dataloader", disable=not show_progress_bar
-        ):
+        for batch in tqdm(dataloader, desc="Predicting Dataloader", disable=not show_progress_bar):
             batch: SasRecPredictionBatch
-            if (self._mode == "batch") and (
-                batch.padding_mask.shape[0] != self._batch_size
-            ):
+            if (self._mode == "batch") and (batch.padding_mask.shape[0] != self._batch_size):
                 continue
 
             scores = self.predict(batch, candidates_to_score)
@@ -208,15 +189,13 @@ class OptimizedSasRec:
 
         self._num_candidates_to_score = num_candidates_to_score
 
-    def _validate_num_candidates_to_score(lightning_model, num_candidates_to_score):
+    def _validate_num_candidates_to_score(self, lightning_model, num_candidates_to_score):
         total_item_count = lightning_model._model.item_count
         if not isinstance(num_candidates_to_score, int):
             msg = f"Expected num_candidates_to_score of type int, got {type(num_candidates_to_score)}"
             raise ValueError(msg)
         elif not (0 < num_candidates_to_score <= total_item_count):
-            msg = (
-                f"Expected number of candidates to be between 1 and {total_item_count=}"
-            )
+            msg = f"Expected number of candidates to be between 1 and {total_item_count=}"
             raise ValueError(msg)
 
     @classmethod
@@ -252,9 +231,7 @@ class OptimizedSasRec:
         :param onnx_path: Save ONNX model to path, if defined.
             Default: ``None``.
         """
-        lightning_model = SasRec.load_from_checkpoint(
-            checkpoint_path, map_location=torch.device("cpu")
-        )
+        lightning_model = SasRec.load_from_checkpoint(checkpoint_path, map_location=torch.device("cpu"))
         item_seq_name = lightning_model._schema.item_id_feature_name
         max_len = lightning_model._model.max_len
 
@@ -267,14 +244,10 @@ class OptimizedSasRec:
             "padding_mask": {0: "batch_size", 1: "max_len"},
         }
         if num_candidates_to_score is not None:
-            cls._validate_num_candidates_to_score(
-                lightning_model, num_candidates_to_score
-            )
+            cls._validate_num_candidates_to_score(lightning_model, num_candidates_to_score)
             candidates_to_score = torch.zeros((num_candidates_to_score,)).long()
             model_input_names += ["candidates_to_score"]
-            model_dynamic_axes_in_input["candidates_to_score"] = {
-                0: "num_candidates_to_score"
-            }
+            model_dynamic_axes_in_input["candidates_to_score"] = {0: "num_candidates_to_score"}
             model_input_sample = (
                 {item_seq_name: item_sequence},
                 padding_mask,

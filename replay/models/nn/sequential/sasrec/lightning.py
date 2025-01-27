@@ -140,7 +140,7 @@ class SasRec(lightning.LightningModule):
     def predict_step(
         self,
         batch: SasRecPredictionBatch,
-        batch_idx: int,
+        batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> torch.Tensor:
         """
@@ -156,7 +156,7 @@ class SasRec(lightning.LightningModule):
     def validation_step(
         self,
         batch: SasRecValidationBatch,
-        batch_idx: int,
+        batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> torch.Tensor:
         """
@@ -179,9 +179,7 @@ class SasRec(lightning.LightningModule):
         lr_scheduler = self._lr_scheduler_factory.create(optimizer)
         return [optimizer], [lr_scheduler]
 
-    def _prepare_prediction_batch(
-        self, batch: SasRecPredictionBatch
-    ) -> SasRecPredictionBatch:
+    def _prepare_prediction_batch(self, batch: SasRecPredictionBatch) -> SasRecPredictionBatch:
         if batch.padding_mask.shape[1] > self._model.max_len:
             msg = f"The length of the submitted sequence \
                 must not exceed the maximum length of the sequence. \
@@ -201,9 +199,7 @@ class SasRec(lightning.LightningModule):
                     )
                 else:
                     features[feature_name] = torch.nn.functional.pad(
-                        feature_tensor.view(
-                            feature_tensor.size(0), feature_tensor.size(1)
-                        ),
+                        feature_tensor.view(feature_tensor.size(0), feature_tensor.size(1)),
                         (self._model.max_len - sequence_item_count, 0),
                         value=0,
                     ).unsqueeze(-1)
@@ -220,32 +216,16 @@ class SasRec(lightning.LightningModule):
         candidates_to_score: torch.LongTensor = None,
     ) -> torch.Tensor:
         model: SasRecModel
-        model = (
-            cast(SasRecModel, self._model.module)
-            if isinstance(self._model, torch.nn.DataParallel)
-            else self._model
-        )
-        candidates_to_score = (
-            self.candidates_to_score
-            if candidates_to_score is None
-            else candidates_to_score
-        )
+        model = cast(SasRecModel, self._model.module) if isinstance(self._model, torch.nn.DataParallel) else self._model
+        candidates_to_score = self.candidates_to_score if candidates_to_score is None else candidates_to_score
         scores = model.predict(feature_tensors, padding_mask, candidates_to_score)
         return scores
 
     def _compute_loss(self, batch: SasRecTrainingBatch) -> torch.Tensor:
         if self._loss_type == "BCE":
-            loss_func = (
-                self._compute_loss_bce
-                if self._loss_sample_count is None
-                else self._compute_loss_bce_sampled
-            )
+            loss_func = self._compute_loss_bce if self._loss_sample_count is None else self._compute_loss_bce_sampled
         elif self._loss_type == "CE":
-            loss_func = (
-                self._compute_loss_ce
-                if self._loss_sample_count is None
-                else self._compute_loss_ce_sampled
-            )
+            loss_func = self._compute_loss_ce if self._loss_sample_count is None else self._compute_loss_ce_sampled
         else:
             msg = f"Not supported loss type: {self._loss_type}"
             raise ValueError(msg)
@@ -307,12 +287,8 @@ class SasRec(lightning.LightningModule):
         # Clamp and eps for numerical stability
         clamp_border: float = 100.0
         eps = 1e-6
-        positive_loss = torch.clamp(
-            torch.log((positive_prob) + eps), -clamp_border, clamp_border
-        ).sum()
-        negative_loss = torch.clamp(
-            torch.log((1 - negative_prob) + eps), -clamp_border, clamp_border
-        ).sum()
+        positive_loss = torch.clamp(torch.log((positive_prob) + eps), -clamp_border, clamp_border).sum()
+        negative_loss = torch.clamp(torch.log((1 - negative_prob) + eps), -clamp_border, clamp_border).sum()
 
         loss = -(positive_loss + negative_loss)
         loss /= positive_logits.size(0)
@@ -355,27 +331,19 @@ class SasRec(lightning.LightningModule):
             positive_labels,
             negative_labels,
             vocab_size,
-        ) = self._get_sampled_logits(
-            feature_tensors, positive_labels, padding_mask, target_padding_mask
-        )
+        ) = self._get_sampled_logits(feature_tensors, positive_labels, padding_mask, target_padding_mask)
         n_negative_samples = min(self._loss_sample_count, vocab_size)
 
         # Reject negative samples matching target label & correct for remaining samples
-        reject_labels = (
-            positive_labels == negative_labels
-        )  # [masked_batch_seq_size x n_negative_samples]
+        reject_labels = positive_labels == negative_labels  # [masked_batch_seq_size x n_negative_samples]
         negative_logits += math.log(vocab_size - 1)
         negative_logits -= 1e6 * reject_labels
-        negative_logits -= torch.log(
-            (n_negative_samples - reject_labels.sum(dim=-1, keepdim=True)).float()
-        )
+        negative_logits -= torch.log((n_negative_samples - reject_labels.sum(dim=-1, keepdim=True)).float())
 
         # Apply regular softmax cross entropy
         # [masked_batch_seq_size x (1 + n_negative_samples)]
         logits = torch.cat([positive_logits, negative_logits], dim=1).float()
-        labels_flat = torch.zeros(
-            positive_logits.size(0), dtype=torch.long, device=padding_mask.device
-        )
+        labels_flat = torch.zeros(positive_logits.size(0), dtype=torch.long, device=padding_mask.device)
         loss = self._loss(logits, labels_flat)
         return loss
 
@@ -393,15 +361,11 @@ class SasRec(lightning.LightningModule):
         )  # (masked_batch_seq_size,)
         masked_batch_seq_size = positive_labels.size(0)
         device = padding_mask.device
-        output_emb = self._model.forward_step(feature_tensors, padding_mask)[
-            target_padding_mask
-        ]
+        output_emb = self._model.forward_step(feature_tensors, padding_mask)[target_padding_mask]
 
         positive_labels = cast(torch.LongTensor, positive_labels.view(-1, 1))
         ids = torch.arange(masked_batch_seq_size, dtype=torch.long, device=device)
-        unique_positive_labels, positive_labels_indices = positive_labels.unique(
-            return_inverse=True
-        )
+        unique_positive_labels, positive_labels_indices = positive_labels.unique(return_inverse=True)
 
         if self._negative_sampling_strategy == "global_uniform":
             vocab_size = self._vocab_size
@@ -409,9 +373,7 @@ class SasRec(lightning.LightningModule):
             # positive_labels - 2d
             positive_logits = self._model.get_logits(output_emb, positive_labels)
         elif self._negative_sampling_strategy == "inbatch":
-            positive_labels_indices = positive_labels_indices.view(
-                masked_batch_seq_size, 1
-            )
+            positive_labels_indices = positive_labels_indices.view(masked_batch_seq_size, 1)
             # unique_positive_labels - 1d
             positive_logits = self._model.get_logits(output_emb, unique_positive_labels)
             vocab_size = unique_positive_labels.size(0)
@@ -430,9 +392,7 @@ class SasRec(lightning.LightningModule):
                 num_samples=n_negative_samples,
                 replacement=False,
             )
-            negative_labels = negative_labels.unsqueeze(0).repeat(
-                masked_batch_seq_size, 1
-            )
+            negative_labels = negative_labels.unsqueeze(0).repeat(masked_batch_seq_size, 1)
         elif self._negative_sampling_strategy == "global_uniform":
             negative_labels = torch.randint(
                 low=0,
@@ -451,16 +411,10 @@ class SasRec(lightning.LightningModule):
 
         if self._negative_sampling_strategy == "global_uniform":
             if self._negatives_sharing:
-                unique_negative_labels, negative_labels_indices = (
-                    negative_labels.unique(return_inverse=True)
-                )
-                negative_labels_indices = negative_labels_indices.view(
-                    masked_batch_seq_size, n_negative_samples
-                )
+                unique_negative_labels, negative_labels_indices = negative_labels.unique(return_inverse=True)
+                negative_labels_indices = negative_labels_indices.view(masked_batch_seq_size, n_negative_samples)
                 # unique_negative_labels - 1d
-                negative_logits = self._model.get_logits(
-                    output_emb, unique_negative_labels
-                )
+                negative_logits = self._model.get_logits(output_emb, unique_negative_labels)
                 negative_logits = negative_logits[ids, negative_labels_indices.T].T
             else:
                 # unique_negative_labels - 1d
@@ -512,13 +466,9 @@ class SasRec(lightning.LightningModule):
             msg = "New vocabulary size must be greater then already fitted"
             raise ValueError(msg)
 
-        new_embedding = torch.nn.Embedding(
-            new_vocab_size + 1, hidden_size, padding_idx=new_vocab_size
-        )
+        new_embedding = torch.nn.Embedding(new_vocab_size + 1, hidden_size, padding_idx=new_vocab_size)
         torch.nn.init.xavier_normal_(new_embedding.weight)
-        new_embedding.weight.data[:old_vocab_size, :] = (
-            self._model.item_embedder.item_emb.weight.data[:-1, :]
-        )
+        new_embedding.weight.data[:old_vocab_size, :] = self._model.item_embedder.item_emb.weight.data[:-1, :]
 
         self._set_new_item_embedder_to_model(new_embedding, new_vocab_size)
 
@@ -532,9 +482,7 @@ class SasRec(lightning.LightningModule):
             shape (n, h), where n - number of all items, h - model hidden size.
         """
         if all_item_embeddings.dim() != 2:
-            msg = (
-                "Input tensor must have (number of all items, model hidden size) shape"
-            )
+            msg = "Input tensor must have (number of all items, model hidden size) shape"
             raise ValueError(msg)
 
         old_vocab_size = self._model.item_embedder.item_emb.weight.data.shape[0] - 1
@@ -548,9 +496,7 @@ class SasRec(lightning.LightningModule):
             msg = "Input tensor second dimension doesn't match model hidden size"
             raise ValueError(msg)
 
-        new_embedding = torch.nn.Embedding(
-            new_vocab_size + 1, hidden_size, padding_idx=new_vocab_size
-        )
+        new_embedding = torch.nn.Embedding(new_vocab_size + 1, hidden_size, padding_idx=new_vocab_size)
         new_embedding.weight.data[:-1, :] = all_item_embeddings
 
         self._set_new_item_embedder_to_model(new_embedding, new_vocab_size)
@@ -563,9 +509,7 @@ class SasRec(lightning.LightningModule):
             n - number of only new items, h - model hidden size.
         """
         if item_embeddings.dim() != 2:
-            msg = (
-                "Input tensor must have (number of new items, model hidden size) shape"
-            )
+            msg = "Input tensor must have (number of new items, model hidden size) shape"
             raise ValueError(msg)
 
         old_vocab_size = self._model.item_embedder.item_emb.weight.data.shape[0] - 1
@@ -576,12 +520,8 @@ class SasRec(lightning.LightningModule):
             msg = "Input tensor second dimension doesn't match model hidden size"
             raise ValueError(msg)
 
-        new_embedding = torch.nn.Embedding(
-            new_vocab_size + 1, hidden_size, padding_idx=new_vocab_size
-        )
-        new_embedding.weight.data[:old_vocab_size, :] = (
-            self._model.item_embedder.item_emb.weight.data[:-1, :]
-        )
+        new_embedding = torch.nn.Embedding(new_vocab_size + 1, hidden_size, padding_idx=new_vocab_size)
+        new_embedding.weight.data[:old_vocab_size, :] = self._model.item_embedder.item_emb.weight.data[:-1, :]
         new_embedding.weight.data[old_vocab_size:-1, :] = item_embeddings
 
         self._set_new_item_embedder_to_model(new_embedding, new_vocab_size)
@@ -613,9 +553,7 @@ class SasRec(lightning.LightningModule):
         return self._candidates_to_score
 
     @candidates_to_score.setter
-    def candidates_to_score(
-        self, candidates: Optional[torch.LongTensor] = None
-    ) -> None:
+    def candidates_to_score(self, candidates: Optional[torch.LongTensor] = None) -> None:
         """
         Sets new optimizer_factory.
         :param optimizer_factory: New optimizer factory.
@@ -632,15 +570,13 @@ class SasRec(lightning.LightningModule):
             raise ValueError(msg)
         self._candidates_to_score = candidates
 
-    def _set_new_item_embedder_to_model(
-        self, new_embedding: torch.nn.Embedding, new_vocab_size: int
-    ):
+    def _set_new_item_embedder_to_model(self, new_embedding: torch.nn.Embedding, new_vocab_size: int):
         self._model.item_embedder.item_emb = new_embedding
         self._model._head._item_embedder = self._model.item_embedder
         self._vocab_size = new_vocab_size
         self._model.item_count = new_vocab_size
         self._model.padding_idx = new_vocab_size
         self._model.masking.padding_idx = new_vocab_size
-        self._schema.item_id_features[
-            self._schema.item_id_feature_name
-        ]._set_cardinality(new_embedding.weight.data.shape[0] - 1)
+        self._schema.item_id_features[self._schema.item_id_feature_name]._set_cardinality(
+            new_embedding.weight.data.shape[0] - 1
+        )

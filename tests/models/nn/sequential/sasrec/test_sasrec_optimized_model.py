@@ -4,9 +4,9 @@ from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
     from replay.models.nn.sequential.sasrec import (
+        OptimizedSasRec,
         SasRec,
         SasRecPredictionDataset,
-        OptimizedSasRec,
     )
 
 
@@ -22,9 +22,7 @@ L = pytest.importorskip("lightning")
         {"number": None, "candidates": None, "output_size": 6},
     ],
 )
-def test_prediction_optimized_sasrec(
-    item_user_sequential_dataset, train_sasrec_loader, candidates_dict
-):
+def test_prediction_optimized_sasrec(item_user_sequential_dataset, train_sasrec_loader, candidates_dict):
     pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_sasrec_loader = torch.utils.data.DataLoader(pred)
 
