@@ -3,8 +3,15 @@ import pytest
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
-    from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
-    from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionBatch, SasRecPredictionDataset
+    from replay.models.nn.optimizer_utils import (
+        FatLRSchedulerFactory,
+        FatOptimizerFactory,
+    )
+    from replay.models.nn.sequential.sasrec import (
+        SasRec,
+        SasRecPredictionBatch,
+        SasRecPredictionDataset,
+    )
 
 
 torch = pytest.importorskip("torch")
@@ -22,7 +29,11 @@ L = pytest.importorskip("lightning")
     ],
 )
 def test_training_sasrec_with_different_losses(
-    item_user_sequential_dataset, train_sasrec_loader, val_sasrec_loader, loss_type, loss_sample_count
+    item_user_sequential_dataset,
+    train_sasrec_loader,
+    val_sasrec_loader,
+    loss_type,
+    loss_sample_count,
 ):
     trainer = L.Trainer(max_epochs=1)
     model = SasRec(
@@ -38,13 +49,20 @@ def test_training_sasrec_with_different_losses(
 @pytest.mark.torch
 def test_init_sasrec_with_invalid_loss_type(item_user_sequential_dataset):
     with pytest.raises(NotImplementedError) as exc:
-        SasRec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_type="")
+        SasRec(
+            tensor_schema=item_user_sequential_dataset._tensor_schema,
+            max_seq_len=5,
+            hidden_size=64,
+            loss_type="",
+        )
 
     assert str(exc.value) == "Not supported loss_type"
 
 
 @pytest.mark.torch
-def test_train_sasrec_with_invalid_loss_type(item_user_sequential_dataset, train_sasrec_loader):
+def test_train_sasrec_with_invalid_loss_type(
+    item_user_sequential_dataset, train_sasrec_loader
+):
     with pytest.raises(ValueError):
         trainer = L.Trainer(max_epochs=1)
         model = SasRec(
@@ -74,6 +92,31 @@ def test_prediction_sasrec(item_user_sequential_dataset, train_sasrec_loader):
 
 
 @pytest.mark.torch
+def test_prediction_sasrec_with_candidates(
+    item_user_sequential_dataset, train_sasrec_loader, tmp_path
+):
+    pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred_sasrec_loader = torch.utils.data.DataLoader(pred)
+    trainer = L.Trainer(max_epochs=1)
+    model = SasRec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        max_seq_len=5,
+        hidden_size=64,
+    )
+    trainer.fit(model, train_sasrec_loader)
+
+    model.candidates_to_score = torch.LongTensor([0, 1, 2, 3])
+    predicted = trainer.predict(model, pred_sasrec_loader)
+    assert torch.equal(model.candidates_to_score, torch.LongTensor([0, 1, 2, 3]))
+    assert predicted[0].size() == (1, 4)
+
+    model.candidates_to_score = None
+    predicted = trainer.predict(model, pred_sasrec_loader)
+    assert model.candidates_to_score == None
+    assert predicted[0].size() == (1, 6)
+
+
+@pytest.mark.torch
 @pytest.mark.parametrize(
     "optimizer_factory, lr_scheduler_factory",
     [
@@ -83,7 +126,9 @@ def test_prediction_sasrec(item_user_sequential_dataset, train_sasrec_loader):
         (FatOptimizerFactory(), FatLRSchedulerFactory()),
     ],
 )
-def test_sasrec_configure_optimizers(item_user_sequential_dataset, optimizer_factory, lr_scheduler_factory):
+def test_sasrec_configure_optimizers(
+    item_user_sequential_dataset, optimizer_factory, lr_scheduler_factory
+):
     if optimizer_factory:
         model = SasRec(
             tensor_schema=item_user_sequential_dataset._tensor_schema,
@@ -139,10 +184,15 @@ def test_different_sampling_strategies(
 
 
 @pytest.mark.torch
-def test_not_implemented_sampling_strategy(item_user_sequential_dataset, train_sasrec_loader, val_sasrec_loader):
+def test_not_implemented_sampling_strategy(
+    item_user_sequential_dataset, train_sasrec_loader, val_sasrec_loader
+):
     trainer = L.Trainer(max_epochs=1)
     model = SasRec(
-        tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_sample_count=6
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        max_seq_len=5,
+        hidden_size=64,
+        loss_sample_count=6,
     )
     model._negative_sampling_strategy = ""
     with pytest.raises(NotImplementedError):
@@ -154,7 +204,10 @@ def test_model_predict_with_nn_parallel(item_user_sequential_dataset, simple_mas
     item_sequences, padding_mask, tokens_mask, _ = simple_masks
 
     model = SasRec(
-        tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_sample_count=6
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        max_seq_len=5,
+        hidden_size=64,
+        loss_sample_count=6,
     )
 
     model._model = torch.nn.DataParallel(model._model)
@@ -185,8 +238,13 @@ def test_sasrec_get_embeddings(tensor_schema):
     assert id(model_ti_item_embedding) != id(model_ti._model.item_embedder.item_emb)
 
     # Ensure we got same values
-    assert torch.eq(model_item_embedding, model._model.item_embedder.item_emb.weight.data[:-1, :]).all()
-    assert torch.eq(model_ti_item_embedding, model_ti._model.item_embedder.item_emb.weight.data[:-1, :]).all()
+    assert torch.eq(
+        model_item_embedding, model._model.item_embedder.item_emb.weight.data[:-1, :]
+    ).all()
+    assert torch.eq(
+        model_ti_item_embedding,
+        model_ti._model.item_embedder.item_emb.weight.data[:-1, :],
+    ).all()
 
 
 @pytest.mark.torch
@@ -246,7 +304,9 @@ def test_sasrec_fine_tuning_on_new_items_by_appending(fitted_sasrec, new_items_d
 
 
 @pytest.mark.torch
-def test_sasrec_fine_tuning_save_load(fitted_sasrec, new_items_dataset, train_sasrec_loader):
+def test_sasrec_fine_tuning_save_load(
+    fitted_sasrec, new_items_dataset, train_sasrec_loader
+):
     model, tokenizer = fitted_sasrec
     trainer = L.Trainer(max_epochs=1)
     tokenizer.item_id_encoder.partial_fit(new_items_dataset)
@@ -287,7 +347,9 @@ def test_sasrec_get_init_parameters(fitted_sasrec):
     assert params["hidden_size"] == 50
 
 
-def test_predict_step_with_small_seq_len(item_user_num_sequential_dataset, simple_masks):
+def test_predict_step_with_small_seq_len(
+    item_user_num_sequential_dataset, simple_masks
+):
     item_sequences, padding_mask, _, _ = simple_masks
 
     model = SasRec(
@@ -298,7 +360,9 @@ def test_predict_step_with_small_seq_len(item_user_num_sequential_dataset, simpl
     )
 
     batch = SasRecPredictionBatch(
-        torch.arange(0, 4), padding_mask, {"item_id": item_sequences, "num_feature": item_sequences}
+        torch.arange(0, 4),
+        padding_mask,
+        {"item_id": item_sequences, "num_feature": item_sequences},
     )
     model.predict_step(batch, 0)
 
@@ -308,10 +372,15 @@ def test_predict_step_with_big_seq_len(item_user_sequential_dataset, simple_mask
     item_sequences, padding_mask, _, _ = simple_masks
 
     model = SasRec(
-        tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=3, hidden_size=64, loss_sample_count=6
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        max_seq_len=3,
+        hidden_size=64,
+        loss_sample_count=6,
     )
 
-    batch = SasRecPredictionBatch(torch.arange(0, 4), padding_mask, {"item_id": item_sequences})
+    batch = SasRecPredictionBatch(
+        torch.arange(0, 4), padding_mask, {"item_id": item_sequences}
+    )
     with pytest.raises(ValueError):
         model.predict_step(batch, 0)
 

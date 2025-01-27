@@ -18,7 +18,10 @@ if TORCH_AVAILABLE:
 )
 def test_sasrec_forward(tensor_schema, simple_masks, ti_modification):
     model = SasRecModel(
-        tensor_schema.subset(["item_id", "timestamp"]), hidden_size=64, max_len=5, ti_modification=ti_modification
+        tensor_schema.subset(["item_id", "timestamp"]),
+        hidden_size=64,
+        max_len=5,
+        ti_modification=ti_modification,
     )
     item_sequences, padding_mask, _, timestamp_sequences = simple_masks
     inputs = {"item_id": item_sequences, "timestamp": timestamp_sequences}
@@ -36,14 +39,19 @@ def test_sasrec_predictions(tensor_schema, simple_masks):
 
     predictions_by_one = model.predict(inputs, padding_mask, torch.tensor([0, 1, 2, 3]))
     predictions_all = model.predict(inputs, padding_mask)
-
     assert predictions_all.size() == predictions_by_one.size()
+
+    predictions_reduced = model.predict(inputs, padding_mask, torch.tensor([0, 1]))
+    assert predictions_reduced.size() == torch.Size([padding_mask.shape[0], 2])
 
 
 @pytest.mark.torch
 def test_item_embedder_weights(tensor_schema):
     item_embedder = SasRecModel(
-        tensor_schema.subset(["item_id", "timestamp"]), hidden_size=64, max_len=5, ti_modification=True
+        tensor_schema.subset(["item_id", "timestamp"]),
+        hidden_size=64,
+        max_len=5,
+        ti_modification=True,
     ).item_embedder
 
     assert item_embedder.get_item_weights(torch.tensor([0, 1, 2, 3])).size() == (4, 64)
@@ -51,7 +59,12 @@ def test_item_embedder_weights(tensor_schema):
 
 @pytest.mark.torch
 def test_sasrec_forward_with_float_timematrix(tensor_schema, simple_masks):
-    model = SasRecModel(tensor_schema.subset(["item_id", "timestamp"]), hidden_size=64, max_len=5, ti_modification=True)
+    model = SasRecModel(
+        tensor_schema.subset(["item_id", "timestamp"]),
+        hidden_size=64,
+        max_len=5,
+        ti_modification=True,
+    )
     item_sequences, padding_mask, _, timestamp_sequences = simple_masks
     timestamp_sequences = timestamp_sequences.float()
     inputs = {"item_id": item_sequences, "timestamp": timestamp_sequences}

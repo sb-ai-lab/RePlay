@@ -8,3 +8,4 @@ from .dataset import (
 )
 from .lightning import SasRec
 from .model import SasRecModel
+from .optimized_model import OptimizedSasRec
