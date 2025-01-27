@@ -27,10 +27,6 @@ from replay.utils import (
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import (
-<<<<<<< HEAD
-=======
-        Window,
->>>>>>> implementation done
         functions as sf,
     )
     from pyspark.sql.types import LongType, StructType
