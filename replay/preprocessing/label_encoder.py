@@ -28,7 +28,6 @@ from replay.utils import (
 if PYSPARK_AVAILABLE:
     from pyspark.sql import Window, functions as sf
     from pyspark.sql.types import LongType, StructType
-    from pyspark.storagelevel import StorageLevel
 
 HandleUnknownStrategies = Literal["error", "use_default_value", "drop"]
 
@@ -119,6 +118,10 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             If ``int`` value, then fill by that value.
             If ``str`` value, should be \"last\" only, then fill by ``n_classes`` value.
             Default: ``None``.
+        :param is_deterministic: Control determinism of mapping creation
+            If ``True``, then encoder fits deterministically and faster in spark version
+            If ``False``, then encoder  encoder creates different mappings, when a number of partitions is different.
+            Default: ``False``.
         """
         if handle_unknown not in self._HANDLE_UNKNOWN_STRATEGIES:
             msg = f"handle_unknown should be either 'error' or 'use_default_value', got {handle_unknown}."
@@ -141,6 +144,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         if self._mapping is not None:
             self._inverse_mapping = self._make_inverse_mapping()
             self._inverse_mapping_list = self._make_inverse_mapping_list()
+        self.is_deterministic = is_deterministic
 
     @property
     def column(self) -> str:
