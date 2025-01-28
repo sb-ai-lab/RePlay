@@ -5,11 +5,7 @@ import lightning
 import torch
 
 from replay.data.nn import TensorMap, TensorSchema
-from replay.models.nn.optimizer_utils import (
-    FatOptimizerFactory,
-    LRSchedulerFactory,
-    OptimizerFactory,
-)
+from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
 
 from .dataset import SasRecPredictionBatch, SasRecTrainingBatch, SasRecValidationBatch
 from .model import SasRecModel
@@ -111,14 +107,7 @@ class SasRec(lightning.LightningModule):
         if batch_idx % 100 == 0 and torch.cuda.is_available():  # pragma: no cover
             torch.cuda.empty_cache()
         loss = self._compute_loss(batch)
-        self.log(
-            "train_loss",
-            loss,
-            on_step=True,
-            on_epoch=True,
-            prog_bar=True,
-            sync_dist=True,
-        )
+        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         return loss
 
     def forward(
@@ -193,9 +182,7 @@ class SasRec(lightning.LightningModule):
             for feature_name, feature_tensor in features.items():
                 if self._schema[feature_name].is_cat:
                     features[feature_name] = torch.nn.functional.pad(
-                        feature_tensor,
-                        (self._model.max_len - sequence_item_count, 0),
-                        value=0,
+                        feature_tensor, (self._model.max_len - sequence_item_count, 0), value=0
                     )
                 else:
                     features[feature_name] = torch.nn.functional.pad(
@@ -325,13 +312,9 @@ class SasRec(lightning.LightningModule):
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
         assert self._loss_sample_count is not None
-        (
-            positive_logits,
-            negative_logits,
-            positive_labels,
-            negative_labels,
-            vocab_size,
-        ) = self._get_sampled_logits(feature_tensors, positive_labels, padding_mask, target_padding_mask)
+        (positive_logits, negative_logits, positive_labels, negative_labels, vocab_size) = self._get_sampled_logits(
+            feature_tensors, positive_labels, padding_mask, target_padding_mask
+        )
         n_negative_samples = min(self._loss_sample_count, vocab_size)
 
         # Reject negative samples matching target label & correct for remaining samples
@@ -425,17 +408,9 @@ class SasRec(lightning.LightningModule):
             negative_logits = negative_logits[ids, negative_labels_indices.T].T
             positive_logits = positive_logits[ids, positive_labels_indices.T].T
 
-        return (
-            positive_logits,
-            negative_logits,
-            positive_labels,
-            negative_labels,
-            vocab_size,
-        )
+        return (positive_logits, negative_logits, positive_labels, negative_labels, vocab_size)
 
-    def _create_loss(
-        self,
-    ) -> Union[torch.nn.BCEWithLogitsLoss, torch.nn.CrossEntropyLoss]:
+    def _create_loss(self) -> Union[torch.nn.BCEWithLogitsLoss, torch.nn.CrossEntropyLoss]:
         if self._loss_type == "BCE":
             return torch.nn.BCEWithLogitsLoss(reduction="sum")
 

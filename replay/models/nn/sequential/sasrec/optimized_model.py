@@ -71,10 +71,7 @@ class OptimizedSasRec:
         ]
         if self._num_candidates_to_score is not None:
             model_input_scheme += [(self._inputs_names[2], [self._num_candidates_to_score])]
-        model_onnx = ov.convert_model(
-            onnx_path,
-            input=model_input_scheme,
-        )
+        model_onnx = ov.convert_model(onnx_path, input=model_input_scheme)
         self._model = self._core.compile_model(model=model_onnx, device_name=device_name)
 
     def _prepare_prediction_batch(self, batch: SasRecPredictionBatch) -> SasRecPredictionBatch:
@@ -93,9 +90,7 @@ class OptimizedSasRec:
             sequence_item_count = padding_mask.shape[1]
             for feature_name, feature_tensor in features.items():
                 features[feature_name] = torch.nn.functional.pad(
-                    feature_tensor,
-                    (self._max_seq_len - sequence_item_count, 0),
-                    value=0,
+                    feature_tensor, (self._max_seq_len - sequence_item_count, 0), value=0
                 )
             padding_mask = torch.nn.functional.pad(padding_mask, (self._max_seq_len - sequence_item_count, 0), value=0)
             batch = SasRecPredictionBatch(query_id, padding_mask, features)
@@ -112,11 +107,12 @@ class OptimizedSasRec:
         :param batch: Prediction input.
         :param candidates_to_score: Item ids to calculate scores.
             Default: ``None``.
+
         :return: Tensor with scores.
         """
         if self._num_candidates_to_score is None and candidates_to_score is not None:
-            msg = "If num_candidates_to_score equals 0, \
-it is impossible to infer the model with passed candidates_to_score."
+            msg = "If num_candidates_to_score is None, \
+                it is impossible to infer the model with passed candidates_to_score."
             raise ValueError(msg)
         batch = self._prepare_prediction_batch(batch)
         model_inputs = {
@@ -131,7 +127,7 @@ it is impossible to infer the model with passed candidates_to_score."
         self,
         dataloader: DataLoader,
         callbacks: List[BasePredictionCallback],
-        candidates_to_score: Optional[torch.LongTensor],
+        candidates_to_score: Optional[torch.LongTensor] = None,
         show_progress_bar: bool = False,
     ) -> None:
         """
@@ -189,8 +185,8 @@ it is impossible to infer the model with passed candidates_to_score."
 
         self._num_candidates_to_score = num_candidates_to_score
 
-    @classmethod
-    def _validate_num_candidates_to_score(cls, lightning_model, num_candidates_to_score):
+    @staticmethod
+    def _validate_num_candidates_to_score(lightning_model, num_candidates_to_score):
         total_item_count = lightning_model._model.item_count
         if not isinstance(num_candidates_to_score, int):
             msg = f"Expected num_candidates_to_score of type int, got {type(num_candidates_to_score)}"
@@ -245,15 +241,11 @@ it is impossible to infer the model with passed candidates_to_score."
             "padding_mask": {0: "batch_size", 1: "max_len"},
         }
         if num_candidates_to_score is not None:
-            cls._validate_num_candidates_to_score(lightning_model, num_candidates_to_score)
+            OptimizedSasRec._validate_num_candidates_to_score(lightning_model, num_candidates_to_score)
             candidates_to_score = torch.zeros((num_candidates_to_score,)).long()
             model_input_names += ["candidates_to_score"]
             model_dynamic_axes_in_input["candidates_to_score"] = {0: "num_candidates_to_score"}
-            model_input_sample = (
-                {item_seq_name: item_sequence},
-                padding_mask,
-                candidates_to_score,
-            )
+            model_input_sample = ({item_seq_name: item_sequence}, padding_mask, candidates_to_score)
         else:
             model_input_sample = ({item_seq_name: item_sequence}, padding_mask)
 
@@ -276,14 +268,7 @@ it is impossible to infer the model with passed candidates_to_score."
         if max_seq_len is None:
             max_seq_len = max_len
 
-        optimized_model = cls(
-            onnx_path,
-            mode,
-            device_name,
-            batch_size,
-            max_seq_len,
-            num_candidates_to_score,
-        )
+        optimized_model = cls(onnx_path, mode, device_name, batch_size, max_seq_len, num_candidates_to_score)
         if not is_saveble:
             os.remove(onnx_path)
 

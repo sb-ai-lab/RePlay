@@ -3,16 +3,8 @@ import pytest
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
-    from replay.models.nn.optimizer_utils import (
-        FatLRSchedulerFactory,
-        FatOptimizerFactory,
-    )
-    from replay.models.nn.sequential.sasrec import (
-        SasRec,
-        SasRecPredictionBatch,
-        SasRecPredictionDataset,
-    )
-
+    from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
+    from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionBatch, SasRecPredictionDataset
 
 torch = pytest.importorskip("torch")
 L = pytest.importorskip("lightning")
@@ -49,12 +41,7 @@ def test_training_sasrec_with_different_losses(
 @pytest.mark.torch
 def test_init_sasrec_with_invalid_loss_type(item_user_sequential_dataset):
     with pytest.raises(NotImplementedError) as exc:
-        SasRec(
-            tensor_schema=item_user_sequential_dataset._tensor_schema,
-            max_seq_len=5,
-            hidden_size=64,
-            loss_type="",
-        )
+        SasRec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_type="")
 
     assert str(exc.value) == "Not supported loss_type"
 
@@ -63,11 +50,7 @@ def test_init_sasrec_with_invalid_loss_type(item_user_sequential_dataset):
 def test_train_sasrec_with_invalid_loss_type(item_user_sequential_dataset, train_sasrec_loader):
     with pytest.raises(ValueError):
         trainer = L.Trainer(max_epochs=1)
-        model = SasRec(
-            tensor_schema=item_user_sequential_dataset._tensor_schema,
-            max_seq_len=5,
-            hidden_size=64,
-        )
+        model = SasRec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64)
         model._loss_type = ""
         trainer.fit(model, train_dataloaders=train_sasrec_loader)
 
@@ -77,11 +60,7 @@ def test_prediction_sasrec(item_user_sequential_dataset, train_sasrec_loader):
     pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_sasrec_loader = torch.utils.data.DataLoader(pred)
     trainer = L.Trainer(max_epochs=1)
-    model = SasRec(
-        tensor_schema=item_user_sequential_dataset._tensor_schema,
-        max_seq_len=5,
-        hidden_size=64,
-    )
+    model = SasRec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64)
     trainer.fit(model, train_sasrec_loader)
     predicted = trainer.predict(model, pred_sasrec_loader)
 
@@ -90,26 +69,44 @@ def test_prediction_sasrec(item_user_sequential_dataset, train_sasrec_loader):
 
 
 @pytest.mark.torch
-def test_prediction_sasrec_with_candidates(item_user_sequential_dataset, train_sasrec_loader, tmp_path):
+@pytest.mark.parametrize(
+    "candidates",
+    [torch.LongTensor([1]), torch.LongTensor([1, 2, 3, 4]), torch.LongTensor([0, 1, 2, 3, 4, 5]), None],
+)
+def test_prediction_sasrec_with_candidates(item_user_sequential_dataset, train_sasrec_loader, candidates):
     pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_sasrec_loader = torch.utils.data.DataLoader(pred)
     trainer = L.Trainer(max_epochs=1)
-    model = SasRec(
-        tensor_schema=item_user_sequential_dataset._tensor_schema,
-        max_seq_len=5,
-        hidden_size=64,
-    )
+    model = SasRec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64)
     trainer.fit(model, train_sasrec_loader)
 
-    model.candidates_to_score = torch.LongTensor([0, 1, 2, 3])
+    model.candidates_to_score = candidates
     predicted = trainer.predict(model, pred_sasrec_loader)
-    assert torch.equal(model.candidates_to_score, torch.LongTensor([0, 1, 2, 3]))
-    assert predicted[0].size() == (1, 4)
+    if candidates is not None:
+        assert torch.equal(model.candidates_to_score, candidates)
+    else:
+        assert model.candidates_to_score is None
+    for pred in predicted:
+        if candidates is not None:
+            assert pred.size() == (1, candidates.shape[0])
+        else:
+            assert pred.size() == (1, item_user_sequential_dataset.schema._get_object_args()[0]["cardinality"])
 
-    model.candidates_to_score = None
-    predicted = trainer.predict(model, pred_sasrec_loader)
-    assert model.candidates_to_score is None
-    assert predicted[0].size() == (1, 6)
+
+@pytest.mark.torch
+@pytest.mark.parametrize(
+    "candidates",
+    [torch.FloatTensor([1]), torch.LongTensor([1] * 100000)],
+)
+def test_prediction_optimized_sasrec_invalid_candidates_to_score(
+    item_user_sequential_dataset, train_sasrec_loader, candidates
+):
+    trainer = L.Trainer(max_epochs=1)
+    model = SasRec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64)
+    trainer.fit(model, train_sasrec_loader)
+
+    with pytest.raises(ValueError):
+        model.candidates_to_score = candidates
 
 
 @pytest.mark.torch
@@ -231,10 +228,7 @@ def test_sasrec_get_embeddings(tensor_schema):
 
     # Ensure we got same values
     assert torch.eq(model_item_embedding, model._model.item_embedder.item_emb.weight.data[:-1, :]).all()
-    assert torch.eq(
-        model_ti_item_embedding,
-        model_ti._model.item_embedder.item_emb.weight.data[:-1, :],
-    ).all()
+    assert torch.eq(model_ti_item_embedding, model_ti._model.item_embedder.item_emb.weight.data[:-1, :]).all()
 
 
 @pytest.mark.torch
@@ -372,10 +366,7 @@ def test_predict_step_with_big_seq_len(item_user_sequential_dataset, simple_mask
 @pytest.mark.torch
 def test_sasrec_get_set_optim_factory(item_user_sequential_dataset):
     optim_factory = FatOptimizerFactory()
-    model = SasRec(
-        tensor_schema=item_user_sequential_dataset._tensor_schema,
-        optimizer_factory=optim_factory,
-    )
+    model = SasRec(tensor_schema=item_user_sequential_dataset._tensor_schema, optimizer_factory=optim_factory)
 
     assert model.optimizer_factory is optim_factory
     new_factory = FatOptimizerFactory(learning_rate=0.1)
@@ -385,9 +376,7 @@ def test_sasrec_get_set_optim_factory(item_user_sequential_dataset):
 
 @pytest.mark.torch
 def test_sasrec_set_invalid_optim_factory(item_user_sequential_dataset):
-    model = SasRec(
-        tensor_schema=item_user_sequential_dataset._tensor_schema,
-    )
+    model = SasRec(tensor_schema=item_user_sequential_dataset._tensor_schema)
     new_factory = "Let's say it's an optimizer_factory"
     with pytest.raises(ValueError):
         model.optimizer_factory = new_factory
