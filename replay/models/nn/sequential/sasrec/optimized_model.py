@@ -189,7 +189,8 @@ it is impossible to infer the model with passed candidates_to_score."
 
         self._num_candidates_to_score = num_candidates_to_score
 
-    def _validate_num_candidates_to_score(self, lightning_model, num_candidates_to_score):
+    @classmethod
+    def _validate_num_candidates_to_score(cls, lightning_model, num_candidates_to_score):
         total_item_count = lightning_model._model.item_count
         if not isinstance(num_candidates_to_score, int):
             msg = f"Expected num_candidates_to_score of type int, got {type(num_candidates_to_score)}"
