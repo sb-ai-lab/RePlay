@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -747,6 +748,16 @@ def simple_dataframe(spark, columns):
         (1, 1, 19841),
     ]
     return spark.createDataFrame(data, schema=columns)
+
+
+@pytest.fixture(scope="module")
+def random_string_spark_df(spark):
+    random.seed(42)
+    def generate_random_string(length=10):
+        return ''.join(random.choices('abcdefghijklmnopqrstuvwxyz', k=random.randint(1, length)))
+
+    data = [(generate_random_string(),) for _ in range(100_000)] * 4 
+    return spark.createDataFrame(data, schema=["random_string"])
 
 
 @pytest.fixture(scope="module")

@@ -64,6 +64,33 @@ def test_label_encoder_load_rule_spark(column, df_name, is_grouped_encoder, requ
     pd.testing.assert_frame_equal(df1, df2)
 
 
+@pytest.mark.spark
+@pytest.mark.parametrize("column", ["random_string"])
+def test_label_encoder_determinism(column, random_string_spark_df):
+    # При репартиционировании датафрейма, label encoder, обученный через spark выдает разные маппинги
+    df1 = random_string_spark_df.repartition(13)
+    rule_1 = LabelEncodingRule(column)
+    encoder_1 = LabelEncoder([rule_1])
+    encoder_1.fit(df1)
+    mapping_1 = encoder_1.mapping[column]
+
+    df2 = random_string_spark_df.repartition(11)
+    rule_2 = LabelEncodingRule(column)
+    encoder_2 = LabelEncoder([rule_2])
+    encoder_2.fit(df2)
+    mapping_2 = encoder_2.mapping[column]
+
+    df3 = random_string_spark_df.repartition(20)
+    rule_3 = LabelEncodingRule(column)
+    encoder_3 = LabelEncoder([rule_3])
+    encoder_3.fit(df3)
+    mapping_3 = encoder_3.mapping[column]
+
+    assert mapping_1 == mapping_2, "LabelEncoder.fit работает недетерминировано (сравнение на запуске 1 и 2)"
+    assert mapping_1 == mapping_3, "LabelEncoder.fit работает недетерминировано (сравнение на запуске 1 и 3)"
+    assert mapping_2 == mapping_3, "LabelEncoder.fit работает недетерминировано (сравнение на запуске 2 и 3)"
+
+
 @pytest.mark.core
 @pytest.mark.parametrize(
     "column, df_name, is_grouped_encoder",

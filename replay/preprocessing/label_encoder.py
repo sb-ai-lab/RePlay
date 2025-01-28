@@ -97,6 +97,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         mapping: Optional[Mapping] = None,
         handle_unknown: HandleUnknownStrategies = "error",
         default_value: Optional[Union[int, str]] = None,
+        is_deterministic: Optional[bool] = False
     ):
         """
         :param column: Name of the column to encode.
@@ -167,17 +168,33 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         return inverse_mapping_list
 
     def _fit_spark(self, df: SparkDataFrame) -> None:
-        unique_col_values = df.select(self._col).distinct()
-        window_function_give_ids = Window.orderBy(self._col)
+        if not self.is_deterministic:
+            unique_col_values = df.select(self._col).distinct()
 
-        mapping_on_spark = (
-            unique_col_values
-            .withColumn(self._target_col, sf.row_number().over(window_function_give_ids).cast(LongType()))
-            .withColumn(self._target_col, sf.col(self._target_col) - 1)
-            .select(self._col, self._target_col)
-        )
+            mapping_on_spark = (
+                unique_col_values.rdd.zipWithIndex()
+                .toDF(
+                    StructType()
+                    .add("_1", StructType().add(self._col, df.schema[self._col].dataType, True), True)
+                    .add("_2", LongType(), True)
+                )
+                .select(sf.col(f"_1.{self._col}").alias(self._col), sf.col("_2").alias(self._target_col))
+            )
 
-        self._mapping = mapping_on_spark.rdd.collectAsMap()
+            self._mapping = mapping_on_spark.rdd.collectAsMap()
+        else:
+            unique_col_values = df.select(self._col).distinct()
+            window_function_give_ids = Window.orderBy(self._col)
+
+            mapping_on_spark = (
+                unique_col_values
+                .withColumn(self._target_col, sf.row_number().over(window_function_give_ids).cast(LongType()))
+                .withColumn(self._target_col, sf.col(self._target_col) - 1)
+                .select(self._col, self._target_col)
+            )
+
+            self._mapping = mapping_on_spark.rdd.collectAsMap()
+
 
     def _fit_pandas(self, df: PandasDataFrame) -> None:
         unique_col_values = df[self._col].drop_duplicates().reset_index(drop=True)
@@ -222,26 +239,37 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
     def _partial_fit_spark(self, df: SparkDataFrame) -> None:
         assert self._mapping is not None
-
         max_value = sf.lit(max(self._mapping.values()) + 1)
         already_fitted = list(self._mapping.keys())
         new_values = {x[self._col] for x in df.select(self._col).distinct().collect()} - set(already_fitted)
         new_values_list = [[x] for x in new_values]
         assert len(new_values_list) > 0, "There is no new values in input dataframe"
         new_unique_values_df: SparkDataFrame = get_spark_session().createDataFrame(new_values_list, schema=[self._col])
-        window_function_give_ids = Window.orderBy(self._col)
-
-        new_part_of_mapping_on_spark = (
-            new_unique_values_df
-            .withColumn(self._target_col, sf.row_number().over(window_function_give_ids).cast(LongType()))
-            .withColumn(self._target_col, sf.col(self._target_col) - 1 + max_value)
-            .select(self._col, self._target_col)
-        )
-        new_values_transformed_map = new_part_of_mapping_on_spark.rdd.collectAsMap()
-
-        self._mapping.update(new_values_transformed_map)
-        self._inverse_mapping.update({v: k for k, v in new_values_transformed_map.items()})
-        self._inverse_mapping_list.extend(new_values_transformed_map.keys())
+        if not self.is_deterministic:
+            new_unique_values = new_unique_values_df.join(df, on=self._col, how="left").select(self._col)
+            new_part_of_mapping: dict = (
+                new_unique_values.rdd.zipWithIndex()
+                .toDF(
+                    StructType()
+                    .add("_1", StructType().add(self._col, df.schema[self._col].dataType), True)
+                    .add("_2", LongType(), True)
+                )
+                .select(sf.col(f"_1.{self._col}").alias(self._col), sf.col("_2").alias(self._target_col))
+                .withColumn(self._target_col, sf.col(self._target_col) + max_value)
+                .rdd.collectAsMap()
+            )
+        else:
+            window_function_give_ids = Window.orderBy(self._col)
+            new_part_of_mapping = (
+                new_unique_values_df
+                .withColumn(self._target_col, sf.row_number().over(window_function_give_ids).cast(LongType()))
+                .withColumn(self._target_col, sf.col(self._target_col) - 1 + max_value)
+                .select(self._col, self._target_col)
+                .rdd.collectAsMap()
+            )
+        self._mapping.update(new_part_of_mapping)
+        self._inverse_mapping.update({v: k for k, v in new_part_of_mapping.items()})
+        self._inverse_mapping_list.extend(new_part_of_mapping.keys())
 
 
     def _partial_fit_pandas(self, df: PandasDataFrame) -> None:
