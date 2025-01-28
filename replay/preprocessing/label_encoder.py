@@ -26,7 +26,7 @@ from replay.utils import (
 )
 
 if PYSPARK_AVAILABLE:
-    from pyspark.sql import Window, functions as sf
+    from pyspark.sql import Window, functions as sf  # noqa: I001
     from pyspark.sql.types import LongType, StructType
 
 HandleUnknownStrategies = Literal["error", "use_default_value", "drop"]
