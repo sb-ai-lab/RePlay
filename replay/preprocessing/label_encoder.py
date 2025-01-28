@@ -120,7 +120,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             Default: ``None``.
         :param is_deterministic: Control determinism of mapping creation
             If ``True``, then encoder fits deterministically and faster in spark version
-            If ``False``, then encoder  encoder creates different mappings, when a number of partitions is different.
+            If ``False``, then encoder creates different mappings, when a number of partitions is different.
             Default: ``False``.
         """
         if handle_unknown not in self._HANDLE_UNKNOWN_STRATEGIES:
