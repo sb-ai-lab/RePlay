@@ -96,7 +96,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         mapping: Optional[Mapping] = None,
         handle_unknown: HandleUnknownStrategies = "error",
         default_value: Optional[Union[int, str]] = None,
-        is_deterministic: Optional[bool] = False
+        is_deterministic: Optional[bool] = False,
     ):
         """
         :param column: Name of the column to encode.
@@ -191,14 +191,14 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             window_function_give_ids = Window.orderBy(self._col)
 
             mapping_on_spark = (
-                unique_col_values
-                .withColumn(self._target_col, sf.row_number().over(window_function_give_ids).cast(LongType()))
+                unique_col_values.withColumn(
+                    self._target_col, sf.row_number().over(window_function_give_ids).cast(LongType())
+                )
                 .withColumn(self._target_col, sf.col(self._target_col) - 1)
                 .select(self._col, self._target_col)
             )
 
             self._mapping = mapping_on_spark.rdd.collectAsMap()
-
 
     def _fit_pandas(self, df: PandasDataFrame) -> None:
         unique_col_values = df[self._col].drop_duplicates().reset_index(drop=True)
@@ -240,7 +240,6 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         self._is_fitted = True
         return self
 
-
     def _partial_fit_spark(self, df: SparkDataFrame) -> None:
         assert self._mapping is not None
         max_value = sf.lit(max(self._mapping.values()) + 1)
@@ -265,8 +264,9 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         else:
             window_function_give_ids = Window.orderBy(self._col)
             new_part_of_mapping = (
-                new_unique_values_df
-                .withColumn(self._target_col, sf.row_number().over(window_function_give_ids).cast(LongType()))
+                new_unique_values_df.withColumn(
+                    self._target_col, sf.row_number().over(window_function_give_ids).cast(LongType())
+                )
                 .withColumn(self._target_col, sf.col(self._target_col) - 1 + max_value)
                 .select(self._col, self._target_col)
                 .rdd.collectAsMap()
@@ -274,7 +274,6 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         self._mapping.update(new_part_of_mapping)
         self._inverse_mapping.update({v: k for k, v in new_part_of_mapping.items()})
         self._inverse_mapping_list.extend(new_part_of_mapping.keys())
-
 
     def _partial_fit_pandas(self, df: PandasDataFrame) -> None:
         assert self._mapping is not None
