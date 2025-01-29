@@ -1,4 +1,5 @@
 import os
+import warnings
 from typing import List, Literal, Optional
 
 import openvino as ov
@@ -146,6 +147,7 @@ class OptimizedSasRec:
         for batch in tqdm(dataloader, desc="Predicting Dataloader", disable=not show_progress_bar):
             batch: SasRecPredictionBatch
             if (self._mode == "batch") and (batch.padding_mask.shape[0] != self._batch_size):
+                warnings.warn("The last batch of the dataloader is smaller then others. It will be skipped.")
                 continue
 
             scores = self.predict(batch, candidates_to_score)
