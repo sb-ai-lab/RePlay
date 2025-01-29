@@ -9,12 +9,25 @@ from replay.utils import PYSPARK_AVAILABLE
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql.functions import col, to_date, unix_timestamp
-    from pyspark.sql.types import ArrayType, IntegerType, LongType, StringType, StructField, StructType
+    from pyspark.sql.types import (
+        ArrayType,
+        IntegerType,
+        LongType,
+        StringType,
+        StructField,
+        StructType,
+    )
 
 
 @pytest.fixture(scope="module")
 def pandas_df_for_labelencoder():
-    return pd.DataFrame({"user_id": ["u1", "u2"], "item1": ["item_1", "item_2"], "item2": ["item_1", "item_2"]})
+    return pd.DataFrame(
+        {
+            "user_id": ["u1", "u2"],
+            "item1": ["item_1", "item_2"],
+            "item2": ["item_1", "item_2"],
+        }
+    )
 
 
 @pytest.fixture(scope="module")
@@ -35,7 +48,13 @@ def pandas_df_for_labelencoder_new_data():
 
 @pytest.fixture(scope="module")
 def pandas_df_for_grouped_labelencoder_new_data():
-    return pd.DataFrame({"user_id": [["u4", "u5"]], "item1": [["item_4", "item_5"]], "item2": [["item_4", "item_5"]]})
+    return pd.DataFrame(
+        {
+            "user_id": [["u4", "u5"]],
+            "item1": [["item_4", "item_5"]],
+            "item2": [["item_4", "item_5"]],
+        }
+    )
 
 
 @pytest.fixture(scope="module")
@@ -86,7 +105,9 @@ def polars_df_for_labelencoder_new_data(pandas_df_for_labelencoder_new_data):
 
 
 @pytest.fixture(scope="module")
-def polars_df_for_grouped_labelencoder_new_data(pandas_df_for_grouped_labelencoder_new_data):
+def polars_df_for_grouped_labelencoder_new_data(
+    pandas_df_for_grouped_labelencoder_new_data,
+):
     return pl.from_pandas(pandas_df_for_grouped_labelencoder_new_data)
 
 
@@ -101,7 +122,9 @@ def spark_df_for_grouped_labelencoder(spark, pandas_df_for_grouped_labelencoder)
 
 
 @pytest.fixture(scope="module")
-def polars_df_for_grouped_labelencoder_modified(pandas_df_for_grouped_labelencoder_modified):
+def polars_df_for_grouped_labelencoder_modified(
+    pandas_df_for_grouped_labelencoder_modified,
+):
     return pl.from_pandas(pandas_df_for_grouped_labelencoder_modified)
 
 
@@ -700,7 +723,14 @@ def columns_target():
 
 @pytest.fixture(scope="module")
 def columns_target_list_len():
-    return ["user_id", "item_id", "timestamp", "item_id_list", "timestamp_list", "list_len"]
+    return [
+        "user_id",
+        "item_id",
+        "timestamp",
+        "item_id_list",
+        "timestamp_list",
+        "list_len",
+    ]
 
 
 @pytest.fixture(scope="module")
@@ -749,6 +779,7 @@ def simple_dataframe(spark, columns):
         (1, 1, 19841),
     ]
     return spark.createDataFrame(data, schema=columns)
+
 
 @pytest.fixture(scope="module")
 def static_string_spark_df(spark):
@@ -1075,7 +1106,33 @@ def session_dataset_spark(spark, session_dataset_pandas):
 def simple_data_to_filter_pandas():
     df = pd.DataFrame(
         {
-            "query_id": [0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 3, 3, 4, 5, 5, 5, 5, 5, 1, 0, 2, 2],
+            "query_id": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                1,
+                1,
+                2,
+                2,
+                3,
+                3,
+                3,
+                3,
+                3,
+                4,
+                5,
+                5,
+                5,
+                5,
+                5,
+                1,
+                0,
+                2,
+                2,
+            ],
             "item_id": [
                 10,
                 10,
@@ -1103,7 +1160,33 @@ def simple_data_to_filter_pandas():
                 10,
                 11,
             ],
-            "timestamp": [0, 1, 1, 2, 0, 2, 2, 3, 1, 1, 1, 1, 0, 2, 1, 3, 1, 0, 0, 0, 0, 2, 3, 3, 1],
+            "timestamp": [
+                0,
+                1,
+                1,
+                2,
+                0,
+                2,
+                2,
+                3,
+                1,
+                1,
+                1,
+                1,
+                0,
+                2,
+                1,
+                3,
+                1,
+                0,
+                0,
+                0,
+                0,
+                2,
+                3,
+                3,
+                1,
+            ],
         }
     )
     return df
