@@ -179,10 +179,17 @@ class LabelEncodingRule(BaseLabelEncodingRule):
                 unique_col_values.rdd.zipWithIndex()
                 .toDF(
                     StructType()
-                    .add("_1", StructType().add(self._col, df.schema[self._col].dataType, True), True)
+                    .add(
+                        "_1",
+                        StructType().add(self._col, df.schema[self._col].dataType, True),
+                        True,
+                    )
                     .add("_2", LongType(), True)
                 )
-                .select(sf.col(f"_1.{self._col}").alias(self._col), sf.col("_2").alias(self._target_col))
+                .select(
+                    sf.col(f"_1.{self._col}").alias(self._col),
+                    sf.col("_2").alias(self._target_col),
+                )
             )
 
             self._mapping = mapping_on_spark.rdd.collectAsMap()
@@ -192,7 +199,8 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
             mapping_on_spark = (
                 unique_col_values.withColumn(
-                    self._target_col, sf.row_number().over(window_function_give_ids).cast(LongType())
+                    self._target_col,
+                    sf.row_number().over(window_function_give_ids).cast(LongType()),
                 )
                 .withColumn(self._target_col, sf.col(self._target_col) - 1)
                 .select(self._col, self._target_col)
@@ -254,10 +262,17 @@ class LabelEncodingRule(BaseLabelEncodingRule):
                 new_unique_values.rdd.zipWithIndex()
                 .toDF(
                     StructType()
-                    .add("_1", StructType().add(self._col, df.schema[self._col].dataType), True)
+                    .add(
+                        "_1",
+                        StructType().add(self._col, df.schema[self._col].dataType),
+                        True,
+                    )
                     .add("_2", LongType(), True)
                 )
-                .select(sf.col(f"_1.{self._col}").alias(self._col), sf.col("_2").alias(self._target_col))
+                .select(
+                    sf.col(f"_1.{self._col}").alias(self._col),
+                    sf.col("_2").alias(self._target_col),
+                )
                 .withColumn(self._target_col, sf.col(self._target_col) + max_value)
                 .rdd.collectAsMap()
             )
@@ -265,7 +280,8 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             window_function_give_ids = Window.orderBy(self._col)
             new_part_of_mapping = (
                 new_unique_values_df.withColumn(
-                    self._target_col, sf.row_number().over(window_function_give_ids).cast(LongType())
+                    self._target_col,
+                    sf.row_number().over(window_function_give_ids).cast(LongType()),
                 )
                 .withColumn(self._target_col, sf.col(self._target_col) - 1 + max_value)
                 .select(self._col, self._target_col)
@@ -660,7 +676,10 @@ class SequenceEncodingRule(LabelEncodingRule):
             if default_value:
                 encoded_df = encoded_df.withColumn(
                     self._target_col,
-                    sf.transform(self._target_col, lambda x: sf.when(x.isNull(), default_value).otherwise(x)),
+                    sf.transform(
+                        self._target_col,
+                        lambda x: sf.when(x.isNull(), default_value).otherwise(x),
+                    ),
                 )
 
         result_df = encoded_df.drop(self._col).withColumnRenamed(self._target_col, self._col)
@@ -725,7 +744,8 @@ class SequenceEncodingRule(LabelEncodingRule):
             pl.col(self._col)
             .list.eval(
                 pl.element().replace_strict(
-                    self.get_mapping(), default=default_value if self._handle_unknown == "use_default_value" else None
+                    self.get_mapping(),
+                    default=(default_value if self._handle_unknown == "use_default_value" else None),
                 ),
                 parallel=True,
             )
@@ -775,7 +795,8 @@ class SequenceEncodingRule(LabelEncodingRule):
     def _inverse_transform_spark(self, df: SparkDataFrame) -> SparkDataFrame:
         array_expr = sf.array([sf.lit(x) for x in self._inverse_mapping_list])
         decoded_df = df.withColumn(
-            self._target_col, sf.transform(self._col, lambda x: sf.element_at(array_expr, x + 1))
+            self._target_col,
+            sf.transform(self._col, lambda x: sf.element_at(array_expr, x + 1)),
         )
         return decoded_df.drop(self._col).withColumnRenamed(self._target_col, self._col)
 
