@@ -96,21 +96,21 @@ def test_label_encoder_determinism(column, random_string_spark_df):
 def test_label_encoder_partial_fit_determinism(column, random_string_spark_df, static_string_spark_df):
     # При репартиционировании датафрейма, label encoder, обученный через spark выдает разные маппинги
     df1 = random_string_spark_df.repartition(13)
-    rule_1 = LabelEncodingRule(column, is_deterministic=True)
+    rule_1 = LabelEncodingRule(column)
     encoder_1 = LabelEncoder([rule_1])
     encoder_1.fit(static_string_spark_df)
     encoder_1.partial_fit(df1)
     mapping_1 = encoder_1.mapping[column]
 
     df2 = random_string_spark_df.repartition(11)
-    rule_2 = LabelEncodingRule(column, is_deterministic=True)
+    rule_2 = LabelEncodingRule(column)
     encoder_2 = LabelEncoder([rule_2])
     encoder_2.fit(static_string_spark_df)
     encoder_2.partial_fit(df2)
     mapping_2 = encoder_2.mapping[column]
 
     df3 = random_string_spark_df.repartition(20)
-    rule_3 = LabelEncodingRule(column, is_deterministic=True)
+    rule_3 = LabelEncodingRule(column)
     encoder_3 = LabelEncoder([rule_3])
     encoder_3.fit(static_string_spark_df)
     encoder_3.partial_fit(df3)
