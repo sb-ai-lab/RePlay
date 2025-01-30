@@ -1,6 +1,6 @@
 import os
 import warnings
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, get_args
 
 import openvino as ov
 import torch
@@ -114,8 +114,8 @@ class OptimizedSasRec:
         :return: Tensor with scores.
         """
         if self._num_candidates_to_score is None and candidates_to_score is not None:
-            msg = "If use_candidates_to_score is False, \
-                it is impossible to infer the model with passed candidates_to_score."
+            msg = "If ``use_candidates_to_score`` is False, \
+                it is impossible to infer the model with passed ``candidates_to_score``."
             raise ValueError(msg)
         batch = self._prepare_prediction_batch(batch)
         model_inputs = {
@@ -147,7 +147,10 @@ class OptimizedSasRec:
         for batch in tqdm(dataloader, desc="Predicting Dataloader", disable=not show_progress_bar):
             batch: SasRecPredictionBatch
             if (self._mode == "batch") and (batch.padding_mask.shape[0] != self._batch_size):
-                warnings.warn("The last batch of the dataloader is smaller then others. It will be skipped.")
+                warnings.warn(
+                    "The last batch of the dataloader is smaller then others. \
+It will be skipped in ``mode`` = ``batch``."
+                )
                 continue
 
             scores = self.predict(batch, candidates_to_score)
@@ -192,7 +195,7 @@ class OptimizedSasRec:
 
     def _validate_candidates_to_score(self, candidates: torch.LongTensor):
         if not (isinstance(candidates, torch.Tensor) and candidates.dtype is torch.long):
-            msg = f"Expected candidates to be of type torch.Tensor with dtype torch.long,\
+            msg = f"Expected candidates to be of type ``torch.Tensor`` with dtype ``torch.long``,\
 got {type(candidates)} with dtype {candidates.dtype}."
             raise ValueError(msg)
 
@@ -231,6 +234,10 @@ got {type(candidates)} with dtype {candidates.dtype}."
         :param onnx_path: Save ONNX model to path, if defined.
             Default: ``None``.
         """
+        if mode not in get_args(OptimizedModeType):
+            msg = "Parameter ``mode`` could be one of [``one_query``, ``batch``, \
+``dynamic_one_query``, ``dynamic_batch_size``]."
+            raise ValueError(msg)
         lightning_model = SasRec.load_from_checkpoint(checkpoint_path, map_location=torch.device("cpu"))
         item_seq_name = lightning_model._schema.item_id_feature_name
         max_len = lightning_model._model.max_len

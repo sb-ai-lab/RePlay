@@ -534,7 +534,7 @@ class SasRec(lightning.LightningModule):
         :param optimizer_factory: New optimizer factory.
         """
         total_item_count = self._model.item_count
-        if isinstance(candidates, torch.LongTensor):
+        if isinstance(candidates, torch.Tensor) and candidates.dtype is torch.long:
             if 0 < candidates.shape[0] <= total_item_count:
                 self._candidates_to_score = candidates
             else:

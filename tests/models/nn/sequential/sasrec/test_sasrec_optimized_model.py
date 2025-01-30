@@ -114,7 +114,7 @@ def test_prediction_optimized_sasrec_invalid_candidates_to_score(
 
 
 @pytest.mark.torch
-def test_prepare_prediction_batch(item_user_sequential_dataset, train_sasrec_loader):
+def test_optimized_sasrec_prepare_prediction_batch(item_user_sequential_dataset, train_sasrec_loader):
     pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_sasrec_loader = torch.utils.data.DataLoader(pred, batch_size=1)
 
@@ -143,3 +143,9 @@ def test_prepare_prediction_batch(item_user_sequential_dataset, train_sasrec_loa
 
     new_batch = opt_model._prepare_prediction_batch(batch2)
     assert new_batch.padding_mask.shape[1] == opt_model._max_seq_len
+
+
+@pytest.mark.torch
+def test_optimized_sasrec_invalid_mode():
+    with pytest.raises(ValueError):
+        OptimizedSasRec.from_checkpoint(checkpoint_path="csome_path", mode="invalid_mode")
