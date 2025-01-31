@@ -9,25 +9,12 @@ from replay.utils import PYSPARK_AVAILABLE
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql.functions import col, to_date, unix_timestamp
-    from pyspark.sql.types import (
-        ArrayType,
-        IntegerType,
-        LongType,
-        StringType,
-        StructField,
-        StructType,
-    )
+    from pyspark.sql.types import ArrayType, IntegerType, LongType, StringType, StructField, StructType
 
 
 @pytest.fixture(scope="module")
 def pandas_df_for_labelencoder():
-    return pd.DataFrame(
-        {
-            "user_id": ["u1", "u2"],
-            "item1": ["item_1", "item_2"],
-            "item2": ["item_1", "item_2"],
-        }
-    )
+    return pd.DataFrame({"user_id": ["u1", "u2"], "item1": ["item_1", "item_2"], "item2": ["item_1", "item_2"]})
 
 
 @pytest.fixture(scope="module")
@@ -48,13 +35,7 @@ def pandas_df_for_labelencoder_new_data():
 
 @pytest.fixture(scope="module")
 def pandas_df_for_grouped_labelencoder_new_data():
-    return pd.DataFrame(
-        {
-            "user_id": [["u4", "u5"]],
-            "item1": [["item_4", "item_5"]],
-            "item2": [["item_4", "item_5"]],
-        }
-    )
+    return pd.DataFrame({"user_id": [["u4", "u5"]], "item1": [["item_4", "item_5"]], "item2": [["item_4", "item_5"]]})
 
 
 @pytest.fixture(scope="module")
@@ -105,9 +86,7 @@ def polars_df_for_labelencoder_new_data(pandas_df_for_labelencoder_new_data):
 
 
 @pytest.fixture(scope="module")
-def polars_df_for_grouped_labelencoder_new_data(
-    pandas_df_for_grouped_labelencoder_new_data,
-):
+def polars_df_for_grouped_labelencoder_new_data(pandas_df_for_grouped_labelencoder_new_data):
     return pl.from_pandas(pandas_df_for_grouped_labelencoder_new_data)
 
 
@@ -122,9 +101,7 @@ def spark_df_for_grouped_labelencoder(spark, pandas_df_for_grouped_labelencoder)
 
 
 @pytest.fixture(scope="module")
-def polars_df_for_grouped_labelencoder_modified(
-    pandas_df_for_grouped_labelencoder_modified,
-):
+def polars_df_for_grouped_labelencoder_modified(pandas_df_for_grouped_labelencoder_modified):
     return pl.from_pandas(pandas_df_for_grouped_labelencoder_modified)
 
 
@@ -723,14 +700,7 @@ def columns_target():
 
 @pytest.fixture(scope="module")
 def columns_target_list_len():
-    return [
-        "user_id",
-        "item_id",
-        "timestamp",
-        "item_id_list",
-        "timestamp_list",
-        "list_len",
-    ]
+    return ["user_id", "item_id", "timestamp", "item_id_list", "timestamp_list", "list_len"]
 
 
 @pytest.fixture(scope="module")
