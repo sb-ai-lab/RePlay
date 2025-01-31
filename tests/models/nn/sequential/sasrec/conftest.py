@@ -48,7 +48,9 @@ def fitted_sasrec(feature_schema_for_sasrec):
             is_seq=True,
             cardinality=train_dataset.item_count,
             feature_type=FeatureType.CATEGORICAL,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, train_dataset.feature_schema.item_id_column),
+            feature_sources=[
+                TensorFeatureSource(FeatureSource.INTERACTIONS, train_dataset.feature_schema.item_id_column)
+            ],
             feature_hint=FeatureHint.ITEM_ID,
         )
     )
