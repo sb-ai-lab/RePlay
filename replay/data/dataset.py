@@ -605,7 +605,7 @@ class Dataset:
         that the criterion will not pass.
         """
         if feature_type == FeatureType.CATEGORICAL_LIST:  # explode column if list
-            data = data.withColumn("genres", sf.explode("genres")) if self.is_spark else data[[column]].explode(column)
+            data = data.withColumn(column, sf.explode(column)) if self.is_spark else data[[column]].explode(column)
 
             if self.is_pandas:
                 try:

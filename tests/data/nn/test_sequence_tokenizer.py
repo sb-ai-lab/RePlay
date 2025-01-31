@@ -78,39 +78,39 @@ def test_query_features_are_grouped_to_sequences(dataset, request):
                 "item_id",
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
             ),
             TensorFeatureInfo(
                 "timestamp",
                 is_seq=True,
                 feature_type=FeatureType.NUMERICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp")],
                 feature_hint=FeatureHint.TIMESTAMP,
             ),
             TensorFeatureInfo(
                 "user_cat_seq",
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat"),
+                feature_sources=[TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat")],
             ),
             TensorFeatureInfo(
                 "user_cat_list_seq",
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL_LIST,
-                feature_source=TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat_list"),
+                feature_sources=[TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat_list")],
             ),
             TensorFeatureInfo(
                 "user_cat",
                 is_seq=False,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat"),
+                feature_sources=[TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat")],
             ),
             TensorFeatureInfo(
                 "user_cat_list",
                 is_seq=False,
                 feature_type=FeatureType.CATEGORICAL_LIST,
-                feature_source=TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat_list"),
+                feature_sources=[TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat_list")],
             ),
         ]
     )
@@ -246,7 +246,7 @@ def test_interactions_features_are_grouped_to_sequences(dataset, request):
                 "item_id",
                 feature_type=FeatureType.CATEGORICAL,
                 is_seq=True,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 cardinality=6,
                 feature_hint=FeatureHint.ITEM_ID,
             ),
@@ -254,7 +254,7 @@ def test_interactions_features_are_grouped_to_sequences(dataset, request):
                 "timestamp",
                 feature_type=FeatureType.NUMERICAL,
                 is_seq=True,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp")],
                 feature_hint=FeatureHint.TIMESTAMP,
             ),
         ]
@@ -282,7 +282,7 @@ def test_mismatch_of_features_type_raises_error(dataset, request):
                 "item_id",
                 feature_type=FeatureType.CATEGORICAL,
                 is_seq=True,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 cardinality=6,
                 feature_hint=FeatureHint.ITEM_ID,
             ),
@@ -290,7 +290,7 @@ def test_mismatch_of_features_type_raises_error(dataset, request):
                 "timestamp",
                 feature_type=FeatureType.CATEGORICAL,
                 is_seq=True,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp")],
                 feature_hint=FeatureHint.TIMESTAMP,
             ),
         ]
@@ -373,7 +373,7 @@ def test_user_features_are_grouped_to_sequences(dataset, request):
                 cardinality=6,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
             ),
             TensorFeatureInfo(
@@ -381,7 +381,7 @@ def test_user_features_are_grouped_to_sequences(dataset, request):
                 cardinality=2,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat"),
+                feature_sources=[TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat")],
             ),
         ]
     )
@@ -415,7 +415,7 @@ def test_user_features_handled_as_scalars(dataset, request):
                 cardinality=6,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
             ),
             TensorFeatureInfo(
@@ -423,7 +423,7 @@ def test_user_features_handled_as_scalars(dataset, request):
                 cardinality=2,
                 is_seq=False,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat"),
+                feature_sources=[TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_cat")],
             ),
         ]
     )
@@ -455,7 +455,7 @@ def test_process_numerical_features(dataset, request):
                 cardinality=6,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
             ),
             TensorFeatureInfo(
@@ -463,33 +463,33 @@ def test_process_numerical_features(dataset, request):
                 tensor_dim=1,
                 is_seq=True,
                 feature_type=FeatureType.NUMERICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "feature"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "feature")],
             ),
             TensorFeatureInfo(
                 "item_num",
                 tensor_dim=1,
                 is_seq=True,
                 feature_type=FeatureType.NUMERICAL,
-                feature_source=TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_num"),
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_num")],
             ),
             TensorFeatureInfo(
                 "doubled_feature",
                 tensor_dim=2,
                 is_seq=True,
                 feature_type=FeatureType.NUMERICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "num_feature"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "num_feature")],
             ),
             TensorFeatureInfo(
                 "num_list_feature",
                 is_seq=True,
                 feature_type=FeatureType.NUMERICAL_LIST,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "num_list_feature"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "num_list_feature")],
             ),
             TensorFeatureInfo(
                 "timestamp",
                 is_seq=True,
                 feature_type=FeatureType.NUMERICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp")],
                 feature_hint=FeatureHint.TIMESTAMP,
             ),
         ]
@@ -623,7 +623,7 @@ def test_invalid_tensor_schema_and_dataset(dataset, request, feature_name, sourc
                 cardinality=6,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
             ),
             TensorFeatureInfo(
@@ -631,14 +631,14 @@ def test_invalid_tensor_schema_and_dataset(dataset, request, feature_name, sourc
                 cardinality=2,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(source_table, feature_name),
+                feature_sources=[TensorFeatureSource(source_table, feature_name)],
             ),
             TensorFeatureInfo(
                 "user_id",
                 cardinality=6,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id")],
                 feature_hint=FeatureHint.QUERY_ID,
             ),
         ]
@@ -679,7 +679,7 @@ def test_items_users_names_mismatch(dataset, request, user_hint, item_hint, exce
                 cardinality=6,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=item_hint,
             ),
             TensorFeatureInfo(
@@ -687,7 +687,7 @@ def test_items_users_names_mismatch(dataset, request, user_hint, item_hint, exce
                 cardinality=6,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id")],
                 feature_hint=user_hint,
             ),
         ]
@@ -713,14 +713,14 @@ def test_item_id_feature_not_specified(dataset, request):
                 cardinality=6,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
             ),
             TensorFeatureInfo(
                 "user_id",
                 cardinality=6,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id")],
                 feature_hint=FeatureHint.QUERY_ID,
             ),
         ]
@@ -745,7 +745,7 @@ def test_unknown_source_table_in_cat_processor(dataset):
                 cardinality=6,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource("", "item_id"),
+                feature_sources=[TensorFeatureSource("", "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
             ),
         ]
@@ -768,7 +768,7 @@ def test_unknown_source_table_in_num_processor(dataset_type):
                 tensor_dim=6,
                 is_seq=True,
                 feature_type=FeatureType.NUMERICAL,
-                feature_source=TensorFeatureSource("", "num_feature"),
+                feature_sources=[TensorFeatureSource("", "num_feature")],
             ),
         ]
     )
@@ -789,7 +789,7 @@ def test_unknown_feature_type_in_process(dataset_type):
                 cardinality=6,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
             ),
         ]

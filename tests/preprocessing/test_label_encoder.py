@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from replay.preprocessing import GroupedLabelEncodingRule, LabelEncoder, LabelEncodingRule
+from replay.preprocessing import LabelEncoder, LabelEncodingRule, SequenceEncodingRule
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame
 from tests.utils import sparkDataFrameEqual
 
@@ -21,7 +21,7 @@ if PYSPARK_AVAILABLE:
 )
 def test_label_encoder_spark(column, df_name, is_grouped_encoder, request):
     df = request.getfixturevalue(df_name)
-    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule_class = SequenceEncodingRule if is_grouped_encoder else LabelEncodingRule
     rule = rule_class(column)
     encoder = LabelEncoder([rule]).fit(df)
 
@@ -46,15 +46,13 @@ def test_label_encoder_spark(column, df_name, is_grouped_encoder, request):
 )
 def test_label_encoder_load_rule_spark(column, df_name, is_grouped_encoder, request):
     df = request.getfixturevalue(df_name)
-    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule_class = SequenceEncodingRule if is_grouped_encoder else LabelEncodingRule
     rule = rule_class(column)
     encoder = LabelEncoder([rule])
     mapped_data = encoder.fit_transform(df)
     mapping = encoder.mapping[column]
 
-    trained_rule = (
-        GroupedLabelEncodingRule(column, mapping) if is_grouped_encoder else LabelEncodingRule(column, mapping)
-    )
+    trained_rule = SequenceEncodingRule(column, mapping) if is_grouped_encoder else LabelEncodingRule(column, mapping)
     new_encoder = LabelEncoder([trained_rule])
     new_encoder.fit(df)
     rebuild_original_cols = new_encoder.inverse_transform(mapped_data).withColumn(column, F.col(column))
@@ -78,7 +76,7 @@ def test_label_encoder_load_rule_spark(column, df_name, is_grouped_encoder, requ
 )
 def test_label_encoder_pandas_polars(column, df_name, is_grouped_encoder, request):
     df = request.getfixturevalue(df_name)
-    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule_class = SequenceEncodingRule if is_grouped_encoder else LabelEncodingRule
     rule = rule_class(column, default_value="last")
     encoder = LabelEncoder([rule]).fit(df)
 
@@ -103,15 +101,13 @@ def test_label_encoder_pandas_polars(column, df_name, is_grouped_encoder, reques
 )
 def test_label_encoder_load_rule_pandas_polars(column, df_name, is_grouped_encoder, request):
     df = request.getfixturevalue(df_name)
-    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule_class = SequenceEncodingRule if is_grouped_encoder else LabelEncodingRule
     rule = rule_class(column)
     encoder = LabelEncoder([rule])
     mapped_data = encoder.fit_transform(df)
     mapping = encoder.mapping[column]
 
-    trained_rule = (
-        GroupedLabelEncodingRule(column, mapping) if is_grouped_encoder else LabelEncodingRule(column, mapping)
-    )
+    trained_rule = SequenceEncodingRule(column, mapping) if is_grouped_encoder else LabelEncodingRule(column, mapping)
     new_encoder = LabelEncoder([trained_rule])
     new_encoder.fit(df)
 
@@ -133,7 +129,7 @@ def test_label_encoder_load_rule_pandas_polars(column, df_name, is_grouped_encod
 )
 def test_label_encoder_is_not_fitted(column, df_name, is_grouped_encoder, request):
     df = request.getfixturevalue(df_name)
-    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule_class = SequenceEncodingRule if is_grouped_encoder else LabelEncodingRule
     rule = rule_class(column)
     encoder = LabelEncoder([rule])
 
@@ -205,7 +201,7 @@ def test_grouped_label_encoder_with_handled_null_values_pandas_polars(
 ):
     df_labelencoder = request.getfixturevalue(df_for_labelencoder)
     df_labelencoder_modified = request.getfixturevalue(df_for_labelencoder_modified)
-    encoder = LabelEncoder([GroupedLabelEncodingRule("item1"), GroupedLabelEncodingRule("item2")])
+    encoder = LabelEncoder([SequenceEncodingRule("item1"), SequenceEncodingRule("item2")])
     encoder.fit(df_labelencoder)
     encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"})
     encoder.set_default_values({"item1": "last", "item2": 5})
@@ -227,7 +223,7 @@ def test_grouped_label_encoder_with_handled_null_values_spark(
     spark_df_for_grouped_labelencoder,
     spark_df_for_grouped_labelencoder_modified,
 ):
-    encoder = LabelEncoder([GroupedLabelEncodingRule("item1"), GroupedLabelEncodingRule("item2")])
+    encoder = LabelEncoder([SequenceEncodingRule("item1"), SequenceEncodingRule("item2")])
     encoder.fit(spark_df_for_grouped_labelencoder)
     encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"})
     encoder.set_default_values({"item1": "last", "item2": 5})
@@ -291,7 +287,7 @@ def test_label_encoder_with_handled_null_values_spark(
 def test_label_encoder_with_null_values_spark(df_name, modified_df_name, is_grouped_encoder, request):
     df = request.getfixturevalue(df_name)
     df_modified = request.getfixturevalue(modified_df_name)
-    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule_class = SequenceEncodingRule if is_grouped_encoder else LabelEncodingRule
     encoder = LabelEncoder([rule_class("item1"), rule_class("item2")])
     encoder.fit(df)
     encoder.set_default_values({"item1": None, "item2": "last"})
@@ -317,7 +313,7 @@ def test_label_encoder_with_null_values_pandas_polars(
 ):
     df = request.getfixturevalue(df_name)
     df_modified = request.getfixturevalue(modified_df_name)
-    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule_class = SequenceEncodingRule if is_grouped_encoder else LabelEncodingRule
     encoder = LabelEncoder([rule_class("item1"), rule_class("item2")])
     encoder.fit(df)
     encoder.set_default_values({"item1": "last", "item2": 5})
@@ -337,7 +333,7 @@ def test_label_encoder_with_null_values_pandas_polars(
 )
 def test_label_encoder_with_default_value_in_seen_labels(df_name, is_grouped_encoder, request):
     df_labelencoder = request.getfixturevalue(df_name)
-    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule_class = SequenceEncodingRule if is_grouped_encoder else LabelEncodingRule
     encoder = LabelEncoder([rule_class("item1", handle_unknown="use_default_value", default_value=1)])
     with pytest.raises(ValueError):
         encoder.fit(df_labelencoder)
@@ -404,7 +400,7 @@ def test_pandas_polars_partial_fit(
 ):
     df = request.getfixturevalue(df_name)
     new_df = request.getfixturevalue(modified_df_name)
-    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule_class = SequenceEncodingRule if is_grouped_encoder else LabelEncodingRule
 
     encoder = LabelEncoder([rule_class("item1"), rule_class("item2")])
     encoder.fit(df)
@@ -433,7 +429,7 @@ def test_spark_partial_fit(df_name, modified_df_name, is_grouped_encoder, reques
     df = request.getfixturevalue(df_name)
     new_df = request.getfixturevalue(modified_df_name)
 
-    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule_class = SequenceEncodingRule if is_grouped_encoder else LabelEncodingRule
     encoder = LabelEncoder([rule_class("item1"), rule_class("item2")])
     encoder.fit(df)
     encoder.partial_fit(new_df)
@@ -468,7 +464,7 @@ def test_partial_fit_to_unfitted_encoder(
     request,
 ):
     df = request.getfixturevalue(df_name)
-    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule_class = SequenceEncodingRule if is_grouped_encoder else LabelEncodingRule
     encoder = LabelEncoder([rule_class("item1"), rule_class("item2")])
     encoder.partial_fit(df)
     mapped_data = encoder.transform(df)
@@ -527,7 +523,7 @@ def test_label_encoder_pandas_transform_optimization(simple_dataframe_pandas):
 @pytest.mark.parametrize("is_grouped_encoder", [False, True])
 def test_label_encoder_not_implemented_df(is_grouped_encoder, dataframe_not_implemented):
     column, default_value = "user_id", "last"
-    rule_class = GroupedLabelEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule_class = SequenceEncodingRule if is_grouped_encoder else LabelEncodingRule
     rule = rule_class(column, default_value=default_value)
     with pytest.raises(NotImplementedError):
         LabelEncoder([rule]).fit(dataframe_not_implemented)
@@ -591,7 +587,7 @@ def test_grouped_label_encoder_drop_strategy(request, df_for_labelencoder, df_fo
     df = request.getfixturevalue(df_for_labelencoder)
     df_modified = request.getfixturevalue(df_for_labelencoder_modified)
 
-    encoder = LabelEncoder([GroupedLabelEncodingRule("item1", handle_unknown="drop")])
+    encoder = LabelEncoder([SequenceEncodingRule("item1", handle_unknown="drop")])
     encoder.fit(df)
     transformed = encoder.transform(df_modified)
     inversed = encoder.inverse_transform(transformed)
@@ -650,7 +646,7 @@ def test_grouped_label_encoder_drop_strategy_empty_dataset(request, df_for_label
     df = request.getfixturevalue(df_for_labelencoder)
     df_new = request.getfixturevalue(df_for_labelencoder_new_data)
 
-    encoder = LabelEncoder([GroupedLabelEncodingRule("item1", handle_unknown="drop")])
+    encoder = LabelEncoder([SequenceEncodingRule("item1", handle_unknown="drop")])
     encoder.fit(df)
     transformed = encoder.transform(df_new)
 

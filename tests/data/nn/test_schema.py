@@ -35,7 +35,7 @@ def test_tensor_scheme_properties(fake_schema, tensor_schema):
                 "item_id",
                 is_seq=True,
                 feature_type=FeatureType.NUMERICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_feature1"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_feature1")],
                 feature_hint=FeatureHint.RATING,
                 tensor_dim=2,
             ),
@@ -77,7 +77,7 @@ def test_invalid_tensor_feature_type(some_num_tensor_feature):
 @pytest.mark.torch
 def test_tensor_feature_setters(some_num_tensor_feature, some_cat_tensor_feature):
     some_num_tensor_feature._set_feature_hint(FeatureHint.RATING)
-    some_num_tensor_feature._set_feature_source(TensorFeatureSource(FeatureSource.INTERACTIONS, "fake1"))
+    some_num_tensor_feature._set_feature_sources([TensorFeatureSource(FeatureSource.INTERACTIONS, "fake1")])
     some_num_tensor_feature._set_tensor_dim(42)
     some_cat_tensor_feature._set_cardinality(42)
     some_cat_tensor_feature._set_embedding_dim(42)
@@ -143,14 +143,14 @@ def test_tensor_scheme_inits():
             feature_type=FeatureType.CATEGORICAL,
             feature_hint=FeatureHint.ITEM_ID,
             cardinality=6,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+            feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
         ),
         TensorFeatureInfo(
             "user_id",
             feature_type=FeatureType.CATEGORICAL,
             feature_hint=FeatureHint.QUERY_ID,
             cardinality=6,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id"),
+            feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id")],
         ),
     ]
 
@@ -158,7 +158,7 @@ def test_tensor_scheme_inits():
         "rating",
         feature_type=FeatureType.NUMERICAL,
         tensor_dim=6,
-        feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "rating"),
+        feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "rating")],
     )
 
     schema = TensorSchema(
@@ -167,21 +167,21 @@ def test_tensor_scheme_inits():
                 "item_id",
                 cardinality=6,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
             ),
             TensorFeatureInfo(
                 "user_id",
                 cardinality=6,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id")],
                 feature_hint=FeatureHint.QUERY_ID,
             ),
             TensorFeatureInfo(
                 "rating",
                 tensor_dim=6,
                 feature_type=FeatureType.NUMERICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "rating"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "rating")],
             ),
         ]
     )

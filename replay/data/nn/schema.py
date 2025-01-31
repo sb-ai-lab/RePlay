@@ -4,6 +4,7 @@ from typing import (
     Iterable,
     Iterator,
     KeysView,
+    List,
     Mapping,
     Optional,
     Sequence,
@@ -77,7 +78,7 @@ class TensorFeatureInfo:
         feature_type: FeatureType,
         is_seq: bool = False,
         feature_hint: Optional[FeatureHint] = None,
-        feature_source: Optional[TensorFeatureSource] = None,
+        feature_sources: Optional[List[TensorFeatureSource]] = None,
         cardinality: Optional[int] = None,
         embedding_dim: Optional[int] = None,
         tensor_dim: Optional[int] = None,
@@ -90,7 +91,7 @@ class TensorFeatureInfo:
         :param feature_hint: hint to models about feature
             (is timestamp, is rating, is query_id, is item_id),
             default: ``None``.
-        :param feature_source: column name from DataFrame feature came from,
+        :param feature_sources: columns names and DataFrames feature came from,
             default: ``None``.
         :param cardinality: cardinality of categorical feature, required for ids columns,
             optional for others,
@@ -102,7 +103,7 @@ class TensorFeatureInfo:
         """
         self._name = name
         self._feature_hint = feature_hint
-        self._feature_source = feature_source
+        self._feature_sources = feature_sources
         self._is_seq = is_seq
 
         if not isinstance(feature_type, FeatureType):
@@ -148,15 +149,30 @@ class TensorFeatureInfo:
     def _set_feature_hint(self, hint: FeatureHint) -> None:
         self._feature_hint = hint
 
-    def _set_feature_source(self, source: TensorFeatureSource) -> None:
-        self._feature_source = source
+    @property
+    def feature_sources(self) -> Optional[List[TensorFeatureSource]]:
+        """
+        :returns: List of sources feature came from.
+        """
+        return self._feature_sources
+
+    def _set_feature_sources(self, sources: List[TensorFeatureSource]) -> None:
+        self._feature_sources = sources
 
     @property
     def feature_source(self) -> Optional[TensorFeatureSource]:
         """
         :returns: Dataframe info of feature.
         """
-        return self._feature_source
+        source = self.feature_sources
+        if not source:
+            return None
+
+        if len(source) > 1:
+            msg = "Only one element feature sources can be converted to single feature source."
+            raise ValueError(msg)
+        assert isinstance(self.feature_sources, list)
+        return self.feature_sources[0]
 
     @property
     def is_seq(self) -> bool:
@@ -191,7 +207,7 @@ class TensorFeatureInfo:
         """
         :returns: Cardinality of the feature.
         """
-        if self.feature_type not in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]:
+        if not self.is_cat:
             msg = f"Can not get cardinality because feature type of {self.name} column is not categorical."
             raise RuntimeError(msg)
         return self._cardinality
@@ -204,7 +220,7 @@ class TensorFeatureInfo:
         """
         :returns: Dimensions of the numerical feature.
         """
-        if self.feature_type not in [FeatureType.NUMERICAL, FeatureType.NUMERICAL_LIST]:
+        if not self.is_num:
             msg = f"Can not get tensor dimensions because feature type of {self.name} feature is not numerical."
             raise RuntimeError(msg)
         return self._tensor_dim
@@ -217,7 +233,7 @@ class TensorFeatureInfo:
         """
         :returns: Embedding dimensions of the feature.
         """
-        if self.feature_type not in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]:
+        if not self.is_cat:
             msg = f"Can not get embedding dimensions because feature type of {self.name} feature is not categorical."
             raise RuntimeError(msg)
         return self._embedding_dim
@@ -412,30 +428,14 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
                 "feature_type": feature.feature_type.name,
                 "is_seq": feature.is_seq,
                 "feature_hint": feature.feature_hint.name if feature.feature_hint else None,
-                "feature_source": (
-                    {
-                        "source": feature.feature_source.source.name,
-                        "column": feature.feature_source.column,
-                        "index": feature.feature_source.index,
-                    }
-                    if feature.feature_source
+                "feature_sources": (
+                    [{"source": x.source.name, "column": x.column, "index": x.index} for x in feature.feature_sources]
+                    if feature.feature_sources
                     else None
                 ),
-                "cardinality": (
-                    feature.cardinality
-                    if feature.feature_type in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]
-                    else None
-                ),
-                "embedding_dim": (
-                    feature.embedding_dim
-                    if feature.feature_type in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]
-                    else None
-                ),
-                "tensor_dim": (
-                    feature.tensor_dim
-                    if feature.feature_type in [FeatureType.NUMERICAL, FeatureType.NUMERICAL_LIST]
-                    else None
-                ),
+                "cardinality": feature.cardinality if feature.is_cat else None,
+                "embedding_dim": feature.embedding_dim if feature.is_cat else None,
+                "tensor_dim": feature.tensor_dim if feature.is_num else None,
             }
             for feature in self.all_features
         ]
@@ -445,13 +445,12 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
     def _create_object_by_args(cls, args: Dict) -> "TensorSchema":
         features_list = []
         for feature_data in args:
-            feature_data["feature_source"] = (
-                TensorFeatureSource(
-                    source=FeatureSource[feature_data["feature_source"]["source"]],
-                    column=feature_data["feature_source"]["column"],
-                    index=feature_data["feature_source"]["index"],
-                )
-                if feature_data["feature_source"]
+            feature_data["feature_sources"] = (
+                [
+                    TensorFeatureSource(source=FeatureSource[x["source"]], column=x["column"], index=x["index"])
+                    for x in feature_data["feature_sources"]
+                ]
+                if feature_data["feature_sources"]
                 else None
             )
             f_type = feature_data["feature_type"]

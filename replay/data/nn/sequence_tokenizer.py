@@ -276,8 +276,17 @@ class SequenceTokenizer:
         ]
 
         for tensor_feature in tensor_schema.values():
-            assert tensor_feature.feature_source is not None
-            features_subset.append(tensor_feature.feature_source.column)
+            for source in tensor_feature.feature_sources:
+                assert source is not None
+
+                # Some columns already added to encoder, skip them
+                if source.column in features_subset:
+                    continue
+
+                if isinstance(source.source, FeatureSource):
+                    features_subset.append(source.column)
+                else:
+                    assert False, "Unknown tensor feature source"
 
         return set(features_subset)
 
@@ -285,20 +294,24 @@ class SequenceTokenizer:
     def _check_tensor_schema(cls, tensor_schema: TensorSchema) -> None:
         # Check consistency of sequential features
         for tensor_feature in tensor_schema.all_features:
-            if not tensor_feature.feature_source:
+            feature_sources = tensor_feature.feature_sources
+            if not feature_sources:
                 msg = "All tensor features must have sources defined"
                 raise ValueError(msg)
 
-            if not isinstance(tensor_feature.feature_source.source, FeatureSource):
-                msg = f"Found unexpected source table: {tensor_feature.feature_source}"
+            source_tables: List[FeatureSource] = [s.source for s in feature_sources]
+
+            unexpected_tables = list(filter(lambda x: not isinstance(x, FeatureSource), source_tables))
+            if len(unexpected_tables) > 0:
+                msg = f"Found unexpected source tables: {unexpected_tables}"
                 raise ValueError(msg)
 
             if not tensor_feature.is_seq:
-                if tensor_feature.feature_source.source == FeatureSource.INTERACTIONS:
+                if FeatureSource.INTERACTIONS in source_tables:
                     msg = "Interaction features must be treated as sequential"
                     raise ValueError(msg)
 
-                if tensor_feature.feature_source.source == FeatureSource.ITEM_FEATURES:
+                if FeatureSource.ITEM_FEATURES in source_tables:
                     msg = "Item features must be treated as sequential"
                     raise ValueError(msg)
 
@@ -315,8 +328,8 @@ class SequenceTokenizer:
             if tensor_features_to_keep is not None and tensor_feature_name not in tensor_features_to_keep:
                 continue
 
-            if tensor_feature.feature_source:
-                sources_for_tensors.append(tensor_feature.feature_source)
+            if tensor_feature.feature_sources:
+                sources_for_tensors += tensor_feature.feature_sources
 
         query_id_column = dataset.feature_schema.query_id_column
         item_id_column = dataset.feature_schema.item_id_column
@@ -530,7 +543,7 @@ class _BaseSequenceProcessor(Generic[_T]):
         """
         Process categorical tensor feature depends on it source.
         """
-        assert tensor_feature.feature_source is not None
+        assert tensor_feature.feature_sources is not None
         if tensor_feature.feature_source.source == FeatureSource.INTERACTIONS:
             return self._process_cat_interaction_feature(tensor_feature)
         if tensor_feature.feature_source.source == FeatureSource.QUERY_FEATURES:

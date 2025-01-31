@@ -77,7 +77,7 @@ def fake_schema():
                 cardinality=6,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
             ),
             TensorFeatureInfo(
@@ -85,42 +85,41 @@ def fake_schema():
                 cardinality=2,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=None,
             ),
             TensorFeatureInfo(
                 "some_item_feature",
                 cardinality=2,
                 is_seq=False,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "some_item_feature"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "some_item_feature")],
             ),
             TensorFeatureInfo(
                 "some_item_feature_2",
                 cardinality=2,
                 is_seq=False,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.ITEM_FEATURES, "some_item_feature_2"),
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "some_item_feature_2")],
             ),
             TensorFeatureInfo(
                 "some_item_feature_3",
                 cardinality=2,
                 is_seq=False,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource("", "some_item_feature_3"),
+                feature_sources=[TensorFeatureSource("", "some_item_feature_3")],
             ),
             TensorFeatureInfo(
                 "some_user_feature_2",
                 cardinality=2,
                 is_seq=False,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "some_user_feature_2"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "some_user_feature_2")],
             ),
             TensorFeatureInfo(
                 "some_user_feature_3",
                 cardinality=2,
                 is_seq=False,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.QUERY_FEATURES, "some_user_feature_3"),
+                feature_sources=[TensorFeatureSource(FeatureSource.QUERY_FEATURES, "some_user_feature_3")],
             ),
             TensorFeatureInfo(
                 "some_numerical_feature",
@@ -308,7 +307,7 @@ def only_item_id_schema():
                 cardinality=6,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
             )
         ]
@@ -325,7 +324,7 @@ def item_id_and_timestamp_schema():
                 cardinality=6,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
             ),
             TensorFeatureInfo(
@@ -333,7 +332,7 @@ def item_id_and_timestamp_schema():
                 is_seq=True,
                 tensor_dim=64,
                 feature_type=FeatureType.NUMERICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp")],
                 feature_hint=FeatureHint.TIMESTAMP,
             ),
         ]
@@ -350,32 +349,32 @@ def item_id_and_item_features_schema():
                 cardinality=6,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
             ),
             TensorFeatureInfo(
                 "item_cat",
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
-                feature_source=TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_cat"),
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_cat")],
             ),
             TensorFeatureInfo(
                 "item_cat_list",
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL_LIST,
-                feature_source=TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_cat_list"),
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_cat_list")],
             ),
             TensorFeatureInfo(
                 "item_num",
                 is_seq=True,
                 feature_type=FeatureType.NUMERICAL,
-                feature_source=TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_num"),
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_num")],
             ),
             TensorFeatureInfo(
                 "item_num_list",
                 is_seq=True,
                 feature_type=FeatureType.NUMERICAL_LIST,
-                feature_source=TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_num_list"),
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_num_list")],
             ),
         ]
     )
@@ -460,7 +459,7 @@ def some_num_feature():
         feature_type=FeatureType.NUMERICAL,
         tensor_dim=1,
         is_seq=True,
-        feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+        feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
     )
 
 
@@ -472,7 +471,7 @@ def some_cat_feature():
         feature_hint=FeatureHint.RATING,
         cardinality=6,
         embedding_dim=6,
-        feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id", 0),
+        feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id", 0)],
     )
 
 
