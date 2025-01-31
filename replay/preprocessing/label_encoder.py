@@ -741,11 +741,9 @@ class SequenceEncodingRule(LabelEncodingRule):
 
     def _inverse_transform_spark(self, df: SparkDataFrame) -> SparkDataFrame:
         array_expr = sf.array([sf.lit(x) for x in self._inverse_mapping_list])
-        decoded_df = df.withColumn( 
+        decoded_df = df.withColumn(
             self._target_col,
             sf.transform(self._col, lambda x: sf.element_at(array_expr, x + 1)),
-        )
-        re
         )
         return decoded_df.drop(self._col).withColumnRenamed(self._target_col, self._col)
 
