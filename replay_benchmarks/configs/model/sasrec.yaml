@@ -11,6 +11,10 @@ model:
       dropout_rate: 0.1
       loss_type: BCE # CE, BCE, SCE
       loss_sample_count: 500
+      n_buckets: 443
+      bucket_size_x: 443
+      bucket_size_y: 512
+      mix_x: true
     training_params:
       embedding_dim: 300
       learning_rate: 0.001

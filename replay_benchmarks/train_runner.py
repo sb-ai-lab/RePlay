@@ -253,12 +253,14 @@ class TrainRunner(BaseRunner):
 
         profiler = SimpleProfiler(dirpath = self.csv_logger.log_dir, filename = 'simple_profiler')
 
+        devices = [int(self.config["env"]["CUDA_VISIBLE_DEVICES"])]
         trainer = L.Trainer(
             max_epochs=self.model_cfg["training_params"]["max_epochs"],
             callbacks=[checkpoint_callback, early_stopping, validation_metrics_callback],
             logger=[self.csv_logger, self.tb_logger],
             profiler=profiler,
-            precision=self.model_cfg["training_params"]["precision"]
+            precision=self.model_cfg["training_params"]["precision"],
+            devices=devices
         )
 
         logging.info("Starting training...")
@@ -298,7 +300,7 @@ class TrainRunner(BaseRunner):
             rating_column="score",
             postprocessors=[RemoveSeenItems(self.seq_test_dataset)],
         )
-        L.Trainer(callbacks=[pandas_prediction_callback], inference_mode=True).predict(
+        L.Trainer(callbacks=[pandas_prediction_callback], inference_mode=True, devices=devices).predict(
             best_model, dataloaders=prediction_dataloader, return_predictions=False
         )
 
