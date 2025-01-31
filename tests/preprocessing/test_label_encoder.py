@@ -247,14 +247,8 @@ def test_label_encoder_with_handled_null_values_pandas_polars(
 @pytest.mark.parametrize(
     "df_for_labelencoder, df_for_labelencoder_modified",
     [
-        (
-            "pandas_df_for_grouped_labelencoder",
-            "pandas_df_for_grouped_labelencoder_modified",
-        ),
-        (
-            "polars_df_for_grouped_labelencoder",
-            "polars_df_for_grouped_labelencoder_modified",
-        ),
+        ("pandas_df_for_grouped_labelencoder", "pandas_df_for_grouped_labelencoder_modified"),
+        ("polars_df_for_grouped_labelencoder", "polars_df_for_grouped_labelencoder_modified"),
     ],
 )
 def test_grouped_label_encoder_with_handled_null_values_pandas_polars(
