@@ -627,10 +627,7 @@ class SequenceEncodingRule(LabelEncodingRule):
             if default_value:
                 encoded_df = encoded_df.withColumn(
                     self._target_col,
-                    sf.transform(
-                        self._target_col,
-                        lambda x: sf.when(x.isNull(), default_value).otherwise(x),
-                    ),
+                    sf.transform(self._target_col, lambda x: sf.when(x.isNull(), default_value).otherwise(x)),
                 )
 
         result_df = encoded_df.drop(self._col).withColumnRenamed(self._target_col, self._col)
@@ -695,8 +692,7 @@ class SequenceEncodingRule(LabelEncodingRule):
             pl.col(self._col)
             .list.eval(
                 pl.element().replace_strict(
-                    self.get_mapping(),
-                    default=(default_value if self._handle_unknown == "use_default_value" else None),
+                    self.get_mapping(), default=default_value if self._handle_unknown == "use_default_value" else None
                 ),
                 parallel=True,
             )
@@ -745,9 +741,11 @@ class SequenceEncodingRule(LabelEncodingRule):
 
     def _inverse_transform_spark(self, df: SparkDataFrame) -> SparkDataFrame:
         array_expr = sf.array([sf.lit(x) for x in self._inverse_mapping_list])
-        decoded_df = df.withColumn(
+        decoded_df = df.withColumn( 
             self._target_col,
             sf.transform(self._col, lambda x: sf.element_at(array_expr, x + 1)),
+        )
+        re
         )
         return decoded_df.drop(self._col).withColumnRenamed(self._target_col, self._col)
 

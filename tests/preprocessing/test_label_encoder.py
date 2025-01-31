@@ -344,11 +344,7 @@ def test_label_encoder_with_handled_null_values_spark(
     "df_name, modified_df_name, is_grouped_encoder",
     [
         pytest.param("spark_df_for_labelencoder", "spark_df_for_labelencoder_modified", False),
-        pytest.param(
-            "spark_df_for_grouped_labelencoder",
-            "spark_df_for_grouped_labelencoder_modified",
-            True,
-        ),
+        pytest.param("spark_df_for_grouped_labelencoder", "spark_df_for_grouped_labelencoder_modified", True),
     ],
 )
 def test_label_encoder_with_null_values_spark(df_name, modified_df_name, is_grouped_encoder, request):
@@ -368,16 +364,8 @@ def test_label_encoder_with_null_values_spark(df_name, modified_df_name, is_grou
     [
         ("pandas_df_for_labelencoder", "pandas_df_for_labelencoder_modified", False),
         ("polars_df_for_labelencoder", "polars_df_for_labelencoder_modified", False),
-        (
-            "pandas_df_for_grouped_labelencoder",
-            "pandas_df_for_grouped_labelencoder_modified",
-            True,
-        ),
-        (
-            "polars_df_for_grouped_labelencoder",
-            "polars_df_for_grouped_labelencoder_modified",
-            True,
-        ),
+        ("pandas_df_for_grouped_labelencoder", "pandas_df_for_grouped_labelencoder_modified", True),
+        ("polars_df_for_grouped_labelencoder", "polars_df_for_grouped_labelencoder_modified", True),
     ],
 )
 def test_label_encoder_with_null_values_pandas_polars(
@@ -440,15 +428,7 @@ def test_label_encoder_value_errors():
         LabelEncoder([LabelEncodingRule("item1", handle_unknown="qwerty", default_value="some_text")])
 
     with pytest.raises(ValueError):
-        LabelEncoder(
-            [
-                LabelEncodingRule(
-                    "item1",
-                    handle_unknown="use_default_value",
-                    default_value="some_text",
-                )
-            ]
-        )
+        LabelEncoder([LabelEncodingRule("item1", handle_unknown="use_default_value", default_value="some_text")])
 
     encoder = LabelEncoder([LabelEncodingRule("item1"), LabelEncodingRule("item2")])
 
@@ -471,16 +451,8 @@ def test_label_encoder_value_errors():
     [
         ("pandas_df_for_labelencoder", "pandas_df_for_labelencoder_modified", False),
         ("polars_df_for_labelencoder", "polars_df_for_labelencoder_modified", False),
-        (
-            "pandas_df_for_grouped_labelencoder",
-            "pandas_df_for_grouped_labelencoder_modified",
-            True,
-        ),
-        (
-            "polars_df_for_grouped_labelencoder",
-            "polars_df_for_grouped_labelencoder_modified",
-            True,
-        ),
+        ("pandas_df_for_grouped_labelencoder", "pandas_df_for_grouped_labelencoder_modified", True),
+        ("polars_df_for_grouped_labelencoder", "polars_df_for_grouped_labelencoder_modified", True),
     ],
 )
 def test_pandas_polars_partial_fit(
@@ -513,11 +485,7 @@ def test_pandas_polars_partial_fit(
     "df_name, modified_df_name, is_grouped_encoder",
     [
         ("spark_df_for_labelencoder", "spark_df_for_labelencoder_modified", False),
-        (
-            "spark_df_for_grouped_labelencoder",
-            "spark_df_for_grouped_labelencoder_modified",
-            True,
-        ),
+        ("spark_df_for_grouped_labelencoder", "spark_df_for_grouped_labelencoder_modified", True),
     ],
 )
 def test_spark_partial_fit(df_name, modified_df_name, is_grouped_encoder, request):
@@ -572,16 +540,8 @@ def test_partial_fit_to_unfitted_encoder(
 @pytest.mark.parametrize(
     "df_for_labelencoder, df_for_labelencoder_modified, df_for_labelencoder_new_data",
     [
-        (
-            "pandas_df_for_labelencoder",
-            "pandas_df_for_labelencoder_modified",
-            "pandas_df_for_labelencoder_new_data",
-        ),
-        (
-            "polars_df_for_labelencoder",
-            "polars_df_for_labelencoder_modified",
-            "polars_df_for_labelencoder_new_data",
-        ),
+        ("pandas_df_for_labelencoder", "pandas_df_for_labelencoder_modified", "pandas_df_for_labelencoder_new_data"),
+        ("polars_df_for_labelencoder", "polars_df_for_labelencoder_modified", "polars_df_for_labelencoder_new_data"),
     ],
 )
 def test_default_value_after_partial_fit(
@@ -646,21 +606,9 @@ def test_label_encoder_not_implemented_df(is_grouped_encoder, dataframe_not_impl
 @pytest.mark.parametrize(
     "df_for_labelencoder, df_for_labelencoder_modified",
     [
-        pytest.param(
-            "pandas_df_for_labelencoder",
-            "pandas_df_for_labelencoder_modified",
-            marks=pytest.mark.core,
-        ),
-        pytest.param(
-            "polars_df_for_labelencoder",
-            "polars_df_for_labelencoder_modified",
-            marks=pytest.mark.core,
-        ),
-        pytest.param(
-            "spark_df_for_labelencoder",
-            "spark_df_for_labelencoder_modified",
-            marks=pytest.mark.spark,
-        ),
+        pytest.param("pandas_df_for_labelencoder", "pandas_df_for_labelencoder_modified", marks=pytest.mark.core),
+        pytest.param("polars_df_for_labelencoder", "polars_df_for_labelencoder_modified", marks=pytest.mark.core),
+        pytest.param("spark_df_for_labelencoder", "spark_df_for_labelencoder_modified", marks=pytest.mark.spark),
     ],
 )
 def test_label_encoder_drop_strategy(request, df_for_labelencoder, df_for_labelencoder_modified):
@@ -688,19 +636,13 @@ def test_label_encoder_drop_strategy(request, df_for_labelencoder, df_for_labele
     "df_for_labelencoder, df_for_labelencoder_modified",
     [
         pytest.param(
-            "pandas_df_for_grouped_labelencoder",
-            "pandas_df_for_grouped_labelencoder_modified",
-            marks=pytest.mark.core,
+            "pandas_df_for_grouped_labelencoder", "pandas_df_for_grouped_labelencoder_modified", marks=pytest.mark.core
         ),
         pytest.param(
-            "polars_df_for_grouped_labelencoder",
-            "polars_df_for_grouped_labelencoder_modified",
-            marks=pytest.mark.core,
+            "polars_df_for_grouped_labelencoder", "polars_df_for_grouped_labelencoder_modified", marks=pytest.mark.core
         ),
         pytest.param(
-            "spark_df_for_grouped_labelencoder",
-            "spark_df_for_grouped_labelencoder_modified",
-            marks=pytest.mark.spark,
+            "spark_df_for_grouped_labelencoder", "spark_df_for_grouped_labelencoder_modified", marks=pytest.mark.spark
         ),
     ],
 )
@@ -728,21 +670,9 @@ def test_grouped_label_encoder_drop_strategy(request, df_for_labelencoder, df_fo
 @pytest.mark.parametrize(
     "df_for_labelencoder, df_for_labelencoder_new_data",
     [
-        pytest.param(
-            "pandas_df_for_labelencoder",
-            "pandas_df_for_labelencoder_new_data",
-            marks=pytest.mark.core,
-        ),
-        pytest.param(
-            "polars_df_for_labelencoder",
-            "polars_df_for_labelencoder_new_data",
-            marks=pytest.mark.core,
-        ),
-        pytest.param(
-            "spark_df_for_labelencoder",
-            "spark_df_for_labelencoder_new_data",
-            marks=pytest.mark.spark,
-        ),
+        pytest.param("pandas_df_for_labelencoder", "pandas_df_for_labelencoder_new_data", marks=pytest.mark.core),
+        pytest.param("polars_df_for_labelencoder", "polars_df_for_labelencoder_new_data", marks=pytest.mark.core),
+        pytest.param("spark_df_for_labelencoder", "spark_df_for_labelencoder_new_data", marks=pytest.mark.spark),
     ],
 )
 def test_label_encoder_drop_strategy_empty_dataset(request, df_for_labelencoder, df_for_labelencoder_new_data):
@@ -765,19 +695,13 @@ def test_label_encoder_drop_strategy_empty_dataset(request, df_for_labelencoder,
     "df_for_labelencoder, df_for_labelencoder_new_data",
     [
         pytest.param(
-            "pandas_df_for_grouped_labelencoder",
-            "pandas_df_for_grouped_labelencoder_new_data",
-            marks=pytest.mark.core,
+            "pandas_df_for_grouped_labelencoder", "pandas_df_for_grouped_labelencoder_new_data", marks=pytest.mark.core
         ),
         pytest.param(
-            "polars_df_for_grouped_labelencoder",
-            "polars_df_for_grouped_labelencoder_new_data",
-            marks=pytest.mark.core,
+            "polars_df_for_grouped_labelencoder", "polars_df_for_grouped_labelencoder_new_data", marks=pytest.mark.core
         ),
         pytest.param(
-            "spark_df_for_grouped_labelencoder",
-            "spark_df_for_grouped_labelencoder_new_data",
-            marks=pytest.mark.spark,
+            "spark_df_for_grouped_labelencoder", "spark_df_for_grouped_labelencoder_new_data", marks=pytest.mark.spark
         ),
     ],
 )
