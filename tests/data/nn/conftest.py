@@ -459,7 +459,10 @@ def some_num_feature():
         feature_type=FeatureType.NUMERICAL,
         tensor_dim=1,
         is_seq=True,
-        feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+        feature_sources=[
+            TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
+            TensorFeatureSource(FeatureSource.INTERACTIONS, "item_ids"),
+        ],
     )
 
 

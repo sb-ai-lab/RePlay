@@ -23,6 +23,8 @@ def test_tensor_feature_properties(some_num_tensor_feature, some_cat_tensor_feat
     assert some_cat_tensor_feature.cardinality == some_cat_tensor_feature.embedding_dim
     assert some_num_tensor_feature.tensor_dim == 1
     assert isinstance(some_cat_tensor_feature.feature_source, TensorFeatureSource)
+    assert len(some_num_tensor_feature.feature_sources) == 2
+    assert len(some_cat_tensor_feature.feature_sources) == 1
     assert some_cat_tensor_feature.feature_source.index == 0
     assert feature.feature_source is None
 
@@ -83,6 +85,7 @@ def test_tensor_feature_setters(some_num_tensor_feature, some_cat_tensor_feature
     some_cat_tensor_feature._set_embedding_dim(42)
 
     assert some_num_tensor_feature.feature_hint == FeatureHint.RATING
+    assert len(some_cat_tensor_feature.feature_sources) == 1
     assert some_num_tensor_feature.tensor_dim == 42
     assert some_cat_tensor_feature.cardinality == 42
     assert some_cat_tensor_feature.embedding_dim == 42
@@ -107,19 +110,29 @@ def test_tensor_feature_invalid_init():
             tensor_dim=42,
         )
 
-    with pytest.raises(RuntimeError) as exc4:
+    with pytest.raises(ValueError) as exc4:
+        TensorFeatureInfo(
+            name="fake",
+            feature_type=FeatureType.NUMERICAL,
+            feature_sources=[
+                TensorFeatureSource(FeatureSource.INTERACTIONS, "fake1", 0),
+                TensorFeatureSource(FeatureSource.INTERACTIONS, "fake2", 1),
+            ],
+        ).feature_source
+
+    with pytest.raises(RuntimeError) as exc5:
         TensorFeatureInfo(
             name="fake",
             feature_type=FeatureType.NUMERICAL,
         ).cardinality
 
-    with pytest.raises(RuntimeError) as exc5:
+    with pytest.raises(RuntimeError) as exc6:
         TensorFeatureInfo(
             name="fake",
             feature_type=FeatureType.CATEGORICAL,
         ).tensor_dim
 
-    with pytest.raises(RuntimeError) as exc6:
+    with pytest.raises(RuntimeError) as exc7:
         TensorFeatureInfo(
             name="fake",
             feature_type=FeatureType.NUMERICAL,
@@ -128,9 +141,10 @@ def test_tensor_feature_invalid_init():
     assert str(exc1.value) == "Unknown feature type"
     assert str(exc2.value) == "Cardinality and embedding dimensions are needed only with categorical feature type."
     assert str(exc3.value) == "Tensor dimensions is needed only with numerical feature type."
-    assert str(exc4.value) == "Can not get cardinality because feature type of fake column is not categorical."
-    assert str(exc5.value) == "Can not get tensor dimensions because feature type of fake feature is not numerical."
-    assert str(exc6.value) == (
+    assert str(exc4.value) == "Only one element feature sources can be converted to single feature source."
+    assert str(exc5.value) == "Can not get cardinality because feature type of fake column is not categorical."
+    assert str(exc6.value) == "Can not get tensor dimensions because feature type of fake feature is not numerical."
+    assert str(exc7.value) == (
         "Can not get embedding dimensions because" " feature type of fake feature is not categorical."
     )
 

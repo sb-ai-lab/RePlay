@@ -736,6 +736,34 @@ def test_item_id_feature_not_specified(dataset, request):
 
 
 @pytest.mark.torch
+def test_invalid_source_table():
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "feature",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource("", "feature")],
+            ),
+        ]
+    )
+
+    with pytest.raises(AssertionError) as exc:
+        SequenceTokenizer._get_features_filter_from_schema(schema, "user_id", "item_id")
+
+    assert str(exc.value) == "Unknown tensor feature source"
+
+
+@pytest.mark.torch
 @pytest.mark.parametrize("dataset", [pd.DataFrame(), pl.DataFrame()])
 def test_unknown_source_table_in_cat_processor(dataset):
     schema = TensorSchema(
