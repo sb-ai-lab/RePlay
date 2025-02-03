@@ -989,3 +989,102 @@ class QuantileItemsFilter(_BaseFilter):
         )
         short_tail = short_tail.filter(sf.col("index") > sf.col("num_items_to_delete"))
         return long_tail.select(df.columns).union(short_tail.select(df.columns))
+
+
+class ConsecutiveDuplicatesFilter(_BaseFilter):
+    """Removes consecutive duplicate items from sequential dataset.
+    
+    >>> import datetime as dt
+    >>> import pandas as pd
+    >>> from replay.utils.spark_utils import convert2spark
+    >>> interactions = pd.DataFrame({
+    ...     "user_id": ["u0", "u1", "u1", "u0", "u0", "u0", "u1", "u0"],
+    ...     "item_id": ["i0", "i1", "i1", "i2", "i0", "i1", "i2", "i1"],
+    ...     "timestamp": [dt.datetime(2024, 1, 1) + dt.timedelta(days=i) for i in range(8)]
+    ... })
+    >>> interactions = convert2spark(interactions)
+    >>> interactions.show()
+    +-------+-------+-------------------+
+    |user_id|item_id|          timestamp|
+    +-------+-------+-------------------+
+    |     u0|     i0|2024-01-01 00:00:00|
+    |     u1|     i1|2024-01-02 00:00:00|
+    |     u1|     i1|2024-01-03 00:00:00|
+    |     u0|     i2|2024-01-04 00:00:00|
+    |     u0|     i0|2024-01-05 00:00:00|
+    |     u0|     i1|2024-01-06 00:00:00|
+    |     u1|     i2|2024-01-07 00:00:00|
+    |     u0|     i1|2024-01-08 00:00:00|
+    +-------+-------+-------------------+
+    <BLANKLINE>
+
+    >>> ConsecutiveDuplicatesFilter(query_column="user_id").transform(interactions).show()
+    +-------+-------+-------------------+
+    |user_id|item_id|          timestamp|
+    +-------+-------+-------------------+
+    |     u0|     i0|2024-01-01 00:00:00|
+    |     u0|     i2|2024-01-04 00:00:00|
+    |     u0|     i0|2024-01-05 00:00:00|
+    |     u0|     i1|2024-01-06 00:00:00|
+    |     u1|     i1|2024-01-02 00:00:00|
+    |     u1|     i2|2024-01-07 00:00:00|
+    +-------+-------+-------------------+
+    <BLANKLINE>
+    """
+
+    def __init__(
+        self,
+        first: bool = True,
+        query_column: str = "query_id",
+        item_column: str = "item_id",
+        timestamp_column: str = "timestamp",
+    ) -> None:
+        """
+        :param first: whether to keep first (True) or last (False) occurrence,
+            default: `True`.
+        :param query_column: query column,
+            default: `query_id`.
+        :param item_column: item column,
+            default: `item_id`.
+        :param timestamp_column: timestamp column,
+            default: `timestamp`.
+        """
+        super().__init__()
+        self.bias = 1 if first else -1
+        self.query_column = query_column
+        self.item_column = item_column
+        self.timestamp_column = timestamp_column
+
+    def _filter_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
+        interactions = interactions.sort_values([self.query_column, self.timestamp_column])
+        interactions["shifted"] = interactions.groupby(
+            self.query_column
+        )[self.item_column].shift(periods=self.bias)
+        return interactions[
+            interactions[self.item_column] != interactions["shifted"]
+        ].drop("shifted", axis=1).reset_index(drop=True)
+
+    def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        return (
+            interactions.sort(self.query_column, self.timestamp_column)
+            .with_columns(
+                pl.col(self.item_column)
+                .shift(n=self.bias)
+                .over(self.query_column)
+                .alias("shifted"))
+            .filter((pl.col(self.item_column) != pl.col("shifted")).fill_null(True))
+            .drop("shifted")
+        )
+
+    def _filter_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
+        window = Window.partitionBy(self.query_column).orderBy(self.timestamp_column)
+        return (
+            interactions.withColumn(
+                "shifted", sf.lag(self.item_column, offset=self.bias).over(window)
+            )
+            .where(
+                (sf.col(self.item_column) != sf.col("shifted"))
+                | sf.col("shifted").isNull()
+            )
+            .drop("shifted")
+        )
