@@ -226,7 +226,6 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         already_fitted = list(self._mapping.keys())
         new_values = {x[self._col] for x in df.select(self._col).distinct().collect()} - set(already_fitted)
         new_values_list = [[x] for x in new_values]
-        assert len(new_values_list) > 0, "There is no new values in input dataframe"
         new_unique_values_df: SparkDataFrame = get_spark_session().createDataFrame(new_values_list, schema=[self._col])
         window_function_give_ids = Window.orderBy(self._col)
         new_part_of_mapping = (
