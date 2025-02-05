@@ -59,10 +59,10 @@ class OptimizedSasRec:
 
     def _prepare_prediction_batch(self, batch: SasRecPredictionBatch) -> SasRecPredictionBatch:
         if batch.padding_mask.shape[1] > self._max_seq_len:
-            msg = f"The length of the submitted sequence \
-                must not exceed the maximum length of the sequence. \
-                The length of the sequence is given {batch.padding_mask.shape[1]}, \
-                while the maximum length is {self._max_seq_len}"
+            msg = "The length of the submitted sequence " \
+                "must not exceed the maximum length of the sequence. " \
+                f"The length of the sequence is given {batch.padding_mask.shape[1]}, " \
+                f"while the maximum length is {self._max_seq_len}"
             raise ValueError(msg)
 
         if batch.padding_mask.shape[1] < self._max_seq_len:
@@ -193,7 +193,7 @@ class OptimizedSasRec:
         item_seq_name = lightning_model._schema.item_id_feature_name
         max_seq_len = lightning_model._model.max_len
 
-        batch_size, num_candidates_to_score = OptimizedSasRec._set_input_params(
+        batch_size, num_candidates_to_score = OptimizedSasRec._get_input_params(
             mode, batch_size, num_candidates_to_score
         )
 
