@@ -90,7 +90,7 @@ def test_prediction_sasrec_with_candidates(item_user_sequential_dataset, train_s
         if candidates is not None:
             assert pred.size() == (1, candidates.shape[0])
         else:
-            assert pred.size() == (1, item_user_sequential_dataset.schema._get_object_args()[0]["cardinality"])
+            assert pred.size() == (1, item_user_sequential_dataset.schema["item_id"].cardinality)
 
 
 @pytest.mark.torch

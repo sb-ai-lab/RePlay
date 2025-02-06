@@ -41,8 +41,9 @@ def test_sasrec_predictions(tensor_schema, simple_masks):
     predictions_all = model.predict(inputs, padding_mask)
     assert predictions_all.size() == predictions_by_one.size()
 
-    predictions_reduced = model.predict(inputs, padding_mask, torch.tensor([0, 1]))
-    assert predictions_reduced.size() == torch.Size([padding_mask.shape[0], 2])
+    candidates_to_score = torch.tensor([0, 1])
+    predictions_reduced = model.predict(inputs, padding_mask, candidates_to_score)
+    assert predictions_reduced.size() == torch.Size([padding_mask.shape[0], candidates_to_score.shape[0]])
 
 
 @pytest.mark.torch

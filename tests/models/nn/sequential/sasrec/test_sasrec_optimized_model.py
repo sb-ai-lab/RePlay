@@ -1,4 +1,3 @@
-import pathlib
 
 import pytest
 
@@ -40,11 +39,11 @@ L = pytest.importorskip("lightning")
     ],
 )
 def test_prediction_optimized_sasrec(
-    item_user_sequential_dataset, train_sasrec_loader, num_candidates, candidates, mode, batch_size
+    item_user_sequential_dataset, train_sasrec_loader, num_candidates, candidates, mode, batch_size, tmp_path
 ):
     pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_sasrec_loader = torch.utils.data.DataLoader(pred, batch_size=batch_size)
-    cardinality = item_user_sequential_dataset.schema._get_object_args()[0]["cardinality"]
+    cardinality = item_user_sequential_dataset.schema["item_id"].cardinality
 
     model = SasRec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
@@ -54,10 +53,10 @@ def test_prediction_optimized_sasrec(
 
     trainer = L.Trainer(max_epochs=1)
     trainer.fit(model, train_sasrec_loader)
-    trainer.save_checkpoint("test.ckpt")
+    trainer.save_checkpoint(tmp_path / "test.ckpt")
 
     opt_model = OptimizedSasRec.compile(
-        model="test.ckpt",
+        model=(tmp_path / "test.ckpt"),
         mode=mode,
         batch_size=batch_size if mode != "dynamic_batch_size" else None,
         num_candidates_to_score=num_candidates,
@@ -85,7 +84,7 @@ def test_prediction_optimized_sasrec(
     ],
 )
 def test_prediction_optimized_sasrec_invalid_candidates_to_score(
-    item_user_sequential_dataset, train_sasrec_loader, num_candidates, candidates
+    item_user_sequential_dataset, train_sasrec_loader, num_candidates, candidates, tmp_path
 ):
     pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_sasrec_loader = torch.utils.data.DataLoader(pred)
@@ -97,12 +96,12 @@ def test_prediction_optimized_sasrec_invalid_candidates_to_score(
 
     trainer = L.Trainer(max_epochs=1)
     trainer.fit(model, train_sasrec_loader)
-    trainer.save_checkpoint("test.ckpt")
+    trainer.save_checkpoint(tmp_path / "test.ckpt")
 
     for i, batch in enumerate(pred_sasrec_loader):
         with pytest.raises(ValueError):
             model = OptimizedSasRec.compile(
-                model="test.ckpt",
+                model=(tmp_path / "test.ckpt"),
                 mode="one_query",
                 num_candidates_to_score=num_candidates,
             )
@@ -111,13 +110,14 @@ def test_prediction_optimized_sasrec_invalid_candidates_to_score(
 
 @pytest.mark.torch
 @pytest.mark.parametrize(
-    "mode, batch_size",
+    "mode, batch_size, model_batch_size",
     [
-        ("batch", 3),
+        ("batch", 2, 3),
+        ("batch", 2, 1),
     ],
 )
 def test_prediction_optimized_sasrec_invalid_batch_in_batch_mode(
-    item_user_sequential_dataset, train_sasrec_loader, mode, batch_size
+    item_user_sequential_dataset, train_sasrec_loader, mode, batch_size, model_batch_size, tmp_path
 ):
     pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_sasrec_loader = torch.utils.data.DataLoader(pred, batch_size=batch_size)
@@ -130,12 +130,12 @@ def test_prediction_optimized_sasrec_invalid_batch_in_batch_mode(
 
     trainer = L.Trainer(max_epochs=1)
     trainer.fit(model, train_sasrec_loader)
-    trainer.save_checkpoint("test.ckpt")
+    trainer.save_checkpoint(tmp_path / "test.ckpt")
 
     opt_model = OptimizedSasRec.compile(
-        model="test.ckpt",
+        model=(tmp_path / "test.ckpt"),
         mode=mode,
-        batch_size=batch_size * 100,
+        batch_size=model_batch_size,
     )
 
     with pytest.raises(ValueError):
@@ -144,7 +144,7 @@ def test_prediction_optimized_sasrec_invalid_batch_in_batch_mode(
 
 
 @pytest.mark.torch
-def test_optimized_sasrec_prepare_prediction_batch(item_user_sequential_dataset, train_sasrec_loader):
+def test_optimized_sasrec_prepare_prediction_batch(item_user_sequential_dataset, train_sasrec_loader, tmp_path):
     pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_sasrec_loader = torch.utils.data.DataLoader(pred, batch_size=1)
 
@@ -156,9 +156,9 @@ def test_optimized_sasrec_prepare_prediction_batch(item_user_sequential_dataset,
 
     trainer = L.Trainer(max_epochs=1)
     trainer.fit(model, train_sasrec_loader)
-    trainer.save_checkpoint("test.ckpt")
+    trainer.save_checkpoint(tmp_path / "test.ckpt")
 
-    opt_model = OptimizedSasRec.compile(model="test.ckpt")
+    opt_model = OptimizedSasRec.compile(model=(tmp_path / "test.ckpt"))
 
     for i, batch in enumerate(pred_sasrec_loader):
         query_id, padding_mask, features = batch
@@ -182,7 +182,7 @@ def test_optimized_sasrec_invalid_mode():
 
 
 @pytest.mark.torch
-def test_optimized_sasrec_compile_from_different_sources(item_user_sequential_dataset, train_sasrec_loader):
+def test_optimized_sasrec_compile_from_different_sources(item_user_sequential_dataset, train_sasrec_loader, tmp_path):
     model = SasRec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
@@ -191,9 +191,9 @@ def test_optimized_sasrec_compile_from_different_sources(item_user_sequential_da
 
     trainer = L.Trainer(max_epochs=1)
     trainer.fit(model, train_sasrec_loader)
-    trainer.save_checkpoint("test.ckpt")
+    trainer.save_checkpoint(tmp_path / "test.ckpt")
 
-    opt_model1 = OptimizedSasRec.compile(model="test.ckpt")
-    opt_model2 = OptimizedSasRec.compile(model=pathlib.Path("test.ckpt"))
+    opt_model1 = OptimizedSasRec.compile(model=str(tmp_path / "test.ckpt"))
+    opt_model2 = OptimizedSasRec.compile(model=(tmp_path / "test.ckpt"))
     opt_model3 = OptimizedSasRec.compile(model=model)
     assert str(opt_model1._model) == str(opt_model2._model) == str(opt_model3._model)

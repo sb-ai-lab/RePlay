@@ -1,5 +1,5 @@
-import os
 import pathlib
+import tempfile
 from typing import Any, List, Literal, Optional, Union, get_args
 
 import openvino as ov
@@ -59,10 +59,12 @@ class OptimizedSasRec:
 
     def _prepare_prediction_batch(self, batch: SasRecPredictionBatch) -> SasRecPredictionBatch:
         if batch.padding_mask.shape[1] > self._max_seq_len:
-            msg = "The length of the submitted sequence " \
-                "must not exceed the maximum length of the sequence. " \
-                f"The length of the sequence is given {batch.padding_mask.shape[1]}, " \
+            msg = (
+                "The length of the submitted sequence "
+                "must not exceed the maximum length of the sequence. "
+                f"The length of the sequence is given {batch.padding_mask.shape[1]}, "
                 f"while the maximum length is {self._max_seq_len}"
+            )
             raise ValueError(msg)
 
         if batch.padding_mask.shape[1] < self._max_seq_len:
@@ -177,13 +179,13 @@ class OptimizedSasRec:
             Default: ``None``.
         :param num_candidates_to_score: Number of item ids to calculate scores.
             Could be one of [``None``, ``-1``, ``N``].\n
-            ``-1`` - sets candidates_to_score shape to [1, ?]\n
+            ``-1`` - sets candidates_to_score shape to dynamic range [1, ?]\n
             ``N`` - sets candidates_to_score shape to [1, N]\n
             ``None`` - disable candidates_to_score usage\n
             Default: ``None``.
         """
         if mode not in get_args(OptimizedModeType):
-            msg = "Parameter ``mode`` could be one of [``one_query``, ``batch``, ``dynamic_batch_size``]."
+            msg = f"Parameter ``mode`` could be one of {get_args(OptimizedModeType)}."
             raise ValueError(msg)
         num_candidates_to_score = OptimizedSasRec._validate_num_candidates_to_score(num_candidates_to_score)
         if isinstance(model, SasRec):
@@ -213,10 +215,10 @@ class OptimizedSasRec:
         else:
             model_input_sample = ({item_seq_name: item_sequence}, padding_mask)
 
-        onnx_path = "tmp_optimized_model.onnx"
+        onnx_file = tempfile.NamedTemporaryFile(suffix=".onnx")
 
         lightning_model.to_onnx(
-            onnx_path,
+            onnx_file.name,
             input_sample=model_input_sample,
             export_params=True,
             opset_version=14,
@@ -227,8 +229,8 @@ class OptimizedSasRec:
         )
         del lightning_model
 
-        compiled_model = _compile_openvino(onnx_path, batch_size, max_seq_len, num_candidates_to_score)
+        compiled_model = _compile_openvino(onnx_file.name, batch_size, max_seq_len, num_candidates_to_score)
 
-        os.remove(onnx_path)
+        onnx_file.close()
 
         return cls(compiled_model)
