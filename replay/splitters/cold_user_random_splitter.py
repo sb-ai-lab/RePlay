@@ -94,7 +94,7 @@ class ColdUserRandomSplitter(Splitter):
     ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
         train_users = (
             interactions.select(self.query_column)
-            .unique()
+            .unique(maintain_order=True)
             .sample(fraction=(1 - threshold), seed=self.seed)
             .with_columns(pl.lit(False).alias("is_test"))
         )
