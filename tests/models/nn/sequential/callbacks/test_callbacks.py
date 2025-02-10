@@ -55,7 +55,11 @@ def test_torch_prediction_callback_fast_forward(
 
     callback = TorchPredictionCallback(
         1,
-        postprocessors=[RemoveSeenItems(item_user_sequential_dataset)] if is_postprocessor else None,
+        postprocessors=(
+            [RemoveSeenItems(item_user_sequential_dataset, candidates=candidates if candidates is not None else None)]
+            if is_postprocessor
+            else None
+        ),
     )
 
     trainer = L.Trainer(max_epochs=1, callbacks=[callback])
@@ -114,7 +118,11 @@ def test_pandas_prediction_callback_fast_forward(
         1,
         "user_id",
         "item_id",
-        postprocessors=[RemoveSeenItems(item_user_sequential_dataset)] if is_postprocessor else None,
+        postprocessors=(
+            [RemoveSeenItems(item_user_sequential_dataset, candidates=candidates if candidates is not None else None)]
+            if is_postprocessor
+            else None
+        ),
     )
 
     trainer = L.Trainer(max_epochs=1, callbacks=[callback])
@@ -170,7 +178,11 @@ def test_polars_prediction_callback_fast_forward(
         1,
         "user_id",
         "item_id",
-        postprocessors=[RemoveSeenItems(item_user_sequential_dataset)] if is_postprocessor else None,
+        postprocessors=(
+            [RemoveSeenItems(item_user_sequential_dataset, candidates=candidates if candidates is not None else None)]
+            if is_postprocessor
+            else None
+        ),
     )
 
     trainer = L.Trainer(max_epochs=1, callbacks=[callback])
@@ -229,7 +241,11 @@ def test_spark_prediction_callback_fast_forward(
         "item_id",
         "score",
         get_spark_session(),
-        postprocessors=[RemoveSeenItems(item_user_sequential_dataset)] if is_postprocessor else None,
+        postprocessors=(
+            [RemoveSeenItems(item_user_sequential_dataset, candidates=candidates if candidates is not None else None)]
+            if is_postprocessor
+            else None
+        ),
     )
 
     trainer = L.Trainer(max_epochs=1, callbacks=[callback])
@@ -292,7 +308,11 @@ def test_validation_callbacks(
         metrics=metrics,
         ks=[1],
         item_count=1,
-        postprocessors=[postprocessor(item_user_sequential_dataset)] if postprocessor else None,
+        postprocessors=(
+            [postprocessor(item_user_sequential_dataset, candidates=candidates if candidates is not None else None)]
+            if postprocessor
+            else None
+        ),
     )
 
     trainer = L.Trainer(max_epochs=1, callbacks=[callback])
@@ -359,7 +379,11 @@ def test_validation_callbacks_multiple_dataloaders(
         metrics=metrics,
         ks=[1],
         item_count=1,
-        postprocessors=[postprocessor(item_user_sequential_dataset)] if postprocessor else None,
+        postprocessors=(
+            [postprocessor(item_user_sequential_dataset, candidates=candidates if candidates is not None else None)]
+            if postprocessor
+            else None
+        ),
     )
 
     trainer = L.Trainer(max_epochs=1, callbacks=[callback])

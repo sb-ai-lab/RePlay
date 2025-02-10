@@ -14,9 +14,11 @@ class RemoveSeenItems(BasePostProcessor):
     Filters out the items that already have been seen in dataset.
     """
 
-    def __init__(self, sequential: SequentialDataset) -> None:
+    def __init__(self, sequential: SequentialDataset, candidates: Optional[int] = None) -> None:
         super().__init__()
         self._sequential = sequential
+        self._candidates = candidates
+        self._apply_candidates = False
 
     def on_validation(
         self, query_ids: torch.LongTensor, scores: torch.Tensor, ground_truth: torch.LongTensor
@@ -30,6 +32,7 @@ class RemoveSeenItems(BasePostProcessor):
 
         :returns: modified query ids and scores and ground truth dataset
         """
+        self._apply_candidates = False
         modified_scores = self._compute_scores(query_ids, scores)
         return query_ids, modified_scores, ground_truth
 
@@ -42,6 +45,7 @@ class RemoveSeenItems(BasePostProcessor):
 
         :returns: modified query ids and scores
         """
+        self._apply_candidates = True
         modified_scores = self._compute_scores(query_ids, scores)
         return query_ids, modified_scores
 
@@ -56,6 +60,13 @@ class RemoveSeenItems(BasePostProcessor):
         value: float,
     ) -> torch.Tensor:
         flat_item_ids_on_device = flat_item_ids.to(scores.device)
+
+        if self._apply_candidates and self._candidates is not None:
+            item_count = self._sequential.schema.item_id_features.item().cardinality
+            assert item_count
+            _scores = torch.full((scores.shape[0], item_count), -float("inf"))
+            _scores[:, self._candidates] = scores.unsqueeze(1)
+            scores = _scores
         if scores.is_contiguous():
             scores.view(-1)[flat_item_ids_on_device] = value
         else:

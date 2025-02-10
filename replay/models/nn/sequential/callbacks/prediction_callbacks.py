@@ -88,7 +88,6 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
             torch.cat(self._item_batches),
             torch.cat(self._item_scores),
         )
-
         return prediction
 
     def _compute_pipeline(
