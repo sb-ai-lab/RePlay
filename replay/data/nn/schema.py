@@ -178,6 +178,7 @@ class TensorFeatureInfo:
     def is_seq(self) -> bool:
         """
         :returns: Flag that feature is sequential.
+        Sequential means that the value of the feature will be determined for each element of the user's sequence.
         """
         return self._is_seq
 
