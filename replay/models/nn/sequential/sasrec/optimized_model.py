@@ -17,19 +17,6 @@ OptimizedModeType = Literal[
 ]
 
 
-def _compile_openvino(onnx_path: str, batch_size: int, max_seq_len: int, num_candidates_to_score: int):
-    core = ov.Core()
-    model_onnx = core.read_model(model=onnx_path)
-    inputs_names = [inputs.names.pop() for inputs in model_onnx.inputs]
-    del model_onnx
-
-    model_input_scheme = [(input_name, [batch_size, max_seq_len]) for input_name in inputs_names[:2]]
-    if num_candidates_to_score is not None:
-        model_input_scheme += [(inputs_names[2], [num_candidates_to_score])]
-    model_onnx = ov.convert_model(onnx_path, input=model_input_scheme)
-    return core.compile_model(model=model_onnx, device_name="CPU")
-
-
 class OptimizedSasRec:
     """
     SasRec CPU-optimized model for inference via OpenVINO.
@@ -121,7 +108,7 @@ class OptimizedSasRec:
         if not (isinstance(candidates, torch.Tensor) and candidates.dtype is torch.long):
             msg = (
                 "Expected candidates to be of type ``torch.Tensor`` with dtype ``torch.long``, "
-                "got {type(candidates)} with dtype {candidates.dtype}."
+                f"got {type(candidates)} with dtype {candidates.dtype}."
             )
             raise ValueError(msg)
 

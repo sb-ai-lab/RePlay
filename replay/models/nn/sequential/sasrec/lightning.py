@@ -523,15 +523,15 @@ class SasRec(lightning.LightningModule):
     @property
     def candidates_to_score(self) -> Union[torch.LongTensor, None]:
         """
-        Returns list of candidates to score.
+        Returns tensor of item ids to calculate scores.
         """
         return self._candidates_to_score
 
     @candidates_to_score.setter
     def candidates_to_score(self, candidates: Optional[torch.LongTensor] = None) -> None:
         """
-        Sets new optimizer_factory.
-        :param optimizer_factory: New optimizer factory.
+        Sets tensor of item ids to calculate scores.
+        :param candidates: Tensor of item ids to calculate scores.
         """
         total_item_count = self._model.item_count
         if isinstance(candidates, torch.Tensor) and candidates.dtype is torch.long:

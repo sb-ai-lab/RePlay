@@ -522,6 +522,21 @@ class Bert4Rec(lightning.LightningModule):
             msg = f"Expected optimizer_factory of type OptimizerFactory, got {type(optimizer_factory)}"
             raise ValueError(msg)
 
+    @property
+    def candidates_to_score(self) -> Union[torch.LongTensor, None]:
+        """
+        Returns tensor of item ids to calculate scores.
+        """
+        raise NotImplementedError()
+
+    @candidates_to_score.setter
+    def candidates_to_score(self, candidates: Optional[torch.LongTensor] = None) -> None:
+        """
+        Sets tensor of item ids to calculate scores.
+        :param candidates: Tensor of item ids to calculate scores.
+        """
+        raise NotImplementedError()
+
     def _set_new_item_embedder_to_model(self, weights_new: torch.nn.Embedding, new_vocab_size: int):
         self._model.item_embedder.cat_embeddings[self._model.schema.item_id_feature_name] = weights_new
         if self._model.enable_embedding_tying is True:
