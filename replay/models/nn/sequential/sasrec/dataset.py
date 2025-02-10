@@ -90,7 +90,10 @@ class SasRecTrainingDataset(TorchDataset):
 
         output_features: MutableTensorMap = {}
         for feature_name in self._schema:
-            output_features[feature_name] = features[feature_name][: -self._sequence_shift]
+            feature = features[feature_name]
+            if self._schema[feature_name].is_seq:
+                feature = feature[: -self._sequence_shift]
+            output_features[feature_name] = feature
 
         output_features_padding_mask = padding_mask[: -self._sequence_shift]
 

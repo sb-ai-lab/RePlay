@@ -6,7 +6,6 @@ from replay.utils import TORCH_AVAILABLE
 if TORCH_AVAILABLE:
     from replay.data.nn import TensorFeatureInfo, TensorFeatureSource
     from replay.data.nn.schema import TensorSchema
-    from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
 
 
 @pytest.mark.torch
@@ -32,19 +31,17 @@ def test_tensor_feature_properties(some_num_tensor_feature, some_cat_tensor_feat
 
 @pytest.mark.torch
 def test_tensor_scheme_properties(fake_schema, tensor_schema):
-    schema = (
-        TensorSchemaBuilder()
-        .numerical(
-            "item_id",
-            tensor_dim=2,
-            is_seq=True,
-            feature_sources=[
-                TensorFeatureSource(FeatureSource.INTERACTIONS, "item_feature1"),
-                TensorFeatureSource(FeatureSource.INTERACTIONS, "item_feature2"),
-            ],
-            feature_hint=FeatureHint.RATING,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_feature1")],
+                feature_hint=FeatureHint.RATING,
+                tensor_dim=2,
+            ),
+        ]
     )
 
     with pytest.raises(ValueError) as exc1:
@@ -82,11 +79,7 @@ def test_invalid_tensor_feature_type(some_num_tensor_feature):
 @pytest.mark.torch
 def test_tensor_feature_setters(some_num_tensor_feature, some_cat_tensor_feature):
     some_num_tensor_feature._set_feature_hint(FeatureHint.RATING)
-    some_num_tensor_feature._set_feature_sources(
-        [
-            TensorFeatureSource(FeatureSource.INTERACTIONS, "fake1"),
-        ]
-    )
+    some_num_tensor_feature._set_feature_sources([TensorFeatureSource(FeatureSource.INTERACTIONS, "fake1")])
     some_num_tensor_feature._set_tensor_dim(42)
     some_cat_tensor_feature._set_cardinality(42)
     some_cat_tensor_feature._set_embedding_dim(42)
@@ -182,22 +175,29 @@ def test_tensor_scheme_inits():
         feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "rating")],
     )
 
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "user_id",
-            cardinality=6,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id"),
-            feature_hint=FeatureHint.QUERY_ID,
-        )
-        .numerical("rating", tensor_dim=6, feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "rating")])
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "user_id",
+                cardinality=6,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "user_id")],
+                feature_hint=FeatureHint.QUERY_ID,
+            ),
+            TensorFeatureInfo(
+                "rating",
+                tensor_dim=6,
+                feature_type=FeatureType.NUMERICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "rating")],
+            ),
+        ]
     )
 
     assert TensorSchema(features_list) is not None
