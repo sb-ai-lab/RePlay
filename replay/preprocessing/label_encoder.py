@@ -550,7 +550,7 @@ Convert type to string, integer, or float."
         return encoding_rule
 
 
-class GroupedLabelEncodingRule(LabelEncodingRule):
+class SequenceEncodingRule(LabelEncodingRule):
     """
     Implementation of the encoding rule for grouped categorical variables of PySpark, Pandas and Polars Data Frames.
     Grouped means that one cell of the table contains a list with categorical values.
@@ -560,7 +560,7 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
 
     _FAKE_INDEX_COLUMN_NAME: str = "__index__"
 
-    def fit(self, df: DataFrameLike) -> "GroupedLabelEncodingRule":
+    def fit(self, df: DataFrameLike) -> "SequenceEncodingRule":
         """
         Fits encoder to input dataframe.
 
@@ -592,7 +592,7 @@ class GroupedLabelEncodingRule(LabelEncodingRule):
         self._is_fitted = True
         return self
 
-    def partial_fit(self, df: DataFrameLike) -> "GroupedLabelEncodingRule":
+    def partial_fit(self, df: DataFrameLike) -> "SequenceEncodingRule":
         """
         Fits new data to already fitted encoder.
 
@@ -776,7 +776,7 @@ class LabelEncoder:
     ...     LabelEncodingRule("user_id"),
     ...     LabelEncodingRule("item_1"),
     ...     LabelEncodingRule("item_2"),
-    ...     GroupedLabelEncodingRule("list"),
+    ...     SequenceEncodingRule("list"),
     ... ])
     >>> mapped_interactions = encoder.fit_transform(user_interactions)
     >>> mapped_interactions
@@ -798,7 +798,7 @@ class LabelEncoder:
     ...    LabelEncodingRule("user_id", encoder.mapping["user_id"]),
     ...    LabelEncodingRule("item_1", encoder.mapping["item_1"]),
     ...    LabelEncodingRule("item_2", encoder.mapping["item_2"]),
-    ...    GroupedLabelEncodingRule("list", encoder.mapping["list"]),
+    ...    SequenceEncodingRule("list", encoder.mapping["list"]),
     ... ])
     >>> new_encoder.inverse_transform(mapped_interactions)
       user_id item_1 item_2	list

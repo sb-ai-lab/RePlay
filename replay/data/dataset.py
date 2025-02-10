@@ -458,13 +458,23 @@ class Dataset:
             if feature.feature_hint in [FeatureHint.ITEM_ID, FeatureHint.QUERY_ID]:
                 return nunique(self._ids_feature_map[feature.feature_hint], column)
             assert feature.feature_source
+            if feature.feature_type == FeatureType.CATEGORICAL_LIST:
+                if self.is_spark:
+                    data = (
+                        self._feature_source_map[feature.feature_source]
+                        .select(column)
+                        .withColumn(column, sf.explode(column))
+                    )
+                else:
+                    data = self._feature_source_map[feature.feature_source][[column]].explode(column)
+                return nunique(data, column)
             return nunique(self._feature_source_map[feature.feature_source], column)
 
         return callback
 
     def _set_cardinality(self, features_list: Sequence[FeatureInfo]) -> None:
         for feature in features_list:
-            if feature.feature_type == FeatureType.CATEGORICAL:
+            if feature.feature_type in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]:
                 feature._set_cardinality_callback(self._get_cardinality(feature))
 
     def _fill_feature_schema(self, feature_schema: FeatureSchema) -> FeatureSchema:
@@ -581,6 +591,7 @@ class Dataset:
         data: DataFrameLike,
         column: str,
         source: FeatureSource,
+        feature_type: FeatureType,
         cardinality: Optional[int],
     ) -> None:
         """
@@ -593,6 +604,16 @@ class Dataset:
         Option: Keep this criterion, but suggest the user to disable the check if he understands
         that the criterion will not pass.
         """
+        if feature_type == FeatureType.CATEGORICAL_LIST:  # explode column if list
+            data = data.withColumn(column, sf.explode(column)) if self.is_spark else data[[column]].explode(column)
+
+            if self.is_pandas:
+                try:
+                    data[column] = data[column].astype(int)
+                except Exception:
+                    msg = f"IDs in {source.name}.{column} are not encoded. They are not int."
+                    raise ValueError(msg)
+
         if self.is_pandas:
             is_int = np.issubdtype(dict(data.dtypes)[column], int)
         elif self.is_spark:
@@ -632,6 +653,7 @@ class Dataset:
                     self.interactions,
                     feature.column,
                     FeatureSource.INTERACTIONS,
+                    feature.feature_type,
                     feature.cardinality,
                 )
                 if self.item_features is not None:
@@ -639,6 +661,7 @@ class Dataset:
                         self.item_features,
                         feature.column,
                         FeatureSource.ITEM_FEATURES,
+                        feature.feature_type,
                         feature.cardinality,
                     )
             elif feature.feature_hint == FeatureHint.QUERY_ID:
@@ -646,6 +669,7 @@ class Dataset:
                     self.interactions,
                     feature.column,
                     FeatureSource.INTERACTIONS,
+                    feature.feature_type,
                     feature.cardinality,
                 )
                 if self.query_features is not None:
@@ -653,6 +677,7 @@ class Dataset:
                         self.query_features,
                         feature.column,
                         FeatureSource.QUERY_FEATURES,
+                        feature.feature_type,
                         feature.cardinality,
                     )
             else:
@@ -661,6 +686,7 @@ class Dataset:
                     data,
                     feature.column,
                     feature.feature_source,
+                    feature.feature_type,
                     feature.cardinality,
                 )
 

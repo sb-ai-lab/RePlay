@@ -70,6 +70,8 @@ class TensorFeatureInfo:
     Information about a tensor feature.
     """
 
+    DEFAULT_EMBEDDING_DIM = 64
+
     def __init__(
         self,
         name: str,
@@ -109,18 +111,17 @@ class TensorFeatureInfo:
             raise ValueError(msg)
         self._feature_type = feature_type
 
-        if feature_type == FeatureType.NUMERICAL and (cardinality or embedding_dim):
+        if feature_type in [FeatureType.NUMERICAL, FeatureType.NUMERICAL_LIST] and (cardinality or embedding_dim):
             msg = "Cardinality and embedding dimensions are needed only with categorical feature type."
             raise ValueError(msg)
         self._cardinality = cardinality
 
-        if feature_type == FeatureType.CATEGORICAL and tensor_dim:
+        if feature_type in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST] and tensor_dim:
             msg = "Tensor dimensions is needed only with numerical feature type."
             raise ValueError(msg)
 
-        if feature_type == FeatureType.CATEGORICAL:
-            default_embedding_dim = 64
-            self._embedding_dim = embedding_dim or default_embedding_dim
+        if feature_type in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]:
+            self._embedding_dim = embedding_dim or self.DEFAULT_EMBEDDING_DIM
         else:
             self._tensor_dim = tensor_dim
 
@@ -176,7 +177,8 @@ class TensorFeatureInfo:
     @property
     def is_seq(self) -> bool:
         """
-        :returns: Flag that feature is sequential.
+        :returns: Flag that feature is sequential.\n
+        Sequential means that the value of the feature will be determined for each element of the user's sequence.
         """
         return self._is_seq
 
@@ -185,21 +187,28 @@ class TensorFeatureInfo:
         """
         :returns: Flag that feature is categorical.
         """
-        return self.feature_type == FeatureType.CATEGORICAL
+        return self.feature_type in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]
 
     @property
     def is_num(self) -> bool:
         """
         :returns: Flag that feature is numerical.
         """
-        return self.feature_type == FeatureType.NUMERICAL
+        return self.feature_type in [FeatureType.NUMERICAL, FeatureType.NUMERICAL_LIST]
+
+    @property
+    def is_list(self) -> bool:
+        """
+        :returns: Flag that feature is numerical list or categorical list.
+        """
+        return self.feature_type in [FeatureType.CATEGORICAL_LIST, FeatureType.NUMERICAL_LIST]
 
     @property
     def cardinality(self) -> Optional[int]:
         """
         :returns: Cardinality of the feature.
         """
-        if self.feature_type != FeatureType.CATEGORICAL:
+        if not self.is_cat:
             msg = f"Can not get cardinality because feature type of {self.name} column is not categorical."
             raise RuntimeError(msg)
         return self._cardinality
@@ -212,7 +221,7 @@ class TensorFeatureInfo:
         """
         :returns: Dimensions of the numerical feature.
         """
-        if self.feature_type != FeatureType.NUMERICAL:
+        if not self.is_num:
             msg = f"Can not get tensor dimensions because feature type of {self.name} feature is not numerical."
             raise RuntimeError(msg)
         return self._tensor_dim
@@ -225,7 +234,7 @@ class TensorFeatureInfo:
         """
         :returns: Embedding dimensions of the feature.
         """
-        if self.feature_type != FeatureType.CATEGORICAL:
+        if not self.is_cat:
             msg = f"Can not get embedding dimensions because feature type of {self.name} feature is not categorical."
             raise RuntimeError(msg)
         return self._embedding_dim
@@ -317,14 +326,16 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
         """
         :returns: Sequence of categorical features in a schema.
         """
-        return self.filter(feature_type=FeatureType.CATEGORICAL)
+        return self.filter(feature_type=FeatureType.CATEGORICAL) + self.filter(
+            feature_type=FeatureType.CATEGORICAL_LIST
+        )
 
     @property
     def numerical_features(self) -> "TensorSchema":
         """
         :returns: Sequence of numerical features in a schema.
         """
-        return self.filter(feature_type=FeatureType.NUMERICAL)
+        return self.filter(feature_type=FeatureType.NUMERICAL) + self.filter(feature_type=FeatureType.NUMERICAL_LIST)
 
     @property
     def query_id_features(self) -> "TensorSchema":
@@ -423,9 +434,9 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
                     if feature.feature_sources
                     else None
                 ),
-                "cardinality": feature.cardinality if feature.feature_type == FeatureType.CATEGORICAL else None,
-                "embedding_dim": feature.embedding_dim if feature.feature_type == FeatureType.CATEGORICAL else None,
-                "tensor_dim": feature.tensor_dim if feature.feature_type == FeatureType.NUMERICAL else None,
+                "cardinality": feature.cardinality if feature.is_cat else None,
+                "embedding_dim": feature.embedding_dim if feature.is_cat else None,
+                "tensor_dim": feature.tensor_dim if feature.is_num else None,
             }
             for feature in self.all_features
         ]

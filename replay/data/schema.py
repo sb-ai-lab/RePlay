@@ -20,7 +20,9 @@ class FeatureType(Enum):
     """Type of Feature."""
 
     CATEGORICAL = "categorical"
+    CATEGORICAL_LIST = "categorical_list"
     NUMERICAL = "numerical"
+    NUMERICAL_LIST = "numerical_list"
 
 
 class FeatureSource(Enum):
@@ -70,7 +72,7 @@ class FeatureInfo:
         self._feature_source = feature_source
         self._feature_hint = feature_hint
 
-        if feature_type == FeatureType.NUMERICAL and cardinality:
+        if feature_type in [FeatureType.NUMERICAL, FeatureType.NUMERICAL_LIST] and cardinality:
             msg = "Cardinality is needed only with categorical feature_type."
             raise ValueError(msg)
         self._cardinality = cardinality
@@ -111,7 +113,7 @@ class FeatureInfo:
         """
         :returns: cardinality of the feature.
         """
-        if self.feature_type != FeatureType.CATEGORICAL:
+        if self.feature_type not in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]:
             msg = f"Can not get cardinality because feature_type of {self.column} column is not categorical."
             raise RuntimeError(msg)
         if hasattr(self, "_cardinality_callback") and self._cardinality is None:
@@ -143,7 +145,7 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
 
     def copy(self) -> "FeatureSchema":
         """
-        Creates a copy of all features.
+        Creates a copy of all features. For the returned copy, all cardinality values will be undefined.
 
         :returns: copy of the initial feature schema.
         """
@@ -227,14 +229,16 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
         """
         :returns: sequence of categorical features in a schema.
         """
-        return self.filter(feature_type=FeatureType.CATEGORICAL)
+        return self.filter(feature_type=FeatureType.CATEGORICAL) + self.filter(
+            feature_type=FeatureType.CATEGORICAL_LIST
+        )
 
     @property
     def numerical_features(self) -> "FeatureSchema":
         """
         :returns: sequence of numerical features in a schema.
         """
-        return self.filter(feature_type=FeatureType.NUMERICAL)
+        return self.filter(feature_type=FeatureType.NUMERICAL) + self.filter(feature_type=FeatureType.NUMERICAL_LIST)
 
     @property
     def interaction_features(self) -> "FeatureSchema":
@@ -449,7 +453,7 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
 
         if len(duplicates) > 0:
             msg = (
-                "Features column names should be unique, exept ITEM_ID and QUERY_ID columns. "
+                "Features column names should be unique, except ITEM_ID and QUERY_ID columns. "
                 f"{duplicates} columns are not unique."
             )
             raise ValueError(msg)

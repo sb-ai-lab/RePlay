@@ -9,8 +9,7 @@ from replay.utils import TORCH_AVAILABLE
 if TORCH_AVAILABLE:
     import torch
 
-    from replay.data.nn import PandasSequentialDataset, TensorFeatureInfo, TensorFeatureSource
-    from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
+    from replay.data.nn import PandasSequentialDataset, TensorFeatureInfo, TensorFeatureSource, TensorSchema
 
 
 @pytest.fixture(scope="module")
@@ -31,7 +30,13 @@ def query_features():
     return pd.DataFrame(
         {
             "user_id": [1, 2, 3, 4],
-            "some_user_feature": [1, 2, 1, 1],
+            "user_cat": [1, 2, 1, 1],
+            "user_cat_list": [
+                [1, 2],
+                [4, 3],
+                [5, 7, 6],
+                [8],
+            ],
         }
     )
 
@@ -41,67 +46,96 @@ def item_features():
     return pd.DataFrame(
         {
             "item_id": [1, 2, 3, 4, 5, 6],
-            "some_item_feature": [2, 3, 4, 5, 6, 7],
+            "item_cat": [2, 3, 4, 5, 6, 7],
+            "item_cat_list": [
+                ["Animation", "Fantasy"],
+                ["Comedy", "Nature"],
+                ["Children's", "Action"],
+                ["Nature", "Children's"],
+                ["Animation", "Comedy"],
+                ["Fantasy", "Nature"],
+            ],
+            "item_num": [1.1, 1.2, 1.3, 1.4, 1.5, 1.6],
+            "item_num_list": [
+                [0.5, 2.3],
+                [-1.0, 1.1],
+                [4.2, 4.8],
+                [-1.1, 0.0],
+                [-1.9, 0.12],
+                [2.3, 1.87],
+            ],
         }
     )
 
 
 @pytest.fixture(scope="module")
 def fake_schema():
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical("some_user_feature", cardinality=2, is_seq=True, feature_source=None)
-        .categorical(
-            "some_item_feature",
-            cardinality=2,
-            is_seq=False,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "some_item_feature"),
-        )
-        .categorical(
-            "some_item_feature_2",
-            cardinality=2,
-            is_seq=False,
-            feature_source=TensorFeatureSource(FeatureSource.ITEM_FEATURES, "some_item_feature_2"),
-        )
-        .categorical(
-            "some_item_feature_3",
-            cardinality=2,
-            is_seq=False,
-            feature_source=TensorFeatureSource("", "some_item_feature_3"),
-        )
-        .categorical(
-            "some_user_feature_2",
-            cardinality=2,
-            is_seq=False,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "some_user_feature_2"),
-        )
-        .categorical(
-            "some_user_feature_3",
-            cardinality=2,
-            is_seq=False,
-            feature_source=TensorFeatureSource(FeatureSource.QUERY_FEATURES, "some_user_feature_3"),
-        )
-        .numerical(
-            "some_numerical_feature",
-            tensor_dim=2,
-            is_seq=True,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "some_user_feature",
+                cardinality=2,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_item_feature",
+                cardinality=2,
+                is_seq=False,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "some_item_feature")],
+            ),
+            TensorFeatureInfo(
+                "some_item_feature_2",
+                cardinality=2,
+                is_seq=False,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "some_item_feature_2")],
+            ),
+            TensorFeatureInfo(
+                "some_item_feature_3",
+                cardinality=2,
+                is_seq=False,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource("", "some_item_feature_3")],
+            ),
+            TensorFeatureInfo(
+                "some_user_feature_2",
+                cardinality=2,
+                is_seq=False,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "some_user_feature_2")],
+            ),
+            TensorFeatureInfo(
+                "some_user_feature_3",
+                cardinality=2,
+                is_seq=False,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.QUERY_FEATURES, "some_user_feature_3")],
+            ),
+            TensorFeatureInfo(
+                "some_numerical_feature",
+                tensor_dim=2,
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+            ),
+        ]
     )
 
     return schema
 
 
 @pytest.fixture(scope="module")
-def fake_small_dataset(pandas_interactions):
-    feature_schema = FeatureSchema(
+def fake_small_feature_schema():
+    return FeatureSchema(
         [
             FeatureInfo("user_id", FeatureType.CATEGORICAL, FeatureHint.QUERY_ID),
             FeatureInfo("item_id", FeatureType.CATEGORICAL, FeatureHint.ITEM_ID),
@@ -109,301 +143,279 @@ def fake_small_dataset(pandas_interactions):
         ]
     )
 
-    dataset = Dataset(
-        feature_schema,
-        pandas_interactions,
-    )
 
-    return dataset
+@pytest.fixture(scope="module")
+def fake_small_dataset(fake_small_feature_schema, pandas_interactions):
+    return Dataset(fake_small_feature_schema, pandas_interactions)
 
 
 @pytest.fixture(scope="module")
-def fake_small_dataset_polars(pandas_interactions):
-    feature_schema = FeatureSchema(
-        [
-            FeatureInfo("user_id", FeatureType.CATEGORICAL, FeatureHint.QUERY_ID),
-            FeatureInfo("item_id", FeatureType.CATEGORICAL, FeatureHint.ITEM_ID),
-            FeatureInfo("timestamp", FeatureType.NUMERICAL, FeatureHint.TIMESTAMP),
-        ]
-    )
-
-    dataset = Dataset(
-        feature_schema,
-        pl.from_pandas(pandas_interactions),
-    )
-
-    return dataset
+def fake_small_dataset_polars(fake_small_feature_schema, pandas_interactions):
+    return Dataset(fake_small_feature_schema, pl.from_pandas(pandas_interactions))
 
 
 @pytest.fixture(scope="module")
-def small_dataset(pandas_interactions, query_features, item_features):
-    feature_schema = FeatureSchema(
+def small_feature_schema():
+    return FeatureSchema(
         [
             FeatureInfo("user_id", FeatureType.CATEGORICAL, FeatureHint.QUERY_ID),
             FeatureInfo("item_id", FeatureType.CATEGORICAL, FeatureHint.ITEM_ID),
-            FeatureInfo("some_user_feature", FeatureType.CATEGORICAL, None, FeatureSource.QUERY_FEATURES),
-            FeatureInfo("some_item_feature", FeatureType.CATEGORICAL, None, FeatureSource.ITEM_FEATURES),
             FeatureInfo("timestamp", FeatureType.NUMERICAL, FeatureHint.TIMESTAMP, FeatureSource.INTERACTIONS),
+            FeatureInfo("user_cat", FeatureType.CATEGORICAL, None, FeatureSource.QUERY_FEATURES),
+            FeatureInfo("user_cat_list", FeatureType.CATEGORICAL_LIST, None, FeatureSource.QUERY_FEATURES),
+            FeatureInfo("item_cat", FeatureType.CATEGORICAL, None, FeatureSource.ITEM_FEATURES),
+            FeatureInfo("item_cat_list", FeatureType.CATEGORICAL_LIST, None, FeatureSource.ITEM_FEATURES),
+            FeatureInfo("item_num", FeatureType.NUMERICAL, None, FeatureSource.ITEM_FEATURES),
+            FeatureInfo("item_num_list", FeatureType.NUMERICAL_LIST, None, FeatureSource.ITEM_FEATURES),
         ]
     )
-
-    dataset = Dataset(
-        feature_schema,
-        pandas_interactions,
-        query_features,
-        item_features,
-    )
-
-    return dataset
 
 
 @pytest.fixture(scope="module")
-def small_dataset_polars(pandas_interactions, query_features, item_features):
-    feature_schema = FeatureSchema(
-        [
-            FeatureInfo("user_id", FeatureType.CATEGORICAL, FeatureHint.QUERY_ID),
-            FeatureInfo("item_id", FeatureType.CATEGORICAL, FeatureHint.ITEM_ID),
-            FeatureInfo("some_user_feature", FeatureType.CATEGORICAL, None, FeatureSource.QUERY_FEATURES),
-            FeatureInfo("some_item_feature", FeatureType.CATEGORICAL, None, FeatureSource.ITEM_FEATURES),
-            FeatureInfo("timestamp", FeatureType.NUMERICAL, FeatureHint.TIMESTAMP, FeatureSource.INTERACTIONS),
-        ]
-    )
+def small_dataset(small_feature_schema, pandas_interactions, query_features, item_features):
+    return Dataset(small_feature_schema, pandas_interactions, query_features, item_features)
 
-    dataset = Dataset(
-        feature_schema,
+
+@pytest.fixture(scope="module")
+def small_dataset_polars(small_feature_schema, pandas_interactions, query_features, item_features):
+    return Dataset(
+        small_feature_schema,
         pl.from_pandas(pandas_interactions),
         pl.from_pandas(query_features),
         pl.from_pandas(item_features),
     )
 
-    return dataset
-
 
 @pytest.fixture(scope="module")
-def small_numerical_dataset(query_features, item_features):
-    feature_schema = FeatureSchema(
-        [
-            FeatureInfo("user_id", FeatureType.CATEGORICAL, FeatureHint.QUERY_ID),
-            FeatureInfo("item_id", FeatureType.CATEGORICAL, FeatureHint.ITEM_ID),
-            FeatureInfo("feature", FeatureType.NUMERICAL, None, FeatureSource.INTERACTIONS),
-            FeatureInfo("some_user_feature", FeatureType.NUMERICAL, None, FeatureSource.QUERY_FEATURES),
-            FeatureInfo("some_item_feature", FeatureType.NUMERICAL, None, FeatureSource.ITEM_FEATURES),
-            FeatureInfo("timestamp", FeatureType.NUMERICAL, FeatureHint.TIMESTAMP, FeatureSource.INTERACTIONS),
-            FeatureInfo("num_feature", FeatureType.NUMERICAL, None, FeatureSource.INTERACTIONS),
-            FeatureInfo("num_feature2", FeatureType.NUMERICAL, None, FeatureSource.INTERACTIONS),
-        ]
-    )
-
-    interactions = pd.DataFrame(
+def small_numerical_events():
+    return pd.DataFrame(
         {
             "user_id": [1, 1, 2, 2, 2, 3, 4, 4, 4, 4, 4, 4],
             "item_id": [1, 2, 1, 3, 4, 2, 1, 2, 3, 4, 5, 6],
             "feature": [1, 0, 1, 2, 1, 3, 1, 4, 1, 5, 1, 6],
             "timestamp": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
             "num_feature": [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1],
-            "num_feature2": [2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1],
+            "num_list_feature": [
+                [-1.0, 1.0],
+                [-1.1, 1.14],
+                [-1.2, 1.028],
+                [-1.3, 1.34],
+                [-1.4, 1.93],
+                [-1.5, 1.9],
+                [-1.6, 1.8],
+                [-1.7, 1.7],
+                [-1.8, 1.6],
+                [-1.9, 1.5],
+                [-1.95, 1.4],
+                [-1.55, 1.3],
+            ],
         }
     )
 
-    dataset = Dataset(
-        feature_schema,
-        interactions,
-        query_features,
-        item_features,
-    )
-
-    return dataset
-
 
 @pytest.fixture(scope="module")
-def small_numerical_dataset_polars(query_features, item_features):
-    feature_schema = FeatureSchema(
+def small_numerical_feature_schema():
+    return FeatureSchema(
         [
             FeatureInfo("user_id", FeatureType.CATEGORICAL, FeatureHint.QUERY_ID),
             FeatureInfo("item_id", FeatureType.CATEGORICAL, FeatureHint.ITEM_ID),
             FeatureInfo("feature", FeatureType.NUMERICAL, None, FeatureSource.INTERACTIONS),
-            FeatureInfo("some_user_feature", FeatureType.NUMERICAL, None, FeatureSource.QUERY_FEATURES),
-            FeatureInfo("some_item_feature", FeatureType.NUMERICAL, None, FeatureSource.ITEM_FEATURES),
             FeatureInfo("timestamp", FeatureType.NUMERICAL, FeatureHint.TIMESTAMP, FeatureSource.INTERACTIONS),
             FeatureInfo("num_feature", FeatureType.NUMERICAL, None, FeatureSource.INTERACTIONS),
-            FeatureInfo("num_feature2", FeatureType.NUMERICAL, None, FeatureSource.INTERACTIONS),
+            FeatureInfo("num_list_feature", FeatureType.NUMERICAL_LIST, None, FeatureSource.INTERACTIONS),
+            FeatureInfo("item_num", FeatureType.NUMERICAL, None, FeatureSource.ITEM_FEATURES),
         ]
     )
 
-    interactions = pl.DataFrame(
-        {
-            "user_id": [1, 1, 2, 2, 2, 3, 4, 4, 4, 4, 4, 4],
-            "item_id": [1, 2, 1, 3, 4, 2, 1, 2, 3, 4, 5, 6],
-            "feature": [1, 0, 1, 2, 1, 3, 1, 4, 1, 5, 1, 6],
-            "timestamp": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-            "num_feature": [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1],
-            "num_feature2": [2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1],
-        }
+
+@pytest.fixture(scope="module")
+def small_numerical_dataset(small_numerical_feature_schema, small_numerical_events, query_features, item_features):
+    return Dataset(
+        small_numerical_feature_schema,
+        small_numerical_events,
+        query_features,
+        item_features,
     )
 
-    dataset = Dataset(
-        feature_schema,
-        interactions,
+
+@pytest.fixture(scope="module")
+def small_numerical_dataset_polars(
+    small_numerical_feature_schema, small_numerical_events, query_features, item_features
+):
+    return Dataset(
+        small_numerical_feature_schema,
+        pl.DataFrame(small_numerical_events),
         pl.from_pandas(query_features),
         pl.from_pandas(item_features),
     )
 
-    return dataset
-
 
 @pytest.fixture(scope="module")
-def small_dataset_no_features(pandas_interactions):
-    feature_schema = FeatureSchema(
-        [
-            FeatureInfo("user_id", FeatureType.CATEGORICAL, FeatureHint.QUERY_ID),
-            FeatureInfo("item_id", FeatureType.CATEGORICAL, FeatureHint.ITEM_ID),
-            FeatureInfo("timestamp", FeatureType.NUMERICAL, FeatureHint.TIMESTAMP, FeatureSource.INTERACTIONS),
-        ]
-    )
-
-    dataset = Dataset(
-        feature_schema,
+def small_dataset_no_features(fake_small_feature_schema, pandas_interactions):
+    return Dataset(
+        fake_small_feature_schema,
         pandas_interactions,
     )
 
-    return dataset
-
 
 @pytest.fixture(scope="module")
-def small_dataset_no_features_polars(pandas_interactions):
-    feature_schema = FeatureSchema(
-        [
-            FeatureInfo("user_id", FeatureType.CATEGORICAL, FeatureHint.QUERY_ID),
-            FeatureInfo("item_id", FeatureType.CATEGORICAL, FeatureHint.ITEM_ID),
-            FeatureInfo("timestamp", FeatureType.NUMERICAL, FeatureHint.TIMESTAMP, FeatureSource.INTERACTIONS),
-        ]
-    )
-
-    dataset = Dataset(
-        feature_schema,
+def small_dataset_no_features_polars(fake_small_feature_schema, pandas_interactions):
+    return Dataset(
+        fake_small_feature_schema,
         pl.from_pandas(pandas_interactions),
     )
 
-    return dataset
-
 
 @pytest.fixture(scope="module")
-def small_dataset_no_timestamp():
-    feature_schema = FeatureSchema(
+def small_dataset_no_timestamp_feature_schema():
+    return FeatureSchema(
         [
             FeatureInfo("user_id", FeatureType.CATEGORICAL, FeatureHint.QUERY_ID),
             FeatureInfo("item_id", FeatureType.CATEGORICAL, FeatureHint.ITEM_ID),
         ]
     )
 
-    interactions = pd.DataFrame(
+
+@pytest.fixture(scope="module")
+def small_dataset_no_timestamp_interactions():
+    return pd.DataFrame(
         {
             "user_id": [1, 1, 2, 2, 2, 3, 4, 4, 4, 4, 4, 4],
             "item_id": [1, 2, 1, 3, 4, 2, 1, 2, 3, 4, 5, 6],
         }
     )
-
-    dataset = Dataset(
-        feature_schema,
-        interactions,
-    )
-
-    return dataset
 
 
 @pytest.fixture(scope="module")
-def small_dataset_no_timestamp_polars():
-    feature_schema = FeatureSchema(
-        [
-            FeatureInfo("user_id", FeatureType.CATEGORICAL, FeatureHint.QUERY_ID),
-            FeatureInfo("item_id", FeatureType.CATEGORICAL, FeatureHint.ITEM_ID),
-        ]
-    )
+def small_dataset_no_timestamp(small_dataset_no_timestamp_feature_schema, small_dataset_no_timestamp_interactions):
+    return Dataset(small_dataset_no_timestamp_feature_schema, small_dataset_no_timestamp_interactions)
 
-    interactions = pl.DataFrame(
-        {
-            "user_id": [1, 1, 2, 2, 2, 3, 4, 4, 4, 4, 4, 4],
-            "item_id": [1, 2, 1, 3, 4, 2, 1, 2, 3, 4, 5, 6],
-        }
-    )
 
-    dataset = Dataset(
-        feature_schema,
-        interactions,
-    )
-
-    return dataset
+@pytest.fixture(scope="module")
+def small_dataset_no_timestamp_polars(
+    small_dataset_no_timestamp_feature_schema, small_dataset_no_timestamp_interactions
+):
+    return Dataset(small_dataset_no_timestamp_feature_schema, pl.from_pandas(small_dataset_no_timestamp_interactions))
 
 
 @pytest.fixture(scope="module")
 def only_item_id_schema():
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+                feature_hint=FeatureHint.ITEM_ID,
+            )
+        ]
     )
     return schema
 
 
 @pytest.fixture(scope="module")
 def item_id_and_timestamp_schema():
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .numerical(
-            "timestamp",
-            is_seq=True,
-            tensor_dim=64,
-            feature_hint=FeatureHint.TIMESTAMP,
-            feature_sources=[
-                TensorFeatureSource(
-                    FeatureSource.INTERACTIONS,
-                    "timestamp",
-                )
-            ],
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "timestamp",
+                is_seq=True,
+                tensor_dim=64,
+                feature_type=FeatureType.NUMERICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "timestamp")],
+                feature_hint=FeatureHint.TIMESTAMP,
+            ),
+        ]
     )
     return schema
 
 
 @pytest.fixture(scope="module")
-def item_id_and_item_feature_schema():
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id"),
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "some_item_feature",
-            cardinality=6,
-            is_seq=True,
-            feature_source=TensorFeatureSource(FeatureSource.ITEM_FEATURES, "some_item_feature"),
-        )
-        .build()
+def item_id_and_item_features_schema():
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "item_cat",
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_cat")],
+            ),
+            TensorFeatureInfo(
+                "item_cat_list",
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL_LIST,
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_cat_list")],
+            ),
+            TensorFeatureInfo(
+                "item_num",
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_num")],
+            ),
+            TensorFeatureInfo(
+                "item_num_list",
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL_LIST,
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_num_list")],
+            ),
+        ]
     )
     return schema
 
 
 @pytest.fixture(scope="class")
-def sequential_info():
-    sequences = pd.DataFrame(
+def sequential_tensor_schema():
+    return TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_user_feature",
+                cardinality=4,
+                is_seq=False,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_item_feature",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_tensor_feature",
+                tensor_dim=2,
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+            ),
+        ]
+    )
+
+
+@pytest.fixture(scope="class")
+def sequential_df():
+    return pd.DataFrame(
         [
             (0, [1], [0, 1], [1, 2], [[1, 2], [1, 2], [1, 2]]),
             (1, [2], [0, 2, 3], [1, 3, 4], [[1, 2], [1, 2]]),
@@ -419,59 +431,22 @@ def sequential_info():
         ],
     )
 
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-        )
-        .categorical(
-            "some_user_feature",
-            cardinality=4,
-            is_seq=False,
-        )
-        .categorical(
-            "some_item_feature",
-            cardinality=6,
-            is_seq=True,
-        )
-        .numerical(
-            "some_tensor_feature",
-            tensor_dim=2,
-            is_seq=True,
-        )
-        .build()
-    )
 
+@pytest.fixture(scope="class")
+def sequential_info(sequential_tensor_schema, sequential_df):
     return {
-        "tensor_schema": schema,
-        "sequences": sequences,
+        "tensor_schema": sequential_tensor_schema,
+        "sequences": sequential_df,
         "query_id_column": "user_id",
         "item_id_column": "item_id",
     }
 
 
 @pytest.fixture(scope="class")
-def sequential_info_polars(sequential_info):
-    sequences = pl.from_records(
-        [
-            (0, [1], [0, 1], [1, 2], [[1, 2], [1, 2], [1, 2]]),
-            (1, [2], [0, 2, 3], [1, 3, 4], [[1, 2], [1, 2]]),
-            (2, [3], [1], [2], [[1, 2]]),
-            (3, [4], [0, 1, 2, 3, 4, 5], [1, 2, 3, 4, 5, 6], [[1, 2], [1, 2], [1, 2], [1, 2]]),
-        ],
-        schema=[
-            "user_id",
-            "some_user_feature",
-            "item_id",
-            "some_item_feature",
-            "some_tensor_feature",
-        ],
-    )
+def sequential_info_polars(sequential_tensor_schema, sequential_df):
     return {
-        "tensor_schema": sequential_info["tensor_schema"],
-        "sequences": sequences,
+        "tensor_schema": sequential_tensor_schema,
+        "sequences": pl.from_pandas(sequential_df),
         "query_id_column": "user_id",
         "item_id_column": "item_id",
     }
@@ -530,25 +505,28 @@ def wrong_sequential_dataset():
         ],
     )
 
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "some_user_feature",
-            cardinality=4,
-            is_seq=False,
-        )
-        .numerical(
-            "some_item_feature",
-            tensor_dim=1,
-            is_seq=True,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "some_user_feature",
+                cardinality=4,
+                is_seq=False,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_item_feature",
+                tensor_dim=1,
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+            ),
+        ]
     )
 
     sequential_dataset = PandasSequentialDataset(
@@ -578,25 +556,28 @@ def sequential_dataset():
         ],
     )
 
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "some_user_feature",
-            cardinality=4,
-            is_seq=False,
-        )
-        .categorical(
-            "some_item_feature",
-            cardinality=6,
-            is_seq=True,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "some_user_feature",
+                cardinality=4,
+                is_seq=False,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_item_feature",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+        ]
     )
 
     sequential_dataset = PandasSequentialDataset(
@@ -611,42 +592,50 @@ def sequential_dataset():
 
 @pytest.fixture(scope="module")
 def tensor_schema():
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=4,
-            is_seq=True,
-            embedding_dim=64,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "some_item_feature",
-            cardinality=4,
-            is_seq=True,
-            embedding_dim=32,
-        )
-        .categorical(
-            "some_user_feature",
-            cardinality=4,
-            is_seq=False,
-            embedding_dim=64,
-        )
-        .numerical("some_num_feature", tensor_dim=64, is_seq=True)
-        .categorical(
-            "timestamp",
-            cardinality=4,
-            is_seq=True,
-            embedding_dim=64,
-            feature_hint=FeatureHint.TIMESTAMP,
-        )
-        .categorical(
-            "some_cat_feature",
-            cardinality=4,
-            is_seq=True,
-            embedding_dim=64,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=4,
+                is_seq=True,
+                embedding_dim=64,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "some_item_feature",
+                cardinality=4,
+                is_seq=True,
+                embedding_dim=32,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_user_feature",
+                cardinality=4,
+                is_seq=False,
+                embedding_dim=64,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_num_feature",
+                is_seq=True,
+                tensor_dim=64,
+                feature_type=FeatureType.NUMERICAL,
+            ),
+            TensorFeatureInfo(
+                "timestamp",
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+                feature_hint=FeatureHint.TIMESTAMP,
+            ),
+            TensorFeatureInfo(
+                "some_cat_feature",
+                cardinality=4,
+                is_seq=True,
+                embedding_dim=64,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+        ]
     )
 
     return schema
@@ -712,15 +701,16 @@ def item_user_sequential_dataset():
         ],
     )
 
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+        ]
     )
 
     sequential_dataset = PandasSequentialDataset(
