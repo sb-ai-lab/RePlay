@@ -28,10 +28,14 @@ torch = pytest.importorskip("torch")
 L = pytest.importorskip("lightning")
 
 
-@pytest.mark.torch
 @pytest.mark.parametrize(
     "callback_class",
-    [PandasPredictionCallback, PolarsPredictionCallback, SparkPredictionCallback, TorchPredictionCallback],
+    [
+        pytest.param(PandasPredictionCallback, marks=pytest.mark.core),
+        pytest.param(PolarsPredictionCallback, marks=pytest.mark.core),
+        pytest.param(SparkPredictionCallback, marks=pytest.mark.spark),
+        pytest.param(TorchPredictionCallback, marks=pytest.mark.torch),
+    ],
 )
 @pytest.mark.parametrize(
     "is_postprocessor",
