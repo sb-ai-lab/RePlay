@@ -64,8 +64,8 @@ class RemoveSeenItems(BasePostProcessor):
         if self._apply_candidates and self._candidates is not None:
             item_count = self._sequential.schema.item_id_features.item().cardinality
             assert item_count
-            _scores = torch.full((scores.shape[0], item_count), -float("inf"))
-            _scores[:, self._candidates] = scores.unsqueeze(1)
+            _scores = torch.full((scores.shape[0], item_count), -float("inf")).to(scores.device)
+            _scores[:, self._candidates] = torch.reshape(scores, _scores[:, self._candidates].shape)
             scores = _scores
         if scores.is_contiguous():
             scores.view(-1)[flat_item_ids_on_device] = value

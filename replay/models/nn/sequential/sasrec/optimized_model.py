@@ -1,14 +1,16 @@
 import pathlib
 import tempfile
-from typing import Any, List, Literal, Optional, Union, get_args
+from typing import List, Literal, Optional, Union, get_args
 
 import openvino as ov
 import torch
 
+from replay.data.nn import TensorSchema
 from replay.models.nn.sequential.sasrec import (
     SasRec,
     SasRecPredictionBatch,
 )
+from replay.models.nn.sequential.sasrec.lightning import _prepare_prediction_batch
 
 OptimizedModeType = Literal[
     "batch",
@@ -17,7 +19,9 @@ OptimizedModeType = Literal[
 ]
 
 
-def _compile_openvino(onnx_path: str, batch_size: int, max_seq_len: int, num_candidates_to_score: int):
+def _compile_openvino(
+    onnx_path: str, batch_size: int, max_seq_len: int, num_candidates_to_score: int
+) -> ov.CompiledModel:
     core = ov.Core()
     model_onnx = core.read_model(model=onnx_path)
     inputs_names = [inputs.names.pop() for inputs in model_onnx.inputs]
@@ -40,43 +44,20 @@ class OptimizedSasRec:
 
     def __init__(
         self,
-        compiled_model: Any,
+        compiled_model: ov.CompiledModel,
+        schema: TensorSchema,
     ) -> None:
         """
         :param compiled_model: Compiled model.
+        :param schema: Tensor schema of SasRec model.
         """
-        input_scheme = compiled_model.inputs
-        self._batch_size: int = input_scheme[0].partial_shape[0].max_length
-        self._max_seq_len: int = input_scheme[0].partial_shape[1].max_length
-        self._inputs_names: List[str] = [input.names.pop() for input in compiled_model.inputs]
-        if "candidates_to_score" in self._inputs_names:
-            self._num_candidates_to_score = input_scheme[2].partial_shape[0].max_length
-        else:
-            self._num_candidates_to_score = None
-        self._output_name: str = compiled_model.output().names.pop()
+        self._batch_size: int
+        self._max_seq_len: int
+        self._inputs_names: List[str]
 
+        self._set_inner_params_from_openvino_model(compiled_model)
+        self._schema = schema
         self._model = compiled_model
-
-    def _prepare_prediction_batch(self, batch: SasRecPredictionBatch) -> SasRecPredictionBatch:
-        if batch.padding_mask.shape[1] > self._max_seq_len:
-            msg = (
-                "The length of the submitted sequence "
-                "must not exceed the maximum length of the sequence. "
-                f"The length of the sequence is given {batch.padding_mask.shape[1]}, "
-                f"while the maximum length is {self._max_seq_len}"
-            )
-            raise ValueError(msg)
-
-        if batch.padding_mask.shape[1] < self._max_seq_len:
-            query_id, padding_mask, features = batch
-            sequence_item_count = padding_mask.shape[1]
-            for feature_name, feature_tensor in features.items():
-                features[feature_name] = torch.nn.functional.pad(
-                    feature_tensor, (self._max_seq_len - sequence_item_count, 0), value=0
-                )
-            padding_mask = torch.nn.functional.pad(padding_mask, (self._max_seq_len - sequence_item_count, 0), value=0)
-            batch = SasRecPredictionBatch(query_id, padding_mask, features)
-        return batch
 
     def predict(
         self,
@@ -107,7 +88,7 @@ class OptimizedSasRec:
             )
             raise ValueError(msg)
 
-        batch = self._prepare_prediction_batch(batch)
+        batch = _prepare_prediction_batch(self._schema, self._max_seq_len, batch)
         model_inputs = {
             self._inputs_names[0]: batch.features[self._inputs_names[0]],
             self._inputs_names[1]: batch.padding_mask,
@@ -124,6 +105,17 @@ class OptimizedSasRec:
                 f"got {type(candidates)} with dtype {candidates.dtype}."
             )
             raise ValueError(msg)
+
+    def _set_inner_params_from_openvino_model(self, compiled_model: ov.CompiledModel) -> None:
+        input_scheme = compiled_model.inputs
+        self._batch_size = input_scheme[0].partial_shape[0].max_length
+        self._max_seq_len = input_scheme[0].partial_shape[1].max_length
+        self._inputs_names = [input.names.pop() for input in compiled_model.inputs]
+        if "candidates_to_score" in self._inputs_names:
+            self._num_candidates_to_score = input_scheme[2].partial_shape[0].max_length
+        else:
+            self._num_candidates_to_score = None
+        self._output_name: str = compiled_model.output().names.pop()
 
     @staticmethod
     def _validate_num_candidates_to_score(num_candidates: int):
@@ -192,7 +184,9 @@ class OptimizedSasRec:
             lightning_model = model.cpu()
         elif isinstance(model, (str, pathlib.Path)):
             lightning_model = SasRec.load_from_checkpoint(model, map_location=torch.device("cpu"))
-        item_seq_name = lightning_model._schema.item_id_feature_name
+
+        schema = lightning_model._schema
+        item_seq_name = schema.item_id_feature_name
         max_seq_len = lightning_model._model.max_len
 
         batch_size, num_candidates_to_score = OptimizedSasRec._get_input_params(
@@ -233,4 +227,4 @@ class OptimizedSasRec:
 
         onnx_file.close()
 
-        return cls(compiled_model)
+        return cls(compiled_model, schema)

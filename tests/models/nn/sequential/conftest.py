@@ -324,13 +324,13 @@ def item_user_num_sequential_dataset():
 
 
 @pytest.fixture(scope="module")
-def train_loader(item_user_sequential_dataset):
+def train_bert_loader(item_user_sequential_dataset):
     train = Bert4RecTrainingDataset(item_user_sequential_dataset, 5)
     return torch.utils.data.DataLoader(train)
 
 
 @pytest.fixture(scope="module")
-def val_loader(item_user_sequential_dataset):
+def val_bert_loader(item_user_sequential_dataset):
     val = Bert4RecValidationDataset(
         item_user_sequential_dataset, item_user_sequential_dataset, item_user_sequential_dataset, max_sequence_length=5
     )
@@ -338,7 +338,7 @@ def val_loader(item_user_sequential_dataset):
 
 
 @pytest.fixture(scope="module")
-def pred_loader(item_user_sequential_dataset):
+def pred_bert_loader(item_user_sequential_dataset):
     pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     return torch.utils.data.DataLoader(pred)
 

@@ -523,7 +523,7 @@ class Bert4Rec(lightning.LightningModule):
             raise ValueError(msg)
 
     @property
-    def candidates_to_score(self) -> Union[torch.LongTensor, None]:
+    def candidates_to_score(self) -> Union[torch.LongTensor, None]:  # pragma: no cover
         """
         Returns tensor of item ids to calculate scores.
         """

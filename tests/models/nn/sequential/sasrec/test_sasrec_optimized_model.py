@@ -1,3 +1,4 @@
+
 import pytest
 
 from replay.utils import TORCH_AVAILABLE
@@ -5,7 +6,6 @@ from replay.utils import TORCH_AVAILABLE
 if TORCH_AVAILABLE:
     from replay.models.nn.sequential.sasrec import (
         SasRec,
-        SasRecPredictionBatch,
         SasRecPredictionDataset,
     )
     from replay.models.nn.sequential.sasrec.optimized_model import OptimizedSasRec
@@ -61,14 +61,14 @@ def test_prediction_optimized_sasrec(
         num_candidates_to_score=num_candidates,
     )
 
-    if candidates is not None:
-        for batch in pred_sasrec_loader:
+    score_size = candidates.shape[0] if candidates is not None else cardinality
+
+    for batch in pred_sasrec_loader:
+        if candidates is not None:
             scores = opt_model.predict(batch=batch, candidates_to_score=candidates)
-            assert scores.shape == (batch.padding_mask.shape[0], candidates.shape[0])
-    else:
-        for batch in pred_sasrec_loader:
+        else:
             scores = opt_model.predict(batch=batch)
-            assert scores.shape == (batch.padding_mask.shape[0], cardinality)
+        assert scores.shape == (batch.padding_mask.shape[0], score_size)
 
 
 @pytest.mark.torch
@@ -97,14 +97,21 @@ def test_prediction_optimized_sasrec_invalid_candidates_to_score(
     trainer.fit(model, train_sasrec_loader)
     trainer.save_checkpoint(tmp_path / "test.ckpt")
 
-    for i, batch in enumerate(pred_sasrec_loader):
-        with pytest.raises(ValueError):
-            model = OptimizedSasRec.compile(
-                model=(tmp_path / "test.ckpt"),
-                mode="one_query",
-                num_candidates_to_score=num_candidates,
-            )
-            model.predict(batch, candidates)
+    batch = next(iter(pred_sasrec_loader))
+    with pytest.raises(ValueError) as e:
+        model = OptimizedSasRec.compile(
+            model=(tmp_path / "test.ckpt"),
+            mode="one_query",
+            num_candidates_to_score=num_candidates,
+        )
+        model.predict(batch, candidates)
+
+    if num_candidates == 1:
+        assert "Expected candidates to be of type ``torch.Tensor`` with dtype" in str(e.value)
+    elif num_candidates is None:
+        assert "If ``num_candidates_to_score`` is None," in str(e.value)
+    else:
+        assert "Expected num_candidates_to_score to be of type ``int``" in str(e.value)
 
 
 @pytest.mark.torch
@@ -140,38 +147,6 @@ def test_prediction_optimized_sasrec_invalid_batch_in_batch_mode(
     with pytest.raises(ValueError):
         for batch in pred_sasrec_loader:
             opt_model.predict(batch=batch)
-
-
-@pytest.mark.torch
-def test_optimized_sasrec_prepare_prediction_batch(item_user_sequential_dataset, train_sasrec_loader, tmp_path):
-    pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
-    pred_sasrec_loader = torch.utils.data.DataLoader(pred, batch_size=1)
-
-    model = SasRec(
-        tensor_schema=item_user_sequential_dataset._tensor_schema,
-        max_seq_len=5,
-        hidden_size=64,
-    )
-
-    trainer = L.Trainer(max_epochs=1)
-    trainer.fit(model, train_sasrec_loader)
-    trainer.save_checkpoint(tmp_path / "test.ckpt")
-
-    opt_model = OptimizedSasRec.compile(model=(tmp_path / "test.ckpt"))
-
-    for i, batch in enumerate(pred_sasrec_loader):
-        query_id, padding_mask, features = batch
-        padding_mask_double = torch.cat((padding_mask, padding_mask), 1)
-        padding_mask_reduced = padding_mask[:, :-2]
-        batch1 = SasRecPredictionBatch(query_id, padding_mask_double, features)
-        batch2 = SasRecPredictionBatch(query_id, padding_mask_reduced, features)
-        break
-
-    with pytest.raises(ValueError):
-        opt_model._prepare_prediction_batch(batch1)
-
-    new_batch = opt_model._prepare_prediction_batch(batch2)
-    assert new_batch.padding_mask.shape[1] == opt_model._max_seq_len
 
 
 @pytest.mark.torch
