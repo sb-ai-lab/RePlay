@@ -21,8 +21,8 @@ if TORCH_AVAILABLE:
     from replay.models.nn.sequential.postprocessors import RemoveSeenItems
     from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionDataset
 
-    if PYSPARK_AVAILABLE:
-        from replay.models.nn.sequential.callbacks import SparkPredictionCallback
+if PYSPARK_AVAILABLE:
+    from replay.models.nn.sequential.callbacks import SparkPredictionCallback
 
 torch = pytest.importorskip("torch")
 L = pytest.importorskip("lightning")

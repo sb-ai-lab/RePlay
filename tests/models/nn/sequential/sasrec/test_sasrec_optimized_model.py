@@ -71,6 +71,29 @@ def test_prediction_optimized_sasrec(
 
 
 @pytest.mark.torch
+def test_predictions_optimized_sasrec_equal_with_permuted_candidates(item_user_sequential_dataset, train_sasrec_loader):
+    pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred_sasrec_loader = torch.utils.data.DataLoader(pred)
+    trainer = L.Trainer(max_epochs=1)
+    model = SasRec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64)
+    trainer.fit(model, train_sasrec_loader)
+
+    sorted_candidates = torch.LongTensor([0, 1, 2, 3])
+    permuted_candidates = torch.LongTensor([3, 0, 2, 1])
+    _, ordering = torch.sort(permuted_candidates)
+
+    opt_model = OptimizedSasRec.compile(
+        model=model,
+        num_candidates_to_score=sorted_candidates.shape[0],
+    )
+
+    for batch in pred_sasrec_loader:
+        predictions_sorted_candidates = opt_model.predict(batch=batch, candidates_to_score=sorted_candidates)
+        predictions_permuted_candidates = opt_model.predict(batch=batch, candidates_to_score=permuted_candidates)
+        assert torch.equal(predictions_permuted_candidates[:, ordering], predictions_sorted_candidates)
+
+
+@pytest.mark.torch
 @pytest.mark.parametrize(
     "num_candidates, candidates",
     [
