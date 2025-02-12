@@ -21,20 +21,21 @@ if TORCH_AVAILABLE:
     from replay.models.nn.sequential.postprocessors import RemoveSeenItems
     from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionDataset
 
-if PYSPARK_AVAILABLE:
-    from replay.models.nn.sequential.callbacks import SparkPredictionCallback
+    if PYSPARK_AVAILABLE:
+        from replay.models.nn.sequential.callbacks import SparkPredictionCallback
 
 torch = pytest.importorskip("torch")
 L = pytest.importorskip("lightning")
 
 
+@pytest.mark.torch
 @pytest.mark.parametrize(
     "callback_class",
     [
-        pytest.param(PandasPredictionCallback, marks=pytest.mark.core),
-        pytest.param(PolarsPredictionCallback, marks=pytest.mark.core),
+        pytest.param(PandasPredictionCallback),
+        pytest.param(PolarsPredictionCallback),
         pytest.param(SparkPredictionCallback, marks=pytest.mark.spark),
-        pytest.param(TorchPredictionCallback, marks=pytest.mark.torch),
+        pytest.param(TorchPredictionCallback),
     ],
 )
 @pytest.mark.parametrize(
