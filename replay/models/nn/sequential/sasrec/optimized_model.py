@@ -20,9 +20,14 @@ OptimizedModeType = Literal[
 
 
 def _compile_openvino(
-    onnx_path: str, batch_size: int, max_seq_len: int, num_candidates_to_score: int
+    onnx_path: str,
+    batch_size: int,
+    max_seq_len: int,
+    num_candidates_to_score: int,
+    num_threads: int,
 ) -> ov.CompiledModel:
     core = ov.Core()
+    core.set_property("CPU", {"INFERENCE_NUM_THREADS": num_threads})
     model_onnx = core.read_model(model=onnx_path)
     inputs_names = [inputs.names.pop() for inputs in model_onnx.inputs]
     del model_onnx
@@ -156,6 +161,7 @@ class OptimizedSasRec:
         mode: OptimizedModeType = "one_query",
         batch_size: Optional[int] = None,
         num_candidates_to_score: Optional[int] = None,
+        num_threads: Optional[int] = 4,
     ) -> "OptimizedSasRec":
         """
         Model compilation.
@@ -175,6 +181,8 @@ class OptimizedSasRec:
             ``N`` - sets candidates_to_score shape to [1, N]\n
             ``None`` - disable candidates_to_score usage\n
             Default: ``None``.
+        :param num_threads: Number of CPU threads to use.
+            Default: ``4``.
         """
         if mode not in get_args(OptimizedModeType):
             msg = f"Parameter ``mode`` could be one of {get_args(OptimizedModeType)}."
@@ -223,7 +231,9 @@ class OptimizedSasRec:
         )
         del lightning_model
 
-        compiled_model = _compile_openvino(onnx_file.name, batch_size, max_seq_len, num_candidates_to_score)
+        compiled_model = _compile_openvino(
+            onnx_file.name, batch_size, max_seq_len, num_candidates_to_score, num_threads
+        )
 
         onnx_file.close()
 
