@@ -24,10 +24,11 @@ def _compile_openvino(
     batch_size: int,
     max_seq_len: int,
     num_candidates_to_score: int,
-    num_threads: int,
+    num_threads: Optional[int],
 ) -> ov.CompiledModel:
     core = ov.Core()
-    core.set_property("CPU", {"INFERENCE_NUM_THREADS": num_threads})
+    if num_threads is not None:
+        core.set_property("CPU", {"INFERENCE_NUM_THREADS": num_threads})
     model_onnx = core.read_model(model=onnx_path)
     inputs_names = [inputs.names.pop() for inputs in model_onnx.inputs]
     del model_onnx
@@ -161,7 +162,7 @@ class OptimizedSasRec:
         mode: OptimizedModeType = "one_query",
         batch_size: Optional[int] = None,
         num_candidates_to_score: Optional[int] = None,
-        num_threads: Optional[int] = 4,
+        num_threads: Optional[int] = None,
     ) -> "OptimizedSasRec":
         """
         Model compilation.
@@ -182,7 +183,9 @@ class OptimizedSasRec:
             ``None`` - disable candidates_to_score usage\n
             Default: ``None``.
         :param num_threads: Number of CPU threads to use.
-            Default: ``4``.
+            Must be a natural number or ``None``.
+            If ``None``, then compiler will set this parameter independently.
+            Default: ``None``.
         """
         if mode not in get_args(OptimizedModeType):
             msg = f"Parameter ``mode`` could be one of {get_args(OptimizedModeType)}."
