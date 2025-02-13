@@ -40,7 +40,7 @@ def _compile_openvino(
     return core.compile_model(model=model_onnx, device_name="CPU")
 
 
-class OptimizedSasRec:
+class SasRecCompiled:
     """
     SasRec CPU-optimized model for inference via OpenVINO.
     It is recommended to compile model from SasRec checkpoint or the object itself using ``compile`` method.
@@ -163,7 +163,7 @@ class OptimizedSasRec:
         batch_size: Optional[int] = None,
         num_candidates_to_score: Optional[int] = None,
         num_threads: Optional[int] = None,
-    ) -> "OptimizedSasRec":
+    ) -> "SasRecCompiled":
         """
         Model compilation.
 
@@ -190,7 +190,7 @@ class OptimizedSasRec:
         if mode not in get_args(OptimizedModeType):
             msg = f"Parameter ``mode`` could be one of {get_args(OptimizedModeType)}."
             raise ValueError(msg)
-        num_candidates_to_score = OptimizedSasRec._validate_num_candidates_to_score(num_candidates_to_score)
+        num_candidates_to_score = SasRecCompiled._validate_num_candidates_to_score(num_candidates_to_score)
         if isinstance(model, SasRec):
             lightning_model = model.cpu()
         elif isinstance(model, (str, pathlib.Path)):
@@ -200,7 +200,7 @@ class OptimizedSasRec:
         item_seq_name = schema.item_id_feature_name
         max_seq_len = lightning_model._model.max_len
 
-        batch_size, num_candidates_to_score = OptimizedSasRec._get_input_params(
+        batch_size, num_candidates_to_score = SasRecCompiled._get_input_params(
             mode, batch_size, num_candidates_to_score
         )
 

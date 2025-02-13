@@ -7,7 +7,7 @@ if TORCH_AVAILABLE:
         SasRec,
         SasRecPredictionDataset,
     )
-    from replay.models.nn.sequential.sasrec.optimized_model import OptimizedSasRec
+    from replay.models.nn.sequential.sasrec.optimized_model import SasRecCompiled
 
 
 torch = pytest.importorskip("torch")
@@ -53,7 +53,7 @@ def test_prediction_optimized_sasrec(
     trainer.fit(model, train_sasrec_loader)
     trainer.save_checkpoint(tmp_path / "test.ckpt")
 
-    opt_model = OptimizedSasRec.compile(
+    opt_model = SasRecCompiled.compile(
         model=(tmp_path / "test.ckpt"),
         mode=mode,
         batch_size=batch_size if mode != "dynamic_batch_size" else None,
@@ -82,7 +82,7 @@ def test_predictions_optimized_sasrec_equal_with_permuted_candidates(item_user_s
     permuted_candidates = torch.LongTensor([3, 0, 2, 1])
     _, ordering = torch.sort(permuted_candidates)
 
-    opt_model = OptimizedSasRec.compile(
+    opt_model = SasRecCompiled.compile(
         model=model,
         num_candidates_to_score=sorted_candidates.shape[0],
     )
@@ -121,7 +121,7 @@ def test_prediction_optimized_sasrec_invalid_candidates_to_score(
 
     batch = next(iter(pred_sasrec_loader))
     with pytest.raises(ValueError) as e:
-        model = OptimizedSasRec.compile(
+        model = SasRecCompiled.compile(
             model=(tmp_path / "test.ckpt"),
             mode="one_query",
             num_candidates_to_score=num_candidates,
@@ -160,7 +160,7 @@ def test_prediction_optimized_sasrec_invalid_batch_in_batch_mode(
     trainer.fit(model, train_sasrec_loader)
     trainer.save_checkpoint(tmp_path / "test.ckpt")
 
-    opt_model = OptimizedSasRec.compile(
+    opt_model = SasRecCompiled.compile(
         model=(tmp_path / "test.ckpt"),
         mode=mode,
         batch_size=model_batch_size,
@@ -174,7 +174,7 @@ def test_prediction_optimized_sasrec_invalid_batch_in_batch_mode(
 @pytest.mark.torch
 def test_optimized_sasrec_invalid_mode():
     with pytest.raises(ValueError):
-        OptimizedSasRec.compile(model="some_path", mode="invalid_mode")
+        SasRecCompiled.compile(model="some_path", mode="invalid_mode")
 
 
 @pytest.mark.torch
@@ -189,7 +189,7 @@ def test_optimized_sasrec_compile_from_different_sources(item_user_sequential_da
     trainer.fit(model, train_sasrec_loader)
     trainer.save_checkpoint(tmp_path / "test.ckpt")
 
-    opt_model1 = OptimizedSasRec.compile(model=str(tmp_path / "test.ckpt"))
-    opt_model2 = OptimizedSasRec.compile(model=(tmp_path / "test.ckpt"))
-    opt_model3 = OptimizedSasRec.compile(model=model)
+    opt_model1 = SasRecCompiled.compile(model=str(tmp_path / "test.ckpt"))
+    opt_model2 = SasRecCompiled.compile(model=(tmp_path / "test.ckpt"))
+    opt_model3 = SasRecCompiled.compile(model=model)
     assert str(opt_model1._model) == str(opt_model2._model) == str(opt_model3._model)
