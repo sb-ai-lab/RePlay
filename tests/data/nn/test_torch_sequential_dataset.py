@@ -28,7 +28,7 @@ else:
 
 @pytest.mark.torch
 def test_can_get_padded_sequence(sequential_dataset: SequentialDataset):
-    sd = TorchSequentialDataset(sequential_dataset, max_sequence_length=3, padding_value=-1)
+    sd = TorchSequentialDataset(sequential_dataset, max_sequence_length=3)
 
     assert len(sd) == 4
 
@@ -37,9 +37,9 @@ def test_can_get_padded_sequence(sequential_dataset: SequentialDataset):
     _compare_sequence(sd, 2, "item_id", [-1, -1, 1])
     _compare_sequence(sd, 3, "item_id", [3, 4, 5])
 
-    _compare_sequence(sd, 0, "some_item_feature", [-1, 1, 2])
+    _compare_sequence(sd, 0, "some_item_feature", [-2, 1, 2])
     _compare_sequence(sd, 1, "some_item_feature", [1, 3, 4])
-    _compare_sequence(sd, 2, "some_item_feature", [-1, -1, 2])
+    _compare_sequence(sd, 2, "some_item_feature", [-2, -2, 2])
     _compare_sequence(sd, 3, "some_item_feature", [4, 5, 6])
 
 
@@ -49,7 +49,6 @@ def test_can_get_windowed_sequence(sequential_dataset: SequentialDataset):
         sequential_dataset,
         max_sequence_length=3,
         sliding_window_step=2,
-        padding_value=-1,
     )
 
     assert len(sd) == 6
@@ -67,7 +66,6 @@ def test_can_get_query_id(sequential_dataset: SequentialDataset):
     sd = TorchSequentialDataset(
         sequential_dataset,
         max_sequence_length=3,
-        padding_value=-1,
     )
 
     for i in range(4):
@@ -80,7 +78,6 @@ def test_can_get_query_id_windowed(sequential_dataset: SequentialDataset):
         sequential_dataset,
         max_sequence_length=3,
         sliding_window_step=2,
-        padding_value=-1,
     )
 
     for i in range(4):
@@ -95,7 +92,6 @@ def test_can_get_query_feature(sequential_dataset: SequentialDataset):
     sd = TorchSequentialDataset(
         sequential_dataset,
         max_sequence_length=3,
-        padding_value=-1,
     )
 
     _compare_query_feature(sd, 0, "some_user_feature", 1)
@@ -110,7 +106,6 @@ def test_can_get_windowed_query_feature(sequential_dataset: SequentialDataset):
         sequential_dataset,
         max_sequence_length=3,
         sliding_window_step=2,
-        padding_value=-1,
     )
 
     _compare_query_feature(sd, 0, "some_user_feature", 1)
@@ -129,7 +124,6 @@ def test_num_dtype(sequential_dataset, some_num_tensor_feature):
             sequential_dataset,
             max_sequence_length=3,
             sliding_window_step=2,
-            padding_value=-1,
         )._get_tensor_dtype(feature)
         == torch.float32
     )
@@ -141,7 +135,6 @@ def test_num_dtype(sequential_dataset, some_num_tensor_feature):
             sequential_dataset,
             max_sequence_length=3,
             sliding_window_step=2,
-            padding_value=-1,
         )._get_tensor_dtype(feature)
 
 
@@ -286,10 +279,9 @@ def test_pad_sequence(sequential_dataset, sequence, answer):
         sequential_dataset,
         max_sequence_length=3,
         sliding_window_step=2,
-        padding_value=-1,
     )
 
-    padded_sequence = dataset._pad_sequence(torch.tensor(sequence, dtype=torch.long)).tolist()
+    padded_sequence = dataset._pad_sequence(torch.tensor(sequence, dtype=torch.long), -1).tolist()
     assert padded_sequence == answer
 
 
@@ -299,11 +291,10 @@ def test_pad_sequence_raise(sequential_dataset):
         sequential_dataset,
         max_sequence_length=3,
         sliding_window_step=2,
-        padding_value=-1,
     )
     sequence = [[[1, 1]], [[2, 2]]]
     with pytest.raises(ValueError, match="Unsupported shape for sequence"):
-        dataset._pad_sequence(torch.tensor(sequence, dtype=torch.long)).tolist()
+        dataset._pad_sequence(torch.tensor(sequence, dtype=torch.long), -1).tolist()
 
 
 def _compare_sequence(dataset: TorchSequentialDataset, index: int, feature_name: str, expected: List[int]) -> None:

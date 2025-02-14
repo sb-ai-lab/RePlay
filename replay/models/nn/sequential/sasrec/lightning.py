@@ -165,13 +165,15 @@ class SasRec(lightning.LightningModule):
             for feature_name, feature_tensor in features.items():
                 if self._schema[feature_name].is_cat:
                     features[feature_name] = torch.nn.functional.pad(
-                        feature_tensor, (self._model.max_len - sequence_item_count, 0), value=0
+                        feature_tensor,
+                        (self._model.max_len - sequence_item_count, 0),
+                        value=self._schema[feature_name].padding_value,
                     )
                 else:
                     features[feature_name] = torch.nn.functional.pad(
                         feature_tensor.view(feature_tensor.size(0), feature_tensor.size(1)),
                         (self._model.max_len - sequence_item_count, 0),
-                        value=0,
+                        value=self._schema[feature_name].padding_value,
                     ).unsqueeze(-1)
             padding_mask = torch.nn.functional.pad(
                 padding_mask, (self._model.max_len - sequence_item_count, 0), value=0

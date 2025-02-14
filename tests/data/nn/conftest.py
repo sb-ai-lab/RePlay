@@ -363,6 +363,7 @@ def item_id_and_item_features_schema():
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_cat_list")],
+                padding_value=1,
             ),
             TensorFeatureInfo(
                 "item_num",
@@ -375,6 +376,7 @@ def item_id_and_item_features_schema():
                 is_seq=True,
                 feature_type=FeatureType.NUMERICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_num_list")],
+                padding_value=1,
             ),
         ]
     )
@@ -564,6 +566,7 @@ def sequential_dataset():
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
                 feature_hint=FeatureHint.ITEM_ID,
+                padding_value=-1,
             ),
             TensorFeatureInfo(
                 "some_user_feature",
@@ -576,6 +579,7 @@ def sequential_dataset():
                 cardinality=6,
                 is_seq=True,
                 feature_type=FeatureType.CATEGORICAL,
+                padding_value=-2,
             ),
         ]
     )
