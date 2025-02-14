@@ -1,10 +1,10 @@
 import pytest
 
-from replay.data import FeatureHint
+from replay.data import FeatureHint, FeatureType
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
-    from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
+    from replay.data.nn import TensorFeatureInfo, TensorSchema
     from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
     from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionBatch, Bert4RecPredictionDataset
 
@@ -182,20 +182,22 @@ def test_model_predict_with_nn_parallel(item_user_sequential_dataset, simple_mas
 
 @pytest.mark.torch
 def test_bert4rec_get_embeddings():
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "some_feature",
-            cardinality=6,
-            is_seq=True,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_hint=FeatureHint.ITEM_ID,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_feature",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+        ]
     )
     model = Bert4Rec(schema, max_seq_len=5, enable_embedding_tying=True)
     model_embeddings = model.get_all_embeddings()

@@ -12,6 +12,7 @@ from replay.data.nn import (
     TorchSequentialDataset,
     TorchSequentialValidationDataset,
 )
+from replay.utils.model_handler import deprecation_warning
 
 
 class Bert4RecTrainingBatch(NamedTuple):
@@ -88,6 +89,10 @@ class Bert4RecTrainingDataset(TorchDataset):
     Dataset that generates samples to train BERT-like model
     """
 
+    @deprecation_warning(
+        "`padding_value` parameter will be removed in future versions. "
+        "Instead, you should specify `padding_value` for each column in TensorSchema"
+    )
     def __init__(
         self,
         sequential: SequentialDataset,
@@ -176,6 +181,10 @@ class Bert4RecPredictionDataset(TorchDataset):
     Dataset that generates samples to infer BERT-like model
     """
 
+    @deprecation_warning(
+        "`padding_value` parameter will be removed in future versions. "
+        "Instead, you should specify `padding_value` for each column in TensorSchema"
+    )
     def __init__(
         self,
         sequential: SequentialDataset,
@@ -230,6 +239,10 @@ class Bert4RecValidationDataset(TorchDataset):
     Dataset that generates samples to infer and validate BERT-like model
     """
 
+    @deprecation_warning(
+        "`padding_value` parameter will be removed in future versions. "
+        "Instead, you should specify `padding_value` for each column in TensorSchema"
+    )
     def __init__(
         self,
         sequential: SequentialDataset,
@@ -286,12 +299,12 @@ def _shift_features(
     shifted_features: MutableTensorMap = {}
     for feature_name, feature in schema.items():
         if feature.is_seq:
-            shifted_features[feature_name] = _shift_seq(features[feature_name])
+            shifted_features[feature_name] = _shift_seq(features[feature_name], feature.padding_value)
         else:
             shifted_features[feature_name] = features[feature_name]
 
     # [0, 0, 1, 1, 1] -> [0, 1, 1, 1, 0]
-    tokens_mask = _shift_seq(padding_mask)
+    tokens_mask = _shift_seq(padding_mask, 0)
 
     # [0, 1, 1, 1, 0] -> [0, 1, 1, 1, 1]
     shifted_padding_mask = tokens_mask.clone()
@@ -304,7 +317,7 @@ def _shift_features(
     )
 
 
-def _shift_seq(seq: torch.Tensor) -> torch.Tensor:
+def _shift_seq(seq: torch.Tensor, padding_value: int) -> torch.Tensor:
     shifted_seq = seq.roll(-1, dims=0)
-    shifted_seq[-1, ...] = 0
+    shifted_seq[-1, ...] = padding_value
     return shifted_seq

@@ -4,6 +4,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset as TorchDataset
 
+from replay.utils.model_handler import deprecation_warning
+
 from .schema import TensorFeatureInfo, TensorMap, TensorSchema
 from .sequential_dataset import SequentialDataset
 
@@ -25,6 +27,10 @@ class TorchSequentialDataset(TorchDataset):
     Torch dataset for sequential recommender models
     """
 
+    @deprecation_warning(
+        "`padding_value` parameter will be removed in future versions. "
+        "Instead, you should specify `padding_value` for each column in TensorSchema"
+    )
     def __init__(
         self,
         sequential: SequentialDataset,
@@ -93,11 +99,11 @@ class TorchSequentialDataset(TorchDataset):
         tensor_dtype = self._get_tensor_dtype(feature)
         tensor_sequence = torch.tensor(sequence, dtype=tensor_dtype)
         if feature.is_seq:
-            tensor_sequence = self._pad_sequence(tensor_sequence)
+            tensor_sequence = self._pad_sequence(tensor_sequence, feature.padding_value)
 
         return tensor_sequence
 
-    def _pad_sequence(self, sequence: torch.Tensor) -> torch.Tensor:
+    def _pad_sequence(self, sequence: torch.Tensor, padding_value: int) -> torch.Tensor:
         assert len(sequence) <= self._max_sequence_length
         if len(sequence) == self._max_sequence_length:
             return sequence
@@ -114,7 +120,7 @@ class TorchSequentialDataset(TorchDataset):
 
         padded_sequence = torch.full(
             padded_sequence_shape,
-            self._padding_value,
+            padding_value,
             dtype=sequence.dtype,
         )
         padded_sequence[-len(sequence) :].copy_(sequence)
@@ -169,6 +175,10 @@ class TorchSequentialValidationDataset(TorchDataset):
     Torch dataset for sequential recommender models that additionally stores ground truth
     """
 
+    @deprecation_warning(
+        "`padding_value` parameter will be removed in future versions. "
+        "Instead, you should specify `padding_value` for each column in TensorSchema"
+    )
     def __init__(
         self,
         sequential: SequentialDataset,

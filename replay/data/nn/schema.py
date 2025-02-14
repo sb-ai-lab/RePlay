@@ -80,6 +80,7 @@ class TensorFeatureInfo:
         feature_hint: Optional[FeatureHint] = None,
         feature_sources: Optional[List[TensorFeatureSource]] = None,
         cardinality: Optional[int] = None,
+        padding_value: int = 0,
         embedding_dim: Optional[int] = None,
         tensor_dim: Optional[int] = None,
     ) -> None:
@@ -96,6 +97,7 @@ class TensorFeatureInfo:
         :param cardinality: cardinality of categorical feature, required for ids columns,
             optional for others,
             default: ``None``.
+        :param padding_value: value to pad sequences to desired length
         :param embedding_dim: embedding dimensions of categorical feature,
             default: ``None``.
         :param tensor_dim: tensor dimensions of numerical feature,
@@ -105,6 +107,7 @@ class TensorFeatureInfo:
         self._feature_hint = feature_hint
         self._feature_sources = feature_sources
         self._is_seq = is_seq
+        self._padding_value = padding_value
 
         if not isinstance(feature_type, FeatureType):
             msg = "Unknown feature type"
@@ -202,6 +205,13 @@ class TensorFeatureInfo:
         :returns: Flag that feature is numerical list or categorical list.
         """
         return self.feature_type in [FeatureType.CATEGORICAL_LIST, FeatureType.NUMERICAL_LIST]
+
+    @property
+    def padding_value(self) -> int:
+        """
+        :returns: value to pad sequences to desired length.
+        """
+        return self._padding_value
 
     @property
     def cardinality(self) -> Optional[int]:

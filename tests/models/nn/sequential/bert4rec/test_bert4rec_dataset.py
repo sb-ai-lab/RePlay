@@ -70,19 +70,18 @@ def test_bert_training_dataset_getitem(sequential_dataset):
         sequential_dataset,
         max_sequence_length=8,
         label_feature_name="some_item_feature",
-        padding_value=-1,
         mask_prob=0.0,
     )[0]
 
     assert batch.query_id.item() == 0
     assert all(batch.padding_mask == torch.tensor([0, 0, 0, 0, 0, 0, 1, 1], dtype=torch.bool))
     assert all(batch.tokens_mask == torch.tensor([1, 1, 1, 1, 1, 1, 1, 0], dtype=torch.bool))
-    assert all(batch.labels == torch.tensor([-1, -1, -1, -1, -1, -1, 1, 2]))
+    assert all(batch.labels == torch.tensor([-10, -10, -10, -10, -10, -10, 1, 2]))
 
 
 @pytest.mark.torch
 def test_bert_prediction_dataset_getitem(sequential_dataset):
-    batch = Bert4RecPredictionDataset(sequential_dataset, 8, padding_value=-1)[1]
+    batch = Bert4RecPredictionDataset(sequential_dataset, 8)[1]
 
     assert batch.query_id.item() == 1
     assert all(batch.padding_mask == torch.tensor([0, 0, 0, 0, 1, 1, 1, 1], dtype=torch.bool))
