@@ -1,6 +1,6 @@
 defaults:
-  - dataset: zvuk
-  - model: bert4rec_zvuk
+  - dataset: movielens_20m
+  - model: sasrec_movielens_20m
   - mode: train
   - acceleration: null
 
@@ -30,3 +30,4 @@ metrics:
     - 5
     - 10
     - 20
+    - 100

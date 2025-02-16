@@ -140,6 +140,13 @@ class TrainRunner(BaseRunner):
             ),
             **common_params,
         )
+        val_pred_dataloader = DataLoader(
+            dataset=PredictionDataset(
+                seq_validation_dataset,
+                max_sequence_length=self.model_cfg["model_params"]["max_seq_len"],
+            ),
+            **common_params,
+        )
         prediction_dataloader = DataLoader(
             dataset=PredictionDataset(
                 seq_test_dataset,
@@ -148,7 +155,7 @@ class TrainRunner(BaseRunner):
             **common_params,
         )
 
-        return train_dataloader, val_dataloader, prediction_dataloader
+        return train_dataloader, val_dataloader, val_pred_dataloader, prediction_dataloader
 
     def _load_dataloaders(self):
         """Loads data and prepares dataloaders."""
@@ -156,6 +163,7 @@ class TrainRunner(BaseRunner):
         train_events, validation_events, validation_gt, test_events, test_gt = (
             self.load_data()
         )
+        self.validation_gt = validation_gt
         self.raw_test_gt = test_gt
 
         train_dataset, val_dataset, val_gt_dataset, test_dataset, test_gt_dataset = (
@@ -219,7 +227,7 @@ class TrainRunner(BaseRunner):
 
     def run(self):
         """Execute the training pipeline."""
-        train_dataloader, val_dataloader, prediction_dataloader = (
+        train_dataloader, val_dataloader, val_pred_dataloader, prediction_dataloader = (
             self._load_dataloaders()
         )
 
@@ -286,11 +294,43 @@ class TrainRunner(BaseRunner):
             )
         else:
             trainer.fit(model, train_dataloader, val_dataloader)
+
         if self.model_name.lower() == "sasrec":
             best_model = SasRec.load_from_checkpoint(checkpoint_callback.best_model_path)
         elif self.model_name.lower() == "bert4rec":
             best_model = Bert4Rec.load_from_checkpoint(checkpoint_callback.best_model_path)
         self.save_model(trainer, best_model)
+
+        logging.info("Evaluating on val set...")
+        pandas_prediction_callback = PandasPredictionCallback(
+            top_k=max(self.config["metrics"]["ks"]),
+            query_column="user_id",
+            item_column="item_id",
+            rating_column="score",
+            postprocessors=[RemoveSeenItems(self.seq_val_dataset)],
+        )
+        L.Trainer(callbacks=[pandas_prediction_callback], inference_mode=True, devices=devices).predict(
+            best_model, dataloaders=val_pred_dataloader, return_predictions=False
+        )
+
+        result = pandas_prediction_callback.get_result()
+        recommendations = self.tokenizer.query_and_item_id_encoder.inverse_transform(
+            result
+        )
+        val_metrics = self.calculate_metrics(recommendations, self.validation_gt)
+        logging.info(val_metrics)
+        recommendations.to_csv(
+            os.path.join(
+                self.config["paths"]["results_dir"],
+                f"{self.model_save_name}_{self.dataset_name}_val_preds.csv",
+            ),
+        )
+        val_metrics.to_csv(
+            os.path.join(
+                self.config["paths"]["results_dir"],
+                f"{self.model_save_name}_{self.dataset_name}_val_metrics.csv",
+            ),
+        )
 
         logging.info("Evaluating on test set...")
         pandas_prediction_callback = PandasPredictionCallback(
@@ -310,6 +350,12 @@ class TrainRunner(BaseRunner):
         )
         test_metrics = self.calculate_metrics(recommendations, self.raw_test_gt)
         logging.info(test_metrics)
+        recommendations.to_csv(
+            os.path.join(
+                self.config["paths"]["results_dir"],
+                f"{self.model_save_name}_{self.dataset_name}_test_preds.csv",
+            ),
+        )
         test_metrics.to_csv(
             os.path.join(
                 self.config["paths"]["results_dir"],

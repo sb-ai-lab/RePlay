@@ -1,6 +1,6 @@
 model:
   name: sasrec
-  save_name: sasrec_BCE_777
+  save_name: sasrec_CE_777
 
   params:
     model_params:
@@ -9,7 +9,7 @@ model:
       max_seq_len: 100
       hidden_size: 128
       dropout_rate: 0.2
-      loss_type: BCE # CE, BCE, SCE
+      loss_type: CE # CE, BCE, SCE
       loss_sample_count: 200
       n_buckets: 443
       bucket_size_x: 443
