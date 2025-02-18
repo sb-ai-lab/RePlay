@@ -676,25 +676,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
 
         :returns: tensor feature column as a sequences from `grouped_interactions`.
         """
-        assert self._query_features is not None
-
-        source = tensor_feature.feature_source
-        assert source is not None
-
-        query_feature = self._query_features[source.column].values
-        if tensor_feature.is_seq:
-            if tensor_feature.is_list:
-                result = []
-                for i, item_id_sequence in enumerate(self._grouped_interactions[self._item_id_column]):
-                    seq_len = len(item_id_sequence)
-                    result.append(np.repeat(query_feature[i], seq_len).reshape(-1, seq_len).T)
-                return result
-            else:
-                return [
-                    np.full(len(item_id_sequence), query_feature[i])
-                    for i, item_id_sequence in enumerate(self._grouped_interactions[self._item_id_column])
-                ]
-        return [np.array([query_feature[i]]).reshape(-1) for i in range(len(self._grouped_interactions))]
+        return self._process_cat_query_feature(tensor_feature)
 
     def _process_cat_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> List[np.ndarray]:
         """
@@ -786,42 +768,37 @@ class _PolarsSequenceProcessor(_BaseSequenceProcessor[PolarsDataFrame]):
             data = data.join(self._process_feature(tensor_feature_name), on=self._query_id_column, how="left")
         return data
 
-    def _process_num_feature(self, tensor_feature: TensorFeatureInfo) -> PolarsDataFrame:
-        if tensor_feature.feature_source.source == FeatureSource.INTERACTIONS:
-            result = self._grouped_interactions.select(
-                self._query_id_column, tensor_feature.feature_source.column
-            ).rename({tensor_feature.feature_source.column: tensor_feature.name})
-        elif tensor_feature.feature_source.source == FeatureSource.ITEM_FEATURES:
-            result = (
-                self._grouped_interactions.select(self._query_id_column, self._item_id_column).map_rows(
-                    lambda x: (
-                        x[0],
-                        self._item_features.select(tensor_feature.feature_source.column)
-                        .filter(self._item_features[self._item_id_column].is_in(x[1]))
-                        .to_series()
-                        .to_list(),
-                    )
-                )
-            ).rename({"column_0": self._query_id_column, "column_1": tensor_feature.name})
-        else:
-            assert False, "Unknown tensor feature source table"
+    def _process_num_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> PolarsDataFrame:
+        """
+        Process numerical interaction feature.
 
-        reshape_size = None
-        if tensor_feature.feature_hint == FeatureHint.TIMESTAMP:
-            reshape_size = (-1,)
-        elif not tensor_feature.is_list:
-            reshape_size = (-1, 1)
+        :param tensor_feature: tensor feature information.
 
-        if reshape_size is not None:
-            result = pl.DataFrame(
-                {
-                    self._query_id_column: result[self._query_id_column],
-                    tensor_feature.name: [
-                        np.array(x).reshape(reshape_size).tolist() for x in result[tensor_feature.name].to_list()
-                    ],
-                }
-            )
-        return result
+        :returns: tensor feature column as a sequences from `grouped_interactions`.
+        """
+        return self._process_cat_interaction_feature(tensor_feature)
+
+    def _process_num_query_feature(self, tensor_feature: TensorFeatureInfo) -> PolarsDataFrame:
+        """
+        Process numerical feature from query features dataset.
+
+        :param tensor_feature: tensor feature information.
+
+        :returns: sequences with length of item sequence for each query for
+            sequential features and one size sequences otherwise.
+        """
+        return self._process_cat_query_feature(tensor_feature)
+
+    def _process_num_item_feature(self, tensor_feature: TensorFeatureInfo) -> PolarsDataFrame:
+        """
+        Process numerical feature from item features dataset.
+
+        :param tensor_feature: tensor feature information.
+
+        :returns: item features as a sequence for each item in a sequence
+            for each query.
+        """
+        return self._process_cat_item_feature(tensor_feature)
 
     def _process_cat_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> PolarsDataFrame:
         """

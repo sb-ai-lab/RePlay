@@ -97,7 +97,7 @@ class TorchSequentialDataset(TorchDataset):
         if feature.is_seq:
             sequence = sequence[sequence_offset : sequence_offset + self._max_sequence_length]
         tensor_dtype = self._get_tensor_dtype(feature)
-        tensor_sequence = torch.tensor(sequence, dtype=tensor_dtype)
+        tensor_sequence = torch.tensor(sequence)
         if feature.is_seq:
             tensor_sequence = self._pad_sequence(tensor_sequence, feature.padding_value)
 

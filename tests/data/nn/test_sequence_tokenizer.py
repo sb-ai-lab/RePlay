@@ -312,10 +312,10 @@ def test_item_features_are_grouped_to_sequences(dataset, item_id_and_item_featur
         tokenizer,
         "item_num",
         answers={
-            1: [[1.1], [1.2]],
-            2: [[1.1], [1.3], [1.4]],
-            3: [[1.2]],
-            4: [[1.1], [1.2], [1.3], [1.4], [1.5], [1.6]],
+            1: [1.1, 1.2],
+            2: [1.1, 1.3, 1.4],
+            3: [1.2],
+            4: [1.1, 1.2, 1.3, 1.4, 1.5, 1.6],
         },
     )
     _compare_sequence(
@@ -473,6 +473,13 @@ def test_process_numerical_features(dataset, request):
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_num")],
             ),
             TensorFeatureInfo(
+                "user_num",
+                tensor_dim=1,
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.QUERY_FEATURES, "user_num")],
+            ),
+            TensorFeatureInfo(
                 "doubled_feature",
                 tensor_dim=2,
                 is_seq=True,
@@ -498,10 +505,10 @@ def test_process_numerical_features(dataset, request):
     sequential_dataset = tokenizer.fit_transform(data)
 
     answers = {
-        1: [[1.1], [1.2]],
-        2: [[1.1], [1.3], [1.4]],
-        3: [[1.2]],
-        4: [[1.1], [1.2], [1.3], [1.4], [1.5], [1.6]],
+        1: [1.1, 1.2],
+        2: [1.1, 1.3, 1.4],
+        3: [1.2],
+        4: [1.1, 1.2, 1.3, 1.4, 1.5, 1.6],
     }
     _compare_sequence(
         sequential_dataset,
@@ -509,11 +516,13 @@ def test_process_numerical_features(dataset, request):
         "item_num",
         answers,
     )
-    for num_feature_name in ["feature", "item_num", "doubled_feature"]:
+
+    for num_feature_name in ["feature", "item_num", "doubled_feature", "user_num"]:
         for query in sequential_dataset.get_all_query_ids():
             query_decoded = tokenizer.query_id_encoder.inverse_mapping["user_id"][query]
             seq = sequential_dataset.get_sequence_by_query_id(query, num_feature_name)
-            assert seq.shape == (len(answers[query_decoded]), 1)
+            assert len(seq.shape) == 1
+            assert seq.shape[0] == len(answers[query_decoded])
 
     _compare_sequence(
         sequential_dataset,
@@ -899,7 +908,7 @@ def test_save_and_load_different_features_to_keep(
 
     tokenizer = SequenceTokenizer.load(f"sequence_tokenizer.{extension}", use_pickle=use_pickle)
     some_item_feature_transformed = tokenizer.transform(data, tensor_features_to_keep=["item_num"])
-
+    print(some_item_feature_transformed._sequences)
     _compare_sequence(
         item_id_transformed,
         tokenizer,
@@ -917,10 +926,10 @@ def test_save_and_load_different_features_to_keep(
         tokenizer,
         "item_num",
         answers={
-            1: [[1.1], [1.2]],
-            2: [[1.1], [1.3], [1.4]],
-            3: [[1.2]],
-            4: [[1.1], [1.2], [1.3], [1.4], [1.5], [1.6]],
+            1: [1.1, 1.2],
+            2: [1.1, 1.3, 1.4],
+            3: [1.2],
+            4: [1.1, 1.2, 1.3, 1.4, 1.5, 1.6],
         },
     )
     try:
