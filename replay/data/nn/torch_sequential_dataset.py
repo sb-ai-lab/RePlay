@@ -96,8 +96,8 @@ class TorchSequentialDataset(TorchDataset):
         sequence = self._sequential.get_sequence(sequence_index, feature.name)
         if feature.is_seq:
             sequence = sequence[sequence_offset : sequence_offset + self._max_sequence_length]
-        tensor_dtype = self._get_tensor_dtype(feature)
-        tensor_sequence = torch.tensor(sequence)
+        tensor_dtype = self._get_tensor_dtype(sequence)
+        tensor_sequence = torch.tensor(sequence, dtype=tensor_dtype)
         if feature.is_seq:
             tensor_sequence = self._pad_sequence(tensor_sequence, feature.padding_value)
 
@@ -126,10 +126,10 @@ class TorchSequentialDataset(TorchDataset):
         padded_sequence[-len(sequence) :].copy_(sequence)
         return padded_sequence
 
-    def _get_tensor_dtype(self, feature: TensorFeatureInfo) -> torch.dtype:
-        if feature.is_cat:
+    def _get_tensor_dtype(self, array: np.array) -> torch.dtype:
+        if np.issubdtype(array.dtype, np.integer):
             return torch.long
-        if feature.is_num:
+        if np.issubdtype(array.dtype, np.floating):
             return torch.float32
         assert False, "Unknown tensor feature type"
 

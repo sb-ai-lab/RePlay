@@ -908,7 +908,6 @@ def test_save_and_load_different_features_to_keep(
 
     tokenizer = SequenceTokenizer.load(f"sequence_tokenizer.{extension}", use_pickle=use_pickle)
     some_item_feature_transformed = tokenizer.transform(data, tensor_features_to_keep=["item_num"])
-    print(some_item_feature_transformed._sequences)
     _compare_sequence(
         item_id_transformed,
         tokenizer,
