@@ -752,15 +752,6 @@ def simple_dataframe(spark, columns):
 
 
 @pytest.fixture(scope="module")
-def static_string_spark_df(spark):
-    data = []
-    for _ in range(5000):
-        data.append(["Moscow"])
-        data.append(["Novgorod"])
-    return spark.createDataFrame(data, schema=["random_string"])
-
-
-@pytest.fixture(scope="module")
 def static_string_pd_df():
     data = []
     for _ in range(5000):
@@ -770,7 +761,15 @@ def static_string_pd_df():
 
 
 @pytest.fixture(scope="module")
-def static_string_pl_df():
+def static_string_spark_df(
+    spark,
+    static_string_pd_df,
+):
+    return spark.createDataFrame(static_string_pd_df, schema=list(static_string_pd_df.columns))
+
+
+@pytest.fixture(scope="module")
+def static_string_pl_df(static_string_pd_df):
     return pl.from_pandas(static_string_pd_df)
 
 
