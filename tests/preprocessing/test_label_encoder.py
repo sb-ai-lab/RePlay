@@ -133,6 +133,7 @@ def test_label_encoder_mapping_keys_is_sequence(column, random_string_spark_df, 
     mapping = encoder.mapping[column]
     assert list(mapping.values()) == list(range(count_of_elements)), "encoded IDs of elements is not sequence"
 
+
 @pytest.mark.spark
 @pytest.mark.parametrize("column", ["random_string"])
 def test_label_encoder_partial_fit_no_new_values_at_input(column, static_string_spark_df):
@@ -144,12 +145,11 @@ def test_label_encoder_partial_fit_no_new_values_at_input(column, static_string_
     encoder.partial_fit(static_string_spark_df)
     mapping_after_partial_fit = encoder.mapping[column]
     assert len(mapping_before_partial_fit) == len(mapping_after_partial_fit), "count of elements in mappings not equal"
-    assert mapping_after_partial_fit == mapping_after_partial_fit,  "mappings' keys are not equal"
+    assert mapping_after_partial_fit == mapping_after_partial_fit, "mappings' keys are not equal"
 
-    assert (
-        list(mapping_before_partial_fit.values()) == list(mapping_after_partial_fit.values())
+    assert list(mapping_before_partial_fit.values()) == list(
+        mapping_after_partial_fit.values()
     ), "mappings' values are not equal"
-
 
 
 @pytest.mark.core

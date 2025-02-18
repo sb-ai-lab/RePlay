@@ -228,7 +228,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         new_values_list = [[x] for x in new_values]
         if len(new_values_list) == 0:
             warnings.warn(f"You are trying to partial fit encoder on empty column ({self._col})")
-            return 
+            return
         new_unique_values_df: SparkDataFrame = get_spark_session().createDataFrame(new_values_list, schema=[self._col])
         window_function_give_ids = Window.orderBy(self._col)
         new_part_of_mapping = (
