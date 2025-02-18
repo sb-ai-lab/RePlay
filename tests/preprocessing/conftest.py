@@ -771,11 +771,7 @@ def static_string_pd_df():
 
 @pytest.fixture(scope="module")
 def static_string_pl_df():
-    data = []
-    for _ in range(5000):
-        data.append(["Moscow"])
-        data.append(["Novgorod"])
-    return pl.DataFrame(data, schema=["random_string"])
+    return pl.from_pandas(static_string_pd_df)
 
 
 @pytest.fixture(scope="module")

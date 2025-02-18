@@ -36,8 +36,8 @@ class LabelEncoderTransformWarning(Warning):
     """Label encoder transform warning."""
 
 
-class LabelEncoderFitWarning(Warning):
-    """Label encoder fit warning."""
+class LabelEncoderPartialFitWarning(Warning):
+    """Label encoder partial fit warning."""
 
 
 class BaseLabelEncodingRule(abc.ABC):  # pragma: no cover
@@ -232,9 +232,9 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         new_values_list = [[x] for x in new_values]
         if len(new_values_list) == 0:
             warnings.warn(
-                "partial_fit will have no effect because, "
-                f"there are no new values in the incoming dataset at column {self.column}",
-                LabelEncoderFitWarning,
+                "partial_fit will have no effect because "
+                f"there are no new values in the incoming dataset at '{self.column}' column",
+                LabelEncoderPartialFitWarning,
             )
             return
         new_unique_values_df: SparkDataFrame = get_spark_session().createDataFrame(new_values_list, schema=[self._col])
@@ -258,9 +258,9 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         new_unique_values = set(df[self._col].tolist()) - set(self._mapping)
         if len(new_unique_values) == 0:
             warnings.warn(
-                "partial_fit will have no effect because, "
-                f"there are no new values in the incoming dataset at column {self.column}",
-                LabelEncoderFitWarning,
+                "partial_fit will have no effect because "
+                f"there are no new values in the incoming dataset at '{self.column}' column",
+                LabelEncoderPartialFitWarning,
             )
             return
         last_mapping_value = max(self._mapping.values())
@@ -275,9 +275,9 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         new_unique_values = set(df.select(self._col).unique().to_series().to_list()) - set(self._mapping)
         if len(new_unique_values) == 0:
             warnings.warn(
-                "partial_fit will have no effect because, "
-                f"there are no new values in the incoming dataset at column {self.column}",
-                LabelEncoderFitWarning,
+                "partial_fit will have no effect because "
+                f"there are no new values in the incoming dataset at '{self.column}' column",
+                LabelEncoderPartialFitWarning,
             )
             return
         new_data: dict = {value: max(self._mapping.values()) + i for i, value in enumerate(new_unique_values, start=1)}

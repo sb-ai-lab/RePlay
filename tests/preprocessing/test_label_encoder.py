@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from replay.preprocessing import LabelEncoder, LabelEncoderFitWarning, LabelEncodingRule, SequenceEncodingRule
+from replay.preprocessing import LabelEncoder, LabelEncoderPartialFitWarning, LabelEncodingRule, SequenceEncodingRule
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame
 from tests.utils import sparkDataFrameEqual
 
@@ -165,7 +165,7 @@ def test_label_encoder_partial_fit_no_new_values_at_input(column, df_name, reque
     encoder = LabelEncoder([rule])
     encoder.fit(df)
     mapping_before_partial_fit = encoder.mapping[column]
-    with pytest.warns(LabelEncoderFitWarning):
+    with pytest.warns(LabelEncoderPartialFitWarning):
         encoder.partial_fit(df)
     mapping_after_partial_fit = encoder.mapping[column]
     assert len(mapping_before_partial_fit) == len(mapping_after_partial_fit), "count of elements in mappings not equal"
