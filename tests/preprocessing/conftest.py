@@ -753,7 +753,10 @@ def simple_dataframe(spark, columns):
 
 @pytest.fixture(scope="module")
 def static_string_spark_df(spark):
-    data = [["Moscow"], ["Novgorod"]]
+    data = []
+    for _ in range(5000):
+        data.append(["Moscow"])
+        data.append(["Novgorod"])
     return spark.createDataFrame(data, schema=["random_string"])
 
 
