@@ -761,6 +761,24 @@ def static_string_spark_df(spark):
 
 
 @pytest.fixture(scope="module")
+def static_string_pd_df():
+    data = []
+    for _ in range(5000):
+        data.append(["Moscow"])
+        data.append(["Novgorod"])
+    return pd.DataFrame(data, columns=["random_string"])
+
+
+@pytest.fixture(scope="module")
+def static_string_pl_df():
+    data = []
+    for _ in range(5000):
+        data.append(["Moscow"])
+        data.append(["Novgorod"])
+    return pl.DataFrame(data, schema=["random_string"])
+
+
+@pytest.fixture(scope="module")
 def random_string_spark_df(spark):
     random.seed(42)
 

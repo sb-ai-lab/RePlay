@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from replay.preprocessing import LabelEncoder, LabelEncodingRule, SequenceEncodingRule
+from replay.preprocessing import LabelEncoder, LabelEncoderFitWarning, LabelEncodingRule, SequenceEncodingRule
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame
 from tests.utils import sparkDataFrameEqual
 
@@ -134,15 +134,39 @@ def test_label_encoder_mapping_keys_is_sequence(column, random_string_spark_df, 
     assert list(mapping.values()) == list(range(count_of_elements)), "encoded IDs of elements is not sequence"
 
 
-@pytest.mark.spark
-@pytest.mark.parametrize("column", ["random_string"])
-def test_label_encoder_partial_fit_no_new_values_at_input(column, static_string_spark_df):
-    df = static_string_spark_df.repartition(13)
+@pytest.mark.parametrize(
+    "df_name",
+    [
+        pytest.param("simple_dataframe_pandas", marks=pytest.mark.core),
+        pytest.param("simple_dataframe_polars", marks=pytest.mark.core),
+        pytest.param("simple_dataframe", marks=pytest.mark.spark),
+    ],
+)
+def test_label_encoder_on_many_columns(df_name, request):
+    df = request.getfixturevalue(df_name)
+    rules = [LabelEncodingRule(column) for column in df.columns]
+    encoder = LabelEncoder(rules)
+    encoder.fit(df)
+    assert len(encoder.mapping) == len(df.columns), "Not all columns are calculated"
+    assert all(len(values) for values in encoder.mapping.values()), "Some columns are without mappings after fit"
+
+
+@pytest.mark.parametrize(
+    "column, df_name",
+    [
+        pytest.param("random_string", "static_string_pd_df", marks=pytest.mark.core),
+        pytest.param("random_string", "static_string_pl_df", marks=pytest.mark.core),
+        pytest.param("random_string", "static_string_spark_df", marks=pytest.mark.spark),
+    ],
+)
+def test_label_encoder_partial_fit_no_new_values_at_input(column, df_name, request):
+    df = request.getfixturevalue(df_name)
     rule = LabelEncodingRule(column)
     encoder = LabelEncoder([rule])
     encoder.fit(df)
     mapping_before_partial_fit = encoder.mapping[column]
-    encoder.partial_fit(static_string_spark_df)
+    with pytest.warns(LabelEncoderFitWarning):
+        encoder.partial_fit(df)
     mapping_after_partial_fit = encoder.mapping[column]
     assert len(mapping_before_partial_fit) == len(mapping_after_partial_fit), "count of elements in mappings not equal"
     assert mapping_after_partial_fit == mapping_after_partial_fit, "mappings' keys are not equal"
