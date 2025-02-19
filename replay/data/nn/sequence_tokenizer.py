@@ -535,9 +535,18 @@ class _BaseSequenceProcessor(Generic[_T]):
             return self._process_num_feature(tensor_feature)
         assert False, "Unknown tensor feature type"
 
-    @abc.abstractmethod
-    def _process_num_feature(self, tensor_feature: TensorFeatureInfo) -> _T:  # pragma: no cover
-        pass
+    def _process_num_feature(self, tensor_feature: TensorFeatureInfo) -> _T:
+        """
+        Process numerical tensor feature depends on it source.
+        """
+        assert tensor_feature.feature_sources is not None
+        if tensor_feature.feature_source.source == FeatureSource.INTERACTIONS:
+            return self._process_num_interaction_feature(tensor_feature)
+        if tensor_feature.feature_source.source == FeatureSource.QUERY_FEATURES:
+            return self._process_num_query_feature(tensor_feature)
+        if tensor_feature.feature_source.source == FeatureSource.ITEM_FEATURES:
+            return self._process_num_item_feature(tensor_feature)
+        assert False, "Unknown tensor feature source table"
 
     def _process_cat_feature(self, tensor_feature: TensorFeatureInfo) -> _T:
         """
@@ -562,6 +571,18 @@ class _BaseSequenceProcessor(Generic[_T]):
 
     @abc.abstractmethod
     def _process_cat_item_feature(self, tensor_feature: TensorFeatureInfo) -> _T:  # pragma: no cover
+        pass
+
+    @abc.abstractmethod
+    def _process_num_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> _T:  # pragma: no cover
+        pass
+
+    @abc.abstractmethod
+    def _process_num_query_feature(self, tensor_feature: TensorFeatureInfo) -> _T:  # pragma: no cover
+        pass
+
+    @abc.abstractmethod
+    def _process_num_item_feature(self, tensor_feature: TensorFeatureInfo) -> _T:  # pragma: no cover
         pass
 
 
@@ -606,41 +627,56 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
 
         return PandasDataFrame(all_features)
 
-    def _process_num_feature(self, tensor_feature: TensorFeatureInfo) -> List[np.ndarray]:
+    def _process_num_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> List[np.ndarray]:
         """
-        Process numerical feature for all sources.
+        Process numerical interaction feature.
 
         :param tensor_feature: tensor feature information.
 
-        :returns: sequences for each query.
-            If feature came from item features then gets item features values.
-            If feature came from interactions then gets values from interactions.
+        :returns: tensor feature column as a sequences from `grouped_interactions`.
         """
-        assert tensor_feature.feature_source is not None
         assert tensor_feature.is_seq
 
-        values: List[np.ndarray] = []
-        for pos, item_id_sequence in enumerate(self._grouped_interactions[self._item_id_column]):
-            all_features_for_user = []
-            if tensor_feature.feature_source.source == FeatureSource.ITEM_FEATURES:
-                item_feature = self._item_features[tensor_feature.feature_source.column]
-                feature_sequence = item_feature.loc[item_id_sequence].values
-                all_features_for_user.append(feature_sequence.tolist())
-            elif tensor_feature.feature_source.source == FeatureSource.INTERACTIONS:
-                sequence = self._grouped_interactions[tensor_feature.feature_source.column][pos]
-                all_features_for_user.append(sequence)
-            else:
-                assert False, "Unknown tensor feature source table"
+        source = tensor_feature.feature_source
+        assert source is not None
 
-            all_seqs = np.array(all_features_for_user)
-            if tensor_feature.feature_hint == FeatureHint.TIMESTAMP:
-                all_seqs = all_seqs.reshape(-1)
-            elif not tensor_feature.is_list:
-                all_seqs = all_seqs.reshape(-1, 1)
+        return [np.array(sequence) for sequence in self._grouped_interactions[source.column]]
+
+    def _process_num_item_feature(self, tensor_feature: TensorFeatureInfo) -> List[np.ndarray]:
+        """
+        Process numerical feature from item features dataset.
+
+        :param tensor_feature: tensor feature information.
+
+        :returns: tensor feature column as a sequences from `grouped_interactions`.
+        """
+        assert tensor_feature.is_seq
+        assert self._item_features is not None
+
+        source = tensor_feature.feature_source
+        assert source is not None
+
+        item_feature = self._item_features[source.column]
+        values: List[np.ndarray] = []
+
+        for item_id_sequence in self._grouped_interactions[self._item_id_column]:
+            feature_sequence = item_feature.loc[item_id_sequence].values
+            if tensor_feature.feature_type == FeatureType.NUMERICAL_LIST:
+                values.append(feature_sequence.tolist())
             else:
-                all_seqs = all_seqs.squeeze(0)
-            values.append(all_seqs)
+                values.append(np.array(feature_sequence))
+
         return values
+
+    def _process_num_query_feature(self, tensor_feature: TensorFeatureInfo) -> List[np.ndarray]:
+        """
+        Process numerical feature from query features dataset.
+
+        :param tensor_feature: tensor feature information.
+
+        :returns: tensor feature column as a sequences from `grouped_interactions`.
+        """
+        return self._process_cat_query_feature(tensor_feature)
 
     def _process_cat_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> List[np.ndarray]:
         """
@@ -732,42 +768,37 @@ class _PolarsSequenceProcessor(_BaseSequenceProcessor[PolarsDataFrame]):
             data = data.join(self._process_feature(tensor_feature_name), on=self._query_id_column, how="left")
         return data
 
-    def _process_num_feature(self, tensor_feature: TensorFeatureInfo) -> PolarsDataFrame:
-        if tensor_feature.feature_source.source == FeatureSource.INTERACTIONS:
-            result = self._grouped_interactions.select(
-                self._query_id_column, tensor_feature.feature_source.column
-            ).rename({tensor_feature.feature_source.column: tensor_feature.name})
-        elif tensor_feature.feature_source.source == FeatureSource.ITEM_FEATURES:
-            result = (
-                self._grouped_interactions.select(self._query_id_column, self._item_id_column).map_rows(
-                    lambda x: (
-                        x[0],
-                        self._item_features.select(tensor_feature.feature_source.column)
-                        .filter(self._item_features[self._item_id_column].is_in(x[1]))
-                        .to_series()
-                        .to_list(),
-                    )
-                )
-            ).rename({"column_0": self._query_id_column, "column_1": tensor_feature.name})
-        else:
-            assert False, "Unknown tensor feature source table"
+    def _process_num_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> PolarsDataFrame:
+        """
+        Process numerical interaction feature.
 
-        reshape_size = None
-        if tensor_feature.feature_hint == FeatureHint.TIMESTAMP:
-            reshape_size = (-1,)
-        elif not tensor_feature.is_list:
-            reshape_size = (-1, 1)
+        :param tensor_feature: tensor feature information.
 
-        if reshape_size is not None:
-            result = pl.DataFrame(
-                {
-                    self._query_id_column: result[self._query_id_column],
-                    tensor_feature.name: [
-                        np.array(x).reshape(reshape_size).tolist() for x in result[tensor_feature.name].to_list()
-                    ],
-                }
-            )
-        return result
+        :returns: tensor feature column as a sequences from `grouped_interactions`.
+        """
+        return self._process_cat_interaction_feature(tensor_feature)
+
+    def _process_num_query_feature(self, tensor_feature: TensorFeatureInfo) -> PolarsDataFrame:
+        """
+        Process numerical feature from query features dataset.
+
+        :param tensor_feature: tensor feature information.
+
+        :returns: sequences with length of item sequence for each query for
+            sequential features and one size sequences otherwise.
+        """
+        return self._process_cat_query_feature(tensor_feature)
+
+    def _process_num_item_feature(self, tensor_feature: TensorFeatureInfo) -> PolarsDataFrame:
+        """
+        Process numerical feature from item features dataset.
+
+        :param tensor_feature: tensor feature information.
+
+        :returns: item features as a sequence for each item in a sequence
+            for each query.
+        """
+        return self._process_cat_item_feature(tensor_feature)
 
     def _process_cat_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> PolarsDataFrame:
         """

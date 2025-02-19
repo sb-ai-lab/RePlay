@@ -37,6 +37,13 @@ def query_features():
                 [5, 7, 6],
                 [8],
             ],
+            "user_num": [1.0, 2.3, 11.8, -1.6],
+            "user_num_list": [
+                [1.1, 2.1],
+                [4.2, 3.2],
+                [5.3, 7.3, 6.3],
+                [8.4],
+            ],
         }
     )
 
@@ -163,6 +170,8 @@ def small_feature_schema():
             FeatureInfo("timestamp", FeatureType.NUMERICAL, FeatureHint.TIMESTAMP, FeatureSource.INTERACTIONS),
             FeatureInfo("user_cat", FeatureType.CATEGORICAL, None, FeatureSource.QUERY_FEATURES),
             FeatureInfo("user_cat_list", FeatureType.CATEGORICAL_LIST, None, FeatureSource.QUERY_FEATURES),
+            FeatureInfo("user_num", FeatureType.NUMERICAL, None, FeatureSource.QUERY_FEATURES),
+            FeatureInfo("user_num_list", FeatureType.NUMERICAL_LIST, None, FeatureSource.QUERY_FEATURES),
             FeatureInfo("item_cat", FeatureType.CATEGORICAL, None, FeatureSource.ITEM_FEATURES),
             FeatureInfo("item_cat_list", FeatureType.CATEGORICAL_LIST, None, FeatureSource.ITEM_FEATURES),
             FeatureInfo("item_num", FeatureType.NUMERICAL, None, FeatureSource.ITEM_FEATURES),

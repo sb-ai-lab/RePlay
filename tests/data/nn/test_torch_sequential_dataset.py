@@ -117,25 +117,25 @@ def test_can_get_windowed_query_feature(sequential_dataset: SequentialDataset):
 
 
 @pytest.mark.torch
-def test_num_dtype(sequential_dataset, some_num_tensor_feature):
-    feature = TensorFeatureInfo(name="user_id", feature_type=FeatureType.NUMERICAL, tensor_dim=64)
+def test_num_dtype(sequential_dataset):
+    array = np.array([[1.0, 2.0], [3.0, 4.0]])
     assert (
         TorchSequentialDataset(
             sequential_dataset,
             max_sequence_length=3,
             sliding_window_step=2,
-        )._get_tensor_dtype(feature)
+        )._get_tensor_dtype(array)
         == torch.float32
     )
 
-    feature._feature_type = None
+    array = np.array([["q", "w"], ["e", "r"]])
 
     with pytest.raises(AssertionError):
         TorchSequentialDataset(
             sequential_dataset,
             max_sequence_length=3,
             sliding_window_step=2,
-        )._get_tensor_dtype(feature)
+        )._get_tensor_dtype(array)
 
 
 @pytest.mark.torch
