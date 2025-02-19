@@ -26,17 +26,18 @@ from replay.utils import (
 )
 
 if PYSPARK_AVAILABLE:
-    from pyspark.sql import (
-        functions as sf,
-    )
-    from pyspark.sql.types import LongType, StructType
-    from pyspark.storagelevel import StorageLevel
+    from pyspark.sql import Window, functions as sf  # noqa: I001
+    from pyspark.sql.types import LongType
 
 HandleUnknownStrategies = Literal["error", "use_default_value", "drop"]
 
 
 class LabelEncoderTransformWarning(Warning):
     """Label encoder transform warning."""
+
+
+class LabelEncoderPartialFitWarning(Warning):
+    """Label encoder partial fit warning."""
 
 
 class BaseLabelEncodingRule(abc.ABC):  # pragma: no cover
@@ -169,22 +170,19 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         return inverse_mapping_list
 
     def _fit_spark(self, df: SparkDataFrame) -> None:
-        unique_col_values = df.select(self._col).distinct().persist(StorageLevel.MEMORY_ONLY)
+        unique_col_values = df.select(self._col).distinct()
+        window_function_give_ids = Window.orderBy(self._col)
 
         mapping_on_spark = (
-            unique_col_values.rdd.zipWithIndex()
-            .toDF(
-                StructType()
-                .add("_1", StructType().add(self._col, df.schema[self._col].dataType, True), True)
-                .add("_2", LongType(), True)
+            unique_col_values.withColumn(
+                self._target_col,
+                sf.row_number().over(window_function_give_ids).cast(LongType()),
             )
-            .select(sf.col(f"_1.{self._col}").alias(self._col), sf.col("_2").alias(self._target_col))
-            .persist(StorageLevel.MEMORY_ONLY)
+            .withColumn(self._target_col, sf.col(self._target_col) - 1)
+            .select(self._col, self._target_col)
         )
 
         self._mapping = mapping_on_spark.rdd.collectAsMap()
-        mapping_on_spark.unpersist()
-        unique_col_values.unpersist()
 
     def _fit_pandas(self, df: PandasDataFrame) -> None:
         unique_col_values = df[self._col].drop_duplicates().reset_index(drop=True)
@@ -228,34 +226,43 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
     def _partial_fit_spark(self, df: SparkDataFrame) -> None:
         assert self._mapping is not None
-
         max_value = sf.lit(max(self._mapping.values()) + 1)
         already_fitted = list(self._mapping.keys())
         new_values = {x[self._col] for x in df.select(self._col).distinct().collect()} - set(already_fitted)
         new_values_list = [[x] for x in new_values]
-        new_values_df: SparkDataFrame = get_spark_session().createDataFrame(new_values_list, schema=[self._col])
-        new_unique_values = new_values_df.join(df, on=self._col, how="left").select(self._col)
-
-        new_data: dict = (
-            new_unique_values.rdd.zipWithIndex()
-            .toDF(
-                StructType()
-                .add("_1", StructType().add(self._col, df.schema[self._col].dataType), True)
-                .add("_2", LongType(), True)
+        if len(new_values_list) == 0:
+            warnings.warn(
+                "partial_fit will have no effect because "
+                f"there are no new values in the incoming dataset at '{self.column}' column",
+                LabelEncoderPartialFitWarning,
             )
-            .select(sf.col(f"_1.{self._col}").alias(self._col), sf.col("_2").alias(self._target_col))
-            .withColumn(self._target_col, sf.col(self._target_col) + max_value)
+            return
+        new_unique_values_df: SparkDataFrame = get_spark_session().createDataFrame(new_values_list, schema=[self._col])
+        window_function_give_ids = Window.orderBy(self._col)
+        new_part_of_mapping = (
+            new_unique_values_df.withColumn(
+                self._target_col,
+                sf.row_number().over(window_function_give_ids).cast(LongType()),
+            )
+            .withColumn(self._target_col, sf.col(self._target_col) - 1 + max_value)
+            .select(self._col, self._target_col)
             .rdd.collectAsMap()
         )
-        self._mapping.update(new_data)
-        self._inverse_mapping.update({v: k for k, v in new_data.items()})
-        self._inverse_mapping_list.extend(new_data.keys())
-        new_unique_values.unpersist()
+        self._mapping.update(new_part_of_mapping)
+        self._inverse_mapping.update({v: k for k, v in new_part_of_mapping.items()})
+        self._inverse_mapping_list.extend(new_part_of_mapping.keys())
 
     def _partial_fit_pandas(self, df: PandasDataFrame) -> None:
         assert self._mapping is not None
 
         new_unique_values = set(df[self._col].tolist()) - set(self._mapping)
+        if len(new_unique_values) == 0:
+            warnings.warn(
+                "partial_fit will have no effect because "
+                f"there are no new values in the incoming dataset at '{self.column}' column",
+                LabelEncoderPartialFitWarning,
+            )
+            return
         last_mapping_value = max(self._mapping.values())
         new_data: dict = {value: last_mapping_value + i for i, value in enumerate(new_unique_values, start=1)}
         self._mapping.update(new_data)
@@ -266,6 +273,13 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         assert self._mapping is not None
 
         new_unique_values = set(df.select(self._col).unique().to_series().to_list()) - set(self._mapping)
+        if len(new_unique_values) == 0:
+            warnings.warn(
+                "partial_fit will have no effect because "
+                f"there are no new values in the incoming dataset at '{self.column}' column",
+                LabelEncoderPartialFitWarning,
+            )
+            return
         new_data: dict = {value: max(self._mapping.values()) + i for i, value in enumerate(new_unique_values, start=1)}
         self._mapping.update(new_data)
         self._inverse_mapping.update({v: k for k, v in new_data.items()})

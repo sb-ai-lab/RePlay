@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from replay.preprocessing import LabelEncoder, LabelEncodingRule, SequenceEncodingRule
+from replay.preprocessing import LabelEncoder, LabelEncoderPartialFitWarning, LabelEncodingRule, SequenceEncodingRule
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame
 from tests.utils import sparkDataFrameEqual
 
@@ -62,6 +62,118 @@ def test_label_encoder_load_rule_spark(column, df_name, is_grouped_encoder, requ
     df2 = rebuild_original_cols.orderBy(*columns_order).toPandas()[columns_order]
 
     pd.testing.assert_frame_equal(df1, df2)
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize("column", ["random_string"])
+def test_label_encoder_determinism(column, random_string_spark_df):
+    # When the dataframe is being repartitioned, the label encoder, trained through spark, outputs different mappings.
+    df1 = random_string_spark_df.repartition(13)
+    rule_1 = LabelEncodingRule(column)
+    encoder_1 = LabelEncoder([rule_1])
+    encoder_1.fit(df1)
+    mapping_1 = encoder_1.mapping[column]
+
+    df2 = random_string_spark_df.repartition(11)
+    rule_2 = LabelEncodingRule(column)
+    encoder_2 = LabelEncoder([rule_2])
+    encoder_2.fit(df2)
+    mapping_2 = encoder_2.mapping[column]
+
+    df3 = random_string_spark_df.repartition(20)
+    rule_3 = LabelEncodingRule(column)
+    encoder_3 = LabelEncoder([rule_3])
+    encoder_3.fit(df3)
+    mapping_3 = encoder_3.mapping[column]
+
+    assert mapping_1 == mapping_2, "LabelEncoder.fit works non-deterministically (comparison at launch 1 and 2)"
+    assert mapping_1 == mapping_3, "LabelEncoder.fit works non-deterministically (comparison at launch 1 and 3)"
+    assert mapping_2 == mapping_3, "LabelEncoder.fit works non-deterministically (comparison at launch 2 and 3)"
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize("column", ["random_string"])
+def test_label_encoder_partial_fit_determinism(column, random_string_spark_df, static_string_spark_df):
+    # When the dataframe is being repartitioned, the label encoder, trained through spark, outputs different mappings.
+    df1 = random_string_spark_df.repartition(13)
+    rule_1 = LabelEncodingRule(column)
+    encoder_1 = LabelEncoder([rule_1])
+    encoder_1.fit(static_string_spark_df)
+    encoder_1.partial_fit(df1)
+    mapping_1 = encoder_1.mapping[column]
+
+    df2 = random_string_spark_df.repartition(11)
+    rule_2 = LabelEncodingRule(column)
+    encoder_2 = LabelEncoder([rule_2])
+    encoder_2.fit(static_string_spark_df)
+    encoder_2.partial_fit(df2)
+    mapping_2 = encoder_2.mapping[column]
+
+    df3 = random_string_spark_df.repartition(20)
+    rule_3 = LabelEncodingRule(column)
+    encoder_3 = LabelEncoder([rule_3])
+    encoder_3.fit(static_string_spark_df)
+    encoder_3.partial_fit(df3)
+    mapping_3 = encoder_3.mapping[column]
+
+    assert mapping_1 == mapping_2, "LabelEncoder.fit works non-deterministically (comparison at launch 1 and 2)"
+    assert mapping_1 == mapping_3, "LabelEncoder.fit works non-deterministically (comparison at launch 1 and 3)"
+    assert mapping_2 == mapping_3, "LabelEncoder.fit works non-deterministically (comparison at launch 2 and 3)"
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize("column", ["random_string"])
+def test_label_encoder_mapping_keys_is_sequence(column, random_string_spark_df, static_string_spark_df):
+    df = random_string_spark_df.repartition(13)
+    rule = LabelEncodingRule(column)
+    encoder = LabelEncoder([rule])
+    encoder.fit(static_string_spark_df)
+    encoder.partial_fit(df)
+    count_of_elements = static_string_spark_df.distinct().count() + df.distinct().count()
+    mapping = encoder.mapping[column]
+    assert list(mapping.values()) == list(range(count_of_elements)), "encoded IDs of elements is not sequence"
+
+
+@pytest.mark.parametrize(
+    "df_name",
+    [
+        pytest.param("simple_dataframe_pandas", marks=pytest.mark.core),
+        pytest.param("simple_dataframe_polars", marks=pytest.mark.core),
+        pytest.param("simple_dataframe", marks=pytest.mark.spark),
+    ],
+)
+def test_label_encoder_on_many_columns(df_name, request):
+    df = request.getfixturevalue(df_name)
+    rules = [LabelEncodingRule(column) for column in df.columns]
+    encoder = LabelEncoder(rules)
+    encoder.fit(df)
+    assert len(encoder.mapping) == len(df.columns), "Not all columns are calculated"
+    assert all(len(values) for values in encoder.mapping.values()), "Some columns are without mappings after fit"
+
+
+@pytest.mark.parametrize(
+    "column, df_name",
+    [
+        pytest.param("random_string", "static_string_pd_df", marks=pytest.mark.core),
+        pytest.param("random_string", "static_string_pl_df", marks=pytest.mark.core),
+        pytest.param("random_string", "static_string_spark_df", marks=pytest.mark.spark),
+    ],
+)
+def test_label_encoder_partial_fit_no_new_values_at_input(column, df_name, request):
+    df = request.getfixturevalue(df_name)
+    rule = LabelEncodingRule(column)
+    encoder = LabelEncoder([rule])
+    encoder.fit(df)
+    mapping_before_partial_fit = encoder.mapping[column]
+    with pytest.warns(LabelEncoderPartialFitWarning):
+        encoder.partial_fit(df)
+    mapping_after_partial_fit = encoder.mapping[column]
+    assert len(mapping_before_partial_fit) == len(mapping_after_partial_fit), "count of elements in mappings not equal"
+    assert mapping_after_partial_fit == mapping_after_partial_fit, "mappings' keys are not equal"
+
+    assert list(mapping_before_partial_fit.values()) == list(
+        mapping_after_partial_fit.values()
+    ), "mappings' values are not equal"
 
 
 @pytest.mark.core
