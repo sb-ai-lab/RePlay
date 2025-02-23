@@ -1,7 +1,7 @@
 defaults:
-  - dataset: movielens_20m
-  - model: sasrec_movielens_20m
-  - mode: train
+  - dataset: beauty
+  - model: sasrec_beauty
+  - mode: optimize
   - acceleration: null
 
 env:

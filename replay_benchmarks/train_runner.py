@@ -1,8 +1,10 @@
 import logging
 import os
-import yaml
+import json
+import pickle
 from pathlib import Path
 
+import optuna
 import torch
 import lightning as L
 from lightning.pytorch.loggers import CSVLogger, TensorBoardLogger
@@ -20,7 +22,6 @@ from replay.metrics import (
     NDCG,
     HitRate,
     MRR,
-    Coverage,
 )
 from replay.metrics.torch_metrics_builder import metrics_to_df
 from replay.models.nn.sequential import SasRec, Bert4Rec
@@ -67,23 +68,43 @@ class TrainRunner(BaseRunner):
         for path in required_paths:
             Path(path).mkdir(parents=True, exist_ok=True)
 
-    def _initialize_model(self):
-        """Initialize the model based on the configuration."""
+    def _initialize_model(self, trial=None):
+        """Initialize the model based on configuration or Optuna trial parameters."""
         model_config = {
             "tensor_schema": self.tensor_schema,
-            "optimizer_factory": FatOptimizerFactory(
-                learning_rate=self.model_cfg["training_params"]["learning_rate"]
-            ),
         }
+
+        if trial:
+            search_space = self.config["optuna"]["search_space"][self.model_name]
+
+            model_config.update({
+                "block_count": trial.suggest_categorical("block_count", search_space["block_count"]),
+                "head_count": trial.suggest_categorical("head_count", search_space["head_count"]),
+                "hidden_size": trial.suggest_categorical("hidden_size", search_space["hidden_size"]),
+                "max_seq_len": trial.suggest_categorical("max_seq_len", search_space["max_seq_len"]),
+                "dropout_rate": trial.suggest_float("dropout_rate", float(min(search_space["dropout_rate"])), float(max(search_space["dropout_rate"])), step=0.05),
+                "loss_type": trial.suggest_categorical("loss_type", search_space["loss_type"]),
+            })
+
+            optimizer_factory = FatOptimizerFactory(
+                learning_rate=trial.suggest_float("learning_rate", float(min(search_space["learning_rate"])), float(max(search_space["learning_rate"])), log=True),
+                weight_decay=trial.suggest_float("weight_decay", float(min(search_space["weight_decay"])), float(max(search_space["weight_decay"])), log=True),
+            )
+        else:
+            optimizer_factory = FatOptimizerFactory(
+                learning_rate=self.model_cfg["training_params"]["learning_rate"],
+                weight_decay=self.model_cfg["training_params"].get("weight_decay", 0.0),
+            )
+
         model_config.update(self.model_cfg["model_params"])
 
         if "sasrec" in self.model_name.lower():
-            return SasRec(**model_config)
+            return SasRec(**model_config, optimizer_factory=optimizer_factory)
         elif "bert4rec" in self.model_name.lower():
             if self.config.get("acceleration"):
                 if self.config["acceleration"].get("model"):
                     model_config.update(self.config["acceleration"]["model"])
-            return Bert4Rec(**model_config)
+            return Bert4Rec(**model_config, optimizer_factory=optimizer_factory)
         else:
             raise ValueError(f"Unsupported model type: {self.model_name}")
 
@@ -225,141 +246,197 @@ class TrainRunner(BaseRunner):
         self.tokenizer.save(f"{save_path}/sequence_tokenizer")
         logging.info(f"Best model saved at: {save_path}")
 
+    def _run_optuna_optimization(self, train_dataloader, val_dataloader):
+        """Runs Optuna hyperparameter optimization"""
+        optuna_dir = Path(self.config["paths"]["checkpoint_dir"]) / "optimization" / f"{self.model_save_name}_{self.dataset_name}"
+        optuna_dir.mkdir(parents=True, exist_ok=True)
+
+        def objective(trial):
+            """Objective function for Optuna"""
+            model = self._initialize_model(trial)
+
+            checkpoint_callback = ModelCheckpoint(
+                dirpath=optuna_dir / f"optuna_trial_{trial.number}",
+                save_top_k=1,
+                monitor="ndcg@10",
+                mode="max",
+            )
+            early_stopping = EarlyStopping(monitor="ndcg@10", patience=5, mode="max")
+            validation_metrics_callback = ValidationMetricsCallback(
+                metrics=["ndcg", "recall", "map"],
+                ks=[10, 20],
+                item_count=self.item_count,
+                postprocessors=[RemoveSeenItems(self.seq_val_dataset)],
+            )
+
+            trainer = L.Trainer(
+                max_epochs=100,
+                callbacks=[checkpoint_callback, early_stopping, validation_metrics_callback],
+                logger=[self.csv_logger, self.tb_logger],
+                devices=1,
+            )
+
+            trainer.fit(model, train_dataloader, val_dataloader)
+            val_metrics = trainer.callback_metrics
+            return val_metrics.get("ndcg@10", 0)
+
+        study = optuna.create_study(direction="maximize")
+        study.optimize(objective, n_trials=self.config["optuna"]["n_trials"], timeout=self.config["optuna"]["timeout"])
+
+        best_params_path = optuna_dir / "best_params.json"
+        study_pickle_path = optuna_dir / "study.pkl"
+        study_history_path = optuna_dir / "study_history.json"
+
+        with open(best_params_path, "w") as f:
+            json.dump(study.best_params, f, indent=4)
+
+        with open(study_pickle_path, "wb") as f:
+            pickle.dump(study, f)
+
+        study_history = [{"trial": t.number, "params": t.params, "value": t.value} for t in study.trials]
+        with open(study_history_path, "w") as f:
+            json.dump(study_history, f, indent=4)
+
+        logging.info(f"Best hyperparameters: {study.best_params}")
+
     def run(self):
         """Execute the training pipeline."""
         train_dataloader, val_dataloader, val_pred_dataloader, prediction_dataloader = (
-            self._load_dataloaders()
+                self._load_dataloaders()
         )
-
-        logging.info("Initializing model...")
-        model = self._initialize_model()
-
-        checkpoint_callback = ModelCheckpoint(
-            dirpath=os.path.join(
-                self.config["paths"]["checkpoint_dir"],
-                f"{self.model_save_name}_{self.dataset_name}",
-            ),
-            save_top_k=1,
-            verbose=True,
-            monitor="ndcg@10",
-            mode="max",
-        )
-
-        early_stopping = EarlyStopping(
-            monitor="ndcg@10",
-            patience=self.model_cfg["training_params"]["patience"],
-            mode="max",
-            verbose=True,
-        )
-
-        validation_metrics_callback = ValidationMetricsCallback(
-            metrics=self.config["metrics"]["types"],
-            ks=self.config["metrics"]["ks"],
-            item_count=self.item_count,
-            postprocessors=[RemoveSeenItems(self.seq_val_dataset)],
-        )
-
-        profiler = SimpleProfiler(dirpath = self.csv_logger.log_dir, filename = 'simple_profiler')
-
-        devices = [int(self.config["env"]["CUDA_VISIBLE_DEVICES"])]
-        trainer = L.Trainer(
-            max_epochs=self.model_cfg["training_params"]["max_epochs"],
-            callbacks=[checkpoint_callback, early_stopping, validation_metrics_callback],
-            logger=[self.csv_logger, self.tb_logger],
-            profiler=profiler,
-            precision=self.model_cfg["training_params"]["precision"],
-            devices=devices
-        )
-
-        logging.info("Starting training...")
-        if self.config["mode"]["profiler"]["enabled"]:
-            with profile(
-                activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-                record_shapes=True,
-                with_flops=True,
-                profile_memory=True,
-            ) as prof:
-                trainer.fit(model, train_dataloader, val_dataloader)
-            logging.info(
-                prof.key_averages().table(
-                    sort_by="self_cuda_time_total",
-                    row_limit=self.config["mode"]["profiler"].get("row_limit", 10),
-                )
-            )
-            prof.export_chrome_trace(
-                os.path.join(
-                    self.config["paths"]["log_dir"],
-                    f"{self.model_save_name}_{self.dataset_name}_profile.json",
-                )
-            )
+        if self.config["mode"]["name"] == "optimize":
+            logging.info("Running Optuna hyperparameter optimization...")
+            self._run_optuna_optimization(train_dataloader, val_dataloader)
         else:
-            trainer.fit(model, train_dataloader, val_dataloader)
+            logging.info("Initializing model...")
+            model = self._initialize_model()
 
-        if self.model_name.lower() == "sasrec":
-            best_model = SasRec.load_from_checkpoint(checkpoint_callback.best_model_path)
-        elif self.model_name.lower() == "bert4rec":
-            best_model = Bert4Rec.load_from_checkpoint(checkpoint_callback.best_model_path)
-        self.save_model(trainer, best_model)
+            checkpoint_callback = ModelCheckpoint(
+                dirpath=os.path.join(
+                    self.config["paths"]["checkpoint_dir"],
+                    f"{self.model_save_name}_{self.dataset_name}",
+                ),
+                save_top_k=1,
+                verbose=True,
+                monitor="ndcg@10",
+                mode="max",
+            )
 
-        logging.info("Evaluating on val set...")
-        pandas_prediction_callback = PandasPredictionCallback(
-            top_k=max(self.config["metrics"]["ks"]),
-            query_column="user_id",
-            item_column="item_id",
-            rating_column="score",
-            postprocessors=[RemoveSeenItems(self.seq_val_dataset)],
-        )
-        L.Trainer(callbacks=[pandas_prediction_callback], inference_mode=True, devices=devices).predict(
-            best_model, dataloaders=val_pred_dataloader, return_predictions=False
-        )
+            early_stopping = EarlyStopping(
+                monitor="ndcg@10",
+                patience=self.model_cfg["training_params"]["patience"],
+                mode="max",
+                verbose=True,
+            )
 
-        result = pandas_prediction_callback.get_result()
-        recommendations = self.tokenizer.query_and_item_id_encoder.inverse_transform(
-            result
-        )
-        val_metrics = self.calculate_metrics(recommendations, self.validation_gt)
-        logging.info(val_metrics)
-        recommendations.to_csv(
-            os.path.join(
-                self.config["paths"]["results_dir"],
-                f"{self.model_save_name}_{self.dataset_name}_val_preds.csv",
-            ),
-        )
-        val_metrics.to_csv(
-            os.path.join(
-                self.config["paths"]["results_dir"],
-                f"{self.model_save_name}_{self.dataset_name}_val_metrics.csv",
-            ),
-        )
+            validation_metrics_callback = ValidationMetricsCallback(
+                metrics=self.config["metrics"]["types"],
+                ks=self.config["metrics"]["ks"],
+                item_count=self.item_count,
+                postprocessors=[RemoveSeenItems(self.seq_val_dataset)],
+            )
 
-        logging.info("Evaluating on test set...")
-        pandas_prediction_callback = PandasPredictionCallback(
-            top_k=max(self.config["metrics"]["ks"]),
-            query_column="user_id",
-            item_column="item_id",
-            rating_column="score",
-            postprocessors=[RemoveSeenItems(self.seq_test_dataset)],
-        )
-        L.Trainer(callbacks=[pandas_prediction_callback], inference_mode=True, devices=devices).predict(
-            best_model, dataloaders=prediction_dataloader, return_predictions=False
-        )
+            profiler = SimpleProfiler(dirpath = self.csv_logger.log_dir, filename = 'simple_profiler')
 
-        result = pandas_prediction_callback.get_result()
-        recommendations = self.tokenizer.query_and_item_id_encoder.inverse_transform(
-            result
-        )
-        test_metrics = self.calculate_metrics(recommendations, self.raw_test_gt)
-        logging.info(test_metrics)
-        recommendations.to_csv(
-            os.path.join(
-                self.config["paths"]["results_dir"],
-                f"{self.model_save_name}_{self.dataset_name}_test_preds.csv",
-            ),
-        )
-        test_metrics.to_csv(
-            os.path.join(
-                self.config["paths"]["results_dir"],
-                f"{self.model_save_name}_{self.dataset_name}_test_metrics.csv",
-            ),
-        )
+            devices = [int(self.config["env"]["CUDA_VISIBLE_DEVICES"])]
+            trainer = L.Trainer(
+                max_epochs=self.model_cfg["training_params"]["max_epochs"],
+                callbacks=[checkpoint_callback, early_stopping, validation_metrics_callback],
+                logger=[self.csv_logger, self.tb_logger],
+                profiler=profiler,
+                precision=self.model_cfg["training_params"]["precision"],
+                devices=devices
+            )
+
+            logging.info("Starting training...")
+            if self.config["mode"]["profiler"]["enabled"]:
+                with profile(
+                    activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                    record_shapes=True,
+                    with_flops=True,
+                    profile_memory=True,
+                ) as prof:
+                    trainer.fit(model, train_dataloader, val_dataloader)
+                logging.info(
+                    prof.key_averages().table(
+                        sort_by="self_cuda_time_total",
+                        row_limit=self.config["mode"]["profiler"].get("row_limit", 10),
+                    )
+                )
+                prof.export_chrome_trace(
+                    os.path.join(
+                        self.config["paths"]["log_dir"],
+                        f"{self.model_save_name}_{self.dataset_name}_profile.json",
+                    )
+                )
+            else:
+                trainer.fit(model, train_dataloader, val_dataloader)
+
+            if self.model_name.lower() == "sasrec":
+                best_model = SasRec.load_from_checkpoint(checkpoint_callback.best_model_path)
+            elif self.model_name.lower() == "bert4rec":
+                best_model = Bert4Rec.load_from_checkpoint(checkpoint_callback.best_model_path)
+            self.save_model(trainer, best_model)
+
+            logging.info("Evaluating on val set...")
+            pandas_prediction_callback = PandasPredictionCallback(
+                top_k=max(self.config["metrics"]["ks"]),
+                query_column="user_id",
+                item_column="item_id",
+                rating_column="score",
+                postprocessors=[RemoveSeenItems(self.seq_val_dataset)],
+            )
+            L.Trainer(callbacks=[pandas_prediction_callback], inference_mode=True, devices=devices).predict(
+                best_model, dataloaders=val_pred_dataloader, return_predictions=False
+            )
+
+            result = pandas_prediction_callback.get_result()
+            recommendations = self.tokenizer.query_and_item_id_encoder.inverse_transform(
+                result
+            )
+            val_metrics = self.calculate_metrics(recommendations, self.validation_gt)
+            logging.info(val_metrics)
+            recommendations.to_csv(
+                os.path.join(
+                    self.config["paths"]["results_dir"],
+                    f"{self.model_save_name}_{self.dataset_name}_val_preds.csv",
+                ),
+            )
+            val_metrics.to_csv(
+                os.path.join(
+                    self.config["paths"]["results_dir"],
+                    f"{self.model_save_name}_{self.dataset_name}_val_metrics.csv",
+                ),
+            )
+
+            logging.info("Evaluating on test set...")
+            pandas_prediction_callback = PandasPredictionCallback(
+                top_k=max(self.config["metrics"]["ks"]),
+                query_column="user_id",
+                item_column="item_id",
+                rating_column="score",
+                postprocessors=[RemoveSeenItems(self.seq_test_dataset)],
+            )
+            L.Trainer(callbacks=[pandas_prediction_callback], inference_mode=True, devices=devices).predict(
+                best_model, dataloaders=prediction_dataloader, return_predictions=False
+            )
+
+            result = pandas_prediction_callback.get_result()
+            recommendations = self.tokenizer.query_and_item_id_encoder.inverse_transform(
+                result
+            )
+            test_metrics = self.calculate_metrics(recommendations, self.raw_test_gt)
+            logging.info(test_metrics)
+            recommendations.to_csv(
+                os.path.join(
+                    self.config["paths"]["results_dir"],
+                    f"{self.model_save_name}_{self.dataset_name}_test_preds.csv",
+                ),
+            )
+            test_metrics.to_csv(
+                os.path.join(
+                    self.config["paths"]["results_dir"],
+                    f"{self.model_save_name}_{self.dataset_name}_test_metrics.csv",
+                ),
+            )
 

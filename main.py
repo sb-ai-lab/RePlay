@@ -30,7 +30,7 @@ def main() -> None:
     seed_everything(config["env"]["SEED"])
     logging.info(f"Fixing seed: {config['env']['SEED']}")
 
-    if config["mode"]["name"] == "train":
+    if config["mode"]["name"] in ["train", "optimize"]:
         runner = TrainRunner(config)
     elif config["mode"]["name"] == "infer":
         runner = InferRunner(config)

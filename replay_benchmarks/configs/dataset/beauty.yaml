@@ -1,0 +1,16 @@
+dataset:
+  name: beauty
+  path: "./replay_benchmarks/data/beauty"
+
+  feature_schema:
+    query_column: "user_id"
+    item_column: "item_id"
+    rating_column: "overall"
+    timestamp_column: "timestamp"
+
+  preprocess:
+    global_split_ratio: 0.1
+    max_num_test_interactions: Null
+    min_users_per_item: 5
+    min_items_per_user: 3
+    min_rating: 3

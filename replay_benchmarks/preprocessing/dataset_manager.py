@@ -1,5 +1,8 @@
 import os
 import pandas as pd
+import requests
+import gzip
+import json
 import logging
 
 from rs_datasets import MovieLens, Netflix
@@ -66,8 +69,45 @@ class DatasetManager:
             self._download_kaggle_dataset(data_path, dataset_name, interactions_file)
         elif any(ds in dataset_name for ds in SUPPORTED_RS_DATASETS):
             self._download_rs_dataset(data_path, dataset_name, interactions_file)
+        elif dataset_name == "beauty":
+            self._download_beauty_dataset(data_path, interactions_file)
         else:
             raise ValueError(f"Unsupported dataset: {dataset_name}")
+
+    def _download_beauty_dataset(self, data_path: str, interactions_file: str):
+        """Download and preprocess the Beauty dataset."""
+        url = "http://snap.stanford.edu/data/amazon/productGraph/categoryFiles/reviews_Beauty_5.json.gz"
+        raw_file = os.path.join(data_path, "reviews_Beauty_5.json.gz")
+
+        if not os.path.exists(raw_file):
+            logging.info(f"Downloading Beauty dataset from {url}")
+            response = requests.get(url, stream=True)
+            with open(raw_file, "wb") as file:
+                for chunk in response.iter_content(chunk_size=1024):
+                    file.write(chunk)
+            logging.info("Download complete.")
+
+        logging.info("Processing Beauty dataset...")
+        data = []
+        with gzip.open(raw_file, "rt", encoding="utf-8") as f:
+            for line in f:
+                data.append(json.loads(line))
+
+        interactions = pd.DataFrame(data)
+
+        column_mapping = {
+            "reviewerID": self.user_column,
+            "asin": self.item_column,
+            "unixReviewTime": self.timestamp_column
+        }
+        interactions = interactions.rename(columns=column_mapping)
+        interactions = interactions[
+                interactions[self.config["dataset"]["feature_schema"]["rating_column"]]
+                > self.config["dataset"]["preprocess"]["min_rating"]
+            ]
+        interactions[self.timestamp_column] = interactions[self.timestamp_column].astype("int64")
+        interactions.to_parquet(interactions_file)
+        logging.info(f"Beauty dataset processed and saved at {interactions_file}")
 
     def _download_kaggle_dataset(
         self, data_path: str, dataset_name: str, interactions_file: str

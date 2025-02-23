@@ -1,0 +1,28 @@
+mode:
+  name: optimize
+
+optuna:
+  n_trials: 40
+  timeout: 360_000  # Max time in seconds for optimization
+  metric: "ndcg@10"
+
+  search_space:
+    sasrec:
+      block_count: [1, 2, 4]
+      head_count: [1, 2, 4]
+      max_seq_len: [20, 50, 100, 200]
+      hidden_size: [128, 256, 512, 1024]
+      dropout_rate: [0.1, 0.2, 0.3, 0.4]
+      loss_type: ["CE"]
+      learning_rate: [0.00001, 0.001]
+      weight_decay: [0.00001, 0.1]
+
+    bert4rec:
+      block_count: [1, 2, 4]
+      head_count: [2, 4, 8]
+      max_seq_len: [20, 50, 100, 200]
+      hidden_size: [128, 256, 512]
+      dropout_rate: [0.1, 0.15, 0.2]
+      loss_type: ["CE"]
+      learning_rate: [0.00001, 0.001]
+      weight_decay: [0.00001, 0.1]
