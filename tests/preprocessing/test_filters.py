@@ -1,5 +1,5 @@
-from datetime import datetime
-from typing import Counter
+from datetime import datetime, timedelta
+from typing import Callable, Counter
 
 import pandas as pd
 import polars as pl
@@ -13,8 +13,9 @@ from replay.preprocessing.filters import (
     NumInteractionsFilter,
     QuantileItemsFilter,
     TimePeriodFilter,
+    ConsecutiveDuplicatesFilter
 )
-from replay.utils import PandasDataFrame, PolarsDataFrame, get_spark_session
+from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame, get_spark_session
 
 
 @pytest.fixture
@@ -297,6 +298,69 @@ def test_quantile_items_filter(dataset_type, request):
 
 
 @pytest.mark.core
+@pytest.mark.parametrize(
+    "backend",
+    [
+        pytest.param("pandas", marks=pytest.mark.core),
+        pytest.param("polars", marks=pytest.mark.core),
+        pytest.param("spark", marks=pytest.mark.spark)
+    ]
+)
+@pytest.mark.parametrize(
+    "first",
+    [True, False]
+)
+def test_consecutive_duplicates_filter(backend, first):
+    def to_backend(dataframe):
+        if backend == "polars":
+            return pl.from_pandas(dataframe)
+        elif backend == "spark":
+            return get_spark_session().createDataFrame(dataframe)
+        else:
+            return dataframe
+    
+
+    def to_pandas(dataframe):
+        if isinstance(dataframe, PolarsDataFrame):
+            return dataframe.to_pandas()
+        elif isinstance(dataframe, SparkDataFrame):
+            return dataframe.toPandas()
+        else:
+            return dataframe
+
+
+    inputs = pd.DataFrame({
+        "query_id": ["u3", "u1", "u2", "u1", "u1", "u0"],
+        "item_id": ["i2", "i1", "i1", "i1", "i2", "i2"],
+        "timestamp": [i for i in range(6)]
+    })
+    inputs = to_backend(inputs)
+    target = pd.DataFrame({
+        "query_id": ["u0", "u1", "u1", "u2", "u3"],
+        "item_id": ["i2", "i1", "i2", "i1", "i2"],
+        "timestamp": [5, 1, 4, 2, 0]
+    })
+    filtered = to_pandas(ConsecutiveDuplicatesFilter().transform(inputs))
+
+    assert (filtered == target).all(axis=None)
+
+    target = pd.DataFrame({
+        "query_id": ["u0", "u1", "u2", "u3", "u4"],
+        "item_id": ["i0", "i1", "i1", "i2", "i0"],
+        "timestamp": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(5)]
+    })
+    duplicates = target.copy()
+    duplicates["timestamp"] += pd.Timedelta(days=1 if first else -1)
+
+    inputs = pd.concat([target, duplicates])
+    inputs = to_backend(inputs)
+    target = target.sort_values(['query_id', "timestamp"])
+    filtered = to_pandas(ConsecutiveDuplicatesFilter(first=first).transform(inputs))
+
+    assert (filtered == target).all(axis=None)
+
+
+@pytest.mark.core
 @pytest.mark.parametrize("quantile, items_proportion", [(2, 0.5), (0.5, -1)])
 def test_quantile_filter_error(quantile, items_proportion):
     with pytest.raises(ValueError):
@@ -313,6 +377,7 @@ def test_quantile_filter_error(quantile, items_proportion):
         (EntityDaysFilter, {}),
         (GlobalDaysFilter, {}),
         (TimePeriodFilter, {}),
+        (ConsecutiveDuplicatesFilter, {}),
     ],
 )
 def test_filter_not_implemented(filter, kwargs, interactions_not_implemented):
