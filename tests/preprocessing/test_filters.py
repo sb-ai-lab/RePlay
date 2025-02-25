@@ -297,7 +297,6 @@ def test_quantile_items_filter(dataset_type, request):
     assert items_distribution_init[11] == items_distribution_filtered[11] + 2
 
 
-@pytest.mark.core
 @pytest.mark.parametrize(
     "backend",
     [
