@@ -640,7 +640,13 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
         source = tensor_feature.feature_source
         assert source is not None
 
-        return [np.array(sequence) for sequence in self._grouped_interactions[source.column]]
+        values: List[np.ndarray] = []
+        for item_id_sequence in self._grouped_interactions[source.column].values:
+            if tensor_feature.feature_type == FeatureType.NUMERICAL_LIST:
+                values.append(list(item_id_sequence))
+            else:
+                values.append(np.array(item_id_sequence))
+        return values
 
     def _process_num_item_feature(self, tensor_feature: TensorFeatureInfo) -> List[np.ndarray]:
         """
