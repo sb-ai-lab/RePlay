@@ -1,0 +1,32 @@
+defaults:
+  - dataset: movielens_20m
+  - model: bert4rec_movielens_20m
+  - mode: train
+  - acceleration: act_fn
+
+env:
+  SEED: 42
+  CUDA_DEVICE_ORDER: "PCI_BUS_ID" 
+  OMP_NUM_THREADS: "4"
+  CUDA_VISIBLE_DEVICES: "0"
+
+paths:
+  data_dir: "/home/RePlay-Accelerated/replay_benchmarks/data/"
+  log_dir: "/home/RePlay-Accelerated/replay_benchmarks/artifacts/logs/"
+  checkpoint_dir: "/home/RePlay-Accelerated/replay_benchmarks/artifacts/checkpoints/"
+  results_dir: "/home/RePlay-Accelerated/replay_benchmarks/artifacts/results/"
+
+metrics:
+  types:
+    - ndcg
+    - recall
+    - hitrate
+    - precision
+    - map
+    - mrr
+    - coverage
+  ks:
+    - 1
+    - 5
+    - 10
+    - 20
