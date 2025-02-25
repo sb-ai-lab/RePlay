@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta
-from typing import Callable, Counter
+from typing import Counter
 
 import pandas as pd
 import polars as pl
 import pytest
 
 from replay.preprocessing.filters import (
+    ConsecutiveDuplicatesFilter,
     EntityDaysFilter,
     GlobalDaysFilter,
     LowRatingFilter,
@@ -13,7 +14,6 @@ from replay.preprocessing.filters import (
     NumInteractionsFilter,
     QuantileItemsFilter,
     TimePeriodFilter,
-    ConsecutiveDuplicatesFilter
 )
 from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame, get_spark_session
 
@@ -303,13 +303,10 @@ def test_quantile_items_filter(dataset_type, request):
     [
         pytest.param("pandas", marks=pytest.mark.core),
         pytest.param("polars", marks=pytest.mark.core),
-        pytest.param("spark", marks=pytest.mark.spark)
-    ]
+        pytest.param("spark", marks=pytest.mark.spark),
+    ],
 )
-@pytest.mark.parametrize(
-    "first",
-    [True, False]
-)
+@pytest.mark.parametrize("first", [True, False])
 def test_consecutive_duplicates_filter(backend, first):
     def to_backend(dataframe):
         if backend == "polars":
@@ -318,7 +315,6 @@ def test_consecutive_duplicates_filter(backend, first):
             return get_spark_session().createDataFrame(dataframe)
         else:
             return dataframe
-    
 
     def to_pandas(dataframe):
         if isinstance(dataframe, PolarsDataFrame):
@@ -328,33 +324,38 @@ def test_consecutive_duplicates_filter(backend, first):
         else:
             return dataframe
 
-
-    inputs = pd.DataFrame({
-        "query_id": ["u3", "u1", "u2", "u1", "u1", "u0"],
-        "item_id": ["i2", "i1", "i1", "i1", "i2", "i2"],
-        "timestamp": [i for i in range(6)]
-    })
+    inputs = pd.DataFrame(
+        {
+            "query_id": ["u3", "u1", "u2", "u1", "u1", "u0"],
+            "item_id": ["i2", "i1", "i1", "i1", "i2", "i2"],
+            "timestamp": list(range(6)),
+        }
+    )
     inputs = to_backend(inputs)
-    target = pd.DataFrame({
-        "query_id": ["u0", "u1", "u1", "u2", "u3"],
-        "item_id": ["i2", "i1", "i2", "i1", "i2"],
-        "timestamp": [5, 1, 4, 2, 0]
-    })
+    target = pd.DataFrame(
+        {
+            "query_id": ["u0", "u1", "u1", "u2", "u3"],
+            "item_id": ["i2", "i1", "i2", "i1", "i2"],
+            "timestamp": [5, 1, 4, 2, 0],
+        }
+    )
     filtered = to_pandas(ConsecutiveDuplicatesFilter().transform(inputs))
 
     assert (filtered == target).all(axis=None)
 
-    target = pd.DataFrame({
-        "query_id": ["u0", "u1", "u2", "u3", "u4"],
-        "item_id": ["i0", "i1", "i1", "i2", "i0"],
-        "timestamp": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(5)]
-    })
+    target = pd.DataFrame(
+        {
+            "query_id": ["u0", "u1", "u2", "u3", "u4"],
+            "item_id": ["i0", "i1", "i1", "i2", "i0"],
+            "timestamp": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(5)],
+        }
+    )
     duplicates = target.copy()
     duplicates["timestamp"] += pd.Timedelta(days=1 if first else -1)
 
     inputs = pd.concat([target, duplicates])
     inputs = to_backend(inputs)
-    target = target.sort_values(['query_id', "timestamp"])
+    target = target.sort_values(["query_id", "timestamp"])
     filtered = to_pandas(ConsecutiveDuplicatesFilter(first=first).transform(inputs))
 
     assert (filtered == target).all(axis=None)

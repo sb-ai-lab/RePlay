@@ -993,7 +993,7 @@ class QuantileItemsFilter(_BaseFilter):
 
 class ConsecutiveDuplicatesFilter(_BaseFilter):
     """Removes consecutive duplicate items from sequential dataset.
-    
+
     >>> import datetime as dt
     >>> import pandas as pd
     >>> from replay.utils.spark_utils import convert2spark
@@ -1057,21 +1057,17 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
 
     def _filter_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
         interactions = interactions.sort_values([self.query_column, self.timestamp_column])
-        interactions["shifted"] = interactions.groupby(
-            self.query_column
-        )[self.item_column].shift(periods=self.bias)
-        return interactions[
-            interactions[self.item_column] != interactions["shifted"]
-        ].drop("shifted", axis=1).reset_index(drop=True)
+        interactions["shifted"] = interactions.groupby(self.query_column)[self.item_column].shift(periods=self.bias)
+        return (
+            interactions[interactions[self.item_column] != interactions["shifted"]]
+            .drop("shifted", axis=1)
+            .reset_index(drop=True)
+        )
 
     def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
         return (
             interactions.sort(self.query_column, self.timestamp_column)
-            .with_columns(
-                pl.col(self.item_column)
-                .shift(n=self.bias)
-                .over(self.query_column)
-                .alias("shifted"))
+            .with_columns(pl.col(self.item_column).shift(n=self.bias).over(self.query_column).alias("shifted"))
             .filter((pl.col(self.item_column) != pl.col("shifted")).fill_null(True))
             .drop("shifted")
         )
@@ -1079,12 +1075,7 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
     def _filter_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
         window = Window.partitionBy(self.query_column).orderBy(self.timestamp_column)
         return (
-            interactions.withColumn(
-                "shifted", sf.lag(self.item_column, offset=self.bias).over(window)
-            )
-            .where(
-                (sf.col(self.item_column) != sf.col("shifted"))
-                | sf.col("shifted").isNull()
-            )
+            interactions.withColumn("shifted", sf.lag(self.item_column, offset=self.bias).over(window))
+            .where((sf.col(self.item_column) != sf.col("shifted")) | sf.col("shifted").isNull())
             .drop("shifted")
         )
