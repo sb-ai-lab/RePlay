@@ -627,7 +627,9 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
 
         return PandasDataFrame(all_features)
 
-    def _process_num_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> List[np.ndarray]:
+    def _process_num_interaction_feature(
+        self, tensor_feature: TensorFeatureInfo
+    ) -> Union[List[np.ndarray], List[List]]:
         """
         Process numerical interaction feature.
 
@@ -640,9 +642,15 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
         source = tensor_feature.feature_source
         assert source is not None
 
-        return [np.array(sequence) for sequence in self._grouped_interactions[source.column]]
+        values = []
+        for sequence in self._grouped_interactions[source.column].values:
+            if tensor_feature.feature_type == FeatureType.NUMERICAL_LIST:
+                values.append(list(sequence))
+            else:
+                values.append(np.array(sequence))
+        return values
 
-    def _process_num_item_feature(self, tensor_feature: TensorFeatureInfo) -> List[np.ndarray]:
+    def _process_num_item_feature(self, tensor_feature: TensorFeatureInfo) -> Union[List[np.ndarray], List[List]]:
         """
         Process numerical feature from item features dataset.
 
@@ -657,7 +665,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
         assert source is not None
 
         item_feature = self._item_features[source.column]
-        values: List[np.ndarray] = []
+        values = []
 
         for item_id_sequence in self._grouped_interactions[self._item_id_column]:
             feature_sequence = item_feature.loc[item_id_sequence].values
@@ -722,7 +730,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
                 ]
         return [np.array([query_feature[i]]).reshape(-1) for i in range(len(self._grouped_interactions))]
 
-    def _process_cat_item_feature(self, tensor_feature: TensorFeatureInfo) -> List[np.ndarray]:
+    def _process_cat_item_feature(self, tensor_feature: TensorFeatureInfo) -> Union[List[np.ndarray], List[List]]:
         """
         Process categorical feature from item features dataset.
 
