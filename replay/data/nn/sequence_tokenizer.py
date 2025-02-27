@@ -686,7 +686,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
         """
         return self._process_cat_query_feature(tensor_feature)
 
-    def _process_cat_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> List[np.ndarray]:
+    def _process_cat_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> Union[List[np.ndarray], List[List]]:
         """
         Process categorical interaction feature.
 
