@@ -26,6 +26,9 @@ def _compile_openvino(
     num_candidates_to_score: int,
     num_threads: Optional[int],
 ) -> ov.CompiledModel:
+    """
+    Method defines compilation strategy for openvino backend.
+    """
     core = ov.Core()
     if num_threads is not None:
         core.set_property("CPU", {"INFERENCE_NUM_THREADS": num_threads})
@@ -163,6 +166,7 @@ class SasRecCompiled:
         batch_size: Optional[int] = None,
         num_candidates_to_score: Optional[int] = None,
         num_threads: Optional[int] = None,
+        onnx_path: Optional[str] = None,
     ) -> "SasRecCompiled":
         """
         Model compilation.
@@ -185,6 +189,8 @@ class SasRecCompiled:
         :param num_threads: Number of CPU threads to use.
             Must be a natural number or ``None``.
             If ``None``, then compiler will set this parameter independently.
+            Default: ``None``.
+        :param onnx_path: Save ONNX model to path, if defined.
             Default: ``None``.
         """
         if mode not in get_args(OptimizedModeType):
@@ -220,10 +226,15 @@ class SasRecCompiled:
         else:
             model_input_sample = ({item_seq_name: item_sequence}, padding_mask)
 
-        onnx_file = tempfile.NamedTemporaryFile(suffix=".onnx")
+        if onnx_path is None:
+            is_saveble = False
+            onnx_file = tempfile.NamedTemporaryFile(suffix=".onnx")
+            onnx_path = onnx_file.name
+        else:
+            is_saveble = True
 
         lightning_model.to_onnx(
-            onnx_file.name,
+            onnx_path,
             input_sample=model_input_sample,
             export_params=True,
             opset_version=14,
@@ -234,10 +245,9 @@ class SasRecCompiled:
         )
         del lightning_model
 
-        compiled_model = _compile_openvino(
-            onnx_file.name, batch_size, max_seq_len, num_candidates_to_score, num_threads
-        )
+        compiled_model = _compile_openvino(onnx_path, batch_size, max_seq_len, num_candidates_to_score, num_threads)
 
-        onnx_file.close()
+        if not is_saveble:
+            onnx_file.close()
 
         return cls(compiled_model, schema)

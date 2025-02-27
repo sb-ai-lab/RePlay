@@ -75,17 +75,28 @@ def test_prediction_sasrec(item_user_sequential_dataset, train_sasrec_loader):
 )
 def test_prediction_sasrec_with_candidates(item_user_sequential_dataset, train_sasrec_loader, candidates):
     pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
-    pred_sasrec_loader = torch.utils.data.DataLoader(pred)
+    pred_sasrec_loader = torch.utils.data.DataLoader(pred, batch_size=1)
     trainer = L.Trainer(max_epochs=1)
     model = SasRec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64)
     trainer.fit(model, train_sasrec_loader)
 
+    # test online inference with candidates
+    for batch in pred_sasrec_loader:
+        predicted = model.predict(batch, candidates)
+        assert model.candidates_to_score is None
+        if candidates is not None:
+            assert predicted.size() == (1, candidates.shape[0])
+        else:
+            assert predicted.size() == (1, item_user_sequential_dataset.schema["item_id"].cardinality)
+
+    # test offline inference with candidates
     model.candidates_to_score = candidates
     predicted = trainer.predict(model, pred_sasrec_loader)
     if candidates is not None:
         assert torch.equal(model.candidates_to_score, candidates)
     else:
         assert model.candidates_to_score is None
+
     for pred in predicted:
         if candidates is not None:
             assert pred.size() == (1, candidates.shape[0])

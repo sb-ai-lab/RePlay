@@ -110,22 +110,6 @@ class SasRec(lightning.LightningModule):
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         return loss
 
-    def forward(
-        self,
-        feature_tensors: TensorMap,
-        padding_mask: torch.BoolTensor,
-        candidates_to_score: Optional[torch.LongTensor] = None,
-    ) -> torch.Tensor:  # pragma: no cover
-        """
-        :param feature_tensors: Batch of features.
-        :param padding_mask: Padding mask where 0 - <PAD>, 1 otherwise.
-        :param candidates_to_score: Item ids to calculate scores.
-            Default: ``None``.
-
-        :returns: Calculated scores.
-        """
-        return self._model_predict(feature_tensors, padding_mask, candidates_to_score)
-
     def predict_step(
         self,
         batch: SasRecPredictionBatch,
@@ -141,6 +125,37 @@ class SasRec(lightning.LightningModule):
         """
         batch = _prepare_prediction_batch(self._schema, self._model.max_len, batch)
         return self._model_predict(batch.features, batch.padding_mask)
+
+    def predict(
+        self,
+        batch: SasRecPredictionBatch,
+        candidates_to_score: Optional[torch.LongTensor] = None,
+    ) -> torch.Tensor:
+        """
+        :param batch: Batch of prediction data.
+        :param candidates_to_score: Item ids to calculate scores.
+            Default: ``None``.
+
+        :returns: Calculated scores.
+        """
+        batch = _prepare_prediction_batch(self._schema, self._model.max_len, batch)
+        return self._model_predict(batch.features, batch.padding_mask, candidates_to_score)
+
+    def forward(
+        self,
+        feature_tensors: TensorMap,
+        padding_mask: torch.BoolTensor,
+        candidates_to_score: Optional[torch.LongTensor] = None,
+    ) -> torch.Tensor:  # pragma: no cover
+        """
+        :param feature_tensors: Batch of features.
+        :param padding_mask: Padding mask where 0 - <PAD>, 1 otherwise.
+        :param candidates_to_score: Item ids to calculate scores.
+            Default: ``None``.
+
+        :returns: Calculated scores.
+        """
+        return self._model_predict(feature_tensors, padding_mask, candidates_to_score)
 
     def validation_step(
         self,
