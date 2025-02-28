@@ -9,7 +9,7 @@ from typing import Any, Callable, Optional, Union
 
 from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.models import *
-from replay.models.base_rec import BaseRecommender
+from replay.models.implementations.spark.base_rec import _BaseRecommenderSparkImpl
 from replay.splitters import *
 
 from .session_handler import State
@@ -43,7 +43,7 @@ if PYSPARK_AVAILABLE:
         return [str(f.getPath()) for f in statuses]
 
 
-def save(model: BaseRecommender, path: Union[str, Path], overwrite: bool = False):
+def save(model: _BaseRecommenderSparkImpl, path: Union[str, Path], overwrite: bool = False):
     """
     Save fitted model to disk as a folder
 
@@ -86,7 +86,7 @@ def save(model: BaseRecommender, path: Union[str, Path], overwrite: bool = False
         save_picklable_to_parquet(model.study, join(path, "study"))
 
 
-def load(path: str, model_type=None) -> BaseRecommender:
+def load(path: str, model_type=None) -> _BaseRecommenderSparkImpl:
     """
     Load saved model from disk
 

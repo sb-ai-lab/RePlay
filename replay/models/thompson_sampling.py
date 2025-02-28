@@ -5,13 +5,13 @@ import numpy as np
 from replay.data.dataset import Dataset
 from replay.utils import PYSPARK_AVAILABLE
 
-from .base_rec import NonPersonalizedRecommender
+from .implementations.spark.base_rec import _NonPersonalizedRecommenderSparkImpl
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
 
 
-class ThompsonSampling(NonPersonalizedRecommender):
+class ThompsonSampling(_NonPersonalizedRecommenderSparkImpl):
     """
     Thompson Sampling recommender.
 

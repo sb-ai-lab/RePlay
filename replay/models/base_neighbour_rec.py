@@ -9,8 +9,8 @@ from typing import Any, Dict, Iterable, Optional, Union
 from replay.data.dataset import Dataset
 from replay.utils import PYSPARK_AVAILABLE, MissingImportType, SparkDataFrame
 
-from .base_rec import Recommender
 from .extensions.ann.ann_mixin import ANNMixin
+from .implementations.spark.base_rec import _RecommenderSparkImpl
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -19,7 +19,7 @@ else:
     Column = MissingImportType
 
 
-class NeighbourRec(Recommender, ANNMixin, ABC):
+class NeighbourRec(_RecommenderSparkImpl, ANNMixin, ABC):
     """Base class that requires interactions at prediction time"""
 
     similarity: Optional[SparkDataFrame]

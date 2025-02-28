@@ -4,7 +4,7 @@ from typing import Optional
 from replay.data.dataset import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
-from .base_rec import QueryRecommender
+from .implementations.spark.base_rec import _QueryRecommenderSparkImpl
 
 if PYSPARK_AVAILABLE:
     from pyspark.ml.clustering import KMeans, KMeansModel
@@ -12,7 +12,7 @@ if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
 
 
-class ClusterRec(QueryRecommender):
+class ClusterRec(_QueryRecommenderSparkImpl):
     """
     Generate recommendations for cold queries using k-means clusters
     """

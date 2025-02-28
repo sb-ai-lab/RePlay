@@ -2,9 +2,10 @@ from os.path import join
 from typing import Iterable, Optional, Union
 
 from replay.data import Dataset
+from replay.models.implementations.commons import IsSavable
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
-from .base_rec import IsSavable, RecommenderCommons
+from .implementations.spark.base_rec import _RecommenderCommonsSparkImpl
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -19,7 +20,7 @@ if PYSPARK_AVAILABLE:
     )
 
 
-class CatPopRec(IsSavable, RecommenderCommons):
+class CatPopRec(IsSavable, _RecommenderCommonsSparkImpl):
     """
     CatPopRec generate recommendation for item categories.
     It recommends the most popular items in the category or all sub-categories in the category.

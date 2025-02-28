@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
-from .base_rec import ItemVectorModel, Recommender
+from .implementations.spark.base_rec import _ItemVectorModelSparkImpl, _RecommenderSparkImpl
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
@@ -14,7 +14,7 @@ if PYSPARK_AVAILABLE:
     from replay.utils.spark_utils import list_to_vector_udf
 
 
-class ALSWrap(Recommender, ItemVectorModel):
+class ALSWrap(_RecommenderSparkImpl, _ItemVectorModelSparkImpl):
     """Wrapper for `Spark ALS
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """

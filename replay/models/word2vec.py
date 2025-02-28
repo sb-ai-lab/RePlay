@@ -3,9 +3,9 @@ from typing import Any, Dict, Optional
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
-from .base_rec import ItemVectorModel, Recommender
 from .extensions.ann.ann_mixin import ANNMixin
 from .extensions.ann.index_builders.base_index_builder import IndexBuilder
+from .implementations.spark.base_rec import _ItemVectorModelSparkImpl, _RecommenderSparkImpl
 
 if PYSPARK_AVAILABLE:
     from pyspark.ml.feature import Word2Vec
@@ -19,7 +19,7 @@ if PYSPARK_AVAILABLE:
     from replay.utils.spark_utils import join_with_col_renaming, multiply_scala_udf, vector_dot
 
 
-class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
+class Word2VecRec(_RecommenderSparkImpl, _ItemVectorModelSparkImpl, ANNMixin):
     """
     Trains word2vec model where items are treated as words and queries as sentences.
     """

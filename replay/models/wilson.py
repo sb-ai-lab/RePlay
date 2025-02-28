@@ -5,13 +5,13 @@ from scipy.stats import norm
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE
 
-from .pop_rec import PopRec
+from .implementations.spark.pop_rec import _PopRecSpark
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
 
 
-class Wilson(PopRec):
+class Wilson(_PopRecSpark):
     """
     Calculates lower confidence bound for the confidence interval
     of true fraction of positive ratings.

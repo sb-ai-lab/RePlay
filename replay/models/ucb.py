@@ -5,13 +5,13 @@ from replay.data.dataset import Dataset
 from replay.metrics import NDCG, Metric
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
-from .base_rec import NonPersonalizedRecommender
+from .implementations.spark.base_rec import _NonPersonalizedRecommenderSparkImpl
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
 
 
-class UCB(NonPersonalizedRecommender):
+class UCB(_NonPersonalizedRecommenderSparkImpl):
     """Simple bandit model, which caclulate item rating as upper confidence bound
     (`UCB <https://medium.com/analytics-vidhya/multi-armed-bandit-analysis-of-upper-confidence-bound-algorithm-4b84be516047>`_)
     for the confidence interval of true fraction of positive ratings.

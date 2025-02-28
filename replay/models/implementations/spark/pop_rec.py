@@ -1,11 +1,13 @@
-from replay.utils.common import convert2pandas, convert2spark
+from replay.data.dataset import Dataset
+from replay.utils import PYSPARK_AVAILABLE
 
-from .base_rec_client import NonPersonolizedRecommenderClient
-from .implementations.pandas.pop_rec import _PopRecPandas
-from .implementations.spark.pop_rec import _PopRecSpark
+from .base_rec import _NonPersonalizedRecommenderSparkImpl
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
 
 
-class PopRec(NonPersonolizedRecommenderClient):
+class _PopRecSpark(_NonPersonalizedRecommenderSparkImpl):
     """
     Recommend objects using their popularity.
 
@@ -56,7 +58,7 @@ class PopRec(NonPersonolizedRecommenderClient):
     ... )
     >>> interactions = convert2spark(data_frame)
     >>> dataset = Dataset(feature_schema, interactions)
-    >>> res = PopRec().fit_predict(dataset, 1)
+    >>> res = _PopRecSpark().fit_predict(dataset, 1)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
         user_id   item_id     rating
     0         1         3       0.75
@@ -64,7 +66,7 @@ class PopRec(NonPersonolizedRecommenderClient):
     2         3         2       0.50
     3         4         2       0.50
 
-    >>> res = PopRec().fit_predict(dataset, 1, filter_seen_items=False)
+    >>> res = _PopRecSpark().fit_predict(dataset, 1, filter_seen_items=False)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
         user_id   item_id     rating
     0         1         3       0.75
@@ -72,7 +74,7 @@ class PopRec(NonPersonolizedRecommenderClient):
     2         3         3       0.75
     3         4         3       0.75
 
-    >>> res = PopRec(use_rating=True).fit_predict(dataset, 1)
+    >>> res = _PopRecSpark(use_rating=True).fit_predict(dataset, 1)
     >>> res.toPandas().sort_values("user_id", ignore_index=True)
         user_id   item_id     rating
     0         1         3      0.625
@@ -82,10 +84,7 @@ class PopRec(NonPersonolizedRecommenderClient):
 
     """
 
-    _class_map = {
-        "spark": _PopRecSpark,
-        "pandas": _PopRecPandas,
-    }
+    sample: bool = False
 
     def __init__(
         self,
@@ -108,60 +107,30 @@ class PopRec(NonPersonolizedRecommenderClient):
             of a least relevant item multiplied by a `cold_weight` value.
             `Cold_weight` value should be in interval (0, 1].
         """
-        self.__impl = None
         self.use_rating = use_rating
         super().__init__(add_cold_items=add_cold_items, cold_weight=cold_weight)
 
     @property
-    def _impl(self):
-        return self.__impl
-
-    @_impl.setter
-    def _impl(self, value):
-        if not isinstance(value, (_PopRecSpark, _PopRecPandas)):
-            raise ValueError("Model can be one of these classes: '_PopRecSpark', '_PopRecPandas'")
-        self.__impl = value
-
-    @property
     def _init_args(self):
-        if not hasattr(self._impl, "__init_args"):
-            return {
-                "use_rating": self.use_rating,
-                "add_cold_items": self.add_cold_items,
-                "cold_weight": self.cold_weight,
-            }
-        return self._impl._init_args
+        return {
+            "use_rating": self.use_rating,
+            "add_cold_items": self.add_cold_items,
+            "cold_weight": self.cold_weight,
+        }
 
-    @property
-    def item_popularity(self):
-        return self._impl.item_popularity
+    def _fit(
+        self,
+        dataset: Dataset,
+    ) -> None:
+        agg_func = sf.countDistinct(self.query_column).alias(self.rating_column)
+        if self.use_rating:
+            agg_func = sf.sum(self.rating_column).alias(self.rating_column)
+        self.item_popularity = (
+            dataset.interactions.groupBy(self.item_column)
+            .agg(agg_func)
+            .withColumn(self.rating_column, sf.col(self.rating_column) / sf.lit(self.queries_count))
+        )
 
-    @item_popularity.setter
-    def item_popularity(self, value):
-        self._impl.item_popularity = value
+        self.item_popularity.cache().count()
 
-    @property
-    def fill(self):
-        return self._impl.fill
-
-    @fill.setter
-    def fill(self, value):
-        self._impl.fill = value
-
-    def to_pandas(self):
-        item_popularity = convert2pandas(self.item_popularity)
-        fill = self.fill
-        copy_realization = super().to_pandas()
-        if self.is_fitted:
-            copy_realization.item_popularity = item_popularity
-            copy_realization.fill = fill
-        return self
-
-    def to_spark(self):
-        item_popularity = convert2spark(self.item_popularity)
-        fill = self.fill
-        copy_realization = super().to_spark()
-        if self.is_fitted:
-            copy_realization.item_popularity = item_popularity
-            copy_realization.fill = fill
-        return self
+        self.fill = self._calc_fill(self.item_popularity, self.cold_weight, self.rating_column)

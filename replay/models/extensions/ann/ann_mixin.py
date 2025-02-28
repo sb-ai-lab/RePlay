@@ -4,7 +4,7 @@ from abc import abstractmethod
 from typing import Any, Dict, Iterable, Optional, Union
 
 from replay.data import Dataset
-from replay.models.base_rec import BaseRecommender
+from replay.models.implementations.spark.base_rec import _BaseRecommenderSparkImpl
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
 from .index_builders.base_index_builder import IndexBuilder
@@ -20,7 +20,7 @@ if PYSPARK_AVAILABLE:
 logger = logging.getLogger("replay")
 
 
-class ANNMixin(BaseRecommender):
+class ANNMixin(_BaseRecommenderSparkImpl):
     """
     This class overrides the `_fit_wrap` and `_predict_wrap` methods of the base class,
     adding an index construction in the `_fit_wrap` step

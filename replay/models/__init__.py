@@ -9,9 +9,9 @@ models with non-distributed training and distributed inference in PySpark.
 
 from .als import ALSWrap
 from .association_rules import AssociationRulesItemRec
-from .base_rec import Recommender
 from .cat_pop_rec import CatPopRec
 from .cluster import ClusterRec
+from .implementations import _RecommenderSparkImpl
 from .kl_ucb import KLUCB
 from .knn import ItemKNN
 from .lin_ucb import LinUCB

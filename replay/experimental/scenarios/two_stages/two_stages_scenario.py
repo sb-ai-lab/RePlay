@@ -6,7 +6,7 @@ from replay.experimental.preprocessing.data_preparator import ToNumericFeatureTr
 from replay.experimental.scenarios.two_stages.reranker import LamaWrap
 from replay.metrics import Metric, Precision
 from replay.models import PopRec, RandomRec
-from replay.models.base_rec import BaseRecommender, HybridRecommender
+from replay.models.implementations.spark.base_rec import _BaseRecommenderSparkImpl, _HybridRecommenderSparkImpl
 from replay.preprocessing.history_based_fp import HistoryBasedFeaturesProcessor
 from replay.splitters import RatioSplitter, Splitter
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, SparkDataFrame
@@ -109,7 +109,7 @@ def get_first_level_model_features(
     return pairs_with_features
 
 
-class TwoStagesScenario(HybridRecommender):
+class TwoStagesScenario(_HybridRecommenderSparkImpl):
     """
     *train*:
 
@@ -146,8 +146,8 @@ class TwoStagesScenario(HybridRecommender):
     def __init__(
         self,
         train_splitter: Splitter = RatioSplitter(test_size=0.5),
-        first_level_models: Union[List[BaseRecommender], BaseRecommender] = ScalaALSWrap(rank=128),
-        fallback_model: Optional[BaseRecommender] = PopRec(),
+        first_level_models: Union[List[_BaseRecommenderSparkImpl], _BaseRecommenderSparkImpl] = ScalaALSWrap(rank=128),
+        fallback_model: Optional[_BaseRecommenderSparkImpl] = PopRec(),
         use_first_level_models_feat: Union[List[bool], bool] = False,
         second_model_params: Optional[Union[Dict, str]] = None,
         second_model_config_path: Optional[str] = None,
@@ -342,7 +342,7 @@ class TwoStagesScenario(HybridRecommender):
 
     def _predict_with_first_level_model(
         self,
-        model: BaseRecommender,
+        model: _BaseRecommenderSparkImpl,
         log: SparkDataFrame,
         k: int,
         users: SparkDataFrame,
@@ -408,7 +408,7 @@ class TwoStagesScenario(HybridRecommender):
 
     def _predict_pairs_with_first_level_model(
         self,
-        model: BaseRecommender,
+        model: _BaseRecommenderSparkImpl,
         log: SparkDataFrame,
         pairs: SparkDataFrame,
         user_features: SparkDataFrame,
@@ -443,7 +443,7 @@ class TwoStagesScenario(HybridRecommender):
 
     def _get_first_level_candidates(
         self,
-        model: BaseRecommender,
+        model: _BaseRecommenderSparkImpl,
         log: SparkDataFrame,
         k: int,
         users: SparkDataFrame,
@@ -646,7 +646,7 @@ class TwoStagesScenario(HybridRecommender):
 
     @staticmethod
     def _optimize_one_model(
-        model: BaseRecommender,
+        model: _BaseRecommenderSparkImpl,
         train: DataFrameLike,
         test: DataFrameLike,
         user_features: Optional[DataFrameLike] = None,

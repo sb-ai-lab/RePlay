@@ -3,13 +3,13 @@ from typing import Optional
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE
 
-from .base_rec import NonPersonalizedRecommender
+from .implementations.spark.base_rec import _NonPersonalizedRecommenderSparkImpl
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
 
 
-class RandomRec(NonPersonalizedRecommender):
+class RandomRec(_NonPersonalizedRecommenderSparkImpl):
     """
     Recommend random items, either weighted by item popularity or uniform.
 

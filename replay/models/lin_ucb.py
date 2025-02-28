@@ -10,7 +10,7 @@ from replay.data.dataset import Dataset
 from replay.utils import SparkDataFrame
 from replay.utils.spark_utils import convert2spark
 
-from .base_rec import HybridRecommender
+from .implementations.spark.base_rec import _HybridRecommenderSparkImpl
 
 
 class DisjointArm:
@@ -90,7 +90,7 @@ class HybridArm:
         return delta_A_0, delta_b_0
 
 
-class LinUCB(HybridRecommender):
+class LinUCB(_HybridRecommenderSparkImpl):
     """
     A recommender algorithm for contextual bandit problems.
 

@@ -13,7 +13,7 @@ from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, Featur
 from replay.experimental.models.base_rec import BaseRecommender as ExperimentalBaseRecommender
 from replay.experimental.scenarios.obp_wrapper.obp_optuna_objective import OBPObjective
 from replay.experimental.scenarios.obp_wrapper.utils import split_bandit_feedback
-from replay.models.base_rec import BaseRecommender
+from replay.models.implementations.spark.base_rec import _BaseRecommenderSparkImpl
 from replay.utils.spark_utils import convert2spark
 
 
@@ -66,7 +66,7 @@ class OBPOfflinePolicyLearner(BaseOfflinePolicyLearner):
                 Constructing inside the fit method. Used for predict of replay_model.
     """
 
-    replay_model: Optional[Union[BaseRecommender, ExperimentalBaseRecommender]] = None
+    replay_model: Optional[Union[_BaseRecommenderSparkImpl, ExperimentalBaseRecommender]] = None
     log: Optional[DataFrame] = None
     max_usr_id: int = 0
     item_features: DataFrame = None

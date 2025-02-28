@@ -1,13 +1,13 @@
 """
 Base abstract classes:
-- BaseRecommender - the simplest base class
-- Recommender - base class for models that fit on interactions
-- HybridRecommender - base class for models that accept query or item features
-- QueryRecommender - base class that accepts only query features, but not item features
+- _BaseRecommenderSparkImpl - the simplest base class
+- _RecommenderSparkImpl - base class for models that fit on interactions
+- _HybridRecommenderSparkImpl - base class for models that accept query or item features
+- _QueryRecommenderSparkImpl - base class that accepts only query features, but not item features
 - NeighbourRec - base class that requires interactions at prediction time
-- ItemVectorModel - class for models which provides items' vectors.
+- _ItemVectorModelSparkImpl - class for models which provides items' vectors.
     Implements similar items search.
-- NonPersonalizedRecommender - base class for non-personalized recommenders
+- _NonPersonalizedRecommenderSparkImpl - base class for non-personalized recommenders
     with popularity statistics
 """
 
@@ -26,6 +26,7 @@ from optuna.samplers import TPESampler
 
 from replay.data import Dataset, get_schema
 from replay.metrics import NDCG, Metric
+from replay.models.implementations.commons import IsSavable
 from replay.optimization.optuna_objective import MainObjective, SplitData
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 from replay.utils.session_handler import State
@@ -54,41 +55,7 @@ if PYSPARK_AVAILABLE:
     )
 
 
-class IsSavable(ABC):
-    """
-    Common methods and attributes for saving and loading RePlay models
-    """
-
-    @property
-    @abstractmethod
-    def _init_args(self) -> Dict:
-        """
-        Dictionary of the model attributes passed during model initialization.
-        Used for model saving and loading
-        """
-
-    @property
-    def _dataframes(self) -> Dict:
-        """
-        Dictionary of the model dataframes required for inference.
-        Used for model saving and loading
-        """
-        return {}
-
-    @abstractmethod
-    def _save_model(self, path: str) -> None:
-        """
-        Method for dump model attributes to disk
-        """
-
-    @abstractmethod
-    def _load_model(self, path: str) -> None:
-        """
-        Method for loading model attributes from disk
-        """
-
-
-class RecommenderCommons:
+class _RecommenderCommonsSparkImpl:
     """
     Common methods and attributes of RePlay models for caching, setting parameters and logging
     """
@@ -152,7 +119,7 @@ class RecommenderCommons:
             self.cached_dfs.discard(full_name)
 
 
-class BaseRecommender(RecommenderCommons, IsSavable, ABC):
+class _BaseRecommenderSparkImpl(_RecommenderCommonsSparkImpl, IsSavable, ABC):
     """Base recommender"""
 
     model: Any
@@ -935,7 +902,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             setattr(self, param, value)
 
 
-class ItemVectorModel(BaseRecommender):
+class _ItemVectorModelSparkImpl(_BaseRecommenderSparkImpl):
     """Parent for models generating items' vector representations"""
 
     can_predict_item_to_item: bool = True
@@ -1038,7 +1005,7 @@ class ItemVectorModel(BaseRecommender):
         return similarity_matrix
 
 
-class HybridRecommender(BaseRecommender, ABC):
+class _HybridRecommenderSparkImpl(_BaseRecommenderSparkImpl, ABC):
     """Base class for models that can use extra features"""
 
     def fit(
@@ -1170,7 +1137,7 @@ class HybridRecommender(BaseRecommender, ABC):
         return self._get_features_wrap(ids, features)
 
 
-class Recommender(BaseRecommender, ABC):
+class _RecommenderSparkImpl(_BaseRecommenderSparkImpl, ABC):
     """Usual recommender class for models without features."""
 
     def fit(self, dataset: Dataset) -> None:
@@ -1296,7 +1263,7 @@ class Recommender(BaseRecommender, ABC):
         return self._get_features_wrap(ids, None)
 
 
-class QueryRecommender(BaseRecommender, ABC):
+class _QueryRecommenderSparkImpl(_BaseRecommenderSparkImpl, ABC):
     """Base class for models that use query features
     but not item features. ``interactions`` is not required for this class."""
 
@@ -1387,7 +1354,7 @@ class QueryRecommender(BaseRecommender, ABC):
         )
 
 
-class NonPersonalizedRecommender(Recommender, ABC):
+class _NonPersonalizedRecommenderSparkImpl(_RecommenderSparkImpl, ABC):
     """Base class for non-personalized recommenders with popularity statistics."""
 
     can_predict_cold_queries = True
@@ -1638,7 +1605,7 @@ class NonPersonalizedRecommender(Recommender, ABC):
             .select(self.query_column, self.item_column, self.rating_column)
         )
 
-    def _predict_proba(
+    def _predict_proba(  # подумать над тем чтобы убрать
         self, dataset: Dataset, k: int, queries: SparkDataFrame, items: SparkDataFrame, filter_seen_items: bool = True
     ) -> np.ndarray:
         """

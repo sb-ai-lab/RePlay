@@ -1,13 +1,13 @@
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
-from .base_rec import Recommender
+from .implementations.spark.base_rec import _RecommenderSparkImpl
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
 
 
-class QueryPopRec(Recommender):
+class QueryPopRec(_RecommenderSparkImpl):
     """
     Recommends old objects from each query's personal top.
     Input is the number of interactions between queries and items.

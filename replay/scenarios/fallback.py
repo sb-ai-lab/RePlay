@@ -2,14 +2,14 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from replay.data import Dataset
 from replay.metrics import NDCG, Metric
-from replay.models import PopRec
-from replay.models.base_rec import BaseRecommender
+from replay.models.implementations.spark.base_rec import _BaseRecommenderSparkImpl
+from replay.models.implementations.spark.pop_rec import _PopRecSpark
 from replay.preprocessing.filters import MinCountFilter
 from replay.utils import SparkDataFrame
 from replay.utils.spark_utils import fallback, get_unique_entities
 
 
-class Fallback(BaseRecommender):
+class Fallback(_BaseRecommenderSparkImpl):
     """Fill missing recommendations using fallback model.
     Behaves like a recommender and have the same interface."""
 
@@ -17,8 +17,8 @@ class Fallback(BaseRecommender):
 
     def __init__(
         self,
-        main_model: BaseRecommender,
-        fallback_model: BaseRecommender = PopRec(),
+        main_model: _BaseRecommenderSparkImpl,
+        fallback_model: _BaseRecommenderSparkImpl = _PopRecSpark(),
         threshold: int = 0,
     ):
         """Create recommendations with `main_model`, and fill missing with `fallback_model`.
