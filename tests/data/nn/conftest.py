@@ -218,6 +218,20 @@ def small_numerical_events():
                 [-1.95, 1.4],
                 [-1.55, 1.3],
             ],
+            "cat_list_feature": [
+                [-1, 0],
+                [1, 2],
+                [3, 4],
+                [12, 11],
+                [9, 10],
+                [8, 7],
+                [0, 5],
+                [6, 7],
+                [7, 13],
+                [-1, 14],
+                [-2, 3],
+                [-3, 9],
+            ],
         }
     )
 
@@ -232,6 +246,7 @@ def small_numerical_feature_schema():
             FeatureInfo("timestamp", FeatureType.NUMERICAL, FeatureHint.TIMESTAMP, FeatureSource.INTERACTIONS),
             FeatureInfo("num_feature", FeatureType.NUMERICAL, None, FeatureSource.INTERACTIONS),
             FeatureInfo("num_list_feature", FeatureType.NUMERICAL_LIST, None, FeatureSource.INTERACTIONS),
+            FeatureInfo("cat_list_feature", FeatureType.CATEGORICAL_LIST, None, FeatureSource.INTERACTIONS),
             FeatureInfo("item_num", FeatureType.NUMERICAL, None, FeatureSource.ITEM_FEATURES),
         ]
     )
