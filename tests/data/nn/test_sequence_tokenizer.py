@@ -538,6 +538,46 @@ def test_process_numerical_features(dataset, request):
 
 
 @pytest.mark.torch
+@pytest.mark.parametrize("dataset", ["small_numerical_dataset", "small_numerical_dataset_polars"])
+def test_process_categorical_features(dataset, request):
+    data = request.getfixturevalue(dataset)
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "cat_list_feature",
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL_LIST,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "cat_list_feature")],
+            ),
+        ]
+    )
+    tokenizer = SequenceTokenizer(schema)
+    sequential_dataset = tokenizer.fit_transform(data)
+
+    answers = {
+        1: [[-1, 0], [1, 2]],
+        2: [[3, 4], [12, 11], [9, 10]],
+        3: [[8, 7]],
+        4: [[0, 5], [6, 7], [7, 13], [-1, 14], [-2, 3], [-3, 9]],
+    }
+    _compare_sequence(
+        sequential_dataset,
+        tokenizer,
+        "cat_list_feature",
+        answers,
+        tokenizer.interactions_encoder.inverse_mapping["cat_list_feature"],
+    )
+
+
+@pytest.mark.torch
 @pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
 def test_tokenizer_properties(item_id_and_item_features_schema, dataset, request):
     data = request.getfixturevalue(dataset)
