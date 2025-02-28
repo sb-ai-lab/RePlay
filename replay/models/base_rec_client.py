@@ -339,6 +339,7 @@ class BaseRecommenderClient(ABC):
         :param new_study: keep searching with previous study or start a new study
         :return: dictionary with best parameters
         """
+        # TODO: только для спарка
         if hasattr(self._impl, "optimize"):
             return self._impl.optimize(train_dataset, test_dataset, param_borders, criterion, k, budget, new_study)
         else:
@@ -395,18 +396,6 @@ class BaseRecommenderClient(ABC):
         """_RecommenderCommonsSparkImpl._init_args"""
         if not self.is_fitted:
             raise ValueError("Model is not fitted")
-        msg1 = f"{queries is not None and not isinstance(queries, PandasDataFrame)=}"
-        self.logger.error(msg1)
-        msg2 = f"{items is not None and not isinstance(items, PandasDataFrame)=}"
-        self.logger.error(msg2)
-        msg3 = f"{not dataset.is_pandas or (queries is not None and not isinstance(queries, PandasDataFrame) or items is not None and not isinstance(items, PandasDataFrame))=}"
-        self.logger.error(msg3)
-        msg4 = f"{self.is_pandas and (not dataset.is_pandas or (queries is not None and not isinstance(queries, PandasDataFrame) or items is not None and not isinstance(items, PandasDataFrame)))=}"
-        self.logger.error(msg4)
-        msg5 = f"{not dataset.is_spark or (queries is not None and not isinstance(queries, SparkDataFrame) or items is not None and not isinstance(items, SparkDataFrame))=}"
-        self.logger.error(msg5)
-        msg6 = f"{self.is_spark and (not dataset.is_spark or (queries is not None and not isinstance(queries, SparkDataFrame) or items is not None and not isinstance(items, SparkDataFrame)))=}"
-        self.logger.error(msg6)
         if (
             self.is_spark
             and (
