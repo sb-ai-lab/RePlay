@@ -1,6 +1,6 @@
 defaults:
-  - dataset: beauty
-  - model: sasrec_beauty
+  - dataset: sports
+  - model: sasrec
   - mode: optimize
   - acceleration: null
 

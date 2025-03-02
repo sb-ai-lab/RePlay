@@ -1,9 +1,8 @@
 import os
 import pandas as pd
 import requests
-import gzip
-import json
 import logging
+import json
 
 from rs_datasets import MovieLens, Netflix
 
@@ -13,6 +12,15 @@ from replay.preprocessing.filters import MinCountFilter, NumInteractionsFilter
 DATASET_MAPPINGS = {
     "zvuk": {"kaggle": "alexxl/zvuk-dataset", "file": "zvuk-interactions.parquet"},
     "megamarket": {"kaggle": "alexxl/megamarket", "file": "megamarket.parquet"},
+    "yelp": {
+        "kaggle": "yelp-dataset/yelp-dataset",
+        "file": "yelp_academic_dataset_review.json",
+    },
+}
+AMAZON_URLS = {
+    "games": "https://mcauleylab.ucsd.edu/public_datasets/data/amazon_2023/benchmark/5core/rating_only/Toys_and_Games.csv.gz",
+    "beauty": "https://mcauleylab.ucsd.edu/public_datasets/data/amazon_2023/benchmark/5core/rating_only/Beauty_and_Personal_Care.csv.gz",
+    "sports": "https://mcauleylab.ucsd.edu/public_datasets/data/amazon_2023/benchmark/5core/rating_only/Sports_and_Outdoors.csv.gz",
 }
 SUPPORTED_RS_DATASETS = ["movielens", "netflix"]
 
@@ -33,7 +41,9 @@ class DatasetManager:
         split_paths = {
             "train": os.path.join(self.split_cache_dir, "train.parquet"),
             "validation": os.path.join(self.split_cache_dir, "validation.parquet"),
-            "validation_gt": os.path.join(self.split_cache_dir, "validation_gt.parquet"),
+            "validation_gt": os.path.join(
+                self.split_cache_dir, "validation_gt.parquet"
+            ),
             "test": os.path.join(self.split_cache_dir, "test.parquet"),
             "test_gt": os.path.join(self.split_cache_dir, "test_gt.parquet"),
         }
@@ -69,45 +79,45 @@ class DatasetManager:
             self._download_kaggle_dataset(data_path, dataset_name, interactions_file)
         elif any(ds in dataset_name for ds in SUPPORTED_RS_DATASETS):
             self._download_rs_dataset(data_path, dataset_name, interactions_file)
-        elif dataset_name == "beauty":
-            self._download_beauty_dataset(data_path, interactions_file)
+        elif dataset_name in AMAZON_URLS:
+            self._download_csv_gz_dataset(dataset_name, interactions_file)
         else:
             raise ValueError(f"Unsupported dataset: {dataset_name}")
 
-    def _download_beauty_dataset(self, data_path: str, interactions_file: str):
-        """Download and preprocess the Beauty dataset."""
-        url = "http://snap.stanford.edu/data/amazon/productGraph/categoryFiles/reviews_Beauty_5.json.gz"
-        raw_file = os.path.join(data_path, "reviews_Beauty_5.json.gz")
+    def _download_csv_gz_dataset(self, dataset_name: str, interactions_file: str):
+        """Download and preprocess datasets from CSV GZ format."""
+        url = AMAZON_URLS[dataset_name]
+        raw_file = os.path.join(self.data_path, f"{dataset_name}.csv.gz")
 
         if not os.path.exists(raw_file):
-            logging.info(f"Downloading Beauty dataset from {url}")
-            response = requests.get(url, stream=True)
+            logging.info(f"Downloading {dataset_name} dataset from {url}")
+            response = requests.get(url, stream=True, verify=False)
             with open(raw_file, "wb") as file:
                 for chunk in response.iter_content(chunk_size=1024):
                     file.write(chunk)
             logging.info("Download complete.")
 
-        logging.info("Processing Beauty dataset...")
-        data = []
-        with gzip.open(raw_file, "rt", encoding="utf-8") as f:
-            for line in f:
-                data.append(json.loads(line))
-
-        interactions = pd.DataFrame(data)
+        logging.info(f"Processing {dataset_name} dataset...")
+        df = pd.read_csv(raw_file, compression="gzip")
 
         column_mapping = {
             "reviewerID": self.user_column,
-            "asin": self.item_column,
-            "unixReviewTime": self.timestamp_column
+            "parent_asin": self.item_column,
+            "unixReviewTime": self.timestamp_column,
+            "rating": self.config["dataset"]["feature_schema"]["rating_column"],
         }
-        interactions = interactions.rename(columns=column_mapping)
-        interactions = interactions[
-                interactions[self.config["dataset"]["feature_schema"]["rating_column"]]
-                > self.config["dataset"]["preprocess"]["min_rating"]
-            ]
-        interactions[self.timestamp_column] = interactions[self.timestamp_column].astype("int64")
-        interactions.to_parquet(interactions_file)
-        logging.info(f"Beauty dataset processed and saved at {interactions_file}")
+        df.rename(columns=column_mapping, inplace=True)
+
+        min_rating = self.config["dataset"]["preprocess"]["min_rating"]
+        df = df[
+            df[self.config["dataset"]["feature_schema"]["rating_column"]] > min_rating
+        ]
+
+        df[self.timestamp_column] = df[self.timestamp_column].astype("int64")
+        df.to_parquet(interactions_file)
+        logging.info(
+            f"{dataset_name} dataset processed and saved at {interactions_file}"
+        )
 
     def _download_kaggle_dataset(
         self, data_path: str, dataset_name: str, interactions_file: str
@@ -128,14 +138,32 @@ class DatasetManager:
         api.dataset_download_files(kaggle_dataset, path=data_path, unzip=True)
         logging.info(f"Dataset downloaded and extracted to {data_path}")
 
-        interactions = pd.read_parquet(raw_data_file)
+        if dataset_name == "yelp":
+            prime = []
+            for line in open(raw_data_file, "r", encoding="UTF-8"):
+                val = json.loads(line)
+                prime.append(
+                    [val["user_id"], val["business_id"], val["stars"], val["date"]]
+                )
+            interactions = pd.DataFrame(
+                prime,
+                columns=[
+                    self.user_column,
+                    self.item_column,
+                    self.config["dataset"]["feature_schema"]["rating_column"],
+                    self.timestamp_column,
+                ],
+            )
+            interactions['timestamp'] = pd.to_datetime(interactions['timestamp'])
+        else:
+            interactions = pd.read_parquet(raw_data_file)
         interactions[self.timestamp_column] = interactions[
             self.timestamp_column
         ].astype("int64")
         if dataset_name == "megamarket":
             interactions = interactions[interactions.event == 2]  # take only purchase
         if dataset_name == "zvuk":
-            interactions.rename(columns={'track_id': 'item_id'}, inplace=True)
+            interactions.rename(columns={"track_id": "item_id"}, inplace=True)
         interactions.to_parquet(interactions_file)
 
     def _download_rs_dataset(
@@ -164,10 +192,14 @@ class DatasetManager:
             interactions = interactions.sort_values(
                 by=[self.user_column, self.timestamp_column]
             )
-            interactions[self.timestamp_column] = pd.to_datetime(interactions[self.timestamp_column])
+            interactions[self.timestamp_column] = pd.to_datetime(
+                interactions[self.timestamp_column]
+            )
             interactions[self.timestamp_column] += pd.to_timedelta(
-                interactions.groupby([self.user_column, self.timestamp_column]).cumcount(), 
-                unit="s"
+                interactions.groupby(
+                    [self.user_column, self.timestamp_column]
+                ).cumcount(),
+                unit="s",
             )
         else:
             raise ValueError(f"Unsupported dataset: {dataset_name}")

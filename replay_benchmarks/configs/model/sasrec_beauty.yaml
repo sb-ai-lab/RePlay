@@ -17,10 +17,10 @@ model:
       mix_x: true
     training_params:
       embedding_dim: 1024
-      learning_rate: 0.001
+      learning_rate: 0.00001
       weight_decay: 0.00006
       batch_size: 256
       num_workers: 4
-      patience: 10
-      max_epochs: 200
-      precision: null #default 32, bf16-mixed
+      patience: 4
+      max_epochs: 2
+      precision: bf16-mixed

@@ -1,14 +1,14 @@
 model:
   name: sasrec
-  save_name: sasrec_BCE_777
+  save_name: sasrec_CE_777
 
   params:
     model_params:
-      block_count: 2
-      head_count: 2
+      block_count: 1
+      head_count: 1
       max_seq_len: 100
       hidden_size: 128
-      dropout_rate: 0.2
+      dropout_rate: 0.35
       loss_type: CE # CE, BCE, SCE
       loss_sample_count: 200
       n_buckets: 443
@@ -17,9 +17,10 @@ model:
       mix_x: true
     training_params:
       embedding_dim: 128
-      learning_rate: 0.0001
+      learning_rate: 0.0003
+      weight_decay: 0.01
       batch_size: 256
       num_workers: 4
-      patience: 10
-      max_epochs: 200
+      patience: 4
+      max_epochs: 20
       precision: null #default 32, bf16-mixed

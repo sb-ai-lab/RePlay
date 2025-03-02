@@ -22,6 +22,8 @@ from replay.metrics import (
     NDCG,
     HitRate,
     MRR,
+    Coverage,
+    Surprisal,
 )
 from replay.metrics.torch_metrics_builder import metrics_to_df
 from replay.models.nn.sequential import SasRec, Bert4Rec
@@ -185,6 +187,7 @@ class TrainRunner(BaseRunner):
             self.load_data()
         )
         self.validation_gt = validation_gt
+        self.test_events = test_events
         self.raw_test_gt = test_gt
 
         train_dataset, val_dataset, val_gt_dataset, test_dataset, test_gt_dataset = (
@@ -212,10 +215,10 @@ class TrainRunner(BaseRunner):
             seq_test_dataset,
         )
 
-    def calculate_metrics(self, predictions, ground_truth):
+    def calculate_metrics(self, predictions, ground_truth, test_events=None):
         """Calculate and return the desired metrics based on the predictions."""
         top_k = self.config["metrics"]["ks"]
-        metrics_list = [
+        base_metrics = [
             Recall(top_k),
             Precision(top_k),
             MAP(top_k),
@@ -223,10 +226,24 @@ class TrainRunner(BaseRunner):
             MRR(top_k),
             HitRate(top_k),
         ]
-        metrics = OfflineMetrics(
-            metrics_list, query_column="user_id", rating_column="score"
-        )(predictions, ground_truth)
-        return metrics_to_df(metrics)
+
+        diversity_metrics = []
+        if test_events is not None:
+            diversity_metrics = [
+                Coverage(top_k),
+                Surprisal(top_k),
+            ]
+
+        all_metrics = base_metrics + diversity_metrics
+        metrics_results = OfflineMetrics(
+            all_metrics, query_column="user_id", rating_column="score"
+        )(
+            predictions,
+            ground_truth,
+            test_events,
+        )
+        
+        return metrics_to_df(metrics_results)
 
     def save_model(self, trainer, best_model):
         """Save the best model checkpoint to the specified directory."""
@@ -261,7 +278,7 @@ class TrainRunner(BaseRunner):
                 monitor="ndcg@10",
                 mode="max",
             )
-            early_stopping = EarlyStopping(monitor="ndcg@10", patience=5, mode="max")
+            early_stopping = EarlyStopping(monitor="ndcg@10", patience=4, mode="max")
             validation_metrics_callback = ValidationMetricsCallback(
                 metrics=["ndcg", "recall", "map"],
                 ks=[10, 20],
@@ -270,7 +287,7 @@ class TrainRunner(BaseRunner):
             )
 
             trainer = L.Trainer(
-                max_epochs=100,
+                max_epochs=20,
                 callbacks=[checkpoint_callback, early_stopping, validation_metrics_callback],
                 logger=[self.csv_logger, self.tb_logger],
                 devices=1,
@@ -396,10 +413,10 @@ class TrainRunner(BaseRunner):
             )
             val_metrics = self.calculate_metrics(recommendations, self.validation_gt)
             logging.info(val_metrics)
-            recommendations.to_csv(
+            recommendations.to_parquet(
                 os.path.join(
                     self.config["paths"]["results_dir"],
-                    f"{self.model_save_name}_{self.dataset_name}_val_preds.csv",
+                    f"{self.model_save_name}_{self.dataset_name}_val_preds.parquet",
                 ),
             )
             val_metrics.to_csv(
@@ -425,12 +442,12 @@ class TrainRunner(BaseRunner):
             recommendations = self.tokenizer.query_and_item_id_encoder.inverse_transform(
                 result
             )
-            test_metrics = self.calculate_metrics(recommendations, self.raw_test_gt)
+            test_metrics = self.calculate_metrics(recommendations, self.raw_test_gt, self.test_events)
             logging.info(test_metrics)
-            recommendations.to_csv(
+            recommendations.to_parquet(
                 os.path.join(
                     self.config["paths"]["results_dir"],
-                    f"{self.model_save_name}_{self.dataset_name}_test_preds.csv",
+                    f"{self.model_save_name}_{self.dataset_name}_test_preds.parquet",
                 ),
             )
             test_metrics.to_csv(

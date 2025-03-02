@@ -1,6 +1,6 @@
 dataset:
-  name: beauty
-  path: "./replay_benchmarks/data/beauty"
+  name: games
+  path: "./replay_benchmarks/data/games"
 
   feature_schema:
     query_column: "user_id"

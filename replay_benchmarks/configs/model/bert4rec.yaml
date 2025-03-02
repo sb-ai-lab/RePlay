@@ -18,8 +18,8 @@ model:
     training_params:
       embedding_dim: 312
       learning_rate: 0.002
-      batch_size: 512
+      batch_size: 32
       num_workers: 4
-      patience: 10
-      max_epochs: 100
-      precision: null #default 32, bf16-mixed
+      patience: 4
+      max_epochs: 20
+      precision: bf16-mixed
