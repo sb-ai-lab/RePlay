@@ -5,10 +5,10 @@ model:
   params:
     model_params:
       block_count: 2
-      head_count: 4
+      head_count: 2
       max_seq_len: 100
       hidden_size: 256
-      dropout_rate: 0.3
+      dropout_rate: 0.35
       loss_type: CE # CE, BCE, SCE
       loss_sample_count: 200
       n_buckets: 443
@@ -17,10 +17,10 @@ model:
       mix_x: true
     training_params:
       embedding_dim: 256
-      learning_rate: 0.00001
-      weight_decay: 0.00003
+      learning_rate: 0.0002
+      weight_decay: 0.0005
       batch_size: 256
       num_workers: 4
       patience: 4
-      max_epochs: 2
-      precision: bf16-mixed
+      max_epochs: 20
+      precision: null #default 32, bf16-mixed
