@@ -34,7 +34,7 @@ def filter_cold(
     return num_cold, filtered_df
 
 
-def get_unique_entities(
+def get_unique_entities(  # TODO: Сделать диспатчер на каждую из одинаковых функций
     df: Union[Iterable, pd.DataFrame],
     column: str,
 ) -> pd.DataFrame:
@@ -109,7 +109,7 @@ def get_top_k_recs(
     )
 
 
-def return_recs(recs: pd.DataFrame, recs_file_path: str = None) -> pd.DataFrame:
+def return_recs(recs: pd.DataFrame, recs_file_path: Optional[str] = None) -> pd.DataFrame:
     """
     Save dataframe `recs` to `recs_file_path` if presents otherwise cache
     and materialize the dataframe.

@@ -8,11 +8,15 @@ import pandas as pd
 from replay.data.dataset import Dataset
 from replay.metrics import NDCG, Metric
 from replay.utils import DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
-from replay.utils.common import convert2pandas, convert2spark
+from replay.utils.common import convert2pandas, convert2polars, convert2spark
 
 
 class DataModelMissmatchError(Exception):
     """Model Implementation can't calculate input data due to missmatch of types"""
+
+
+class NotFittedModelError(Exception):
+    """Model not fitted"""
 
 
 class BaseRecommenderClient(ABC):
@@ -29,7 +33,8 @@ class BaseRecommenderClient(ABC):
 
     def _assign_realization_type(self, type_of_model: Literal["pandas", "spark", "polars"]):
         if type_of_model not in ["pandas", "spark", "polars"]:
-            raise ValueError(f"Argument type_of_model can be spark|pandas|polars, not {type_of_model}")
+            msg = f"Argument type_of_model can be spark|pandas|polars, not {type_of_model}"
+            raise ValueError(msg)
         self.is_pandas = type_of_model == "pandas"
         self.is_spark = type_of_model == "spark"
         self.is_polars = type_of_model == "polars"
@@ -48,7 +53,9 @@ class BaseRecommenderClient(ABC):
         self.logger.warning(msg)
         return None
 
-    def _all_attributes_or_functions(self):  # TODO: куда лучше вынести?
+    def _all_attributes_or_functions(self):  # TODO: Think about replace to other module
+        if self._impl is None:
+            return []
         cls = self._impl.__class__
         all_params = []
         all_params.extend(dir(self._impl))
@@ -84,38 +91,64 @@ class BaseRecommenderClient(ABC):
         if hasattr(self._impl, "cached_dfs") and self._get_realization_type() == "spark":
             return self._impl.cached_dfs
         elif "cached_dfs" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute 'cached_dfs' has not been set yet. Set it")
+            msg = "Attribute 'cached_dfs' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'cached_dfs' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'cached_dfs' attribute"
+            raise AttributeError()
 
     @property
-    def fit_items(self):  # TODO: возможно нужно реализовать setter
+    def fit_items(self):
         """Column of fitted items in model"""
         if hasattr(self._impl, "fit_items"):
             return self._impl.fit_items
         elif "fit_items" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute 'fit_items' has not been set yet. Set it")
+            msg = "Attribute 'fit_items' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'fit_items' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'fit_items' attribute"
+            raise AttributeError(msg)
+
+    @fit_items.setter
+    def fit_items(self, value):
+        """Column of fitted items in model"""
+        if isinstance(value, DataFrameLike):
+            self._impl.fit_items = value
+        else:
+            msg = f"Can't set to 'fit_items' value {value} in class '{self._impl.__class__}'"
+            raise AttributeError(msg)
 
     @property
-    def fit_queries(self):  # TODO: возможно нужно реализовать setter
+    def fit_queries(self):
         """Column of fitted queries in model. Usually, it's column of user_ids"""
-        if hasattr(self._impl, "fit_queries"):  # возможно нужно сделать обязательным его установку
+        if hasattr(self._impl, "fit_queries"):  # add the required attribute setting
             return self._impl.fit_queries
         elif "fit_queries" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute 'fit_queries' has not been set yet. Set it")
+            msg = "Attribute 'fit_queries' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'fit_queries' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'fit_queries' attribute"
+            raise AttributeError(msg)
+
+    @fit_queries.setter
+    def fit_queries(self, value):
+        """Column of fitted queries in model"""
+        if isinstance(value, DataFrameLike):
+            self._impl.fit_queries = value
+        else:
+            msg = f"Can't set to 'fit_queries' value ** {value} ** in class '{self._impl.__class__}'"
+            raise AttributeError(msg)
 
     @property
     def queries_count(self):
         if hasattr(self._impl, "queries_count"):
             return self._impl.queries_count
         elif "queries_count" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute 'queries_count' has not been set yet. Set it")
+            msg = "Attribute 'queries_count' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'queries_count' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'queries_count' attribute"
+            raise AttributeError(msg)
 
     @property
     def items_count(self):
@@ -123,9 +156,11 @@ class BaseRecommenderClient(ABC):
             self.logger.warning("Converting big dataframes from spark to pandas can cause OOM error.")
             return self._impl.items_count
         elif "items_count" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute 'items_count' has not been set yet. Set it")
+            msg = "Attribute 'items_count' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'items_count' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'items_count' attribute"
+            raise AttributeError(msg)
 
     @property
     def logger(self):
@@ -135,148 +170,173 @@ class BaseRecommenderClient(ABC):
         if hasattr(self._impl, "logger"):
             return self._impl.logger
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'logger' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'logger' attribute"
+            raise AttributeError(msg)
 
     @property
     def model(self):
         if hasattr(self._impl, "model"):
             return self._impl.model
         elif "model" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute 'model' has not been set yet. Set it")
+            msg = "Attribute 'model' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'model' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'model' attribute"
+            raise AttributeError(msg)
 
     @property
     def can_predict_cold_queries(self):
         if hasattr(self._impl, "can_predict_cold_queries"):
             return self._impl.can_predict_cold_queries
         elif "can_predict_cold_queries" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute 'can_predict_cold_queries' has not been set yet. Set it")
+            msg = "Attribute 'can_predict_cold_queries' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(
-                f"Class '{self._impl.__class__}' does not have the 'can_predict_cold_queries' attribute "
-            )
+            msg = f"Class '{self._impl.__class__}' does not have the 'can_predict_cold_queries' attribute"
+            raise AttributeError(msg)
 
     @property
     def can_predict_cold_items(self):
         if hasattr(self._impl, "can_predict_cold_items"):
             return self._impl.can_predict_cold_items
         elif "can_predict_cold_items" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute 'can_predict_cold_items' has not been set yet. Set it")
+            msg = "Attribute 'can_predict_cold_items' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(
-                f"Class '{self._impl.__class__}' does not have the 'can_predict_cold_items' attribute "
-            )
+            msg = f"Class '{self._impl.__class__}' does not have the 'can_predict_cold_items' attribute"
+            raise AttributeError(msg)
 
     @property
     def _search_space(self):
-        if hasattr(self._impl, "_search_space"):  # возможно нужно сделать обязательным его установку
+        if hasattr(self._impl, "_search_space"):  # add the required attribute setting
             return self._impl._search_space
         elif "_search_space" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute '_search_space' has not been set yet. Set it")
+            msg = "Attribute '_search_space' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the '_search_space' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the '_search_space' attribute"
+            raise AttributeError(msg)
 
     @property
     def _objective(self):
         if hasattr(self._impl, "_objective"):
             return self._impl._objective
         elif "_objective" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute '_objective' has not been set yet. Set it")
+            msg = "Attribute '_objective' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the '_objective' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the '_objective' attribute"
+            raise AttributeError(msg)
 
     @property
     def _study(self):
         if hasattr(self._impl, "_study"):
             return self._impl._study
         elif "_study" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute '_study' has not been set yet. Set it")
+            msg = "Attribute '_study' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the '_study' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the '_study' attribute"
+            raise AttributeError(msg)
 
     @property
     def _criterion(self):
         if hasattr(self._impl, "_criterion"):
             return self._impl._criterion
         elif "_criterion" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute '_criterion' has not been set yet. Set it")
+            msg = "Attribute '_criterion' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the '_criterion' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the '_criterion' attribute"
+            raise AttributeError(msg)
 
     @property
     def query_column(self):
-        if hasattr(
-            self._impl, "query_column"
-        ):  # возможно нужно сделать обязательным его установку, как и у других из BaseRecImpl
+        if hasattr(self._impl, "query_column"):  # add the required attribute setting
             return self._impl.query_column
         elif "_criterion" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute 'query_column' has not been set yet. Set it")
+            msg = "Attribute 'query_column' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'query_column' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'query_column' attribute"
+            raise AttributeError(msg)
 
     @property
     def item_column(self):
         if hasattr(self._impl, "item_column"):
             return self._impl.item_column
         elif "_criterion" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute 'item_column' has not been set yet. Set it")
+            msg = "Attribute 'item_column' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'item_column' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'item_column' attribute"
+            raise AttributeError(msg)
 
     @property
     def rating_column(self):
         if hasattr(self._impl, "rating_column"):
             return self._impl.rating_column
         elif "_criterion" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute 'rating_column' has not been set yet. Set it")
+            msg = "Attribute 'rating_column' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'rating_column' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'rating_column' attribute"
+            raise AttributeError(msg)
 
     @property
     def timestamp_column(self):
         if hasattr(self._impl, "timestamp_column"):
             return self._impl.timestamp_column
         elif "_criterion" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute 'timestamp_column' has not been set yet. Set it")
+            msg = "Attribute 'timestamp_column' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'timestamp_column' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'timestamp_column' attribute"
+            raise AttributeError(msg)
 
     @property
     def _num_queries(self):
         if hasattr(self._impl, "_num_queries"):
             return self._impl._num_queries
         elif "_criterion" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute '_num_queries' has not been set yet. Set it")
+            msg = "Attribute '_num_queries' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the '_num_queries' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the '_num_queries' attribute"
+            raise AttributeError(msg)
 
     @property
     def _num_items(self):
         if hasattr(self._impl, "_num_items"):
             return self._impl._num_items
         elif "_criterion" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute '_num_items' has not been set yet. Set it")
+            msg = "Attribute '_num_items' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the '_num_items' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the '_num_items' attribute"
+            raise AttributeError(msg)
 
     @property
     def _query_dim_size(self):
         if hasattr(self._impl, "_query_dim_size"):
             return self._impl._query_dim_size
         elif "_criterion" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute '_query_dim_size' has not been set yet. Set it")
+            msg = "Attribute '_query_dim_size' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the '_query_dim_size' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the '_query_dim_size' attribute"
+            raise AttributeError(msg)
 
     @property
     def _item_dim_size(self):
         if hasattr(self._impl, "_item_dim_size"):
             return self._impl._item_dim_size
         elif "_criterion" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute '_item_dim_size' has not been set yet. Set it")
+            msg = "Attribute '_item_dim_size' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the '_item_dim_size' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the '_item_dim_size' attribute"
+            raise AttributeError(msg)
 
     def __str__(self):
         return type(self).__name__
@@ -303,16 +363,19 @@ class BaseRecommenderClient(ABC):
         if hasattr(self._impl, "logger"):
             self._impl.set_params(**params)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'set_params()' function ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'set_params()' function "
+            raise AttributeError(msg)
 
-    def _clear_cache(self):
+    def _clear_cache(self):  # TODO: Documentation everywhere
         """Clear the cache in spark realization"""
         if hasattr(self._impl, "_clear_cache") and self._get_realization_type() == "spark":
             return self._impl._clear_cache
         elif "_clear_cache" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute 'cached_dfs' has not been set yet. Set it")
+            msg = "Attribute 'cached_dfs' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'cached_dfs' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'cached_dfs' attribute"
+            raise AttributeError(msg)
 
     def optimize(
         self,
@@ -339,11 +402,11 @@ class BaseRecommenderClient(ABC):
         :param new_study: keep searching with previous study or start a new study
         :return: dictionary with best parameters
         """
-        # TODO: только для спарка
         if hasattr(self._impl, "optimize"):
             return self._impl.optimize(train_dataset, test_dataset, param_borders, criterion, k, budget, new_study)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'optimize()' function ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'optimize()' function "
+            raise AttributeError(msg)
 
     def fit(self, dataset):
         """_RecommenderCommonsSparkImpl._init_args"""
@@ -351,7 +414,7 @@ class BaseRecommenderClient(ABC):
             "spark" if dataset.is_spark else "pandas" if dataset.is_pandas else "polars" if dataset.is_polars else None
         )
         self._assign_realization_type(realization)
-        if dataset.is_spark or dataset.is_pandas:
+        if dataset.is_spark or dataset.is_pandas or dataset.is_polars:
             self._impl = self._class_map[realization](**self._init_args)
         else:
             msg = "Model Implementation can't calculate input data due to missmatch of types"
@@ -373,11 +436,15 @@ class BaseRecommenderClient(ABC):
             "spark" if dataset.is_spark else "pandas" if dataset.is_pandas else "polars" if dataset.is_polars else None
         )
         self._assign_realization_type(realization)
-        if self.is_spark != dataset.is_spark or self.is_pandas != dataset.is_pandas:
+        if (
+            self.is_spark != dataset.is_spark
+            or self.is_pandas != dataset.is_pandas
+            or self.is_polars != dataset.is_polars
+        ):
             msg = "Model Implementation can't calculate input data due to missmatch of types"
             raise DataModelMissmatchError(msg)
 
-        if self._impl is None and (dataset.is_spark or dataset.is_pandas):
+        if self._impl is None and (dataset.is_spark or dataset.is_pandas or dataset.is_polars):
             self._impl = self._class_map[realization](**self._init_args)
         self._impl.fit(dataset)
         self.is_fitted = True
@@ -394,28 +461,45 @@ class BaseRecommenderClient(ABC):
         recs_file_path: Optional[str] = None,
     ) -> Optional[DataFrameLike]:
         """_RecommenderCommonsSparkImpl._init_args"""
+        if dataset is None:  # TODO: дополнить каким-то условием
+            return None
         if not self.is_fitted:
-            raise ValueError("Model is not fitted")
+            raise NotFittedModelError()
         if (
-            self.is_spark
-            and (
-                not dataset.is_spark
-                or (
-                    queries is not None
-                    and not isinstance(queries, SparkDataFrame)
-                    or items is not None
-                    and not isinstance(items, SparkDataFrame)
+            (
+                self.is_spark
+                and (
+                    not dataset.is_spark
+                    or (
+                        queries is not None
+                        and not isinstance(queries, (SparkDataFrame, Iterable))
+                        or items is not None
+                        and not isinstance(items, (SparkDataFrame, Iterable))
+                    )
                 )
             )
-        ) or (
-            self.is_pandas
-            and (
-                not dataset.is_pandas
-                or (
-                    queries is not None
-                    and not isinstance(queries, PandasDataFrame)
-                    or items is not None
-                    and not isinstance(items, PandasDataFrame)
+            or (
+                self.is_pandas
+                and (
+                    not dataset.is_pandas
+                    or (
+                        queries is not None
+                        and not isinstance(queries, (PandasDataFrame, Iterable))
+                        or items is not None
+                        and not isinstance(items, (PandasDataFrame, Iterable))
+                    )
+                )
+            )
+            or (
+                self.is_polars
+                and (
+                    not dataset.is_polars
+                    or (
+                        queries is not None
+                        and not isinstance(queries, (PolarsDataFrame, Iterable))
+                        or items is not None
+                        and not isinstance(items, (PolarsDataFrame, Iterable))
+                    )
                 )
             )
         ):
@@ -434,8 +518,12 @@ class BaseRecommenderClient(ABC):
     ) -> Optional[SparkDataFrame]:  # Тип данных
         """_RecommenderCommonsSparkImpl._init_args"""
         if not self.is_fitted:
-            raise ValueError("Model is not fitted")
-        if self.is_spark != dataset.is_spark or self.is_pandas != dataset.is_pandas:
+            raise NotFittedModelError()
+        if (
+            self.is_spark != dataset.is_spark
+            or self.is_pandas != dataset.is_pandas
+            or self.is_polars != dataset.is_polars
+        ):
             msg = "Model Implementation can't calculate input data due to missmatch of types"
             raise DataModelMissmatchError(msg)
 
@@ -466,18 +554,31 @@ class BaseRecommenderClient(ABC):
             where we have probability for each user to choose item at fixed position(top-k).
         """
         if not self.is_fitted:
-            raise ValueError("Model is not fitted")
+            raise NotFittedModelError()
         if (
-            self.is_spark
-            and (
-                not dataset.is_spark or not isinstance(queries, SparkDataFrame) or not isinstance(items, SparkDataFrame)
+            (
+                self.is_spark
+                and (
+                    not dataset.is_spark
+                    or not isinstance(queries, SparkDataFrame)
+                    or not isinstance(items, SparkDataFrame)
+                )
             )
-        ) or (
-            self.is_pandas
-            and (
-                not dataset.is_pandas
-                or not isinstance(queries, PandasDataFrame)
-                or not isinstance(items, PandasDataFrame)
+            or (
+                self.is_pandas
+                and (
+                    not dataset.is_pandas
+                    or not isinstance(queries, PandasDataFrame)
+                    or not isinstance(items, PandasDataFrame)
+                )
+            )
+            or (
+                self.is_polars
+                and (
+                    not dataset.is_polars
+                    or not isinstance(queries, PolarsDataFrame)
+                    or not isinstance(items, PolarsDataFrame)
+                )
             )
         ):
             msg = "Model Implementation can't calculate input data due to missmatch of types"
@@ -496,16 +597,14 @@ class BaseRecommenderClient(ABC):
         :return: feature vectors.
             If a model does not have a vector for some ids they are not present in the final result.
         """
-        if features == None:
+        if features is not None:
             # Some of _impl.get_features() have 1 arg, some have 2 args
             return self._impl.get_features(ids)
         return self._impl.get_features(ids, features)
 
     def _copy_base_params_to_new_model(self, copy_implementation):
         # TODO: зафиксировать список параметров, как в _init_args
-        copy_implementation.can_predict_cold_queries = (
-            self.can_predict_cold_queries
-        )  # Нужен ли он здесь, если в спарке он будет и так из-за наследования, а в пандсе может быть не нужен
+        copy_implementation.can_predict_cold_queries = self.can_predict_cold_queries
         copy_implementation.can_predict_cold_items = self.can_predict_cold_items
         copy_implementation._search_space = deepcopy(
             self._search_space
@@ -518,9 +617,9 @@ class BaseRecommenderClient(ABC):
         )  # Нужен ли для него property, либо забирать через self._impl
         copy_implementation._criterion = (
             deepcopy(self._criterion) if hasattr(self, "_criterion") else None
-        )  # Нужен ли для него property, либо забирать через self._impl
-        # copy_implementation._init_args = deepcopy(self._init_args)# Нужно ли здесь вообще init_args и dataframes
-        print(copy_implementation._init_args)
+        )  # TODO: # Нужен ли для него property, либо забирать через self._impl
+        # TODO: # copy_implementation._init_args = deepcopy(self._init_args
+        # )# Нужно ли здесь вообще init_args и dataframes
         if self.is_fitted:
             copy_implementation.query_column = self.query_column
             copy_implementation.item_column = self.item_column
@@ -542,7 +641,8 @@ class BaseRecommenderClient(ABC):
             copy_implementation.fit_items = convert2spark(self.fit_items)
             copy_implementation.fit_queries = convert2spark(
                 self.fit_queries
-            )  # TODO: Пройтись списком по _dataframes. А нужно ли? Если у нас попадется закрытый датафрейм
+            )  # TODO: Use list of '_dataframes' instead convert all dfs manually.
+            # Is it needed? if not needed to convert dataframe will come in
         self._impl = copy_implementation
         return self
 
@@ -551,7 +651,6 @@ class BaseRecommenderClient(ABC):
             return self
         copy_implementation = self._class_map["pandas"](**self._init_args)
         self._assign_realization_type("pandas")
-        print(copy_implementation)
         copy_implementation = self._copy_base_params_to_new_model(copy_implementation)
         if self.is_fitted:
             self.logger.warning("Converting big dataframes from spark to pandas can cause OOM error.")
@@ -561,7 +660,17 @@ class BaseRecommenderClient(ABC):
         return self
 
     def to_polars(self):
-        return NotImplementedError()
+        if self.is_polars:
+            return self
+        copy_implementation = self._class_map["polars"](**self._init_args)
+        self._assign_realization_type("polars")
+        copy_implementation = self._copy_base_params_to_new_model(copy_implementation)
+        if self.is_fitted:
+            self.logger.warning("Converting big dataframes from spark to polars can cause OOM error.")
+            copy_implementation.fit_items = convert2polars(self.fit_items)
+            copy_implementation.fit_queries = convert2polars(self.fit_queries)
+        self._impl = copy_implementation
+        return self
 
 
 class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
@@ -577,12 +686,14 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
 
     @property
     def item_popularity(self):
-        if hasattr(self._impl, "item_popularity"):  # возможно нужно сделать обязательным его установку
+        if hasattr(self._impl, "item_popularity"):  # add the required attribute setting
             return self._impl.item_popularity
         elif "item_popularity" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute 'item_popularity' has not been set yet. Set it")
+            msg = "Attribute 'item_popularity' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'item_popularity' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'item_popularity' attribute"
+            raise AttributeError(msg)
 
     @item_popularity.setter
     def item_popularity(self, value):
@@ -605,34 +716,41 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
 
     @property
     def sample(self):
-        if hasattr(self._impl, "sample"):  # возможно нужно сделать обязательным его установку
+        if hasattr(self._impl, "sample"):
             return self._impl.sample
         elif "sample" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute 'sample' has not been set yet. Set it")
+            msg = "Attribute 'sample' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'sample' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'sample' attribute"
+            raise AttributeError(msg)
 
     @property
     def seed(self):
         if hasattr(self._impl, "seed"):
             return self._impl.seed
         elif "seed" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute 'seed' has not been set yet. Set it")
+            msg = "Attribute 'seed' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'seed' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'seed' attribute"
+            raise AttributeError(msg)
 
     @property
     def _dataframes(self):
         if hasattr(self._impl, "_dataframes"):
             return self._impl._dataframes
         elif "_dataframes" in self._all_attributes_or_functions():
-            raise AttributeError("Attribute '_dataframes' has not been set yet. Set it")
+            msg = "Attribute '_dataframes' has not been set yet. Set it"
+            raise AttributeError(msg)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the '_dataframes' attribute ")
+            msg = f"Class '{self._impl.__class__}' does not have the '_dataframes' attribute"
+            raise AttributeError(msg)
 
     def get_items_pd(self, items: SparkDataFrame) -> pd.DataFrame:
         """Clear the cache in spark realization"""
         if hasattr(self._impl, "get_pandas_pd") and isinstance(self._impl, self._class_map["spark"]):
             return self._impl.get_pandas_pd(items)
         else:
-            raise AttributeError(f"Class '{self._impl.__class__}' does not have the 'get_pandas_pd' function ")
+            msg = f"Class '{self._impl.__class__}' does not have the 'get_pandas_pd' function "
+            raise AttributeError(msg)

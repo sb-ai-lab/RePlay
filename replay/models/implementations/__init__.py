@@ -1,5 +1,7 @@
 from .commons import IsSavable
 from .pandas import _PopRecPandas
+from .polars import _PopRecPolars
+from .spark import _PopRecSpark
 from .spark.base_rec import (
     _BaseRecommenderSparkImpl,
     _HybridRecommenderSparkImpl,
@@ -9,4 +11,3 @@ from .spark.base_rec import (
     _RecommenderCommonsSparkImpl,
     _RecommenderSparkImpl,
 )
-from .spark.pop_rec import _PopRecSpark

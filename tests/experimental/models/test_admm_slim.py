@@ -10,7 +10,7 @@ from pyspark.sql import functions as sf
 
 from replay.data import get_schema
 from replay.experimental.models import ADMMSLIM
-from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.models.base_rec import UserRecommender, _HybridRecommenderSparkImpl
 from replay.experimental.utils.model_handler import save
 from replay.utils.model_handler import load
 from tests.utils import sparkDataFrameEqual
@@ -33,7 +33,7 @@ def test_equal_preds(long_log_with_features, tmp_path):
 
 def fit_predict_selected(model, train_log, inf_log, user_features, users):
     kwargs = {}
-    if isinstance(model, (HybridRecommender, UserRecommender)):
+    if isinstance(model, (_HybridRecommenderSparkImpl, UserRecommender)):
         kwargs = {"user_features": user_features}
     model.fit(train_log, **kwargs)
     return model.predict(log=inf_log, users=users, k=1, **kwargs)

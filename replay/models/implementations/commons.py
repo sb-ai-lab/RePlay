@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Dict
 
 
-class IsSavable(ABC):  # TODO: подумать о переносе в другой модуль. Оно не спарк-специфично
+class IsSavable(ABC):  # TODO: Think about remove to other module
     """
     Common methods and attributes for saving and loading RePlay models
     """

@@ -6,7 +6,11 @@ import pytest
 
 from replay.data.dataset import Dataset
 from replay.models import RandomRec
-from replay.models.base_rec import HybridRecommender, NonPersonalizedRecommender, Recommender
+from replay.models.implementations.spark.base_rec import (
+    _HybridRecommenderSparkImpl,
+    _NonPersonalizedRecommenderSparkImpl,
+    _RecommenderSparkImpl,
+)
 from replay.utils import SparkDataFrame
 from replay.utils.spark_utils import convert2spark
 from tests.utils import (
@@ -14,7 +18,7 @@ from tests.utils import (
 )
 
 
-class DerivedRec(Recommender):
+class DerivedRec(_RecommenderSparkImpl):
     @property
     def _init_args(self):
         return {}
@@ -36,7 +40,7 @@ class DerivedRec(Recommender):
         return dataset.interactions.select("user_idx", "item_idx", "relevance")
 
 
-class DummyHybridRec(HybridRecommender):
+class DummyHybridRec(_HybridRecommenderSparkImpl):
     @property
     def _init_args(self):
         return {}
@@ -58,7 +62,7 @@ class DummyHybridRec(HybridRecommender):
         return dataset.interactions.select("user_idx", "item_idx", "relevance")
 
 
-class NonPersRec(NonPersonalizedRecommender):
+class NonPersRec(_NonPersonalizedRecommenderSparkImpl):
     @property
     def _init_args(self):
         return {}

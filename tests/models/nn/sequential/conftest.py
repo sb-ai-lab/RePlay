@@ -9,7 +9,6 @@ from replay.utils import TORCH_AVAILABLE
 if TORCH_AVAILABLE:
     import torch
 
-    from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset, TensorFeatureInfo, TensorSchema
     from replay.models.nn.sequential.bert4rec import (
         Bert4RecPredictionDataset,
         Bert4RecTrainingDataset,
@@ -24,6 +23,8 @@ if TORCH_AVAILABLE:
 
 @pytest.fixture(scope="module")
 def wrong_sequential_dataset():
+    from replay.data.nn import PandasSequentialDataset, TensorFeatureInfo, TensorSchema
+
     sequences = pd.DataFrame(
         [
             (0, [1], [0, 1], 1.7373),
@@ -75,6 +76,8 @@ def wrong_sequential_dataset():
 
 @pytest.fixture(scope="module")
 def sequential_dataset():
+    from replay.data.nn import PandasSequentialDataset, TensorFeatureInfo, TensorSchema
+
     sequences = pd.DataFrame(
         [
             (0, [1], [0, 1], [1, 2]),
@@ -128,6 +131,8 @@ def sequential_dataset():
 
 @pytest.fixture(scope="module")
 def tensor_schema():
+    from replay.data.nn import TensorFeatureInfo, TensorSchema
+
     schema = TensorSchema(
         [
             TensorFeatureInfo(
@@ -226,6 +231,8 @@ def simple_masks():
 
 @pytest.fixture(scope="module")
 def item_user_sequential_dataset():
+    from replay.data.nn import PandasSequentialDataset, TensorFeatureInfo, TensorSchema
+
     sequences = pd.DataFrame(
         [
             (0, np.array([0, 1, 1, 1, 2])),
@@ -263,6 +270,8 @@ def item_user_sequential_dataset():
 
 @pytest.fixture(scope="module")
 def polars_item_user_sequential_dataset():
+    from replay.data.nn import PolarsSequentialDataset, TensorFeatureInfo, TensorSchema
+
     sequences = pl.from_records(
         [
             (0, np.array([0, 1, 1, 1, 2]), np.array([[0.0, 0.0], [1.1, 1.1], [1.1, 1.1], [1.1, 1.1], [2.2, 2.2]])),
@@ -307,6 +316,8 @@ def polars_item_user_sequential_dataset():
 
 @pytest.fixture(scope="module")
 def item_user_num_sequential_dataset():
+    from replay.data.nn import PandasSequentialDataset, TensorFeatureInfo, TensorSchema
+
     sequences = pd.DataFrame(
         [
             (0, np.array([0, 1, 1, 1, 2]), np.array([0.1, 0.2])),

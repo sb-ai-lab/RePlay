@@ -260,7 +260,7 @@ def test_predict_pairs_raises(log, model):
         model.predict_pairs(log.select("user_idx", "item_idx"))
 
 
-# for NeighbourRec and ItemVectorModel
+# for NeighbourRec and _ItemVectorModelSparkImpl
 @pytest.mark.spark
 @pytest.mark.parametrize(
     "model, metric",

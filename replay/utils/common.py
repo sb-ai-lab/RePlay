@@ -2,7 +2,7 @@ import functools
 import inspect
 import json
 from pathlib import Path
-from typing import Any, Callable, Union
+from typing import Any, Callable, Optional, Tuple, Union
 
 from polars import from_pandas as pl_from_pandas
 
@@ -27,10 +27,14 @@ from replay.utils import (
     PolarsDataFrame,
     SparkDataFrame,
 )
+from replay.utils.pandas_utils import filter_cold as pandas_filter_cold
+from replay.utils.polars_utils import filter_cold as polars_filter_cold
 from replay.utils.spark_utils import (
     convert2spark as pandas_to_spark,
+    filter_cold as spark_filter_cold,
     spark_to_pandas,
 )
+from replay.utils.types import DataFrameLike
 
 SavableObject = Union[
     ColdUserRandomSplitter,
@@ -164,3 +168,21 @@ def convert2spark(data: Union[SparkDataFrame, PolarsDataFrame, PandasDataFrame])
         return pandas_to_spark(data)
     if isinstance(data, PolarsDataFrame):
         return pandas_to_spark(data.to_pandas())
+
+
+def filter_cold(
+    df: Optional[DataFrameLike],
+    warm_df: DataFrameLike,
+    col_name: str,
+) -> Tuple[int, Optional[DataFrameLike]]:
+    return NotImplementedError()
+    type_df1, type_df2 = type(df), type(warm_df)
+    if type_df1 != type_df2:
+        msg = f"Type of input attributes 'df' ({type_df1}) and 'warm_df' ({type_df2}) are not the same"
+        raise ValueError(msg)
+    if isinstance(df, SparkDataFrame):
+        return spark_filter_cold(df, warm_df, col_name)
+    elif isinstance(df, PandasDataFrame):
+        return pandas_filter_cold(df, warm_df, col_name)
+    elif isinstance(df, PolarsDataFrame):
+        return polars_filter_cold(df, warm_df, col_name)

@@ -5,8 +5,7 @@ import pandas as pd
 
 from replay.data.dataset import Dataset
 from replay.utils import PandasDataFrame
-
-from .commons import filter_cold, get_top_k_recs, get_unique_entities, return_recs
+from replay.utils.pandas_utils import filter_cold, get_top_k_recs, get_unique_entities, return_recs
 
 
 class _PopRecPandas:
@@ -35,6 +34,10 @@ class _PopRecPandas:
         self.fit_items = None
         self.fit_queries = None
         self._logger = None
+        self._search_space = None
+        self._objective = None
+        self._study = None
+        self._criterion = None
         self.other_params = kwargs
 
     def set_params(self, **params: Dict[str, Any]) -> None:
@@ -104,8 +107,8 @@ class _PopRecPandas:
         self.item_column = dataset.feature_schema.item_id_column
         self.rating_column = dataset.feature_schema.interactions_rating_column
         self.timestamp_column = dataset.feature_schema.interactions_timestamp_column
-        self.fit_items = dataset.interactions[self.item_column].drop_duplicates()
-        self.fit_queries = dataset.interactions[self.query_column].drop_duplicates()
+        self.fit_items = pd.DataFrame(dataset.interactions[self.item_column].drop_duplicates())
+        self.fit_queries = pd.DataFrame(dataset.interactions[self.query_column].drop_duplicates())
         self._num_queries = self.fit_queries.shape[0]
         self._num_items = self.fit_items.shape[0]
         self._query_dim_size = self.fit_queries.max() + 1
@@ -128,10 +131,10 @@ class _PopRecPandas:
     def _calc_max_hist_len(dataset: Dataset, queries: PandasDataFrame) -> int:
         query_column = dataset.feature_schema.query_id_column
         item_column = dataset.feature_schema.item_id_column
-        merged_df = dataset.merge(queries, on="query_column", how="left")
+        merged_df = dataset.merge(queries, on=query_column, how="left")
 
         # Группировка по столбцу query_column и подсчет уникальных значений в столбце item_column
-        grouped_df = merged_df.groupby("query_column").item_column.nunique()
+        grouped_df = merged_df.groupby(query_column)[item_column].nunique()
 
         # Максимальное количество уникальных значений
         max_hist_len = grouped_df.max()
@@ -184,7 +187,7 @@ class _PopRecPandas:
         )
         recs = recs[recs["_merge"] == "left_only"].drop(
             columns=["query", "item", "_merge"]
-        )  # TODO: проверить что все ок с джионом
+        )  # TODO: check its all ok with join
         return recs
 
     def _filter_cold_for_predict(
@@ -198,7 +201,6 @@ class _PopRecPandas:
         if the model does not predict cold.
         Warn if cold entities are present in the `main_df`.
         """
-        print("Mark is _filter_interactions_queries_items_dataframes is why i am here tonoght")
         can_predict_cold = self.can_predict_cold_queries if entity == "query" else self.can_predict_cold_items
         fit_entities = self.fit_queries if entity == "query" else self.fit_items
         column = self.query_column if entity == "query" else self.item_column
@@ -294,7 +296,7 @@ class _PopRecPandas:
         selected_item_popularity["probability"] = selected_item_popularity[self.rating_column] / total_rating
         return selected_item_popularity
 
-    def predict_without_sampling(
+    def _predict_without_sampling(
         self,
         dataset: Dataset,
         k: int,
@@ -306,12 +308,9 @@ class _PopRecPandas:
         Regular prediction for popularity-based models,
         top-k most relevant items from `items` are chosen for each query
         """
-        print("Mark is _filter_interactions_queries_items_dataframes is why i am here tonoght")
         selected_item_popularity = self._get_selected_item_popularity(items if items is not None else self.fit_items)
-        # TODO: не учел фильтры из _BaseRecommenderSparkImpl _filter_interactions_queries_items_dataframes
         sorted_df = selected_item_popularity.sort_values(by=[self.rating_column, self.item_column], ascending=False)
         selected_item_popularity["rank"] = sorted_df.index + 1
-
         if filter_seen_items and dataset is not None:
             queries = PandasDataFrame(queries if queries is not None else self.fit_queries)
             query_to_num_items = (
@@ -319,19 +318,17 @@ class _PopRecPandas:
                 .groupby(self.query_column, as_index=False)[self.item_column]
                 .nunique()
             ).rename(columns={self.item_column: "num_items"})
-            print(query_to_num_items)
             queries = queries.merge(query_to_num_items, on=self.query_column, how="left")
             queries = queries.fillna(0)
-            print(queries)
-            max_seen = queries["num_items"].max()
+            max_seen = queries["num_items"].max()  # noqa: F841
             selected_item_popularity = selected_item_popularity.query("rank <= @k + @max_seen")
             joined = queries.merge(selected_item_popularity, how="cross")
-            return joined[joined["rank"] <= (k + joined["num_items"])].drop(
-                "num_items", axis=1
-            )  # TODO: на пандас и поларс нет left join с нечетким условием. Нужно реализовать через 2 join и union
+            return joined[joined["rank"] <= (k + joined["num_items"])].drop("num_items", axis=1)
 
         joined = queries.merge(selected_item_popularity, how="cross")
         return joined[joined["rank"] <= k].drop("rank", axis=1)
+
+    # TODO: РЕАЛИЗОВАТЬ predict_with_sampling
 
     def predict(
         self,
@@ -366,14 +363,14 @@ class _PopRecPandas:
             or None if `file_path` is provided
         """
         dataset, queries, items = self._filter_interactions_queries_items_dataframes(dataset, k, queries, items)
-        recs = self.predict_without_sampling(dataset, k, queries, items, filter_seen_items)
+        recs = self._predict_without_sampling(dataset, k, queries, items, filter_seen_items)
 
         if filter_seen_items and dataset is not None:
             recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
 
         recs = get_top_k_recs(recs, k=k, query_column=self.query_column, rating_column=self.rating_column)[
             [self.query_column, self.item_column, self.rating_column]
-        ]
+        ].reset_index(drop=True)
         recs = return_recs(recs, recs_file_path)
         return recs
 
@@ -388,19 +385,20 @@ class _PopRecPandas:
         self.fit(dataset)
         return self.predict(dataset, k, queries, items, filter_seen_items)
 
-    def predict_pairs(self, pairs: PandasDataFrame, dataset: PandasDataFrame = None) -> PandasDataFrame:
+    def predict_pairs(self, pairs: PandasDataFrame, dataset: PandasDataFrame = None) -> PandasDataFrame:  # noqa: ARG002
         if self.item_popularity is None:
-            raise ValueError("Model not fitted. Please call fit() first.")
+            msg = "Model not fitted. Please call fit() first."
+            raise ValueError(msg)
         preds = pairs.merge(self.item_popularity, on=self.item_column, how="left" if self.add_cold_items else "inner")
         preds[self.rating_column].fillna(self._calc_fill(), inplace=True)
         return preds[[self.query_column, self.item_column, self.rating_column]]
 
     def predict_proba(
-        self, dataset: PandasDataFrame, k: int, queries, items: PandasDataFrame, filter_seen_items=True
+        self, dataset: PandasDataFrame, k: int, queries, items: PandasDataFrame, filter_seen_items=True  # noqa: ARG002
     ) -> PandasDataFrame:
-        pass  # большая реализация с наследованием и сторонними функциями
+        return NotImplementedError()
 
-    def save_model(self, path: str, additional_params=None):
+    def save_model(self, path: str, additional_params=None):  # noqa: ARG002
         saved_params = {
             "query_column": self.query_column,
             "item_column": self.item_column,
@@ -409,5 +407,5 @@ class _PopRecPandas:
         }
         if additional_params is not None:
             saved_params.update(additional_params)
+        # TODO: save_picklable_to_parquet(saved_params, join(path, "params.dump"))
         return saved_params
-        # save_picklable_to_parquet(saved_params, join(path, "params.dump"))
