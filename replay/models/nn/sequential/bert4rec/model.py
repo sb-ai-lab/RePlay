@@ -408,7 +408,7 @@ class BaseHead(ABC, torch.nn.Module):
             item_embeddings = item_embeddings[item_ids]
             bias = bias[item_ids]
 
-        logits = item_embeddings.matmul(out_embeddings.unsqueeze(-1)).squeeze(-1) + bias
+        logits = torch.matmul(out_embeddings, item_embeddings.t()) + bias
         return logits
 
     @abstractmethod
