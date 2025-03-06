@@ -5,11 +5,11 @@ import pytest
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
+    from replay.models.nn.sequential.compiled import SasRecCompiled
     from replay.models.nn.sequential.sasrec import (
         SasRec,
         SasRecPredictionDataset,
     )
-    from replay.models.nn.sequential.sasrec.optimized_model import SasRecCompiled
 
 
 torch = pytest.importorskip("torch")

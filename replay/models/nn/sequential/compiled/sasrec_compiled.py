@@ -1,54 +1,30 @@
 import pathlib
 import tempfile
-from typing import List, Literal, Optional, Union, get_args
+from typing import Optional, Union, get_args
 
 import openvino as ov
 import torch
 
 from replay.data.nn import TensorSchema
+from replay.models.nn.sequential.compiled.base_compiled_model import (
+    BaseCompiledModel,
+    OptimizedModeType,
+    _compile_openvino,
+)
 from replay.models.nn.sequential.sasrec import (
     SasRec,
     SasRecPredictionBatch,
 )
 from replay.models.nn.sequential.sasrec.lightning import _prepare_prediction_batch
 
-OptimizedModeType = Literal[
-    "batch",
-    "one_query",
-    "dynamic_batch_size",
-]
 
-
-def _compile_openvino(
-    onnx_path: str,
-    batch_size: int,
-    max_seq_len: int,
-    num_candidates_to_score: int,
-    num_threads: Optional[int],
-) -> ov.CompiledModel:
-    """
-    Method defines compilation strategy for openvino backend.
-    """
-    core = ov.Core()
-    if num_threads is not None:
-        core.set_property("CPU", {"INFERENCE_NUM_THREADS": num_threads})
-    model_onnx = core.read_model(model=onnx_path)
-    inputs_names = [inputs.names.pop() for inputs in model_onnx.inputs]
-    del model_onnx
-
-    model_input_scheme = [(input_name, [batch_size, max_seq_len]) for input_name in inputs_names[:2]]
-    if num_candidates_to_score is not None:
-        model_input_scheme += [(inputs_names[2], [num_candidates_to_score])]
-    model_onnx = ov.convert_model(onnx_path, input=model_input_scheme)
-    return core.compile_model(model=model_onnx, device_name="CPU")
-
-
-class SasRecCompiled:
+class SasRecCompiled(BaseCompiledModel):
     """
     SasRec CPU-optimized model for inference via OpenVINO.
-    It is recommended to compile model from SasRec checkpoint or the object itself using ``compile`` method.
-    It is also possible to compile model by yourself and pass it to the ``__init__``.
-    Note that compilation requires disk write permission.
+    It is recommended to compile model with ``compile`` method and pass SasRec checkpoint
+    or the model object itself into it.
+    It is also possible to compile model by yourself and pass it to the ``__init__`` with TensorSchema.
+    Note that compilation requires disk write (and maybe delete) permission.
     """
 
     def __init__(
@@ -60,13 +36,7 @@ class SasRecCompiled:
         :param compiled_model: Compiled model.
         :param schema: Tensor schema of SasRec model.
         """
-        self._batch_size: int
-        self._max_seq_len: int
-        self._inputs_names: List[str]
-
-        self._set_inner_params_from_openvino_model(compiled_model)
-        self._schema = schema
-        self._model = compiled_model
+        super().__init__(compiled_model, schema)
 
     def predict(
         self,
@@ -106,57 +76,6 @@ class SasRecCompiled:
             self._validate_candidates_to_score(candidates_to_score)
             model_inputs[self._inputs_names[2]] = candidates_to_score
         return torch.from_numpy(self._model(model_inputs)[self._output_name])
-
-    def _validate_candidates_to_score(self, candidates: torch.LongTensor):
-        if not (isinstance(candidates, torch.Tensor) and candidates.dtype is torch.long):
-            msg = (
-                "Expected candidates to be of type ``torch.Tensor`` with dtype ``torch.long``, "
-                f"got {type(candidates)} with dtype {candidates.dtype}."
-            )
-            raise ValueError(msg)
-
-    def _set_inner_params_from_openvino_model(self, compiled_model: ov.CompiledModel) -> None:
-        input_scheme = compiled_model.inputs
-        self._batch_size = input_scheme[0].partial_shape[0].max_length
-        self._max_seq_len = input_scheme[0].partial_shape[1].max_length
-        self._inputs_names = [input.names.pop() for input in compiled_model.inputs]
-        if "candidates_to_score" in self._inputs_names:
-            self._num_candidates_to_score = input_scheme[2].partial_shape[0].max_length
-        else:
-            self._num_candidates_to_score = None
-        self._output_name: str = compiled_model.output().names.pop()
-
-    @staticmethod
-    def _validate_num_candidates_to_score(num_candidates: int):
-        if num_candidates is None:
-            return num_candidates
-        if num_candidates == -1 or (num_candidates >= 1 and isinstance(num_candidates, int)):
-            return int(num_candidates)
-
-        msg = (
-            "Expected num_candidates_to_score to be of type ``int``, equal to ``-1``, ``natural number`` or ``None``. "
-            f"Got {num_candidates}."
-        )
-        raise ValueError(msg)
-
-    @staticmethod
-    def _get_input_params(
-        mode: OptimizedModeType,
-        batch_size: Optional[int],
-        num_candidates_to_score: Optional[int],
-    ) -> None:
-        if mode == "one_query":
-            batch_size = 1
-
-        if mode == "batch":
-            assert batch_size, f"{mode} mode requires `batch_size`"
-            batch_size = batch_size
-
-        if mode == "dynamic_batch_size":
-            batch_size = -1
-
-        num_candidates_to_score = num_candidates_to_score if num_candidates_to_score else None
-        return batch_size, num_candidates_to_score
 
     @classmethod
     def compile(

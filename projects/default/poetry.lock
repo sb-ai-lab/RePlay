@@ -4836,9 +4836,10 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 [extras]
 all = ["lightning", "onnx", "openvino", "pyspark", "pyspark", "pytorch-ranger", "torch"]
 spark = ["pyspark", "pyspark"]
-torch = ["lightning", "onnx", "openvino", "pytorch-ranger", "torch"]
+torch = ["lightning", "pytorch-ranger", "torch"]
+torch-openvino = ["lightning", "onnx", "openvino", "pytorch-ranger", "torch"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1, <3.12"
-content-hash = "d1d17d6d7e1b7054c81eb4a7e3c4461407b4313939604a216cd8631f517dbeb9"
+content-hash = "b3485812606cc76378590ccb964e0c61ea7f3aea8c80e4b1218474ec811ae027"

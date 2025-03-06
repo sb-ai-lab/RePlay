@@ -88,7 +88,8 @@ gym = "^0.26.0"
 
 [tool.poetry.extras]
 spark = ["pyspark"]
-torch = ["torch", "pytorch-ranger", "lightning", "openvino", "onnx"]
+torch = ["torch", "pytorch-ranger", "lightning"]
+torch-openvino = ["torch", "pytorch-ranger", "lightning", "openvino", "onnx"]
 all = ["pyspark", "torch", "pytorch-ranger", "lightning", "openvino", "onnx"]
 
 [tool.poetry.group.dev.dependencies]

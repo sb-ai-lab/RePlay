@@ -72,7 +72,7 @@ resolve-job:
       - projects/experimental/poetry.lock
       - ${dependencies}
     expire_in: 2 week
-  tags: 
+  tags:
     - ${RUNNER}
 
 ruff:
@@ -81,7 +81,7 @@ ruff:
   script:
     - ./poetry_wrapper.sh --generate
     - ruff check .
-  tags: 
+  tags:
     - ${RUNNER}
 
 black:
@@ -90,7 +90,7 @@ black:
   script:
     - ./poetry_wrapper.sh --generate
     - black --check --diff -- .
-  tags: 
+  tags:
     - ${RUNNER}
 
 poetry-check:
@@ -118,12 +118,12 @@ sphinx-job:
   stage: code_quality
   script:
     - make -C docs clean html
-  tags: 
+  tags:
     - ${RUNNER}
 
 .pytest_template: &pytest_template
   image: ${image}
-  tags: 
+  tags:
     - ${RUNNER}
   needs: ["ruff", "black", "poetry-check", "sphinx-job"]
   before_script:
@@ -153,7 +153,7 @@ pytest-torch:
   <<: *pytest_template
   stage: test_torch
   script:
-    - ./poetry_wrapper.sh install -E torch
+    - ./poetry_wrapper.sh install -E torch-openvino
     - pytest -m "not spark and not experimental" tests/ --ignore=tests/experimental
     - mv .coverage .coverage_torch_${image:(-4)}
   artifacts:
@@ -219,7 +219,7 @@ merge-coverage:
     - coverage report --fail-under=100
     - coverage xml
   needs: ["pytest-core", "pytest-torch", "pytest-spark", "pytest-spark-and-torch", "pytest-models", "pytest-experimental"]
-  tags: 
+  tags:
     - ${RUNNER}
   parallel:
     matrix:
@@ -250,7 +250,7 @@ build-production-package:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   stage: build packages
-  tags: 
+  tags:
     - ${RUNNER}
   script:
     - *setup_env
@@ -266,7 +266,7 @@ build-experimental-package:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   stage: build packages
-  tags: 
+  tags:
     - ${RUNNER}
   script:
     - export PACKAGE_SUFFIX=.preview${CI_JOB_ID}
