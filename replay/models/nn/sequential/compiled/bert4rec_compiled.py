@@ -1,6 +1,6 @@
 import pathlib
 import tempfile
-from typing import List, Literal, Optional, Union, get_args
+from typing import Optional, Union, get_args
 
 import openvino as ov
 import torch
@@ -11,13 +11,18 @@ from replay.models.nn.sequential.bert4rec import (
     Bert4RecPredictionBatch,
 )
 from replay.models.nn.sequential.bert4rec.lightning import _prepare_prediction_batch
-from replay.models.nn.sequential.compiled.base_compiled_model import BaseCompiledModel, OptimizedModeType, _compile_openvino
+from replay.models.nn.sequential.compiled.base_compiled_model import (
+    BaseCompiledModel,
+    OptimizedModeType,
+    _compile_openvino,
+)
 
 
 class Bert4RecCompiled(BaseCompiledModel):
     """
     Bert4Rec CPU-optimized model for inference via OpenVINO.
-    It is recommended to compile model with ``compile`` method and pass Bert4Rec checkpoint or the model object itself into it.
+    It is recommended to compile model with ``compile`` method and pass Bert4Rec checkpoint
+    or the model object itself into it.
     It is also possible to compile model by yourself and pass it to the ``__init__`` with TensorSchema.
     Note that compilation requires disk write (and maybe delete) permission.
     """

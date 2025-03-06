@@ -1,7 +1,6 @@
-from abc import abstractmethod
 import pathlib
-import tempfile
-from typing import List, Literal, Optional, Union, get_args
+from abc import abstractmethod
+from typing import List, Literal, Optional, Union
 
 import openvino as ov
 import torch
@@ -11,12 +10,7 @@ from replay.models.nn.sequential.bert4rec import (
     Bert4Rec,
     Bert4RecPredictionBatch,
 )
-from replay.models.nn.sequential.sasrec import (
-    SasRec,
-    SasRecPredictionBatch
-)
-from replay.models.nn.sequential.bert4rec.lightning import _prepare_prediction_batch
-
+from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionBatch
 
 OptimizedModeType = Literal[
     "batch",
@@ -89,7 +83,6 @@ class BaseCompiledModel:
 
         :return: Tensor with scores.
         """
-        pass
 
     def _validate_candidates_to_score(self, candidates: torch.LongTensor):
         """Check if candidates param has proper type"""
@@ -160,7 +153,7 @@ class BaseCompiledModel:
         num_candidates_to_score: Optional[int] = None,
         num_threads: Optional[int] = None,
         onnx_path: Optional[str] = None,
-    ) -> Union["Bert4RecCompiled", "SasRecCompiled"]:
+    ) -> Union["Bert4RecCompiled", "SasRecCompiled"]:  # noqa: F821
         """
         Model compilation.
 
@@ -186,4 +179,3 @@ class BaseCompiledModel:
         :param onnx_path: Save ONNX model to path, if defined.
             Default: ``None``.
         """
-        pass
