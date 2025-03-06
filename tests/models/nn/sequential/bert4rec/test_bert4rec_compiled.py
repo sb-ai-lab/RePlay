@@ -9,7 +9,7 @@ if TORCH_AVAILABLE:
         Bert4Rec,
         Bert4RecPredictionDataset,
     )
-    from replay.models.nn.sequential.bert4rec.optimized_model import Bert4RecCompiled
+    from replay.models.nn.sequential.compiled import Bert4RecCompiled
 
 
 torch = pytest.importorskip("torch")
