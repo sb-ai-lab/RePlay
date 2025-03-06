@@ -44,7 +44,7 @@ def _compile_openvino(
 class BaseCompiledModel:
     """
     Base class of CPU-optimized model for inference via OpenVINO.
-    It is recommended to use inhereted classes and not to use this one.
+    It is recommended to use inherited classes and not to use this one.
     """
 
     def __init__(
