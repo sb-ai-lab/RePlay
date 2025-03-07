@@ -128,9 +128,20 @@ class _PopRecSpark(_NonPersonalizedRecommenderSparkImpl):
         self.item_popularity = (
             dataset.interactions.groupBy(self.item_column)
             .agg(agg_func)
-            .withColumn(self.rating_column, sf.col(self.rating_column) / sf.lit(self.queries_count))
+            .withColumn(self.rating_column, sf.round(sf.col(self.rating_column) / sf.lit(self.queries_count), 10))
         )
-
+        save_df(self.item_popularity.toPandas(), "spark_base_predict_wrap_item_popularity_v2")
         self.item_popularity.cache().count()
 
         self.fill = self._calc_fill(self.item_popularity, self.cold_weight, self.rating_column)
+
+
+from replay.utils import PandasDataFrame, SparkDataFrame
+def save_df(df, filename):
+    if isinstance(df, SparkDataFrame):
+        df.write.mode("overwrite").parquet(filename)
+        return True
+    elif isinstance(df, PandasDataFrame):
+        df.to_parquet(filename)
+        return True
+    return False

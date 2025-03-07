@@ -4,8 +4,8 @@ from typing import Any, Dict, Iterable, Optional, Union
 import pandas as pd
 
 from replay.data.dataset import Dataset
-from replay.utils import PandasDataFrame
-from replay.utils.pandas_utils import filter_cold, get_top_k_recs, get_unique_entities, return_recs
+from replay.utils import PandasDataFrame, SparkDataFrame
+from replay.utils.pandas_utils import filter_cold, get_top_k, get_unique_entities, return_recs
 
 
 class _PopRecPandas:
@@ -17,7 +17,7 @@ class _PopRecPandas:
         use_rating: bool = False,
         add_cold_items: bool = True,
         cold_weight: float = 0.5,
-        sample=True,
+        sample=False,
         fill=0.0,
         seed=42,
         **kwargs,
@@ -107,24 +107,32 @@ class _PopRecPandas:
         self.item_column = dataset.feature_schema.item_id_column
         self.rating_column = dataset.feature_schema.interactions_rating_column
         self.timestamp_column = dataset.feature_schema.interactions_timestamp_column
-        self.fit_items = pd.DataFrame(dataset.interactions[self.item_column].drop_duplicates())
+        self.fit_items = pd.DataFrame(dataset.interactions[self.item_column].drop_duplicates()) 
+        # TODO: IMPORTANT: rewrite self.fit items like _BaseRecSparkImpl._fit_wrap if-else
         self.fit_queries = pd.DataFrame(dataset.interactions[self.query_column].drop_duplicates())
         self._num_queries = self.fit_queries.shape[0]
         self._num_items = self.fit_items.shape[0]
         self._query_dim_size = self.fit_queries.max() + 1
         self._item_dim_size = self.fit_items.max() + 1
         interactions_df = dataset.interactions
-
+        print(f"fit {interactions_df.shape[0]=}")
+        save_df(interactions_df, "pandas_base_predict_wrap_interactions")
         if self.use_rating:
             item_popularity = interactions_df.groupby(self.item_column, as_index=False)[self.rating_column].sum()
         else:
             item_popularity = interactions_df.groupby(self.item_column, as_index=False)[self.query_column].nunique()
             item_popularity.rename(columns={self.query_column: self.rating_column}, inplace=True)
-
-        item_popularity[self.rating_column] = item_popularity[self.rating_column] / self.queries_count
-
+        print(f"fit {self.queries_count=}")
+        print(f"fit {item_popularity.shape[0]=}")
+        save_df(item_popularity, "pandas_base_predict_wrap_item_popularity_v1")
+        item_popularity[self.rating_column] = round(item_popularity[self.rating_column] / self.queries_count, 10) # TODO: поменять располжение во всех фреймворках
+        item_popularity = item_popularity.sort_values([self.item_column, self.rating_column])
+        print(f"fit {item_popularity.shape[0]=}")
+        save_df(item_popularity, "pandas_base_predict_wrap_item_popularity_v2")
+       
         self.item_popularity = item_popularity
         self.fill = self._calc_fill(self.item_popularity, self.cold_weight, self.rating_column)
+        print(f"pandas fit {self.fill=}")
         return self
 
     @staticmethod
@@ -133,12 +141,8 @@ class _PopRecPandas:
         item_column = dataset.feature_schema.item_id_column
         merged_df = dataset.merge(queries, on=query_column, how="left")
 
-        # Группировка по столбцу query_column и подсчет уникальных значений в столбце item_column
         grouped_df = merged_df.groupby(query_column)[item_column].nunique()
-
-        # Максимальное количество уникальных значений
         max_hist_len = grouped_df.max()
-        # all queries have empty history
         if max_hist_len is None:
             max_hist_len = 0
 
@@ -152,10 +156,8 @@ class _PopRecPandas:
         For each query return from 'k' to 'k + number of seen by query' recommendations.
         """
 
-        # Join interactions with queries
         queries_interactions = interactions.merge(queries, on=self.query_column, how="inner")
 
-        # Count number of times items have been seen by queries
         num_seen = (
             queries_interactions.groupby(self.query_column)
             .agg({self.item_column: "count"})
@@ -163,17 +165,20 @@ class _PopRecPandas:
             .reset_index()
         )
 
-        # Get the maximal number of items seen by queries
         max_seen = num_seen["seen_count"].max() if not num_seen.empty else 0
-
+        save_df(num_seen, "pandas_base_predict_wrap_num_seen")
+        print("\npandas_num_max_seen = ", max_seen)
         # Rank recommendations to first k + max_seen items for each query
-        recs["temp_rank"] = recs.groupby(self.query_column)[self.rating_column].rank(method="first", ascending=False)
+        #old_method: recs["temp_rank"] = recs.groupby(self.query_column)[self.rating_column].rank(method="first", ascending=False)
+        recs = recs.sort_values(by=[self.query_column, self.rating_column], ascending=[True, False])
+        recs["temp_rank"] = recs.groupby(self.query_column).cumcount() + 1
         recs = recs[recs["temp_rank"] <= max_seen + k]
+        save_df(recs, "pandas_base_predict_wrap_temp_rank")
         recs = recs.merge(num_seen, on=self.query_column, how="left").fillna({"seen_count": 0})
 
         # Filter based on ranking
         recs = recs[recs["temp_rank"] <= recs["seen_count"] + k].drop(columns=["temp_rank", "seen_count"])
-
+        save_df(recs, "pandas_base_predict_wrap_temp_rank_v2")
         # Filter recommendations presented in interactions
         queries_interactions = queries_interactions.rename(
             columns={self.item_column: "item", self.query_column: "query"}
@@ -188,6 +193,7 @@ class _PopRecPandas:
         recs = recs[recs["_merge"] == "left_only"].drop(
             columns=["query", "item", "_merge"]
         )  # TODO: check its all ok with join
+        save_df(recs, "pandas_base_predict_wrap_temp_rank_v3")
         return recs
 
     def _filter_cold_for_predict(
@@ -264,8 +270,6 @@ class _PopRecPandas:
         item_data = items or self.fit_items
         items = get_unique_entities(item_data, self.item_column)
         items, interactions = self._filter_cold_for_predict(items, interactions, "item")
-
-        # Use Pandas equivalent of Spark's .count()
         num_items = len(items)
         if num_items < k:
             message = f"k = {k} > number of items = {num_items}"
@@ -308,27 +312,40 @@ class _PopRecPandas:
         Regular prediction for popularity-based models,
         top-k most relevant items from `items` are chosen for each query
         """
-        selected_item_popularity = self._get_selected_item_popularity(items if items is not None else self.fit_items)
-        sorted_df = selected_item_popularity.sort_values(by=[self.rating_column, self.item_column], ascending=False)
-        selected_item_popularity["rank"] = sorted_df.index + 1
+        selected_item_popularity = self._get_selected_item_popularity(items).sort_values(self.item_column, ascending=False)
+        save_df(selected_item_popularity, "pandas_base_predict_wrap_selected_item_popularity")
+        # old method: sorted_df = selected_item_popularity.sort_values(by=[self.rating_column, self.item_column], ascending=False)
+        # old method: selected_item_popularity["rank"] = sorted_df.index + 1
+        selected_item_popularity = selected_item_popularity.sort_values(
+            by=[self.rating_column, self.item_column],
+            ascending=[False, False]
+        ).reset_index(drop=True)
+        selected_item_popularity["rank"] = range(1, len(selected_item_popularity) + 1)
+        save_df(selected_item_popularity, "pandas_base_predict_wrap_selected_item_popularity_rank")
+        
         if filter_seen_items and dataset is not None:
-            queries = PandasDataFrame(queries if queries is not None else self.fit_queries)
+            print("ВОШЛИ В ИФ")
+            queries = PandasDataFrame(queries)
             query_to_num_items = (
                 dataset.interactions.merge(queries, on=self.query_column)
                 .groupby(self.query_column, as_index=False)[self.item_column]
                 .nunique()
             ).rename(columns={self.item_column: "num_items"})
+            save_df(query_to_num_items, "pandas_base_predict_wrap_query_to_num_items")
             queries = queries.merge(query_to_num_items, on=self.query_column, how="left")
             queries = queries.fillna(0)
+            save_df(queries, "pandas_base_predict_wrap_queries_v2")
             max_seen = queries["num_items"].max()  # noqa: F841
             selected_item_popularity = selected_item_popularity.query("rank <= @k + @max_seen")
+            save_df(selected_item_popularity, "pandas_base_predict_wrap_selected_item_popularity_v2")
             joined = queries.merge(selected_item_popularity, how="cross")
-            return joined[joined["rank"] <= (k + joined["num_items"])].drop("num_items", axis=1)
+            return joined[joined["rank"] <= (k + joined["num_items"])]#.drop("rank", axis=1)#.drop("num_items", axis=1)
+        print("НЕ ВОШЛИ В ИФ")
+        joined = queries.merge(selected_item_popularity[selected_item_popularity['rank'] <= k], how="cross")
+        save_df(joined, "pandas_base_predict_wrap_joined")
+        return joined.drop("rank", axis=1)
 
-        joined = queries.merge(selected_item_popularity, how="cross")
-        return joined[joined["rank"] <= k].drop("rank", axis=1)
-
-    # TODO: РЕАЛИЗОВАТЬ predict_with_sampling
+    # TODO: РЕАЛИЗОВАТЬ predict_with_sampling в NonPersonolizedPandasImplementation
 
     def predict(
         self,
@@ -363,14 +380,22 @@ class _PopRecPandas:
             or None if `file_path` is provided
         """
         dataset, queries, items = self._filter_interactions_queries_items_dataframes(dataset, k, queries, items)
+        print(f"pandas: {dataset.interactions.shape[0]=}, {queries.shape[0]=}, {items.shape[0]=}")
+        save_df(dataset.interactions, "pandas_base_predict_wrap_dataset")
+        save_df(queries,"pandas_base_predict_wrap_queries")
+        save_df(items,"pandas_base_predict_wrap_items")
         recs = self._predict_without_sampling(dataset, k, queries, items, filter_seen_items)
-
+        print(f"first {recs.shape[0]=}")
+        save_df(recs, "pandas_base_predict_wrap_recs_1")
         if filter_seen_items and dataset is not None:
             recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
-
-        recs = get_top_k_recs(recs, k=k, query_column=self.query_column, rating_column=self.rating_column)[
-            [self.query_column, self.item_column, self.rating_column]
-        ].reset_index(drop=True)
+            print(f"second {recs.shape[0]=}")
+            save_df(recs, "pandas_base_predict_wrap_recs_2")
+        recs = get_top_k(recs, self.query_column, [(self.rating_column, False), (self.item_column, False)], k)[[
+                self.query_column, self.item_column, self.rating_column
+        ]].reset_index(drop=True)
+        print(f"third {recs.shape[0]=}")
+        save_df(recs, "pandas_base_predict_wrap_recs_3")
         recs = return_recs(recs, recs_file_path)
         return recs
 
@@ -381,9 +406,10 @@ class _PopRecPandas:
         queries: PandasDataFrame = None,
         items: PandasDataFrame = None,
         filter_seen_items=True,
+        recs_file_path: Optional[str] = None,
     ) -> PandasDataFrame:
         self.fit(dataset)
-        return self.predict(dataset, k, queries, items, filter_seen_items)
+        return self.predict(dataset, k, queries, items, filter_seen_items, recs_file_path)
 
     def predict_pairs(self, pairs: PandasDataFrame, dataset: PandasDataFrame = None) -> PandasDataFrame:  # noqa: ARG002
         if self.item_popularity is None:
@@ -409,3 +435,19 @@ class _PopRecPandas:
             saved_params.update(additional_params)
         # TODO: save_picklable_to_parquet(saved_params, join(path, "params.dump"))
         return saved_params
+
+
+def get_different_rows(source_df, new_df): # TODO: remove
+    """Returns just the rows from the new dataframe that differ from the source dataframe"""
+    merged_df = source_df.merge(new_df, indicator=True, how='outer')
+    changed_rows_df = merged_df[merged_df['_merge'] == 'right_only']
+    return changed_rows_df.drop('_merge', axis=1)
+
+def save_df(df, filename):
+    if isinstance(df, SparkDataFrame):
+        df.write.mode("overwrite").parquet(filename)
+        return True
+    elif isinstance(df, PandasDataFrame):
+        df.to_parquet(filename)
+        return True
+    return False

@@ -400,12 +400,14 @@ class _BaseRecommenderSparkImpl(_RecommenderCommonsSparkImpl, IsSavable, ABC):
         if num_seen.count() > 0:
             max_seen = num_seen.select(sf.max("seen_count")).first()[0]
 
+        save_df(num_seen, "spark_base_predict_wrap_num_seen")
+        print("\nspark_num_max_seen = ", max_seen)
         # crop recommendations to first k + max_seen items for each query
         recs = recs.withColumn(
             "temp_rank",
             sf.row_number().over(Window.partitionBy(self.query_column).orderBy(sf.col(self.rating_column).desc())),
         ).filter(sf.col("temp_rank") <= sf.lit(max_seen + k))
-
+        save_df(recs, "spark_base_predict_wrap_temp_rank")
         # leave k + number of items seen by query recommendations in recs
         recs = (
             recs.join(num_seen, on=self.query_column, how="left")
@@ -413,7 +415,7 @@ class _BaseRecommenderSparkImpl(_RecommenderCommonsSparkImpl, IsSavable, ABC):
             .filter(sf.col("temp_rank") <= sf.col("seen_count") + sf.lit(k))
             .drop("temp_rank", "seen_count")
         )
-
+        save_df(recs, "spark_base_predict_wrap_temp_rank_v2")
         # filter recommendations presented in interactions interactions
         recs = recs.join(
             queries_interactions.withColumnRenamed(self.item_column, "item")
@@ -422,7 +424,7 @@ class _BaseRecommenderSparkImpl(_RecommenderCommonsSparkImpl, IsSavable, ABC):
             on=(sf.col(self.query_column) == sf.col("query")) & (sf.col(self.item_column) == sf.col("item")),
             how="anti",
         ).drop("query", "item")
-
+        save_df(recs, "spark_base_predict_wrap_temp_rank_v3")
         return recs
 
     def _filter_interactions_queries_items_dataframes(
@@ -513,7 +515,10 @@ class _BaseRecommenderSparkImpl(_RecommenderCommonsSparkImpl, IsSavable, ABC):
             or None if `file_path` is provided
         """
         dataset, queries, items = self._filter_interactions_queries_items_dataframes(dataset, k, queries, items)
-
+        print(f"{dataset.interactions.count()=}, {queries.count()=}, {items.count()=}")
+        save_df(dataset.interactions,"spark_base_predict_wrap_dataset")
+        save_df(queries,"spark_base_predict_wrap_queries")
+        save_df(items,"spark_base_predict_wrap_items")
         recs = self._predict(
             dataset,
             k,
@@ -521,13 +526,17 @@ class _BaseRecommenderSparkImpl(_RecommenderCommonsSparkImpl, IsSavable, ABC):
             items,
             filter_seen_items,
         )
+        print(f"first {recs.count()=}")
+        save_df(recs, "spark_base_predict_wrap_recs_1")
         if filter_seen_items and dataset is not None:
             recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
-
+            print(f"second {recs.count()=}")
+            save_df(recs, "spark_base_predict_wrap_recs_2")
         recs = get_top_k_recs(recs, k=k, query_column=self.query_column, rating_column=self.rating_column).select(
             self.query_column, self.item_column, self.rating_column
         )
-
+        print(f"third {recs.count()=}")
+        save_df(recs, "spark_base_predict_wrap_recs_3")
         output = return_recs(recs, recs_file_path)
         self._clear_model_temp_view("filter_seen_queries_interactions")
 
@@ -901,6 +910,17 @@ class _BaseRecommenderSparkImpl(_RecommenderCommonsSparkImpl, IsSavable, ABC):
         for param, value in loaded_params.items():
             setattr(self, param, value)
 
+def save_df(df, filename):
+    if isinstance(df, SparkDataFrame):
+        df.write.mode("overwrite").parquet(filename)
+        return True
+    elif isinstance(df, PandasDataFrame):
+        df.to_parquet(filename)
+        return True
+    elif isinstance(df, pd.Series):
+        pd.DataFrame(df).to_parquet(filename)
+        return True
+    return False
 
 class _ItemVectorModelSparkImpl(_BaseRecommenderSparkImpl):
     """Parent for models generating items' vector representations"""
@@ -1446,24 +1466,35 @@ class _NonPersonalizedRecommenderSparkImpl(_RecommenderSparkImpl, ABC):
         top-k most relevant items from `items` are chosen for each query
         """
         selected_item_popularity = self._get_selected_item_popularity(items)
+        print("selected_item_popularity:", selected_item_popularity.count())
+        save_df(selected_item_popularity, "spark_base_predict_wrap_selected_item_popularity")
         selected_item_popularity = selected_item_popularity.withColumn(
             "rank",
             sf.row_number().over(Window.orderBy(sf.col(self.rating_column).desc(), sf.col(self.item_column).desc())),
         )
-
+        save_df(selected_item_popularity, "spark_base_predict_wrap_selected_item_popularity_rank")
         if filter_seen_items and dataset is not None:
+            print("Спарк внутри!")
             query_to_num_items = (
                 dataset.interactions.join(queries, on=self.query_column)
                 .groupBy(self.query_column)
                 .agg(sf.countDistinct(self.item_column).alias("num_items"))
             )
+            print("query_to_num_items:", query_to_num_items.count())
+            save_df(query_to_num_items, "spark_base_predict_wrap_query_to_num_items")
             queries = queries.join(query_to_num_items, on=self.query_column, how="left")
             queries = queries.fillna(0, "num_items")
+            print("queries:", queries.count())
+            save_df(queries, "spark_base_predict_wrap_queries_v2")
             # 'selected_item_popularity' truncation by k + max_seen
             max_seen = queries.select(sf.coalesce(sf.max("num_items"), sf.lit(0))).first()[0]
             selected_item_popularity = selected_item_popularity.filter(sf.col("rank") <= k + max_seen)
+            print("selected_item_popularity:", selected_item_popularity.count())
+            save_df(selected_item_popularity, "spark_base_predict_wrap_selected_item_popularity_v2")
             return queries.join(selected_item_popularity, on=(sf.col("rank") <= k + sf.col("num_items")), how="left")
-
+        print("cross_joined=", queries.crossJoin(selected_item_popularity.filter(sf.col("rank") <= k)).count())
+        save_df(dataset, "spark_base_predict_wrap_joined")
+        print("Спарк снаружи!")
         return queries.crossJoin(selected_item_popularity.filter(sf.col("rank") <= k)).drop("rank")
 
     def get_items_pd(self, items: SparkDataFrame) -> pd.DataFrame:
@@ -1605,7 +1636,7 @@ class _NonPersonalizedRecommenderSparkImpl(_RecommenderSparkImpl, ABC):
             .select(self.query_column, self.item_column, self.rating_column)
         )
 
-    def _predict_proba(  # подумать над тем чтобы убрать
+    def _predict_proba(  # TODO: подумать над тем чтобы убрать
         self, dataset: Dataset, k: int, queries: SparkDataFrame, items: SparkDataFrame, filter_seen_items: bool = True
     ) -> np.ndarray:
         """

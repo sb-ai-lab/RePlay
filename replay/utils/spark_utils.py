@@ -132,7 +132,7 @@ def get_top_k(
     :param k: number of first rows for each entity in ``partition_by_col`` to return
     :return: filtered spark dataframe
     """
-    return (
+    a= (
         dataframe.withColumn(
             "temp_rank",
             sf.row_number().over(Window.partitionBy(partition_by_col).orderBy(*order_by_col)),
@@ -140,6 +140,18 @@ def get_top_k(
         .filter(sf.col("temp_rank") <= k)
         .drop("temp_rank")
     )
+    save_df(a.toPandas(), "spark_base_predict_wrap_top_k_df")
+    return a
+
+from replay.utils import PandasDataFrame, PolarsDataFrame
+def save_df(df, filename):
+    if isinstance(df, PolarsDataFrame):
+        df.write_parquet(filename)
+        return True
+    elif isinstance(df, PandasDataFrame):
+        df.to_parquet(filename)
+        return True
+    return False
 
 
 def get_top_k_recs(
