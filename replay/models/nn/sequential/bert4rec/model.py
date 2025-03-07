@@ -4,6 +4,11 @@ from abc import ABC, abstractmethod
 from typing import Dict, Optional, Union
 
 import torch
+import torch.nn as nn
+
+from bitsandbytes.triton.int8_matmul_mixed_dequantize import int8_matmul_mixed_dequantize
+from bitsandbytes.triton.quantize_rowwise import quantize_rowwise
+from bitsandbytes.triton.triton_utils import is_triton_available
 
 from replay.data.nn import TensorFeatureInfo, TensorMap, TensorSchema
 
@@ -24,6 +29,7 @@ class Bert4RecModel(torch.nn.Module):
         dropout: float = 0.1,
         enable_positional_embedding: bool = True,
         enable_embedding_tying: bool = False,
+        acceleration_config = None
     ) -> None:
         """
         :param schema: Tensor schema of features.
@@ -43,6 +49,7 @@ class Bert4RecModel(torch.nn.Module):
             Default: ``True``.
         :param enable_embedding_tying: Use embedding tying head.
             Default: ``False``.
+        :param acceleration_config: Parameters for accelerated layers in the model. (eg. TransformerBlockFast)
         """
         super().__init__()
 
@@ -64,24 +71,46 @@ class Bert4RecModel(torch.nn.Module):
             dropout=dropout,
             enable_positional_embedding=enable_positional_embedding,
         )
+        
 
-        self.transformer_blocks = torch.nn.ModuleList(
-            [
-                TransformerBlock(
-                    hidden_size,
-                    num_heads,
-                    4 * hidden_size,
-                    dropout,
+        if acceleration_config:
+            if  acceleration_config.get("transformer_block"):
+                self.transformer_blocks = torch.nn.ModuleList(
+                    [
+                        TransformerBlockFast(
+                            hidden_size,
+                            num_heads,
+                            4 * hidden_size,
+                            dropout,
+                            acceleration_config=acceleration_config["transformer_block"]
+                        )
+                        for _ in range(num_blocks)
+                    ]
                 )
-                for _ in range(num_blocks)
-            ]
-        )
+        else:
+            self.transformer_blocks = torch.nn.ModuleList(
+                [
+                    TransformerBlock(
+                        hidden_size,
+                        num_heads,
+                        4 * hidden_size,
+                        dropout,
+                    )
+                    for _ in range(num_blocks)
+                ]
+            )            
 
-        self._head: Union[ClassificationHead, EmbeddingTyingHead]
         if self.enable_embedding_tying:
             self._head = EmbeddingTyingHead(self.item_embedder, self.item_count)
         else:
-            self._head = ClassificationHead(hidden_size, self.item_count)
+            if acceleration_config:
+                if  acceleration_config.get("head"):
+                    if acceleration_config["head"] == "linear_head":
+                        self._head = LinearHead(hidden_size, self.item_count)
+                    elif acceleration_config["head"] == "swichback_head":
+                        self._head = SwichBackHead(hidden_size, self.item_count)
+            else:
+                self._head = ClassificationHead(hidden_size, self.item_count)
 
         self._init()
 
@@ -427,6 +456,129 @@ class ClassificationHead(BaseHead):
         """
         return self.linear.bias
 
+class LinearHead(torch.nn.Module):
+    """
+    Linear layer for classification
+    """
+
+    def __init__(self, hidden_size: int, n_items: int) -> None:
+        """
+        :param hidden_size: Hidden size of transformer.
+        :param n_items: Number of items.
+        """
+        super().__init__()
+        self.linear = torch.nn.Linear(hidden_size, n_items, bias=True)
+
+    def get_item_embeddings(self) -> torch.Tensor:
+        """
+        :returns: Item embeddings.
+        """
+        return self.linear.weight
+
+    def get_bias(self) -> torch.Tensor:
+        """
+        :returns: Bias tensor.
+        """
+        return self.linear.bias
+    
+    def forward(
+        self,
+        out_embeddings: torch.Tensor,
+        item_ids: Optional[torch.LongTensor] = None,
+    ) -> torch.Tensor:
+        """
+        :param out_embeddings: Embeddings after `forward step`.
+        :param item_ids: Item ids to calculate scores.
+            Default: ``None``.
+
+        :returns: Calculated logits.
+        """
+         
+        logits = self.linear(out_embeddings)
+        return logits
+
+
+class _switchback_global(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, X_3D, W, bias):
+        X = X_3D.view(-1, X_3D.size(-1))
+        X_int8, state_X = quantize_rowwise(X)
+        W_int8, state_W = quantize_rowwise(W)
+        ctx.save_for_backward = X, W, bias
+        res = int8_matmul_mixed_dequantize(X_int8, W_int8.t(), state_X, state_W, bias).view(*X_3D.size()[:-1], -1)
+        return res
+
+    @staticmethod
+    def backward(ctx, grad_output_3D):
+        input, weight, bias = ctx.save_for_backward
+        grad_output = grad_output_3D.reshape(-1, grad_output_3D.size(-1))
+        grad_input = grad_weight = grad_bias = None
+        if ctx.needs_input_grad[0]:
+            grad_input = grad_output.matmul(weight.to(grad_output.dtype)).view(*grad_output_3D.size()[:-1], -1)
+        if ctx.needs_input_grad[1]:
+            grad_weight = grad_output.t().matmul(input.to(grad_output.dtype))
+        if bias is not None and ctx.needs_input_grad[2]:
+            grad_bias = grad_output.sum(0)
+        return grad_input, grad_weight, grad_bias
+       
+class SwitchBackLinear(nn.Linear):
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        bias: bool = True,
+        device=None,
+        dtype=None,
+    ):
+        super().__init__(in_features, out_features, bias, device, dtype)
+
+        if not is_triton_available():
+            raise ImportError("""Could not import triton. Please install triton to use SwitchBackLinear.
+                               Alternatively, you can use bnb.nn.SwitchBackLinearBnb, but it will be slower""")
+        self._fn = _switchback_global
+
+
+class SwichBackHead(BaseHead):
+
+    def __init__(self, hidden_size: int, n_items: int) -> None:
+        """
+        :param hidden_size: Hidden size of transformer.
+        :param n_items: Number of items.
+        """
+        super().__init__()
+        self.linear = SwitchBackLinear(hidden_size, n_items, bias=True)
+
+    def get_item_embeddings(self) -> torch.Tensor:
+        """
+        :returns: Item embeddings.
+        """
+        return self.linear.weight
+
+    def get_bias(self) -> torch.Tensor:
+        """
+        :returns: Bias tensor.
+        """
+        return self.linear.bias
+    
+    def forward(self, out_embeddings: torch.Tensor, item_ids: Optional[torch.LongTensor] = None) -> torch.Tensor:
+        """
+        Override the forward to use SwitchBackLinear's custom forward logic.
+
+        :param out_embeddings: Embeddings after `forward step`.
+        :param item_ids: Item ids to calculate scores.
+            Default: ``None``.
+
+        :returns: Calculated logits.
+        """
+        if item_ids is not None:
+            item_embeddings = self.linear.weight[item_ids]
+            bias = self.linear.bias[item_ids]
+        else:
+            item_embeddings = self.linear.weight
+            bias = self.linear.bias
+        logits = self.linear._fn.apply(out_embeddings, item_embeddings, bias)
+        return logits
+
 
 class TransformerBlock(torch.nn.Module):
     """
@@ -480,6 +632,68 @@ class TransformerBlock(torch.nn.Module):
         return self.dropout(z)
 
 
+class TransformerBlockFast(torch.nn.Module):
+    """
+    TransformerBlock with custom layers
+    """
+
+    def __init__(
+        self,
+        hidden_size: int,
+        attn_heads: int,
+        feed_forward_hidden: int,
+        dropout: float,
+        acceleration_config: dict = None
+    ) -> None:
+        """
+        :param hidden_size: Hidden size of transformer.
+        :param attn_heads: Head sizes of multi-head attention.
+        :param feed_forward_hidden: Feed_forward_hidden, usually 4*hidden_size.
+        :param dropout: Dropout rate.
+        :acceleration_config: Parameters for acceleration.
+        """
+        super().__init__()
+        self.attention = torch.nn.MultiheadAttention(hidden_size, attn_heads, dropout=dropout, batch_first=True)
+        self.attention_dropout = torch.nn.Dropout(dropout)
+        self.attention_norm = LayerNorm(hidden_size)
+        
+        if acceleration_config.get("pff_block"):
+            self.pff = PositionwiseFeedForwardFast(
+                d_model=hidden_size, d_ff=feed_forward_hidden, dropout=dropout, 
+                acceleration_config=acceleration_config["pff_block"]
+            )
+        else:
+            self.pff = PositionwiseFeedForward(
+                d_model=hidden_size, d_ff=feed_forward_hidden, dropout=dropout
+            )
+        
+        
+        self.pff_dropout = torch.nn.Dropout(dropout)
+        self.pff_norm = LayerNorm(hidden_size)
+
+        self.dropout = torch.nn.Dropout(p=dropout)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        mask: torch.BoolTensor,
+    ) -> torch.Tensor:
+        """
+        :param x: Input bert embedding.
+        :param mask: Mask where 0 - <MASK>, 1 - otherwise.
+
+        :returns: Embedding after Transformer block applied.
+        """
+        # Attention + skip-connection
+        x_norm = self.attention_norm(x)
+        attent_emb, _ = self.attention(x_norm, x_norm, x_norm, key_padding_mask=~mask, need_weights=False)
+        y = x + self.attention_dropout(attent_emb)
+
+        # PFF + skip-connection
+        z = y + self.pff_dropout(self.pff(self.pff_norm(y)))
+
+        return self.dropout(z)
+
 class LayerNorm(torch.nn.Module):
     """
     Construct a layernorm module (See citation for details).
@@ -532,6 +746,42 @@ class PositionwiseFeedForward(torch.nn.Module):
         :returns: Position wised output.
         """
         return self.w_2(self.dropout(self.activation(self.w_1(x))))
+    
+
+class PositionwiseFeedForwardFast(torch.nn.Module):
+    """
+    Implements FFN equation with different activation functions.
+    """
+
+    def __init__(self, d_model: int, d_ff: int, dropout: float = 0.1, acceleration_config: dict = None) -> None:
+        """
+        :param d_mode: Embedding dimension.
+        :param d_ff: Feed forward dimension, usually 4*d_model.
+        :param dropout: Dropout rate.
+            Default: ``0.1``.
+        :acceleration_config: Parameters for acceleration.
+        """
+        super().__init__()
+        self.w_1 = torch.nn.Linear(d_model, d_ff)
+        self.w_2 = torch.nn.Linear(d_ff, d_model)
+        self.dropout = torch.nn.Dropout(dropout)
+
+        if acceleration_config["act_fn"] == "gelu":
+            self.activation = GELU()
+        elif acceleration_config["act_fn"] == "silu":
+            self.activation = torch.nn.SiLU()
+        elif acceleration_config["act_fn"] == "gelu_pytorch_tanh":
+            self.activation = PytorchGELUTanh()
+        elif acceleration_config["act_fn"] == "relu":
+            self.activation = torch.nn.ReLU()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        :param x: Input tensor.
+
+        :returns: Position wised output.
+        """
+        return self.w_2(self.dropout(self.activation(self.w_1(x))))
 
 
 class GELU(torch.nn.Module):
@@ -546,3 +796,19 @@ class GELU(torch.nn.Module):
         :returns: Activated input tensor.
         """
         return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
+
+
+class PytorchGELUTanh(torch.nn.Module):
+    """
+    A fast C implementation of the tanh approximation of the GeLU activation function. See
+    https://arxiv.org/abs/1606.08415.
+    
+    It is equivalent to NewGELU and FastGELU but much faster. However, it is not an exact numerical
+    match due to rounding errors.
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        return torch.nn.functional.gelu(input, approximate="tanh")
