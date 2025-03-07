@@ -59,7 +59,7 @@ class SasRecCompiled(BaseCompiledModel):
             )
             raise ValueError(msg)
 
-        if (self._batch_size != -1) and (batch.padding_mask.shape[0] != self._batch_size):
+        if self._batch_size != -1 and batch.padding_mask.shape[0] != self._batch_size:
             msg = (
                 f"The batch is smaller then defined batch_size={self._batch_size}. "
                 "It is impossible to infer the model with dynamic batch size in ``mode`` = ``batch``. "
@@ -156,7 +156,7 @@ class SasRecCompiled(BaseCompiledModel):
             onnx_path,
             input_sample=model_input_sample,
             export_params=True,
-            opset_version=14,
+            opset_version=torch.onnx._constants.ONNX_DEFAULT_OPSET,
             do_constant_folding=True,
             input_names=model_input_names,
             output_names=["scores"],

@@ -1,13 +1,12 @@
 import pathlib
 from abc import abstractmethod
-from typing import List, Literal, Optional, Union
+from typing import Any, List, Literal, Optional, Union
 
+import lightning
 import openvino as ov
 import torch
 
 from replay.data.nn import TensorSchema
-from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionBatch
-from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionBatch
 
 OptimizedModeType = Literal[
     "batch",
@@ -25,6 +24,12 @@ def _compile_openvino(
 ) -> ov.CompiledModel:
     """
     Method defines compilation strategy for openvino backend.
+
+    :param onnx_path: Path to the model representation in ONNX format.
+    :param batch_size: Defines whether batch will be static or dynamic length.
+    :param max_seq_len: Defines whether sequence will be static or dynamic length.
+    :param num_candidates_to_score: Defines whether candidates will be static or dynamic length.
+    :param num_threads: Defines number of CPU threads for which the model will be compiled by the OpenVino core.
     """
     core = ov.Core()
     if num_threads is not None:
@@ -68,7 +73,7 @@ class BaseCompiledModel:
     @abstractmethod
     def predict(
         self,
-        batch: Union[Bert4RecPredictionBatch, SasRecPredictionBatch],
+        batch: Any,
         candidates_to_score: Optional[torch.LongTensor] = None,
     ) -> torch.Tensor:
         """
@@ -105,13 +110,13 @@ class BaseCompiledModel:
         self._output_name = compiled_model.output().names.pop()
 
     @staticmethod
-    def _validate_num_candidates_to_score(num_candidates: int):
+    def _validate_num_candidates_to_score(num_candidates: int) -> Union[int, None]:
         """Check if num_candidates param is proper"""
 
         if num_candidates is None:
             return num_candidates
-        if num_candidates == -1 or (num_candidates >= 1 and isinstance(num_candidates, int)):
-            return int(num_candidates)
+        if isinstance(num_candidates, int) and (num_candidates == -1 or num_candidates >= 1):
+            return num_candidates
 
         msg = (
             "Expected num_candidates_to_score to be of type ``int``, equal to ``-1``, ``natural number`` or ``None``. "
@@ -144,13 +149,13 @@ class BaseCompiledModel:
     @abstractmethod
     def compile(
         cls,
-        model: Union[Bert4Rec, SasRec, str, pathlib.Path],
+        model: Union[lightning.LightningModule, str, pathlib.Path],
         mode: OptimizedModeType = "one_query",
         batch_size: Optional[int] = None,
         num_candidates_to_score: Optional[int] = None,
         num_threads: Optional[int] = None,
         onnx_path: Optional[str] = None,
-    ) -> Union["Bert4RecCompiled", "SasRecCompiled"]:  # noqa: F821
+    ) -> "BaseCompiledModel":
         """
         Model compilation.
 

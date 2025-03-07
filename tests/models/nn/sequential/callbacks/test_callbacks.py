@@ -67,11 +67,7 @@ def test_prediction_callbacks_fast_forward(
 
     kwargs = {
         "top_k": 1,
-        "postprocessors": (
-            [RemoveSeenItems(item_user_sequential_dataset, candidates=candidates if candidates is not None else None)]
-            if is_postprocessor
-            else None
-        ),
+        "postprocessors": ([RemoveSeenItems(item_user_sequential_dataset)] if is_postprocessor else None),
     }
     if callback_class in [PandasPredictionCallback, PolarsPredictionCallback, SparkPredictionCallback]:
         kwargs["query_column"] = "user_id"
@@ -93,6 +89,7 @@ def test_prediction_callbacks_fast_forward(
         if isinstance(model, SasRec):
             model.candidates_to_score = candidates
         else:
+            # TODO: remove with bert4rec implementation
             with pytest.raises(NotImplementedError):
                 model.candidates_to_score = candidates
             return
@@ -154,11 +151,7 @@ def test_validation_callbacks(
         metrics=metrics,
         ks=[1],
         item_count=1,
-        postprocessors=(
-            [postprocessor(item_user_sequential_dataset, candidates=candidates if candidates is not None else None)]
-            if postprocessor
-            else None
-        ),
+        postprocessors=([postprocessor(item_user_sequential_dataset)] if postprocessor else None),
     )
 
     trainer = L.Trainer(max_epochs=1, callbacks=[callback])
@@ -224,11 +217,7 @@ def test_validation_callbacks_multiple_dataloaders(
         metrics=metrics,
         ks=[1],
         item_count=1,
-        postprocessors=(
-            [postprocessor(item_user_sequential_dataset, candidates=candidates if candidates is not None else None)]
-            if postprocessor
-            else None
-        ),
+        postprocessors=([postprocessor(item_user_sequential_dataset)] if postprocessor else None),
     )
 
     trainer = L.Trainer(max_epochs=1, callbacks=[callback])

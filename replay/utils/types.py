@@ -25,6 +25,14 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
 
+try:
+    import onnx  # noqa: F401
+    import openvino  # noqa: F401
+
+    OPENVINO_AVAILABLE = True
+except ImportError:
+    OPENVINO_AVAILABLE = False
+
 DataFrameLike = Union[PandasDataFrame, SparkDataFrame, PolarsDataFrame]
 IntOrList = Union[Iterable[int], int]
 NumType = Union[int, float]

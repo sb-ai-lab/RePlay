@@ -14,10 +14,9 @@ class RemoveSeenItems(BasePostProcessor):
     Filters out the items that already have been seen in dataset.
     """
 
-    def __init__(self, sequential: SequentialDataset, candidates: Optional[int] = None) -> None:
+    def __init__(self, sequential: SequentialDataset) -> None:
         super().__init__()
         self._sequential = sequential
-        self._candidates = candidates
         self._apply_candidates = False
 
     def on_validation(

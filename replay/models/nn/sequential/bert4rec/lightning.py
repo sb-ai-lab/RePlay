@@ -527,7 +527,7 @@ class Bert4Rec(lightning.LightningModule):
         """
         Returns tensor of item ids to calculate scores.
         """
-        raise NotImplementedError()
+        return None
 
     @candidates_to_score.setter
     def candidates_to_score(self, candidates: Optional[torch.LongTensor] = None) -> None:
