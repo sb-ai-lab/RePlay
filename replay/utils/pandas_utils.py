@@ -130,7 +130,10 @@ def return_recs(recs: pd.DataFrame, recs_file_path: Optional[str] = None) -> pd.
     recs.to_parquet(recs_file_path, index=False)
     return None
 
+
 from replay.utils import PandasDataFrame, PolarsDataFrame
+
+
 def save_df(df, filename):
     if isinstance(df, PolarsDataFrame):
         df.write_parquet(filename)

@@ -137,6 +137,8 @@ class _PopRecSpark(_NonPersonalizedRecommenderSparkImpl):
 
 
 from replay.utils import PandasDataFrame, SparkDataFrame
+
+
 def save_df(df, filename):
     if isinstance(df, SparkDataFrame):
         df.write.mode("overwrite").parquet(filename)

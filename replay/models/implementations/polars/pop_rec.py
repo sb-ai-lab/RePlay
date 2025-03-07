@@ -92,8 +92,7 @@ class _PopRecPolars:
         self.fit_items = dataset.interactions.select(self.item_column).unique()
         self.fit_queries = dataset.interactions.select(self.query_column).unique()
         # TODO: IMPORTANT: rewrite self.fit items like _BaseRecSparkImpl._fit_wrap if-else
-        
-        
+
         self._num_queries = self.fit_queries.height
         self._num_items = self.fit_items.height
         self._query_dim_size = self.fit_queries.select(pl.col(self.query_column)).max().item() + 1
@@ -117,7 +116,7 @@ class _PopRecPolars:
         )
         item_popularity = item_popularity.sort(self.item_column, self.rating_column)
         print(f"fit {item_popularity.shape[0]=}")
-        #print("item_popularity problem:\n", item_popularity[item_popularity[self.item_column].isin([16, 17, 24,25, 110,111, 265, 266, 296, 297])])
+        # print("item_popularity problem:\n", item_popularity[item_popularity[self.item_column].isin([16, 17, 24,25, 110,111, 265, 266, 296, 297])])
         save_df(item_popularity, "polars_base_predict_wrap_item_popularity_v2")
         self.item_popularity = item_popularity
         self.fill = self._calc_fill(self.item_popularity, self.cold_weight, self.rating_column)
@@ -257,7 +256,7 @@ class _PopRecPolars:
         sorted_df = sorted_df.with_row_count("rank", offset=1)
         selected_item_popularity = sorted_df
         save_df(selected_item_popularity, "polars_base_predict_wrap_selected_item_popularity_rank")
-        
+
         if filter_seen_items and dataset is not None:
             print("INTO POLARS IF")
             queries = queries if queries is not None else self.fit_queries
@@ -268,18 +267,18 @@ class _PopRecPolars:
                 .agg(pl.col(self.item_column).n_unique().alias("num_items"))
             )
             save_df(query_to_num_items, "polars_base_predict_wrap_query_to_num_items")
-            
+
             queries = queries.join(query_to_num_items, on=self.query_column, how="left").with_columns(
                 pl.col("num_items").fill_null(0)
             )
             save_df(queries, "polars_base_predict_wrap_queries_v2")
-            
+
             max_seen = queries.select(pl.col("num_items").max()).item()
             selected_item_popularity = selected_item_popularity.filter(pl.col("rank") <= (k + max_seen))
             # Cross join queries with the selected items
             save_df(selected_item_popularity, "polars_base_predict_wrap_selected_item_popularity_v2")
             joined = queries.join(selected_item_popularity, how="cross")
-            joined = joined.filter(pl.col("rank") <= (k + pl.col("num_items")))#.drop("rank")
+            joined = joined.filter(pl.col("rank") <= (k + pl.col("num_items")))  # .drop("rank")
             return joined
         print("NOT INTO POLARS IF")
         joined = queries.join(selected_item_popularity, how="cross")
@@ -297,12 +296,12 @@ class _PopRecPolars:
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
     ) -> Optional[pl.DataFrame]:
-        
+
         dataset, queries, items = self._filter_interactions_queries_items_dataframes(dataset, k, queries, items)
         print(f"polars: {dataset.interactions.shape[0]=}, {queries.shape[0]=}, {items.shape[0]=}")
         save_df(dataset.interactions, "polars_base_predict_wrap_dataset")
-        save_df(queries,"polars_base_predict_wrap_queries")
-        save_df(items,"polars_base_predict_wrap_items")
+        save_df(queries, "polars_base_predict_wrap_queries")
+        save_df(items, "polars_base_predict_wrap_items")
         recs = self._predict_without_sampling(dataset, k, queries, items, filter_seen_items)
         print(f"first {recs.shape[0]=}")
         save_df(recs, "polars_base_predict_wrap_recs_1")
@@ -310,12 +309,12 @@ class _PopRecPolars:
             recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
             print(f"second {recs.shape[0]=}")
             save_df(recs, "polars_base_predict_wrap_recs_2")
-        #recs = get_top_k_recs(recs, k=k, query_column=self.query_column, rating_column=self.rating_column).select(
+        # recs = get_top_k_recs(recs, k=k, query_column=self.query_column, rating_column=self.rating_column).select(
         #    [self.query_column, self.item_column, self.rating_column]
-        #)
+        # )
         recs = get_top_k(recs, self.query_column, [(self.rating_column, False), (self.item_column, False)], k).select(
-                self.query_column, self.item_column, self.rating_column
-            )
+            self.query_column, self.item_column, self.rating_column
+        )
         print(f"third {recs.shape[0]=}")
         save_df(recs, "polars_base_predict_wrap_recs_3")
         recs = return_recs(recs, recs_file_path)
@@ -355,8 +354,9 @@ class _PopRecPolars:
         }
         if additional_params is not None:
             saved_params.update(additional_params)
-            #TODO: saving
+            # TODO: saving
         return saved_params
+
 
 def save_df(df, filename):
     if isinstance(df, PolarsDataFrame):

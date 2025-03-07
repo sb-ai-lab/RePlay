@@ -516,9 +516,9 @@ class _BaseRecommenderSparkImpl(_RecommenderCommonsSparkImpl, IsSavable, ABC):
         """
         dataset, queries, items = self._filter_interactions_queries_items_dataframes(dataset, k, queries, items)
         print(f"{dataset.interactions.count()=}, {queries.count()=}, {items.count()=}")
-        save_df(dataset.interactions,"spark_base_predict_wrap_dataset")
-        save_df(queries,"spark_base_predict_wrap_queries")
-        save_df(items,"spark_base_predict_wrap_items")
+        save_df(dataset.interactions, "spark_base_predict_wrap_dataset")
+        save_df(queries, "spark_base_predict_wrap_queries")
+        save_df(items, "spark_base_predict_wrap_items")
         recs = self._predict(
             dataset,
             k,
@@ -910,6 +910,7 @@ class _BaseRecommenderSparkImpl(_RecommenderCommonsSparkImpl, IsSavable, ABC):
         for param, value in loaded_params.items():
             setattr(self, param, value)
 
+
 def save_df(df, filename):
     if isinstance(df, SparkDataFrame):
         df.write.mode("overwrite").parquet(filename)
@@ -921,6 +922,7 @@ def save_df(df, filename):
         pd.DataFrame(df).to_parquet(filename)
         return True
     return False
+
 
 class _ItemVectorModelSparkImpl(_BaseRecommenderSparkImpl):
     """Parent for models generating items' vector representations"""

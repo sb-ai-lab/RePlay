@@ -3,6 +3,7 @@ from typing import Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
 import polars as pl
+
 from replay.utils import PolarsDataFrame
 
 
@@ -87,12 +88,14 @@ def get_top_k(
     print(f"polars {type(sorted_df)=}, {is_true=}")
 
     # Group by the partition column and take the first k rows per group.
-    top_k_df = sorted_df.group_by(partition_by_col).map_groups(
-        lambda group: group.sort(by=sort_columns, descending=sort_descending).head(k)
-        ).sort(by=sort_columns)
+    top_k_df = (
+        sorted_df.group_by(partition_by_col)
+        .map_groups(lambda group: group.sort(by=sort_columns, descending=sort_descending).head(k))
+        .sort(by=sort_columns)
+    )
     is_true = save_df(top_k_df, "polars_base_predict_wrap_top_k_df")
     print(f"polars {type(sorted_df)=}, {is_true=}")
-    
+
     return top_k_df
 
 
@@ -101,7 +104,6 @@ def get_top_k_recs(
     k: int,
     query_column: str = "user_idx",
     rating_column: str = "relevance",
-
 ) -> pl.DataFrame:
     """
     Get top k recommendations by `rating`.
@@ -118,7 +120,9 @@ def get_top_k_recs(
     return get_top_k(
         dataframe=recs,
         partition_by_col=query_column,
-        order_by_col=[(rating_column, False), ],
+        order_by_col=[
+            (rating_column, False),
+        ],
         k=k,
     )
 
@@ -138,7 +142,8 @@ def return_recs(recs: pl.DataFrame, recs_file_path: Optional[str] = None) -> Opt
     recs.write_parquet(recs_file_path)
     return None
 
-def save_df(df, filename): #TODO : delete later
+
+def save_df(df, filename):  # TODO : delete later
     if isinstance(df, PolarsDataFrame):
         df.write_parquet(filename)
         return True

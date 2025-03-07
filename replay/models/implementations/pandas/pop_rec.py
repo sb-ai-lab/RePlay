@@ -107,7 +107,7 @@ class _PopRecPandas:
         self.item_column = dataset.feature_schema.item_id_column
         self.rating_column = dataset.feature_schema.interactions_rating_column
         self.timestamp_column = dataset.feature_schema.interactions_timestamp_column
-        self.fit_items = pd.DataFrame(dataset.interactions[self.item_column].drop_duplicates()) 
+        self.fit_items = pd.DataFrame(dataset.interactions[self.item_column].drop_duplicates())
         # TODO: IMPORTANT: rewrite self.fit items like _BaseRecSparkImpl._fit_wrap if-else
         self.fit_queries = pd.DataFrame(dataset.interactions[self.query_column].drop_duplicates())
         self._num_queries = self.fit_queries.shape[0]
@@ -125,11 +125,13 @@ class _PopRecPandas:
         print(f"fit {self.queries_count=}")
         print(f"fit {item_popularity.shape[0]=}")
         save_df(item_popularity, "pandas_base_predict_wrap_item_popularity_v1")
-        item_popularity[self.rating_column] = round(item_popularity[self.rating_column] / self.queries_count, 10) # TODO: поменять располжение во всех фреймворках
+        item_popularity[self.rating_column] = round(
+            item_popularity[self.rating_column] / self.queries_count, 10
+        )  # TODO: поменять располжение во всех фреймворках
         item_popularity = item_popularity.sort_values([self.item_column, self.rating_column])
         print(f"fit {item_popularity.shape[0]=}")
         save_df(item_popularity, "pandas_base_predict_wrap_item_popularity_v2")
-       
+
         self.item_popularity = item_popularity
         self.fill = self._calc_fill(self.item_popularity, self.cold_weight, self.rating_column)
         print(f"pandas fit {self.fill=}")
@@ -169,7 +171,7 @@ class _PopRecPandas:
         save_df(num_seen, "pandas_base_predict_wrap_num_seen")
         print("\npandas_num_max_seen = ", max_seen)
         # Rank recommendations to first k + max_seen items for each query
-        #old_method: recs["temp_rank"] = recs.groupby(self.query_column)[self.rating_column].rank(method="first", ascending=False)
+        # old_method: recs["temp_rank"] = recs.groupby(self.query_column)[self.rating_column].rank(method="first", ascending=False)
         recs = recs.sort_values(by=[self.query_column, self.rating_column], ascending=[True, False])
         recs["temp_rank"] = recs.groupby(self.query_column).cumcount() + 1
         recs = recs[recs["temp_rank"] <= max_seen + k]
@@ -312,17 +314,18 @@ class _PopRecPandas:
         Regular prediction for popularity-based models,
         top-k most relevant items from `items` are chosen for each query
         """
-        selected_item_popularity = self._get_selected_item_popularity(items).sort_values(self.item_column, ascending=False)
+        selected_item_popularity = self._get_selected_item_popularity(items).sort_values(
+            self.item_column, ascending=False
+        )
         save_df(selected_item_popularity, "pandas_base_predict_wrap_selected_item_popularity")
         # old method: sorted_df = selected_item_popularity.sort_values(by=[self.rating_column, self.item_column], ascending=False)
         # old method: selected_item_popularity["rank"] = sorted_df.index + 1
         selected_item_popularity = selected_item_popularity.sort_values(
-            by=[self.rating_column, self.item_column],
-            ascending=[False, False]
+            by=[self.rating_column, self.item_column], ascending=[False, False]
         ).reset_index(drop=True)
         selected_item_popularity["rank"] = range(1, len(selected_item_popularity) + 1)
         save_df(selected_item_popularity, "pandas_base_predict_wrap_selected_item_popularity_rank")
-        
+
         if filter_seen_items and dataset is not None:
             print("ВОШЛИ В ИФ")
             queries = PandasDataFrame(queries)
@@ -339,9 +342,11 @@ class _PopRecPandas:
             selected_item_popularity = selected_item_popularity.query("rank <= @k + @max_seen")
             save_df(selected_item_popularity, "pandas_base_predict_wrap_selected_item_popularity_v2")
             joined = queries.merge(selected_item_popularity, how="cross")
-            return joined[joined["rank"] <= (k + joined["num_items"])]#.drop("rank", axis=1)#.drop("num_items", axis=1)
+            return joined[
+                joined["rank"] <= (k + joined["num_items"])
+            ]  # .drop("rank", axis=1)#.drop("num_items", axis=1)
         print("НЕ ВОШЛИ В ИФ")
-        joined = queries.merge(selected_item_popularity[selected_item_popularity['rank'] <= k], how="cross")
+        joined = queries.merge(selected_item_popularity[selected_item_popularity["rank"] <= k], how="cross")
         save_df(joined, "pandas_base_predict_wrap_joined")
         return joined.drop("rank", axis=1)
 
@@ -382,8 +387,8 @@ class _PopRecPandas:
         dataset, queries, items = self._filter_interactions_queries_items_dataframes(dataset, k, queries, items)
         print(f"pandas: {dataset.interactions.shape[0]=}, {queries.shape[0]=}, {items.shape[0]=}")
         save_df(dataset.interactions, "pandas_base_predict_wrap_dataset")
-        save_df(queries,"pandas_base_predict_wrap_queries")
-        save_df(items,"pandas_base_predict_wrap_items")
+        save_df(queries, "pandas_base_predict_wrap_queries")
+        save_df(items, "pandas_base_predict_wrap_items")
         recs = self._predict_without_sampling(dataset, k, queries, items, filter_seen_items)
         print(f"first {recs.shape[0]=}")
         save_df(recs, "pandas_base_predict_wrap_recs_1")
@@ -391,9 +396,9 @@ class _PopRecPandas:
             recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
             print(f"second {recs.shape[0]=}")
             save_df(recs, "pandas_base_predict_wrap_recs_2")
-        recs = get_top_k(recs, self.query_column, [(self.rating_column, False), (self.item_column, False)], k)[[
-                self.query_column, self.item_column, self.rating_column
-        ]].reset_index(drop=True)
+        recs = get_top_k(recs, self.query_column, [(self.rating_column, False), (self.item_column, False)], k)[
+            [self.query_column, self.item_column, self.rating_column]
+        ].reset_index(drop=True)
         print(f"third {recs.shape[0]=}")
         save_df(recs, "pandas_base_predict_wrap_recs_3")
         recs = return_recs(recs, recs_file_path)
@@ -437,11 +442,12 @@ class _PopRecPandas:
         return saved_params
 
 
-def get_different_rows(source_df, new_df): # TODO: remove
+def get_different_rows(source_df, new_df):  # TODO: remove
     """Returns just the rows from the new dataframe that differ from the source dataframe"""
-    merged_df = source_df.merge(new_df, indicator=True, how='outer')
-    changed_rows_df = merged_df[merged_df['_merge'] == 'right_only']
-    return changed_rows_df.drop('_merge', axis=1)
+    merged_df = source_df.merge(new_df, indicator=True, how="outer")
+    changed_rows_df = merged_df[merged_df["_merge"] == "right_only"]
+    return changed_rows_df.drop("_merge", axis=1)
+
 
 def save_df(df, filename):
     if isinstance(df, SparkDataFrame):
