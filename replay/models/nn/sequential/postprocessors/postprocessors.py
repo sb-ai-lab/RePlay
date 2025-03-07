@@ -18,6 +18,7 @@ class RemoveSeenItems(BasePostProcessor):
         super().__init__()
         self._sequential = sequential
         self._apply_candidates = False
+        self._candidates = None
 
     def on_validation(
         self, query_ids: torch.LongTensor, scores: torch.Tensor, ground_truth: torch.LongTensor
