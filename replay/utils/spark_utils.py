@@ -140,21 +140,7 @@ def get_top_k(
         .filter(sf.col("temp_rank") <= k)
         .drop("temp_rank")
     )
-    save_df(a.toPandas(), "spark_base_predict_wrap_top_k_df")
     return a
-
-
-from replay.utils import PandasDataFrame, PolarsDataFrame
-
-
-def save_df(df, filename):
-    if isinstance(df, PolarsDataFrame):
-        df.write_parquet(filename)
-        return True
-    elif isinstance(df, PandasDataFrame):
-        df.to_parquet(filename)
-        return True
-    return False
 
 
 def get_top_k_recs(

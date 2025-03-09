@@ -4,8 +4,6 @@ from typing import Iterable, List, Optional, Tuple, Union
 import pandas as pd
 import polars as pl
 
-from replay.utils import PolarsDataFrame
-
 
 def filter_cold(
     df: Optional[pl.DataFrame],
@@ -84,18 +82,12 @@ def get_top_k(
     # In polars the sort 'descending' parameter is the opposite of pandas 'ascending' parameter.
     sort_descending = [not asc for asc in sort_ascending]
     sorted_df = dataframe.sort(by=sort_columns, descending=sort_descending)
-    is_true = save_df(sorted_df, "polars_base_predict_wrap_sorted_df")
-    print(f"polars {type(sorted_df)=}, {is_true=}")
-
     # Group by the partition column and take the first k rows per group.
     top_k_df = (
         sorted_df.group_by(partition_by_col)
         .map_groups(lambda group: group.sort(by=sort_columns, descending=sort_descending).head(k))
         .sort(by=sort_columns)
     )
-    is_true = save_df(top_k_df, "polars_base_predict_wrap_top_k_df")
-    print(f"polars {type(sorted_df)=}, {is_true=}")
-
     return top_k_df
 
 
@@ -141,10 +133,3 @@ def return_recs(recs: pl.DataFrame, recs_file_path: Optional[str] = None) -> Opt
 
     recs.write_parquet(recs_file_path)
     return None
-
-
-def save_df(df, filename):  # TODO : delete later
-    if isinstance(df, PolarsDataFrame):
-        df.write_parquet(filename)
-        return True
-    return False

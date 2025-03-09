@@ -1,11 +1,19 @@
 import logging
+from os.path import join
 from typing import Any, Dict, Iterable, Optional, Union
 
 import pandas as pd
 
 from replay.data.dataset import Dataset
-from replay.utils import PandasDataFrame, SparkDataFrame
-from replay.utils.pandas_utils import filter_cold, get_top_k, get_unique_entities, return_recs
+from replay.utils import PandasDataFrame
+from replay.utils.pandas_utils import (
+    filter_cold,
+    get_top_k,
+    get_unique_entities,
+    load_pickled_from_parquet,
+    return_recs,
+    save_picklable_to_parquet,
+)
 
 
 class _PopRecPandas:
@@ -107,34 +115,35 @@ class _PopRecPandas:
         self.item_column = dataset.feature_schema.item_id_column
         self.rating_column = dataset.feature_schema.interactions_rating_column
         self.timestamp_column = dataset.feature_schema.interactions_timestamp_column
-        self.fit_items = pd.DataFrame(dataset.interactions[self.item_column].drop_duplicates())
-        # TODO: IMPORTANT: rewrite self.fit items like _BaseRecSparkImpl._fit_wrap if-else
-        self.fit_queries = pd.DataFrame(dataset.interactions[self.query_column].drop_duplicates())
+        if dataset.query_features is None:
+            self.fit_queries = dataset.interactions[[self.query_column]].drop_duplicates()
+        else:
+            self.fit_queries = pd.concat(
+                [dataset.interactions[[self.query_column]], dataset.query_features[[self.query_column]]],
+                ignore_index=True,
+            ).drop_duplicates()
+
+        if dataset.item_features is None:
+            self.fit_items = dataset.interactions[[self.item_column]].drop_duplicates()
+        else:
+            self.fit_items = pd.concat(
+                [dataset.interactions[[self.item_column]], dataset.item_features[[self.item_column]]], ignore_index=True
+            ).drop_duplicates()
+
         self._num_queries = self.fit_queries.shape[0]
         self._num_items = self.fit_items.shape[0]
         self._query_dim_size = self.fit_queries.max() + 1
         self._item_dim_size = self.fit_items.max() + 1
         interactions_df = dataset.interactions
-        print(f"fit {interactions_df.shape[0]=}")
-        save_df(interactions_df, "pandas_base_predict_wrap_interactions")
         if self.use_rating:
             item_popularity = interactions_df.groupby(self.item_column, as_index=False)[self.rating_column].sum()
         else:
             item_popularity = interactions_df.groupby(self.item_column, as_index=False)[self.query_column].nunique()
             item_popularity.rename(columns={self.query_column: self.rating_column}, inplace=True)
-        print(f"fit {self.queries_count=}")
-        print(f"fit {item_popularity.shape[0]=}")
-        save_df(item_popularity, "pandas_base_predict_wrap_item_popularity_v1")
-        item_popularity[self.rating_column] = round(
-            item_popularity[self.rating_column] / self.queries_count, 10
-        )  # TODO: поменять располжение во всех фреймворках
+        item_popularity[self.rating_column] = round(item_popularity[self.rating_column] / self.queries_count, 10)
         item_popularity = item_popularity.sort_values([self.item_column, self.rating_column])
-        print(f"fit {item_popularity.shape[0]=}")
-        save_df(item_popularity, "pandas_base_predict_wrap_item_popularity_v2")
-
         self.item_popularity = item_popularity
         self.fill = self._calc_fill(self.item_popularity, self.cold_weight, self.rating_column)
-        print(f"pandas fit {self.fill=}")
         return self
 
     @staticmethod
@@ -168,19 +177,14 @@ class _PopRecPandas:
         )
 
         max_seen = num_seen["seen_count"].max() if not num_seen.empty else 0
-        save_df(num_seen, "pandas_base_predict_wrap_num_seen")
-        print("\npandas_num_max_seen = ", max_seen)
         # Rank recommendations to first k + max_seen items for each query
-        # old_method: recs["temp_rank"] = recs.groupby(self.query_column)[self.rating_column].rank(method="first", ascending=False)
         recs = recs.sort_values(by=[self.query_column, self.rating_column], ascending=[True, False])
         recs["temp_rank"] = recs.groupby(self.query_column).cumcount() + 1
         recs = recs[recs["temp_rank"] <= max_seen + k]
-        save_df(recs, "pandas_base_predict_wrap_temp_rank")
         recs = recs.merge(num_seen, on=self.query_column, how="left").fillna({"seen_count": 0})
 
         # Filter based on ranking
         recs = recs[recs["temp_rank"] <= recs["seen_count"] + k].drop(columns=["temp_rank", "seen_count"])
-        save_df(recs, "pandas_base_predict_wrap_temp_rank_v2")
         # Filter recommendations presented in interactions
         queries_interactions = queries_interactions.rename(
             columns={self.item_column: "item", self.query_column: "query"}
@@ -192,10 +196,7 @@ class _PopRecPandas:
             how="left",
             indicator=True,
         )
-        recs = recs[recs["_merge"] == "left_only"].drop(
-            columns=["query", "item", "_merge"]
-        )  # TODO: check its all ok with join
-        save_df(recs, "pandas_base_predict_wrap_temp_rank_v3")
+        recs = recs[recs["_merge"] == "left_only"].drop(columns=["query", "item", "_merge"])
         return recs
 
     def _filter_cold_for_predict(
@@ -317,40 +318,37 @@ class _PopRecPandas:
         selected_item_popularity = self._get_selected_item_popularity(items).sort_values(
             self.item_column, ascending=False
         )
-        save_df(selected_item_popularity, "pandas_base_predict_wrap_selected_item_popularity")
-        # old method: sorted_df = selected_item_popularity.sort_values(by=[self.rating_column, self.item_column], ascending=False)
-        # old method: selected_item_popularity["rank"] = sorted_df.index + 1
         selected_item_popularity = selected_item_popularity.sort_values(
             by=[self.rating_column, self.item_column], ascending=[False, False]
         ).reset_index(drop=True)
         selected_item_popularity["rank"] = range(1, len(selected_item_popularity) + 1)
-        save_df(selected_item_popularity, "pandas_base_predict_wrap_selected_item_popularity_rank")
 
         if filter_seen_items and dataset is not None:
-            print("ВОШЛИ В ИФ")
             queries = PandasDataFrame(queries)
             query_to_num_items = (
                 dataset.interactions.merge(queries, on=self.query_column)
                 .groupby(self.query_column, as_index=False)[self.item_column]
                 .nunique()
             ).rename(columns={self.item_column: "num_items"})
-            save_df(query_to_num_items, "pandas_base_predict_wrap_query_to_num_items")
             queries = queries.merge(query_to_num_items, on=self.query_column, how="left")
             queries = queries.fillna(0)
-            save_df(queries, "pandas_base_predict_wrap_queries_v2")
             max_seen = queries["num_items"].max()  # noqa: F841
             selected_item_popularity = selected_item_popularity.query("rank <= @k + @max_seen")
-            save_df(selected_item_popularity, "pandas_base_predict_wrap_selected_item_popularity_v2")
             joined = queries.merge(selected_item_popularity, how="cross")
-            return joined[
-                joined["rank"] <= (k + joined["num_items"])
-            ]  # .drop("rank", axis=1)#.drop("num_items", axis=1)
-        print("НЕ ВОШЛИ В ИФ")
+            return joined[joined["rank"] <= (k + joined["num_items"])]
         joined = queries.merge(selected_item_popularity[selected_item_popularity["rank"] <= k], how="cross")
-        save_df(joined, "pandas_base_predict_wrap_joined")
         return joined.drop("rank", axis=1)
 
-    # TODO: РЕАЛИЗОВАТЬ predict_with_sampling в NonPersonolizedPandasImplementation
+    def _predict_with_sampling(
+        self,
+        dataset: Dataset,
+        k: int,
+        queries: PandasDataFrame,
+        items: PandasDataFrame,
+        filter_seen_items: bool = True,
+    ) -> PandasDataFrame:
+        # TODO: In Other NonPersonolizedRecommeder models we need to use _predict_with sample
+        raise NotImplementedError()
 
     def predict(
         self,
@@ -385,22 +383,12 @@ class _PopRecPandas:
             or None if `file_path` is provided
         """
         dataset, queries, items = self._filter_interactions_queries_items_dataframes(dataset, k, queries, items)
-        print(f"pandas: {dataset.interactions.shape[0]=}, {queries.shape[0]=}, {items.shape[0]=}")
-        save_df(dataset.interactions, "pandas_base_predict_wrap_dataset")
-        save_df(queries, "pandas_base_predict_wrap_queries")
-        save_df(items, "pandas_base_predict_wrap_items")
         recs = self._predict_without_sampling(dataset, k, queries, items, filter_seen_items)
-        print(f"first {recs.shape[0]=}")
-        save_df(recs, "pandas_base_predict_wrap_recs_1")
         if filter_seen_items and dataset is not None:
             recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
-            print(f"second {recs.shape[0]=}")
-            save_df(recs, "pandas_base_predict_wrap_recs_2")
         recs = get_top_k(recs, self.query_column, [(self.rating_column, False), (self.item_column, False)], k)[
             [self.query_column, self.item_column, self.rating_column]
         ].reset_index(drop=True)
-        print(f"third {recs.shape[0]=}")
-        save_df(recs, "pandas_base_predict_wrap_recs_3")
         recs = return_recs(recs, recs_file_path)
         return recs
 
@@ -424,12 +412,13 @@ class _PopRecPandas:
         preds[self.rating_column].fillna(self._calc_fill(), inplace=True)
         return preds[[self.query_column, self.item_column, self.rating_column]]
 
-    def predict_proba(
-        self, dataset: PandasDataFrame, k: int, queries, items: PandasDataFrame, filter_seen_items=True  # noqa: ARG002
+    def _predict_proba(
+        self, dataset: PandasDataFrame, k: int, queries, items: PandasDataFrame, filter_seen_items=True
     ) -> PandasDataFrame:
-        return NotImplementedError()
+        # TODO: Implement it in NonPersonolizedRecommender, if you need this function in other models
+        raise NotImplementedError()
 
-    def save_model(self, path: str, additional_params=None):  # noqa: ARG002
+    def save_model(self, path: str, additional_params=None):
         saved_params = {
             "query_column": self.query_column,
             "item_column": self.item_column,
@@ -438,22 +427,10 @@ class _PopRecPandas:
         }
         if additional_params is not None:
             saved_params.update(additional_params)
-        # TODO: save_picklable_to_parquet(saved_params, join(path, "params.dump"))
+        save_picklable_to_parquet(saved_params, join(path, "params.dump"))
         return saved_params
 
-
-def get_different_rows(source_df, new_df):  # TODO: remove
-    """Returns just the rows from the new dataframe that differ from the source dataframe"""
-    merged_df = source_df.merge(new_df, indicator=True, how="outer")
-    changed_rows_df = merged_df[merged_df["_merge"] == "right_only"]
-    return changed_rows_df.drop("_merge", axis=1)
-
-
-def save_df(df, filename):
-    if isinstance(df, SparkDataFrame):
-        df.write.mode("overwrite").parquet(filename)
-        return True
-    elif isinstance(df, PandasDataFrame):
-        df.to_parquet(filename)
-        return True
-    return False
+    def load_model(self, path: str):
+        loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
+        for param, value in loaded_params.items():
+            setattr(self, param, value)

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Dict
 
 
-class IsSavable(ABC):  # TODO: Think about remove to other module
+class IsSavable(ABC):  # TODO: Think about remove to other module and use to PandasImpl, PolarsImpl
     """
     Common methods and attributes for saving and loading RePlay models
     """
