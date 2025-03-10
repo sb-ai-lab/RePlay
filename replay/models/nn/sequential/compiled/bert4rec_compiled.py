@@ -155,6 +155,7 @@ class Bert4RecCompiled(BaseCompiledModel):
         else:
             is_saveble = True
 
+        # Need to disable "Better Transformer" optimizations that interfere with the compilation process
         torch.backends.mha.set_fastpath_enabled(value=False)
         lightning_model.to_onnx(
             onnx_path,
