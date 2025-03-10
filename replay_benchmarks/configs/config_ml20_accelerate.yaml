@@ -24,7 +24,6 @@ metrics:
     - precision
     - map
     - mrr
-    - coverage
   ks:
     - 1
     - 5

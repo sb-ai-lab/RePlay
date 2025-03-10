@@ -3,6 +3,8 @@ import os
 from abc import ABC, abstractmethod
 from typing import Tuple
 
+import pandas as pd
+
 from replay_benchmarks.preprocessing import DatasetManager
 from replay.data import (
     FeatureHint,
@@ -116,6 +118,12 @@ class BaseRunner(ABC):
             check_consistency=True,
             categorical_encoded=False,
         )
+        train_val_dataset = Dataset(
+            feature_schema=self.prepare_feature_schema(is_ground_truth=False),
+            interactions=pd.concat([train_events, validation_events], ignore_index=True),
+            check_consistency=True,
+            categorical_encoded=False,
+        )
         validation_dataset = Dataset(
             feature_schema=self.prepare_feature_schema(is_ground_truth=False),
             interactions=validation_events,
@@ -143,6 +151,7 @@ class BaseRunner(ABC):
 
         return (
             train_dataset,
+            train_val_dataset,
             validation_dataset,
             validation_gt_dataset,
             test_dataset,
@@ -152,6 +161,7 @@ class BaseRunner(ABC):
     def prepare_seq_datasets(
         self,
         train_dataset: Dataset,
+        train_val_dataset: Dataset,
         validation_dataset: Dataset,
         validation_gt: Dataset,
         test_dataset: Dataset,
@@ -161,7 +171,7 @@ class BaseRunner(ABC):
     ]:
         """Prepare SequentialDataset objects for training, validation, and testing."""
         logging.info("Preparing SequentialDataset objects...")
-        self.tokenizer = self.tokenizer or self._initialize_tokenizer(train_dataset)
+        self.tokenizer = self.tokenizer or self._initialize_tokenizer(train_val_dataset)
 
         seq_train_dataset = self.tokenizer.transform(train_dataset)
         seq_validation_dataset, seq_validation_gt = self._prepare_sequential_validation(

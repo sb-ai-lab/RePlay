@@ -6,8 +6,8 @@ import json
 
 from rs_datasets import MovieLens, Netflix
 
-from replay.splitters import TimeSplitter
-from replay.preprocessing.filters import MinCountFilter, NumInteractionsFilter
+from replay.splitters import TimeSplitter, LastNSplitter, ColdUserRandomSplitter
+from replay.preprocessing.filters import MinCountFilter
 
 DATASET_MAPPINGS = {
     "zvuk": {"kaggle": "alexxl/zvuk-dataset", "file": "zvuk-interactions.parquet"},
@@ -154,7 +154,7 @@ class DatasetManager:
                     self.timestamp_column,
                 ],
             )
-            interactions['timestamp'] = pd.to_datetime(interactions['timestamp'])
+            interactions["timestamp"] = pd.to_datetime(interactions["timestamp"])
         else:
             interactions = pd.read_parquet(raw_data_file)
         interactions[self.timestamp_column] = interactions[
@@ -237,61 +237,42 @@ class DatasetManager:
 
     def _split_data(self, interactions):
         """Split data for training, validation, and testing."""
-        splitter = TimeSplitter(
+        global_splitter = TimeSplitter(
             time_threshold=self.config["dataset"]["preprocess"]["global_split_ratio"],
-            drop_cold_users=True,
+            drop_cold_users=False,
             drop_cold_items=True,
             item_column=self.item_column,
             query_column=self.user_column,
             timestamp_column=self.timestamp_column,
         )
-
-        test_events, test_gt = splitter.split(interactions)
-        validation_events, validation_gt = splitter.split(test_events)
-        train_events = validation_events
-
-        test_gt = test_gt[
-            test_gt[self.item_column].isin(train_events[self.item_column])
-        ]
-        test_gt = test_gt[
-            test_gt[self.user_column].isin(train_events[self.user_column])
-        ]
-
-        # Limit number of gt events in val and test only if max_num_test_interactions is not null
-        max_test_interactions = self.config["dataset"]["preprocess"][
-            "max_num_test_interactions"
-        ]
-        logging.info(
-            f"Distribution of seq_len in validation:\n{validation_gt.groupby(self.user_column)[self.item_column].agg('count').describe()}."
+        val_splitter = ColdUserRandomSplitter(
+            test_size=self.config["dataset"]["preprocess"]["val_users_ratio"],
+            drop_cold_items=True,
+            query_column=self.user_column,
+            seed=42,
         )
-        logging.info(
-            f"Distribution of seq_len in test:\n{test_gt.groupby(self.user_column)[self.item_column].agg('count').describe()}."
+        loo_splitter = LastNSplitter(
+            N=1,
+            drop_cold_users=True,
+            drop_cold_items=False,
+            divide_column=self.user_column,
+            query_column=self.user_column,
+            strategy="interactions",
+            timestamp_column=self.timestamp_column,
         )
-        if max_test_interactions is not None:
 
-            validation_gt = NumInteractionsFilter(
-                num_interactions=max_test_interactions,
-                first=True,
-                query_column=self.user_column,
-                item_column=self.item_column,
-                timestamp_column=self.timestamp_column,
-            ).transform(validation_gt)
-            logging.info(
-                f"Distribution of seq_len in validation  after filtering:\n{validation_gt.groupby(self.user_column)[self.item_column].agg('count').describe()}."
-            )
-
-            test_gt = NumInteractionsFilter(
-                num_interactions=max_test_interactions,
-                first=True,
-                query_column=self.user_column,
-                item_column=self.item_column,
-                timestamp_column=self.timestamp_column,
-            ).transform(test_gt)
-            logging.info(
-                f"Distribution of seq_len in test after filtering:\n{test_gt.groupby(self.user_column)[self.item_column].agg('count').describe()}."
-            )
-        else:
-            logging.info("max_num_test_interactions is null. Skipping filtration.")
+        train, raw_test = global_splitter.split(interactions)
+        train_events, val = val_splitter.split(train)
+        test_users = set(raw_test["user_id"]) - set(val["user_id"])
+        test_events, test_gt = loo_splitter.split(
+            interactions[
+                (interactions["user_id"].isin(test_users))
+                & interactions["item_id"].isin(train_events["item_id"].unique())
+            ]
+        )
+        validation_events, validation_gt = loo_splitter.split(val)
+        test_gt = test_gt[test_gt["item_id"].isin(train_events["item_id"])]
+        test_gt = test_gt[test_gt["user_id"].isin(train_events["user_id"])]
 
         return {
             "train": train_events,

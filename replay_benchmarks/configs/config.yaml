@@ -1,6 +1,6 @@
 defaults:
-  - dataset: sports
-  - model: sasrec_sports
+  - dataset: movielens_20m
+  - model: sasrec_movielens_20m
   - mode: train
   - acceleration: null
 
@@ -24,7 +24,6 @@ metrics:
     - precision
     - map
     - mrr
-    - coverage
   ks:
     - 1
     - 5

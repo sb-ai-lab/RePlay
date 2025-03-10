@@ -54,7 +54,7 @@ class TrainRunner(BaseRunner):
         self.seq_test_dataset = None
 
         # Loggers
-        self.log_dir = Path(config["paths"]["log_dir"]) / self.dataset_name / self.model_save_name
+        self.log_dir = (Path(config["paths"]["log_dir"]) / self.dataset_name / self.model_save_name)
         self.csv_logger = CSVLogger(save_dir=self.log_dir / "csv_logs")
         self.tb_logger = TensorBoardLogger(save_dir=self.log_dir / "tb_logs")
 
@@ -178,7 +178,12 @@ class TrainRunner(BaseRunner):
             **common_params,
         )
 
-        return train_dataloader, val_dataloader, val_pred_dataloader, prediction_dataloader
+        return (
+            train_dataloader,
+            val_dataloader,
+            val_pred_dataloader,
+            prediction_dataloader,
+        )
 
     def _load_dataloaders(self):
         """Loads data and prepares dataloaders."""
@@ -190,10 +195,15 @@ class TrainRunner(BaseRunner):
         self.test_events = test_events
         self.raw_test_gt = test_gt
 
-        train_dataset, val_dataset, val_gt_dataset, test_dataset, test_gt_dataset = (
-            self.prepare_datasets(
-                train_events, validation_events, validation_gt, test_events, test_gt
-            )
+        (
+            train_dataset,
+            train_val_dataset,
+            val_dataset,
+            val_gt_dataset,
+            test_dataset,
+            test_gt_dataset,
+        ) = self.prepare_datasets(
+            train_events, validation_events, validation_gt, test_events, test_gt
         )
         self.item_count = train_dataset.item_count
 
@@ -203,7 +213,12 @@ class TrainRunner(BaseRunner):
             seq_validation_gt,
             seq_test_dataset,
         ) = self.prepare_seq_datasets(
-            train_dataset, val_dataset, val_gt_dataset, test_dataset, test_gt_dataset
+            train_dataset,
+            train_val_dataset,
+            val_dataset,
+            val_gt_dataset,
+            test_dataset,
+            test_gt_dataset,
         )
         self.seq_val_dataset = seq_validation_dataset
         self.seq_test_dataset = seq_test_dataset
@@ -242,7 +257,7 @@ class TrainRunner(BaseRunner):
             ground_truth,
             test_events,
         )
-        
+
         return metrics_to_df(metrics_results)
 
     def save_model(self, trainer, best_model):
@@ -265,7 +280,11 @@ class TrainRunner(BaseRunner):
 
     def _run_optuna_optimization(self, train_dataloader, val_dataloader):
         """Runs Optuna hyperparameter optimization"""
-        optuna_dir = Path(self.config["paths"]["checkpoint_dir"]) / "optimization" / f"{self.model_save_name}_{self.dataset_name}"
+        optuna_dir = (
+            Path(self.config["paths"]["checkpoint_dir"])
+            / "optimization"
+            / f"{self.model_save_name}_{self.dataset_name}"
+        )
         optuna_dir.mkdir(parents=True, exist_ok=True)
 
         def objective(trial):
@@ -288,7 +307,11 @@ class TrainRunner(BaseRunner):
 
             trainer = L.Trainer(
                 max_epochs=20,
-                callbacks=[checkpoint_callback, early_stopping, validation_metrics_callback],
+                callbacks=[
+                    checkpoint_callback,
+                    early_stopping,
+                    validation_metrics_callback,
+                ],
                 logger=[self.csv_logger, self.tb_logger],
                 devices=1,
             )
@@ -298,7 +321,11 @@ class TrainRunner(BaseRunner):
             return val_metrics.get("ndcg@10", 0)
 
         study = optuna.create_study(direction="maximize")
-        study.optimize(objective, n_trials=self.config["optuna"]["n_trials"], timeout=self.config["optuna"]["timeout"])
+        study.optimize(
+            objective,
+            n_trials=self.config["optuna"]["n_trials"],
+            timeout=self.config["optuna"]["timeout"],
+        )
 
         best_params_path = optuna_dir / "best_params.json"
         study_pickle_path = optuna_dir / "study.pkl"
@@ -310,7 +337,10 @@ class TrainRunner(BaseRunner):
         with open(study_pickle_path, "wb") as f:
             pickle.dump(study, f)
 
-        study_history = [{"trial": t.number, "params": t.params, "value": t.value} for t in study.trials]
+        study_history = [
+            {"trial": t.number, "params": t.params, "value": t.value}
+            for t in study.trials
+        ]
         with open(study_history_path, "w") as f:
             json.dump(study_history, f, indent=4)
 
@@ -319,7 +349,7 @@ class TrainRunner(BaseRunner):
     def run(self):
         """Execute the training pipeline."""
         train_dataloader, val_dataloader, val_pred_dataloader, prediction_dataloader = (
-                self._load_dataloaders()
+            self._load_dataloaders()
         )
         if self.config["mode"]["name"] == "optimize":
             logging.info("Running Optuna hyperparameter optimization...")
@@ -353,16 +383,22 @@ class TrainRunner(BaseRunner):
                 postprocessors=[RemoveSeenItems(self.seq_val_dataset)],
             )
 
-            profiler = SimpleProfiler(dirpath = self.csv_logger.log_dir, filename = 'simple_profiler')
+            profiler = SimpleProfiler(
+                dirpath=self.csv_logger.log_dir, filename="simple_profiler"
+            )
 
             devices = [int(self.config["env"]["CUDA_VISIBLE_DEVICES"])]
             trainer = L.Trainer(
                 max_epochs=self.model_cfg["training_params"]["max_epochs"],
-                callbacks=[checkpoint_callback, early_stopping, validation_metrics_callback],
+                callbacks=[
+                    checkpoint_callback,
+                    early_stopping,
+                    validation_metrics_callback,
+                ],
                 logger=[self.csv_logger, self.tb_logger],
                 profiler=profiler,
                 precision=self.model_cfg["training_params"]["precision"],
-                devices=devices
+                devices=devices,
             )
 
             logging.info("Starting training...")
@@ -390,9 +426,13 @@ class TrainRunner(BaseRunner):
                 trainer.fit(model, train_dataloader, val_dataloader)
 
             if self.model_name.lower() == "sasrec":
-                best_model = SasRec.load_from_checkpoint(checkpoint_callback.best_model_path)
+                best_model = SasRec.load_from_checkpoint(
+                    checkpoint_callback.best_model_path
+                )
             elif self.model_name.lower() == "bert4rec":
-                best_model = Bert4Rec.load_from_checkpoint(checkpoint_callback.best_model_path)
+                best_model = Bert4Rec.load_from_checkpoint(
+                    checkpoint_callback.best_model_path
+                )
             self.save_model(trainer, best_model)
 
             logging.info("Evaluating on val set...")
@@ -403,13 +443,17 @@ class TrainRunner(BaseRunner):
                 rating_column="score",
                 postprocessors=[RemoveSeenItems(self.seq_val_dataset)],
             )
-            L.Trainer(callbacks=[pandas_prediction_callback], inference_mode=True, devices=devices).predict(
+            L.Trainer(
+                callbacks=[pandas_prediction_callback],
+                inference_mode=True,
+                devices=devices,
+            ).predict(
                 best_model, dataloaders=val_pred_dataloader, return_predictions=False
             )
 
             result = pandas_prediction_callback.get_result()
-            recommendations = self.tokenizer.query_and_item_id_encoder.inverse_transform(
-                result
+            recommendations = (
+                self.tokenizer.query_and_item_id_encoder.inverse_transform(result)
             )
             val_metrics = self.calculate_metrics(recommendations, self.validation_gt)
             logging.info(val_metrics)
@@ -434,14 +478,14 @@ class TrainRunner(BaseRunner):
                 rating_column="score",
                 postprocessors=[RemoveSeenItems(self.seq_test_dataset)],
             )
-            L.Trainer(callbacks=[pandas_prediction_callback], inference_mode=True, devices=devices).predict(
-                best_model, dataloaders=prediction_dataloader, return_predictions=False
-            )
+            L.Trainer(
+                callbacks=[pandas_prediction_callback],
+                inference_mode=True,
+                devices=devices,
+            ).predict(best_model, dataloaders=prediction_dataloader, return_predictions=False)
 
             result = pandas_prediction_callback.get_result()
-            recommendations = self.tokenizer.query_and_item_id_encoder.inverse_transform(
-                result
-            )
+            recommendations = (self.tokenizer.query_and_item_id_encoder.inverse_transform(result))
             test_metrics = self.calculate_metrics(recommendations, self.raw_test_gt, self.test_events)
             logging.info(test_metrics)
             recommendations.to_parquet(
@@ -456,4 +500,3 @@ class TrainRunner(BaseRunner):
                     f"{self.model_save_name}_{self.dataset_name}_test_metrics.csv",
                 ),
             )
-
