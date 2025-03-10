@@ -64,6 +64,10 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
         self._item_batches.clear()
         self._item_scores.clear()
 
+        candidates = trainer.model.candidates_to_score if hasattr(trainer.model, "candidates_to_score") else None
+        for postprocessor in self._postprocessors:
+            postprocessor.candidates = candidates
+
     def on_predict_batch_end(
         self,
         trainer: lightning.Trainer,  # noqa: ARG002
@@ -88,7 +92,6 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
             torch.cat(self._item_batches),
             torch.cat(self._item_scores),
         )
-
         return prediction
 
     def _compute_pipeline(

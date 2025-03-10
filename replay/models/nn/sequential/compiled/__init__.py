@@ -1,8 +1,4 @@
-try:
-    import onnx
-    import openvino
+from replay.utils import OPENVINO_AVAILABLE
 
-    from .bert4rec_compiled import Bert4RecCompiled
-except ImportError:
-    # warning
-    pass
+if OPENVINO_AVAILABLE:
+    from .sasrec_compiled import SasRecCompiled

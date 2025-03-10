@@ -35,6 +35,7 @@ class SasRec(lightning.LightningModule):
         negatives_sharing: bool = False,
         optimizer_factory: OptimizerFactory = FatOptimizerFactory(),
         lr_scheduler_factory: Optional[LRSchedulerFactory] = None,
+        candidates_to_score: Optional[torch.LongTensor] = None,
     ):
         """
         :param tensor_schema: Tensor schema of features.
@@ -66,6 +67,8 @@ class SasRec(lightning.LightningModule):
             Default: ``FatOptimizerFactory``.
         :param lr_scheduler_factory: Learning rate schedule factory.
             Default: ``None``.
+        :param candidates_to_score: Item ids to calculate scores.
+            Default: ``None``.
         """
         super().__init__()
         self.save_hyperparameters()
@@ -92,6 +95,7 @@ class SasRec(lightning.LightningModule):
         item_count = tensor_schema.item_id_features.item().cardinality
         assert item_count
         self._vocab_size = item_count
+        self.candidates_to_score = candidates_to_score
 
     def training_step(self, batch: SasRecTrainingBatch, batch_idx: int) -> torch.Tensor:
         """
@@ -106,17 +110,11 @@ class SasRec(lightning.LightningModule):
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         return loss
 
-    def forward(self, feature_tensors: TensorMap, padding_mask: torch.BoolTensor) -> torch.Tensor:  # pragma: no cover
-        """
-        :param feature_tensors: Batch of features.
-        :param padding_mask: Padding mask where 0 - <PAD>, 1 otherwise.
-
-        :returns: Calculated scores.
-        """
-        return self._model_predict(feature_tensors, padding_mask)
-
     def predict_step(
-        self, batch: SasRecPredictionBatch, batch_idx: int, dataloader_idx: int = 0  # noqa: ARG002
+        self,
+        batch: SasRecPredictionBatch,
+        batch_idx: int,  # noqa: ARG002
+        dataloader_idx: int = 0,  # noqa: ARG002
     ) -> torch.Tensor:
         """
         :param batch: Batch of prediction data.
@@ -125,11 +123,45 @@ class SasRec(lightning.LightningModule):
 
         :returns: Calculated scores.
         """
-        batch = self._prepare_prediction_batch(batch)
+        batch = _prepare_prediction_batch(self._schema, self._model.max_len, batch)
         return self._model_predict(batch.features, batch.padding_mask)
 
+    def predict(
+        self,
+        batch: SasRecPredictionBatch,
+        candidates_to_score: Optional[torch.LongTensor] = None,
+    ) -> torch.Tensor:
+        """
+        :param batch: Batch of prediction data.
+        :param candidates_to_score: Item ids to calculate scores.
+            Default: ``None``.
+
+        :returns: Calculated scores.
+        """
+        batch = _prepare_prediction_batch(self._schema, self._model.max_len, batch)
+        return self._model_predict(batch.features, batch.padding_mask, candidates_to_score)
+
+    def forward(
+        self,
+        feature_tensors: TensorMap,
+        padding_mask: torch.BoolTensor,
+        candidates_to_score: Optional[torch.LongTensor] = None,
+    ) -> torch.Tensor:  # pragma: no cover
+        """
+        :param feature_tensors: Batch of features.
+        :param padding_mask: Padding mask where 0 - <PAD>, 1 otherwise.
+        :param candidates_to_score: Item ids to calculate scores.
+            Default: ``None``.
+
+        :returns: Calculated scores.
+        """
+        return self._model_predict(feature_tensors, padding_mask, candidates_to_score)
+
     def validation_step(
-        self, batch: SasRecValidationBatch, batch_idx: int, dataloader_idx: int = 0  # noqa: ARG002
+        self,
+        batch: SasRecValidationBatch,
+        batch_idx: int,  # noqa: ARG002
+        dataloader_idx: int = 0,  # noqa: ARG002
     ) -> torch.Tensor:
         """
         :param batch (SasRecValidationBatch): Batch of prediction data.
@@ -151,40 +183,16 @@ class SasRec(lightning.LightningModule):
         lr_scheduler = self._lr_scheduler_factory.create(optimizer)
         return [optimizer], [lr_scheduler]
 
-    def _prepare_prediction_batch(self, batch: SasRecPredictionBatch) -> SasRecPredictionBatch:
-        if batch.padding_mask.shape[1] > self._model.max_len:
-            msg = f"The length of the submitted sequence \
-                must not exceed the maximum length of the sequence. \
-                The length of the sequence is given {batch.padding_mask.shape[1]}, \
-                while the maximum length is {self._model.max_len}"
-            raise ValueError(msg)
-
-        if batch.padding_mask.shape[1] < self._model.max_len:
-            query_id, padding_mask, features = batch
-            sequence_item_count = padding_mask.shape[1]
-            for feature_name, feature_tensor in features.items():
-                if self._schema[feature_name].is_cat:
-                    features[feature_name] = torch.nn.functional.pad(
-                        feature_tensor,
-                        (self._model.max_len - sequence_item_count, 0),
-                        value=self._schema[feature_name].padding_value,
-                    )
-                else:
-                    features[feature_name] = torch.nn.functional.pad(
-                        feature_tensor.view(feature_tensor.size(0), feature_tensor.size(1)),
-                        (self._model.max_len - sequence_item_count, 0),
-                        value=self._schema[feature_name].padding_value,
-                    ).unsqueeze(-1)
-            padding_mask = torch.nn.functional.pad(
-                padding_mask, (self._model.max_len - sequence_item_count, 0), value=0
-            )
-            batch = SasRecPredictionBatch(query_id, padding_mask, features)
-        return batch
-
-    def _model_predict(self, feature_tensors: TensorMap, padding_mask: torch.BoolTensor) -> torch.Tensor:
+    def _model_predict(
+        self,
+        feature_tensors: TensorMap,
+        padding_mask: torch.BoolTensor,
+        candidates_to_score: torch.LongTensor = None,
+    ) -> torch.Tensor:
         model: SasRecModel
         model = cast(SasRecModel, self._model.module) if isinstance(self._model, torch.nn.DataParallel) else self._model
-        scores = model.predict(feature_tensors, padding_mask)
+        candidates_to_score = self.candidates_to_score if candidates_to_score is None else candidates_to_score
+        scores = model.predict(feature_tensors, padding_mask, candidates_to_score)
         return scores
 
     def _compute_loss(self, batch: SasRecTrainingBatch) -> torch.Tensor:
@@ -499,6 +507,31 @@ class SasRec(lightning.LightningModule):
             msg = f"Expected optimizer_factory of type OptimizerFactory, got {type(optimizer_factory)}"
             raise ValueError(msg)
 
+    @property
+    def candidates_to_score(self) -> Union[torch.LongTensor, None]:
+        """
+        Returns tensor of item ids to calculate scores.
+        """
+        return self._candidates_to_score
+
+    @candidates_to_score.setter
+    def candidates_to_score(self, candidates: Optional[torch.LongTensor] = None) -> None:
+        """
+        Sets tensor of item ids to calculate scores.
+        :param candidates: Tensor of item ids to calculate scores.
+        """
+        total_item_count = self._model.item_count
+        if isinstance(candidates, torch.Tensor) and candidates.dtype is torch.long:
+            if 0 < candidates.shape[0] <= total_item_count:
+                self._candidates_to_score = candidates
+            else:
+                msg = f"Expected candidates length to be between 1 and {total_item_count=}"
+                raise ValueError(msg)
+        elif candidates is not None:
+            msg = f"Expected candidates to be of type torch.LongTensor or None, gpt {type(candidates)}"
+            raise ValueError(msg)
+        self._candidates_to_score = candidates
+
     def _set_new_item_embedder_to_model(self, new_embedding: torch.nn.Embedding, new_vocab_size: int):
         self._model.item_embedder.item_emb = new_embedding
         self._model._head._item_embedder = self._model.item_embedder
@@ -509,3 +542,34 @@ class SasRec(lightning.LightningModule):
         self._schema.item_id_features[self._schema.item_id_feature_name]._set_cardinality(
             new_embedding.weight.data.shape[0] - 1
         )
+
+
+def _prepare_prediction_batch(
+    schema: TensorSchema, max_len: int, batch: SasRecPredictionBatch
+) -> SasRecPredictionBatch:
+    if batch.padding_mask.shape[1] > max_len:
+        msg = (
+            "The length of the submitted sequence "
+            "must not exceed the maximum length of the sequence. "
+            f"The length of the sequence is given {batch.padding_mask.shape[1]}, "
+            f"while the maximum length is {max_len}"
+        )
+        raise ValueError(msg)
+
+    if batch.padding_mask.shape[1] < max_len:
+        query_id, padding_mask, features = batch
+        sequence_item_count = padding_mask.shape[1]
+        for feature_name, feature_tensor in features.items():
+            if schema[feature_name].is_cat:
+                features[feature_name] = torch.nn.functional.pad(
+                    feature_tensor, (max_len - sequence_item_count, 0), value=0
+                )
+            else:
+                features[feature_name] = torch.nn.functional.pad(
+                    feature_tensor.view(feature_tensor.size(0), feature_tensor.size(1)),
+                    (max_len - sequence_item_count, 0),
+                    value=0,
+                ).unsqueeze(-1)
+        padding_mask = torch.nn.functional.pad(padding_mask, (max_len - sequence_item_count, 0), value=0)
+        batch = SasRecPredictionBatch(query_id, padding_mask, features)
+    return batch
