@@ -29,7 +29,7 @@ try:
     import onnx  # noqa: F401
     import openvino  # noqa: F401
 
-    OPENVINO_AVAILABLE = True
+    OPENVINO_AVAILABLE = TORCH_AVAILABLE
 except ImportError:
     OPENVINO_AVAILABLE = False
 

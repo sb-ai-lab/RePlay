@@ -30,6 +30,8 @@ def _compile_openvino(
     :param max_seq_len: Defines whether sequence will be static or dynamic length.
     :param num_candidates_to_score: Defines whether candidates will be static or dynamic length.
     :param num_threads: Defines number of CPU threads for which the model will be compiled by the OpenVino core.
+        If ``None``, then compiler will set this parameter automatically.
+        Default: ``None``.
     """
     core = ov.Core()
     if num_threads is not None:
@@ -176,7 +178,7 @@ class BaseCompiledModel:
             Default: ``None``.
         :param num_threads: Number of CPU threads to use.
             Must be a natural number or ``None``.
-            If ``None``, then compiler will set this parameter independently.
+            If ``None``, then compiler will set this parameter automatically.
             Default: ``None``.
         :param onnx_path: Save ONNX model to path, if defined.
             Default: ``None``.
