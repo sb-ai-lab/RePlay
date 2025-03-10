@@ -1062,10 +1062,11 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
 
     def _check_temporary_column_existence(self, interactions: DataFrameLike) -> None:
         if self.temporary_column in interactions.columns:
-            raise ValueError(
+            msg = (
                 f"Column '{self.temporary_column}' already exists in `interactions`. "
                 "Please specify a different value for `temporary_column`."
             )
+            raise ValueError(msg)
 
     def _filter_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
         self._check_temporary_column_existence(interactions)
