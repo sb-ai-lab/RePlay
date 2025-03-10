@@ -1038,6 +1038,7 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
         query_column: str = "query_id",
         item_column: str = "item_id",
         timestamp_column: str = "timestamp",
+        temporary_column: str = "__shifted",
     ) -> None:
         """
         :param first: whether to keep first (True) or last (False) occurrence,
@@ -1048,34 +1049,52 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
             default: `item_id`.
         :param timestamp_column: timestamp column,
             default: `timestamp`.
+        :param temporary_column: temporary column for shifted data,
+            default: `__shifted`.
+            Ensure it does not already exist in `interactions` to avoid conflicts.
         """
         super().__init__()
         self.bias = 1 if first else -1
         self.query_column = query_column
         self.item_column = item_column
         self.timestamp_column = timestamp_column
+        self.temporary_column = temporary_column
+
+    def _check_temporary_column_existence(self, interactions: DataFrameLike) -> None:
+        if self.temporary_column in interactions.columns:
+            raise ValueError(
+                f"Column '{self.temporary_column}' already exists in `interactions`. "
+                "Please specify a different value for `temporary_column`."
+            )
 
     def _filter_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
+        self._check_temporary_column_existence(interactions)
         interactions = interactions.sort_values([self.query_column, self.timestamp_column])
-        interactions["shifted"] = interactions.groupby(self.query_column)[self.item_column].shift(periods=self.bias)
+        interactions[self.temporary_column] = interactions.groupby(self.query_column)[self.item_column].shift(
+            periods=self.bias
+        )
         return (
-            interactions[interactions[self.item_column] != interactions["shifted"]]
-            .drop("shifted", axis=1)
+            interactions[interactions[self.item_column] != interactions[self.temporary_column]]
+            .drop(self.temporary_column, axis=1)
             .reset_index(drop=True)
         )
 
     def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        self._check_temporary_column_existence(interactions)
         return (
             interactions.sort(self.query_column, self.timestamp_column)
-            .with_columns(pl.col(self.item_column).shift(n=self.bias).over(self.query_column).alias("shifted"))
-            .filter((pl.col(self.item_column) != pl.col("shifted")).fill_null(True))
-            .drop("shifted")
+            .with_columns(
+                pl.col(self.item_column).shift(n=self.bias).over(self.query_column).alias(self.temporary_column)
+            )
+            .filter((pl.col(self.item_column) != pl.col(self.temporary_column)).fill_null(True))
+            .drop(self.temporary_column)
         )
 
     def _filter_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
+        self._check_temporary_column_existence(interactions)
         window = Window.partitionBy(self.query_column).orderBy(self.timestamp_column)
         return (
-            interactions.withColumn("shifted", sf.lag(self.item_column, offset=self.bias).over(window))
-            .where((sf.col(self.item_column) != sf.col("shifted")) | sf.col("shifted").isNull())
-            .drop("shifted")
+            interactions.withColumn(self.temporary_column, sf.lag(self.item_column, offset=self.bias).over(window))
+            .where((sf.col(self.item_column) != sf.col(self.temporary_column)) | sf.col(self.temporary_column).isNull())
+            .drop(self.temporary_column)
         )
