@@ -104,7 +104,7 @@ class Bert4RecCompiled(BaseCompiledModel):
             Could be one of [``None``, ``-1``, ``N``].\n
             ``-1`` - sets candidates_to_score shape to dynamic range [1, ?]\n
             ``N`` - sets candidates_to_score shape to [1, N]\n
-            ``None`` - disable candidates_to_score usage\n
+            ``None`` - disables candidates_to_score usage\n
             Default: ``None``.
         :param num_threads: Number of CPU threads to use.
             Must be a natural number or ``None``.
@@ -116,7 +116,7 @@ class Bert4RecCompiled(BaseCompiledModel):
         if mode not in get_args(OptimizedModeType):
             msg = f"Parameter ``mode`` could be one of {get_args(OptimizedModeType)}."
             raise ValueError(msg)
-        num_candidates_to_score = BaseCompiledModel._validate_num_candidates_to_score(num_candidates_to_score)
+        num_candidates_to_score = Bert4RecCompiled._validate_num_candidates_to_score(num_candidates_to_score)
         if isinstance(model, Bert4Rec):
             lightning_model = model.cpu()
         elif isinstance(model, (str, pathlib.Path)):
@@ -126,7 +126,7 @@ class Bert4RecCompiled(BaseCompiledModel):
         item_seq_name = schema.item_id_feature_name
         max_seq_len = lightning_model._model.max_len
 
-        batch_size, num_candidates_to_score = BaseCompiledModel._get_input_params(
+        batch_size, num_candidates_to_score = Bert4RecCompiled._get_input_params(
             mode, batch_size, num_candidates_to_score
         )
 
@@ -155,11 +155,12 @@ class Bert4RecCompiled(BaseCompiledModel):
         else:
             is_saveble = True
 
+        torch.backends.mha.set_fastpath_enabled(value=False)
         lightning_model.to_onnx(
             onnx_path,
             input_sample=model_input_sample,
             export_params=True,
-            opset_version=14,
+            opset_version=torch.onnx._constants.ONNX_DEFAULT_OPSET,
             do_constant_folding=True,
             input_names=model_input_names,
             output_names=["scores"],
