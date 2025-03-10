@@ -3,14 +3,13 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from replay.data import FeatureHint
+from replay.data import FeatureHint, FeatureType
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
     import torch
 
-    from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset
-    from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
+    from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset, TensorFeatureInfo, TensorSchema
     from replay.models.nn.sequential.bert4rec import (
         Bert4RecPredictionDataset,
         Bert4RecTrainingDataset,
@@ -40,25 +39,28 @@ def wrong_sequential_dataset():
         ],
     )
 
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "some_user_feature",
-            cardinality=4,
-            is_seq=False,
-        )
-        .numerical(
-            "some_item_feature",
-            tensor_dim=1,
-            is_seq=True,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_hint=FeatureHint.ITEM_ID,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_user_feature",
+                cardinality=4,
+                is_seq=False,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_item_feature",
+                tensor_dim=1,
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+            ),
+        ]
     )
 
     sequential_dataset = PandasSequentialDataset(
@@ -88,25 +90,30 @@ def sequential_dataset():
         ],
     )
 
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "some_user_feature",
-            cardinality=4,
-            is_seq=False,
-        )
-        .categorical(
-            "some_item_feature",
-            cardinality=6,
-            is_seq=True,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_hint=FeatureHint.ITEM_ID,
+                feature_type=FeatureType.CATEGORICAL,
+                padding_value=-1,
+            ),
+            TensorFeatureInfo(
+                "some_user_feature",
+                cardinality=4,
+                is_seq=False,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_item_feature",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                padding_value=-10,
+            ),
+        ]
     )
 
     sequential_dataset = PandasSequentialDataset(
@@ -121,42 +128,52 @@ def sequential_dataset():
 
 @pytest.fixture(scope="module")
 def tensor_schema():
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=4,
-            is_seq=True,
-            embedding_dim=64,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "some_item_feature",
-            cardinality=4,
-            is_seq=True,
-            embedding_dim=32,
-        )
-        .categorical(
-            "some_user_feature",
-            cardinality=4,
-            is_seq=False,
-            embedding_dim=64,
-        )
-        .numerical("some_num_feature", tensor_dim=64, is_seq=True)
-        .categorical(
-            "timestamp",
-            cardinality=4,
-            is_seq=True,
-            embedding_dim=64,
-            feature_hint=FeatureHint.TIMESTAMP,
-        )
-        .categorical(
-            "some_cat_feature",
-            cardinality=4,
-            is_seq=True,
-            embedding_dim=64,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=4,
+                is_seq=True,
+                embedding_dim=64,
+                feature_hint=FeatureHint.ITEM_ID,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_item_feature",
+                cardinality=4,
+                is_seq=True,
+                embedding_dim=32,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_user_feature",
+                cardinality=4,
+                is_seq=False,
+                embedding_dim=64,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_num_feature",
+                tensor_dim=64,
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+            ),
+            TensorFeatureInfo(
+                "timestamp",
+                cardinality=4,
+                is_seq=True,
+                embedding_dim=64,
+                feature_hint=FeatureHint.TIMESTAMP,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_cat_feature",
+                cardinality=4,
+                is_seq=True,
+                embedding_dim=64,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+        ]
     )
 
     return schema
@@ -222,15 +239,16 @@ def item_user_sequential_dataset():
         ],
     )
 
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_hint=FeatureHint.ITEM_ID,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+        ]
     )
 
     sequential_dataset = PandasSequentialDataset(
@@ -259,20 +277,22 @@ def polars_item_user_sequential_dataset():
         ],
     )
 
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .numerical(
-            "num_feature",
-            tensor_dim=2,
-            is_seq=True,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_hint=FeatureHint.ITEM_ID,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "num_feature",
+                tensor_dim=2,
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+            ),
+        ]
     )
 
     sequential_dataset = PolarsSequentialDataset(
@@ -297,20 +317,22 @@ def item_user_num_sequential_dataset():
         columns=["user_id", "item_id", "num_feature"],
     )
 
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .numerical(
-            "num_feature",
-            tensor_dim=64,
-            is_seq=True,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_hint=FeatureHint.ITEM_ID,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "num_feature",
+                tensor_dim=64,
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL,
+            ),
+        ]
     )
 
     sequential_dataset = PandasSequentialDataset(

@@ -10,6 +10,7 @@ from replay.data.nn import (
     TorchSequentialDataset,
     TorchSequentialValidationDataset,
 )
+from replay.utils.model_handler import deprecation_warning
 
 
 class SasRecTrainingBatch(NamedTuple):
@@ -30,6 +31,10 @@ class SasRecTrainingDataset(TorchDataset):
     Dataset that generates samples to train SasRec-like model
     """
 
+    @deprecation_warning(
+        "`padding_value` parameter will be removed in future versions. "
+        "Instead, you should specify `padding_value` for each column in TensorSchema"
+    )
     def __init__(
         self,
         sequential: SequentialDataset,
@@ -90,7 +95,10 @@ class SasRecTrainingDataset(TorchDataset):
 
         output_features: MutableTensorMap = {}
         for feature_name in self._schema:
-            output_features[feature_name] = features[feature_name][: -self._sequence_shift]
+            feature = features[feature_name]
+            if self._schema[feature_name].is_seq:
+                feature = feature[: -self._sequence_shift]
+            output_features[feature_name] = feature
 
         output_features_padding_mask = padding_mask[: -self._sequence_shift]
 
@@ -119,6 +127,10 @@ class SasRecPredictionDataset(TorchDataset):
     Dataset that generates samples to infer SasRec-like model
     """
 
+    @deprecation_warning(
+        "`padding_value` parameter will be removed in future versions. "
+        "Instead, you should specify `padding_value` for each column in TensorSchema"
+    )
     def __init__(
         self,
         sequential: SequentialDataset,
@@ -167,6 +179,10 @@ class SasRecValidationDataset(TorchDataset):
     Dataset that generates samples to infer and validate SasRec-like model
     """
 
+    @deprecation_warning(
+        "`padding_value` parameter will be removed in future versions. "
+        "Instead, you should specify `padding_value` for each column in TensorSchema"
+    )
     def __init__(
         self,
         sequential: SequentialDataset,

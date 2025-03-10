@@ -16,10 +16,10 @@ if TORCH_AVAILABLE:
         PandasSequentialDataset,
         SequentialDataset,
         TensorFeatureInfo,
+        TensorSchema,
         TorchSequentialDataset,
         TorchSequentialValidationDataset,
     )
-    from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
 else:
     PandasSequentialDataset = MissingImportType
     SequentialDataset = MissingImportType
@@ -28,7 +28,7 @@ else:
 
 @pytest.mark.torch
 def test_can_get_padded_sequence(sequential_dataset: SequentialDataset):
-    sd = TorchSequentialDataset(sequential_dataset, max_sequence_length=3, padding_value=-1)
+    sd = TorchSequentialDataset(sequential_dataset, max_sequence_length=3)
 
     assert len(sd) == 4
 
@@ -37,9 +37,9 @@ def test_can_get_padded_sequence(sequential_dataset: SequentialDataset):
     _compare_sequence(sd, 2, "item_id", [-1, -1, 1])
     _compare_sequence(sd, 3, "item_id", [3, 4, 5])
 
-    _compare_sequence(sd, 0, "some_item_feature", [-1, 1, 2])
+    _compare_sequence(sd, 0, "some_item_feature", [-2, 1, 2])
     _compare_sequence(sd, 1, "some_item_feature", [1, 3, 4])
-    _compare_sequence(sd, 2, "some_item_feature", [-1, -1, 2])
+    _compare_sequence(sd, 2, "some_item_feature", [-2, -2, 2])
     _compare_sequence(sd, 3, "some_item_feature", [4, 5, 6])
 
 
@@ -49,7 +49,6 @@ def test_can_get_windowed_sequence(sequential_dataset: SequentialDataset):
         sequential_dataset,
         max_sequence_length=3,
         sliding_window_step=2,
-        padding_value=-1,
     )
 
     assert len(sd) == 6
@@ -67,7 +66,6 @@ def test_can_get_query_id(sequential_dataset: SequentialDataset):
     sd = TorchSequentialDataset(
         sequential_dataset,
         max_sequence_length=3,
-        padding_value=-1,
     )
 
     for i in range(4):
@@ -80,7 +78,6 @@ def test_can_get_query_id_windowed(sequential_dataset: SequentialDataset):
         sequential_dataset,
         max_sequence_length=3,
         sliding_window_step=2,
-        padding_value=-1,
     )
 
     for i in range(4):
@@ -95,7 +92,6 @@ def test_can_get_query_feature(sequential_dataset: SequentialDataset):
     sd = TorchSequentialDataset(
         sequential_dataset,
         max_sequence_length=3,
-        padding_value=-1,
     )
 
     _compare_query_feature(sd, 0, "some_user_feature", 1)
@@ -110,7 +106,6 @@ def test_can_get_windowed_query_feature(sequential_dataset: SequentialDataset):
         sequential_dataset,
         max_sequence_length=3,
         sliding_window_step=2,
-        padding_value=-1,
     )
 
     _compare_query_feature(sd, 0, "some_user_feature", 1)
@@ -122,27 +117,25 @@ def test_can_get_windowed_query_feature(sequential_dataset: SequentialDataset):
 
 
 @pytest.mark.torch
-def test_num_dtype(sequential_dataset, some_num_tensor_feature):
-    feature = TensorFeatureInfo(name="user_id", feature_type=FeatureType.NUMERICAL, tensor_dim=64)
+def test_num_dtype(sequential_dataset):
+    array = np.array([[1.0, 2.0], [3.0, 4.0]])
     assert (
         TorchSequentialDataset(
             sequential_dataset,
             max_sequence_length=3,
             sliding_window_step=2,
-            padding_value=-1,
-        )._get_tensor_dtype(feature)
+        )._get_tensor_dtype(array)
         == torch.float32
     )
 
-    feature._feature_type = None
+    array = np.array([["q", "w"], ["e", "r"]])
 
     with pytest.raises(AssertionError):
         TorchSequentialDataset(
             sequential_dataset,
             max_sequence_length=3,
             sliding_window_step=2,
-            padding_value=-1,
-        )._get_tensor_dtype(feature)
+        )._get_tensor_dtype(array)
 
 
 @pytest.mark.torch
@@ -205,15 +198,16 @@ def test_common_query_ids(sequential_dataset):
         ],
     )
 
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+        ]
     )
 
     new_dataset = PandasSequentialDataset(
@@ -243,16 +237,17 @@ def test_common_query_ids(sequential_dataset):
     ],
 )
 def test_schemes_mismatch(tensor_schema, feature_name, cardinality, exception_msg):
-    tensor_schema_gt = (
-        TensorSchemaBuilder()
-        .categorical(
-            feature_name,
-            cardinality=cardinality,
-            is_seq=True,
-            embedding_dim=64,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .build()
+    tensor_schema_gt = TensorSchema(
+        [
+            TensorFeatureInfo(
+                feature_name,
+                cardinality=cardinality,
+                is_seq=True,
+                embedding_dim=64,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+        ]
     )
 
     with pytest.raises(ValueError) as exc:
@@ -284,10 +279,9 @@ def test_pad_sequence(sequential_dataset, sequence, answer):
         sequential_dataset,
         max_sequence_length=3,
         sliding_window_step=2,
-        padding_value=-1,
     )
 
-    padded_sequence = dataset._pad_sequence(torch.tensor(sequence, dtype=torch.long)).tolist()
+    padded_sequence = dataset._pad_sequence(torch.tensor(sequence, dtype=torch.long), -1).tolist()
     assert padded_sequence == answer
 
 
@@ -297,11 +291,10 @@ def test_pad_sequence_raise(sequential_dataset):
         sequential_dataset,
         max_sequence_length=3,
         sliding_window_step=2,
-        padding_value=-1,
     )
     sequence = [[[1, 1]], [[2, 2]]]
     with pytest.raises(ValueError, match="Unsupported shape for sequence"):
-        dataset._pad_sequence(torch.tensor(sequence, dtype=torch.long)).tolist()
+        dataset._pad_sequence(torch.tensor(sequence, dtype=torch.long), -1).tolist()
 
 
 def _compare_sequence(dataset: TorchSequentialDataset, index: int, feature_name: str, expected: List[int]) -> None:

@@ -115,11 +115,27 @@ If you are installing from the source, you will need Python 3.8.1-3.11.
     Note that during this step, updated poetry.lock file do not need to be copied anywhere.
 
 
+6. **optional**: Generate pyproject.toml file
+- If you want to get default pyproject.toml file, then get it from projects/pyproject.toml.template, using command:
+    ```bash
+    ./poetry_wrapper.sh --generate
+    ```
+    or
+    ```bash
+    ./poetry_wrapper.sh --experimental --generate
+    ```
+    For the experimental module
+- This will allow you to use standard development configurations (including the linter and formatter needed to match the code style)  
+
+
 ## Style Guide
 
 We follow [the standard python PEP8](https://www.python.org/dev/peps/pep-0008/) conventions for style.
 
 ### Automated code checking
+
+First of all, make sure that you have the correct style configuration set up.  
+You can just get pyproject.toml file from step 6, to start using linters and formatters  
 
 In order to automate checking of the code quality, please run:
 

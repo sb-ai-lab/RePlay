@@ -68,7 +68,11 @@ def get_features(data_dict):
             FeatureInfo(
                 column="category_id",
                 feature_type=FeatureType.CATEGORICAL,
-            )
+            ),
+            FeatureInfo(
+                column="genres",
+                feature_type=FeatureType.CATEGORICAL_LIST,
+            ),
         ]
 
     return FeatureSchema(features)
@@ -108,7 +112,11 @@ def get_wrong_users_features(data_dict):
             FeatureInfo(
                 column="category_id",
                 feature_type=FeatureType.CATEGORICAL,
-            )
+            ),
+            FeatureInfo(
+                column="genres",
+                feature_type=FeatureType.CATEGORICAL_LIST,
+            ),
         ]
 
     return FeatureSchema(features)
@@ -148,7 +156,11 @@ def get_wrong_items_features(data_dict):
             FeatureInfo(
                 column="category_id",
                 feature_type=FeatureType.CATEGORICAL,
-            )
+            ),
+            FeatureInfo(
+                column="genres",
+                feature_type=FeatureType.CATEGORICAL_LIST,
+            ),
         ]
 
     return FeatureSchema(features)
@@ -187,7 +199,11 @@ def get_doesnt_existing_features(data_dict):
             FeatureInfo(
                 column="category_id",
                 feature_type=FeatureType.CATEGORICAL,
-            )
+            ),
+            FeatureInfo(
+                column="genres",
+                feature_type=FeatureType.CATEGORICAL_LIST,
+            ),
         ]
 
     return FeatureSchema(features)
@@ -317,6 +333,7 @@ def test_inconsistent_ids(data_dict, request):
         pytest.param("less_than_zero_item_polars_dataset", marks=pytest.mark.core),
         pytest.param("more_than_count_user_polars_dataset", marks=pytest.mark.core),
         pytest.param("more_than_count_item_polars_dataset", marks=pytest.mark.core),
+        pytest.param("items_pandas_dataset_string_genres", marks=pytest.mark.core),
     ],
 )
 def test_unencoded_ids(data_dict, request):
@@ -564,7 +581,7 @@ def test_feature_schema_schema_dict(data_dict, request):
 )
 def test_feature_schema_schema_all_features(data_dict, request):
     dataset = create_dataset(request.getfixturevalue(data_dict))
-    assert len(dataset.feature_schema.all_features) == 7
+    assert len(dataset.feature_schema.all_features) == 8
 
 
 @pytest.mark.parametrize(
@@ -636,6 +653,7 @@ def test_feature_schema_schema_columns(data_dict, request):
         "rating",
         "gender",
         "category_id",
+        "genres",
         "feature1",
     ]
 
@@ -656,6 +674,7 @@ def test_feature_schema_schema_categorical_features(data_dict, request):
         "timestamp",
         "gender",
         "category_id",
+        "genres",
     ]
 
 
@@ -682,7 +701,7 @@ def test_feature_schema_schema_numerical_features(data_dict, request):
 )
 def test_feature_schema_schema_item_features(data_dict, request):
     dataset = create_dataset(request.getfixturevalue(data_dict))
-    assert dataset.feature_schema.item_features.columns == ["category_id", "feature1"]
+    assert dataset.feature_schema.item_features.columns == ["category_id", "genres", "feature1"]
 
 
 @pytest.mark.parametrize(
@@ -730,7 +749,7 @@ def test_feature_schema_schema_interaction_features(data_dict, request):
             FeatureSource.ITEM_FEATURES,
             None,
             None,
-            ["category_id", "feature1"],
+            ["category_id", "genres", "feature1"],
             marks=pytest.mark.spark,
         ),
         pytest.param("full_pandas_dataset", "gender", None, None, None, ["gender"], marks=pytest.mark.core),
@@ -749,7 +768,7 @@ def test_feature_schema_schema_interaction_features(data_dict, request):
             FeatureSource.ITEM_FEATURES,
             None,
             None,
-            ["category_id", "feature1"],
+            ["category_id", "genres", "feature1"],
             marks=pytest.mark.core,
         ),
         pytest.param("full_polars_dataset", "gender", None, None, None, ["gender"], marks=pytest.mark.core),
@@ -768,7 +787,7 @@ def test_feature_schema_schema_interaction_features(data_dict, request):
             FeatureSource.ITEM_FEATURES,
             None,
             None,
-            ["category_id", "feature1"],
+            ["category_id", "genres", "feature1"],
             marks=pytest.mark.core,
         ),
     ],
@@ -790,7 +809,7 @@ def test_feature_schema_schema_filter(data_dict, name, source, type, hint, resul
             None,
             None,
             None,
-            ["user_id", "item_id", "timestamp", "rating", "category_id", "feature1"],
+            ["user_id", "item_id", "timestamp", "rating", "category_id", "genres", "feature1"],
             marks=pytest.mark.spark,
         ),
         pytest.param(
@@ -817,7 +836,7 @@ def test_feature_schema_schema_filter(data_dict, name, source, type, hint, resul
             None,
             None,
             None,
-            ["user_id", "item_id", "timestamp", "rating", "category_id", "feature1"],
+            ["user_id", "item_id", "timestamp", "rating", "category_id", "genres", "feature1"],
             marks=pytest.mark.core,
         ),
         pytest.param(
@@ -844,7 +863,7 @@ def test_feature_schema_schema_filter(data_dict, name, source, type, hint, resul
             None,
             None,
             None,
-            ["user_id", "item_id", "timestamp", "rating", "category_id", "feature1"],
+            ["user_id", "item_id", "timestamp", "rating", "category_id", "genres", "feature1"],
             marks=pytest.mark.core,
         ),
         pytest.param(
@@ -876,22 +895,22 @@ def test_feature_schema_schema_drop(data_dict, name, source, type, hint, result,
 
 
 @pytest.mark.parametrize(
-    "data_dict, name, source, type, hint",
+    "data_dict",
     [
-        pytest.param("full_spark_dataset", "gender100", None, None, None, marks=pytest.mark.spark),
-        pytest.param("full_pandas_dataset", "gender100", None, None, None, marks=pytest.mark.core),
-        pytest.param("full_polars_dataset", "gender100", None, None, None, marks=pytest.mark.core),
+        pytest.param("full_spark_dataset", marks=pytest.mark.spark),
+        pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
-def test_feature_schema_schema_filter_empty(data_dict, name, source, type, hint, request):
+def test_feature_schema_schema_filter_empty(data_dict, request):
     dataset = create_dataset(request.getfixturevalue(data_dict))
     assert (
         len(
             dataset.feature_schema.filter(
-                column=name,
-                feature_source=source,
-                feature_type=type,
-                feature_hint=hint,
+                column="gender100",
+                feature_source=None,
+                feature_type=None,
+                feature_hint=None,
             )
         )
         == 0
@@ -899,48 +918,21 @@ def test_feature_schema_schema_filter_empty(data_dict, name, source, type, hint,
 
 
 @pytest.mark.parametrize(
-    "data_dict, name, source, type, hint, answer",
+    "data_dict",
     [
-        pytest.param(
-            "full_spark_dataset",
-            "gender100",
-            None,
-            None,
-            None,
-            ["user_id", "item_id", "timestamp", "rating", "gender", "category_id", "feature1"],
-            marks=pytest.mark.spark,
-        ),
-        pytest.param(
-            "full_pandas_dataset",
-            "gender100",
-            None,
-            None,
-            None,
-            ["user_id", "item_id", "timestamp", "rating", "gender", "category_id", "feature1"],
-            marks=pytest.mark.core,
-        ),
-        pytest.param(
-            "full_polars_dataset",
-            "gender100",
-            None,
-            None,
-            None,
-            ["user_id", "item_id", "timestamp", "rating", "gender", "category_id", "feature1"],
-            marks=pytest.mark.core,
-        ),
+        pytest.param("full_spark_dataset", marks=pytest.mark.spark),
+        pytest.param("full_pandas_dataset", marks=pytest.mark.core),
+        pytest.param("full_polars_dataset", marks=pytest.mark.core),
     ],
 )
-def test_feature_schema_schema_drop_empty(data_dict, name, source, type, hint, answer, request):
+def test_feature_schema_schema_drop_empty(data_dict, request):
     dataset = create_dataset(request.getfixturevalue(data_dict))
-    assert (
-        dataset.feature_schema.drop(
-            column=name,
-            feature_source=source,
-            feature_type=type,
-            feature_hint=hint,
-        ).columns
-        == answer
-    )
+    assert dataset.feature_schema.drop(
+        column="gender100",
+        feature_source=None,
+        feature_type=None,
+        feature_hint=None,
+    ).columns == ["user_id", "item_id", "timestamp", "rating", "gender", "category_id", "genres", "feature1"]
 
 
 @pytest.mark.core
@@ -991,7 +983,7 @@ def test_feature_schema_schema_copy(interactions_full_pandas_dataset):
             "full_pandas_dataset_nonunique_columns",
             get_features,
             (
-                "Features column names should be unique, exept ITEM_ID and QUERY_ID columns. "
+                "Features column names should be unique, except ITEM_ID and QUERY_ID columns. "
                 + "{'feature1'} columns are not unique."
             ),
         ),
@@ -1097,7 +1089,19 @@ def test_interaction_dataset_queryids_and_itemids(dataset, request):
         ),
         (
             None,
-            pd.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]}),
+            pd.DataFrame(
+                {
+                    "item_id": [0, 1, 2, 3],
+                    "category_id": [0, 0, 1, 2],
+                    "feature1": [1.1, 1.2, 1.3, 1.4],
+                    "genres": [
+                        [0, 1],
+                        [2],
+                        [3, 0, 2, 1],
+                        [0, 0, 3, 2],
+                    ],
+                }
+            ),
             [
                 "user_id",
                 "item_id",
@@ -1107,7 +1111,19 @@ def test_interaction_dataset_queryids_and_itemids(dataset, request):
         ),
         (
             pd.DataFrame({"user_id": [0, 1, 2], "gender": [0, 1, 0]}),
-            pd.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]}),
+            pd.DataFrame(
+                {
+                    "item_id": [0, 1, 2, 3],
+                    "category_id": [0, 0, 1, 2],
+                    "feature1": [1.1, 1.2, 1.3, 1.4],
+                    "genres": [
+                        [0, 1],
+                        [2],
+                        [3, 0, 2, 1],
+                        [0, 0, 3, 2],
+                    ],
+                }
+            ),
             [
                 "user_id",
                 "item_id",
@@ -1150,7 +1166,19 @@ def test_interactions_dataset_subset(full_pandas_dataset, users, items, subset, 
         ),
         (
             None,
-            pl.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]}),
+            pl.DataFrame(
+                {
+                    "item_id": [0, 1, 2, 3],
+                    "category_id": [0, 0, 1, 2],
+                    "feature1": [1.1, 1.2, 1.3, 1.4],
+                    "genres": [
+                        [0, 1],
+                        [2],
+                        [3, 0, 2, 1],
+                        [0, 0, 3, 2],
+                    ],
+                }
+            ),
             [
                 "user_id",
                 "item_id",
@@ -1160,7 +1188,19 @@ def test_interactions_dataset_subset(full_pandas_dataset, users, items, subset, 
         ),
         (
             pl.DataFrame({"user_id": [0, 1, 2], "gender": [0, 1, 0]}),
-            pl.DataFrame({"item_id": [0, 1, 2, 3], "category_id": [0, 0, 1, 2], "feature1": [1.1, 1.2, 1.3, 1.4]}),
+            pl.DataFrame(
+                {
+                    "item_id": [0, 1, 2, 3],
+                    "category_id": [0, 0, 1, 2],
+                    "feature1": [1.1, 1.2, 1.3, 1.4],
+                    "genres": [
+                        [0, 1],
+                        [2],
+                        [3, 0, 2, 1],
+                        [0, 0, 3, 2],
+                    ],
+                }
+            ),
             [
                 "user_id",
                 "item_id",
