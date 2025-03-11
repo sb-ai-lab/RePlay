@@ -1,5 +1,5 @@
 import abc
-from typing import Optional, Tuple, Union
+from typing import Tuple
 
 import torch
 
@@ -35,18 +35,3 @@ class BasePostProcessor(abc.ABC):  # pragma: no cover
         :returns: modified query ids and scores and ground truth dataset
         """
         # it is necessary to return the tuple of modified query_ids, scores and ground_truth
-
-    @property
-    def candidates(self) -> Union[torch.LongTensor, None]:
-        """
-        Returns tensor of item ids to calculate scores.
-        """
-        return self._candidates
-
-    @candidates.setter
-    def candidates(self, candidates: Optional[torch.LongTensor] = None) -> None:
-        """
-        Sets tensor of item ids to calculate scores.
-        :param candidates: Tensor of item ids to calculate scores.
-        """
-        self._candidates = candidates

@@ -66,7 +66,8 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
 
         candidates = trainer.model.candidates_to_score if hasattr(trainer.model, "candidates_to_score") else None
         for postprocessor in self._postprocessors:
-            postprocessor.candidates = candidates
+            if hasattr(postprocessor, "candidates"):
+                postprocessor.candidates = candidates
 
     def on_predict_batch_end(
         self,
