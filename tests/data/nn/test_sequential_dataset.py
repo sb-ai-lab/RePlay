@@ -7,13 +7,12 @@ import pytest
 
 pytest.importorskip("torch")
 
-from replay.data import FeatureHint
+from replay.data import FeatureHint, FeatureType
 from replay.utils import TORCH_AVAILABLE
 from replay.utils.common import load_from_replay, save_to_replay
 
 if TORCH_AVAILABLE:
-    from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset
-    from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
+    from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset, TensorFeatureInfo, TensorSchema
 
 
 @pytest.mark.torch
@@ -117,25 +116,28 @@ def test_intersection_datasets(dataset_type, request):
         ],
     )
 
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "some_user_feature",
-            cardinality=4,
-            is_seq=False,
-        )
-        .categorical(
-            "some_item_feature",
-            cardinality=6,
-            is_seq=True,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                "some_user_feature",
+                cardinality=4,
+                is_seq=False,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_item_feature",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+        ]
     )
 
     if dataset_type == PandasSequentialDataset:

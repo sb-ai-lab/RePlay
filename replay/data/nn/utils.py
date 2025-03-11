@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Iterable, Optional
 
 import polars as pl
 
@@ -22,9 +22,12 @@ def groupby_sequences(events: DataFrameLike, groupby_col: str, sort_col: Optiona
         event_cols_without_groupby.remove(groupby_col)
 
         if sort_col:
-            event_cols_without_groupby.remove(sort_col)
-            event_cols_without_groupby.insert(0, sort_col)
-            events = events.sort_values(event_cols_without_groupby)
+            event_cols_without_iterable = list(
+                filter(lambda x: not isinstance(events.iloc[0][x], Iterable), event_cols_without_groupby)
+            )  # deleting columns that cannot be sorted
+            event_cols_without_iterable.remove(sort_col)
+            event_cols_without_iterable.insert(0, sort_col)
+            events = events.sort_values(event_cols_without_iterable)
 
         grouped_sequences = (
             events.groupby(groupby_col).agg({col: list for col in event_cols_without_groupby}).reset_index()
@@ -34,9 +37,13 @@ def groupby_sequences(events: DataFrameLike, groupby_col: str, sort_col: Optiona
         event_cols_without_groupby.remove(groupby_col)
 
         if sort_col:
-            event_cols_without_groupby.remove(sort_col)
-            event_cols_without_groupby.insert(0, sort_col)
-            events = events.sort(event_cols_without_groupby)
+            map_name2type = dict(zip(events.columns, events.dtypes))
+            event_cols_without_iterable = list(
+                filter(lambda x: not isinstance(map_name2type[x], pl.List), event_cols_without_groupby)
+            )  # deleting columns that cannot be sorted
+            event_cols_without_iterable.remove(sort_col)
+            event_cols_without_iterable.insert(0, sort_col)
+            events = events.sort(event_cols_without_iterable)
 
         grouped_sequences = events.group_by(groupby_col).agg(*[pl.col(x) for x in event_cols_without_groupby])
     else:
