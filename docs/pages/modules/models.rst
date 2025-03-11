@@ -362,7 +362,7 @@ SasRec
 
 Compiled sequential models
 ```````````````````````````
-Sequantial models like SasRec and Bert4Rec can be converted to ONNX format for fast inference on CPU.
+Sequential models like SasRec and Bert4Rec can be converted to ONNX format for fast inference on CPU.
 
 SasRecCompiled
 ~~~~~~~~~~~~~~
@@ -381,12 +381,14 @@ Replay provides Callbacks and Postprocessors to make the model training and vali
 During training:
 
 You can define the list of validation metrics and the model is determined to be the best and is saved if the metric
-updates its maximum during validation.
+updates its value during validation.
 
 During inference:
 
-You can get the recommendations in three formats: PySpark DataFrame, Pandas DataFrame, PyTorch tensors. Each of the types corresponds a callback.
+You can get the recommendations in four formats: PySpark DataFrame, Pandas DataFrame, Polars DataFrame, PyTorch tensors. Each of the types corresponds a callback.
 You can filter the results using postprocessors strategy.
+
+For a better understanding, you should look at examples of using neural network models.
 
 Callbacks
 ``````````
