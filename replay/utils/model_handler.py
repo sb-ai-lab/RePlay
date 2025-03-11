@@ -8,6 +8,7 @@ from typing import Union
 from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.models import _BaseRecommenderSparkImpl
 from replay.splitters import *
+from replay.utils.warnings import deprecation_warning  # noqa: F401
 
 from .session_handler import State
 from .types import PYSPARK_AVAILABLE
