@@ -338,6 +338,35 @@ class BaseRecommenderClient(ABC):
             msg = f"Class '{self._impl.__class__}' does not have the '_item_dim_size' attribute"
             raise AttributeError(msg)
 
+    @property 
+    def _before_fit_attributes(self):
+        return {
+            "can_predict_cold_queries" : self.can_predict_cold_queries,
+            "can_predict_cold_items" : self.can_predict_cold_items,
+            "_search_space" : deepcopy(self._search_space) if hasattr(self, "_search_space") else None,  # Нужен ли для него property, либо забирать через self._impl
+            "_objective" : deepcopy(self._objective) if hasattr(self, "_objective") else None,  # Нужен ли для него property, либо забирать через self._impl
+            "_study" : deepcopy(self._study) if hasattr(self, "_study") else None, # Нужен ли для него property, либо забирать через self._impl
+            "_criterion" : deepcopy(self._criterion) if hasattr(self, "_criterion") else None, # TODO: # Нужен ли для него property, либо забирать через self._impl
+            # TODO: # copy_implementation._init_args = deepcopy(self._init_args
+            # )# TODO: Нужно ли здесь вообще копировать init_args и _dataframes
+        }
+        
+    @property
+    def _after_fit_attributes(self):
+        if self.is_fitted:
+            return {
+                "query_column": self.query_column,
+                "item_column" : self.item_column,
+                "rating_column" : self.rating_column,
+                "timestamp_column" : self.timestamp_column,
+                "_num_queries" : self._num_queries,
+                "_num_items" : self._num_items,
+                "_query_dim_size" : self._query_dim_size,
+                "_item_dim_size" : self._item_dim_size
+            }
+        return None
+
+
     def __str__(self):
         return type(self).__name__
 
@@ -366,7 +395,7 @@ class BaseRecommenderClient(ABC):
             msg = f"Class '{self._impl.__class__}' does not have the 'set_params()' function "
             raise AttributeError(msg)
 
-    def _clear_cache(self):  # TODO: Documentation everywhere
+    def _clear_cache(self):
         """Clear the cache in spark realization"""
         if hasattr(self._impl, "_clear_cache") and self._get_realization_type() == "spark":
             return self._impl._clear_cache
@@ -604,7 +633,6 @@ class BaseRecommenderClient(ABC):
         return self._impl.get_features(ids, features)
 
     def _copy_base_params_to_new_model(self, copy_implementation):
-        # TODO: зафиксировать список параметров, как в _init_args
         copy_implementation.can_predict_cold_queries = self.can_predict_cold_queries
         copy_implementation.can_predict_cold_items = self.can_predict_cold_items
         copy_implementation._search_space = deepcopy(
@@ -620,16 +648,10 @@ class BaseRecommenderClient(ABC):
             deepcopy(self._criterion) if hasattr(self, "_criterion") else None
         )  # TODO: # Нужен ли для него property, либо забирать через self._impl
         # TODO: # copy_implementation._init_args = deepcopy(self._init_args
-        # )# Нужно ли здесь вообще init_args и dataframes
+        # )# Нужно ли здесь вообще копировать init_args и _dataframes
         if self.is_fitted:
-            copy_implementation.query_column = self.query_column
-            copy_implementation.item_column = self.item_column
-            copy_implementation.rating_column = self.rating_column
-            copy_implementation.timestamp_column = self.timestamp_column
-            copy_implementation._num_queries = self._num_queries
-            copy_implementation._num_items = self._num_items
-            copy_implementation._query_dim_size = self._query_dim_size
-            copy_implementation._item_dim_size = self._item_dim_size
+            for name, value in self._after_fit_attributes.items():
+                setattr(copy_implementation, name, value)
         return copy_implementation
 
     def to_spark(self):
@@ -684,6 +706,13 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
         else:
             msg = "`cold_weight` value should be in interval (0, 1]"
             raise ValueError(msg)
+        
+    @property
+    def _init_args(self):
+        return {
+            "add_cold_items": self._add_cold_items,
+            "cold_weight": self._cold_weight,
+        }
 
     @property
     def item_popularity(self):
@@ -695,10 +724,10 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
         else:
             msg = f"Class '{self._impl.__class__}' does not have the 'item_popularity' attribute"
             raise AttributeError(msg)
-    """
+    
     @property
     def add_cold_items(self):
-        if hasattr(self._impl, "add_cold_items"):
+        if self._impl is not None and hasattr(self._impl, "add_cold_items"):
             return self._impl.add_cold_items
         elif "add_cold_items" in self._get_all_attributes_or_functions():
             msg = "Attribute 'add_cold_items' has not been set yet. Set it"
@@ -712,11 +741,16 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
         if not isinstance(value, bool) :
             msg = f"incorrect type of argument 'value' ({type(value)}). Use bool"
             raise ValueError(msg)
-        self._impl.add_cold_items = value
+
+        self._add_cold_items = value
+        if self._impl is not None:
+            self._impl.add_cold_items =  self._add_cold_items
+        
+        
 
     @property
     def cold_weight(self):
-        if hasattr(self._impl, "cold_weight"):
+        if self._impl is not None and hasattr(self._impl, "cold_weight"):
             return self._impl.cold_weight
         elif "cold_weight" in self._get_all_attributes_or_functions():
             msg = "Attribute 'cold_weight' has not been set yet. Set it"
@@ -731,17 +765,13 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
             msg = f"incorrect type of argument 'value' ({type(value)}). Use float"
             raise ValueError(msg)
         if 0 < value <= 1:
-            self._impl.cold_weight = value
+            self._cold_weight = value
+            if self._impl is not None:
+                self._impl.cold_weight = value
         else:
             msg = "`cold_weight` value should be in interval (0, 1]"
             raise ValueError(msg)
-        self._impl.cold_weight = value
-"""
-# TODO: cold_weight и add_cold_items не работают, нужно понять:
-# 1) Как создать их в клиенте
-# 2) Как передать их в модель только после if
-# 3) Как сделать setter, тк он тоже нужен
-# Кажется вариант - запихнуть все в NonPersClient._init_args, и обновлять их динамически
+
 
     @item_popularity.setter
     def item_popularity(self, value):

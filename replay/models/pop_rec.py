@@ -105,7 +105,7 @@ class PopRec(NonPersonolizedRecommenderClient):
             `Cold_weight` value should be in interval (0, 1].
         """
         self.__impl = None
-        self.use_rating = use_rating
+        self._use_rating = use_rating
         super().__init__(add_cold_items=add_cold_items, cold_weight=cold_weight)
 
     @property
@@ -120,12 +120,33 @@ class PopRec(NonPersonolizedRecommenderClient):
         self.__impl = value
 
     @property
+    def use_rating(self):
+        if self._impl is not None and hasattr(self._impl, "use_rating"):
+            return self._impl.use_rating
+        elif "use_rating" in self._get_all_attributes_or_functions():
+            msg = "Attribute 'use_rating' has not been set yet. Set it"
+            raise AttributeError(msg)
+        else:
+            msg = f"Class '{self._impl.__class__}' does not have the 'use_rating' attribute"
+            raise AttributeError(msg)
+    
+    @use_rating.setter
+    def use_rating(self, value: bool):
+        if not isinstance(value, bool) :
+            msg = f"incorrect type of argument 'value' ({type(value)}). Use bool"
+            raise ValueError(msg)
+
+        self._use_rating = value
+        if self._impl is not None:
+            self._impl.use_rating =  self._use_rating
+
+    @property
     def _init_args(self):
-        if not hasattr(self._impl, "__init_args"):
+        if not hasattr(self._impl, "_init_args"):
             return {
-                "use_rating": self.use_rating,
-                "add_cold_items": self.add_cold_items,
-                "cold_weight": self.cold_weight,
+                "use_rating": self._use_rating,
+                "add_cold_items": self._add_cold_items,
+                "cold_weight": self._cold_weight,
             }
         return self._impl._init_args
 

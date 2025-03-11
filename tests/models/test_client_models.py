@@ -1,5 +1,3 @@
-import warnings
-from copy import deepcopy
 from os.path import dirname, join
 
 import pandas as pd
@@ -9,7 +7,6 @@ import pytest
 import replay
 from replay.data.dataset import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType
 from replay.models import PopRec
-
 
 pyspark = pytest.importorskip("pyspark")
 
@@ -68,11 +65,6 @@ feature_schema = FeatureSchema(
     ]
 )
 
-def get_different_rows(source_df, new_df): # TODO: remove
-    """Returns just the rows from the new dataframe that differ from the source dataframe"""
-    merged_df = source_df.merge(new_df, indicator=True, how='outer')
-    changed_rows_df = merged_df[merged_df['_merge'] == 'right_only']
-    return changed_rows_df.drop('_merge', axis=1)
 
 @pytest.fixture(scope="module")
 def pandas_interactions():
@@ -130,72 +122,51 @@ def big_datasets(pandas_big_df, polars_big_df, spark_big_df):
 
 @pytest.mark.spark
 @pytest.mark.parametrize(
-   "base_model, arguments",
-    [
-        (PopRec, {}), 
-        (PopRec, {"use_rating" : True})
-    ],
+    "base_model, arguments",
+    [(PopRec, {}), (PopRec, {"use_rating": True})],
     ids=["pop_rec", "pop_rec_with_rating"],
 )
 def test_fit_predict_the_same_framework_spark(base_model, arguments, datasets, big_datasets):
     for dataset in [datasets, big_datasets]:
         results = {}
-        models = {}
         for framework, df in dataset.items():
             model = base_model(**arguments)
             res = None
             if framework == "pandas":
-                res =  model.fit_predict(df, k=1).sort_values(["user_id", "item_id"])
+                res = model.fit_predict(df, k=1).sort_values(["user_id", "item_id"])
             elif framework == "spark":
-                res =  model.fit_predict(df, k=1).sort("user_id", "item_id").toPandas()
+                res = model.fit_predict(df, k=1).sort("user_id", "item_id").toPandas()
             if res is not None:
                 results.update({f"{framework}": res})
-                models.update({f"{framework}" : model})
             del model
 
         pandas_res = results["pandas"]
         spark_res = results["spark"]
-        print(f"{models.values()=}")
-        pandas_rating = models["pandas"].to_pandas().item_popularity
-        spark_rating = models["spark"].to_pandas().item_popularity
-        print(pandas_rating.equals(spark_rating))
-        print("pandas_res in same_framework_spark:\n", "type =", type(pandas_res) , "count rows =", pandas_res.shape[0], '\nnot_equal:\n', get_different_rows(spark_res, pandas_res),'\n', pandas_res)
-        print("spark_res in same_framework_spark:\n", "type =", type(spark_res), "count rows =", spark_res.shape[0], '\nis_equal: ', spark_res.equals(pandas_res),'\n', spark_res)
         assert pandas_res.equals(spark_res), "Dataframes are not equals"
 
 
 @pytest.mark.core
 @pytest.mark.parametrize(
     "base_model, arguments",
-    [
-        (PopRec, {}), 
-        (PopRec, {"use_rating" : True})
-    ],
+    [(PopRec, {}), (PopRec, {"use_rating": True})],
     ids=["pop_rec", "pop_rec_with_rating"],
 )
 def test_fit_predict_the_same_framework_polars(base_model, arguments, datasets, big_datasets):
     for dataset in [datasets, big_datasets]:
         results = {}
-        models = {}
         for framework, df in dataset.items():
             model = base_model(**arguments)
             res = None
             if framework == "pandas":
-                res =  model.fit_predict(df, k=1).sort_values(["user_id", "item_id"])
+                res = model.fit_predict(df, k=1).sort_values(["user_id", "item_id"])
             elif framework == "polars":
-                res =  model.fit_predict(df, k=1).sort("user_id", "item_id").to_pandas()
+                res = model.fit_predict(df, k=1).sort("user_id", "item_id").to_pandas()
             if res is not None:
                 results.update({f"{framework}": res})
-                models.update({f"{framework}" : model})
             del model
 
         pandas_res = results["pandas"]
         polars_res = results["polars"]
-        pandas_rating = models["pandas"].to_pandas().item_popularity
-        polars_rating = models["polars"].to_pandas().item_popularity
-        print("item_pop equal:",pandas_rating.equals(polars_rating),"\ncount of rows pandas, polars =",pandas_rating.shape[0], polars_rating.shape[0] ,"\ndifferent:\n",get_different_rows(pandas_rating, polars_rating))
-        print("pandas_res in same_framework_spark:\n", "type =", type(pandas_res) , "count rows =", pandas_res.shape[0], '\nis_equal:\n',  get_different_rows(polars_res, pandas_res),'\n', pandas_res)
-        print("spark_res in same_framework_spark:\n", "type =", type(polars_res), "count rows =", polars_res.shape[0], '\nis_equal: ', polars_res.equals(pandas_res),'\n', polars_res)
         assert pandas_res.equals(polars_res), "Dataframes are not equals"
 
 
@@ -246,11 +217,9 @@ def test_fit_predict_different_frameworks_spark(base_model, arguments, predict_f
                 res
             if res is not None:
                 results.update({f"{train_framework}_{predict_framework}": res})
-        #print("base_res in different_framework_spark:\n", "count rows =", base_res.shape[0], '\n',base_res)
         cnt = 0
         for type_of_convertation, dataframe in results.items():
-            #print(f"dataframe {cnt} in different_framework_spark:\n", "count rows =", dataframe.shape[0],'\nis_equal:\n', get_different_rows(dataframe, base_res),'\n', dataframe)
-            cnt+=1
+            cnt += 1
             assert base_res.equals(dataframe), f"Not equal dataframes in {type_of_convertation} pair of train-predict"
 
 
@@ -272,6 +241,4 @@ def test_fit_predict_different_frameworks_pandas_polars(base_model, arguments, d
         model.fit(polars_df)
         model.to_pandas()
         res2 = model.predict(pandas_df, k=1).sort_values(["user_id", "item_id"])
-        #print("res1 in different_framework_polars:\n",  "count rows =", res1.shape[0],'\n', 'is_equal:\n', get_different_rows(res1, res2),'\n',  res1)
-        #print("res2 in different_framework_polars:\n", "count rows =", res2.shape[0],'\n', 'is_equal: ', res2._data.equals(res1._data),'\n', res2)
         assert res1.equals(res2), "Not equal dataframes in pair of train-predict"
