@@ -41,9 +41,13 @@ To get more info on how to choose base model, please see this  :doc:`page </page
 Recommender interface
 ____________________________
 
+Recommender
+````````````
 .. autoclass:: replay.models.Recommender
     :members:
 
+BaseRecommender
+````````````````
 .. autoclass:: replay.models.base_rec.BaseRecommender
     :members: optimize
     :noindex: optimize
@@ -303,7 +307,7 @@ ULinUCB Recommender (Experimental)
 
 CQL Recommender (Experimental)
 ```````````````````````````````````
-Conservative Q-Learning (CQL) algorithm is a SAC-based data-driven deep reinforcement learning algorithm, 
+Conservative Q-Learning (CQL) algorithm is a SAC-based data-driven deep reinforcement learning algorithm,
 which achieves state-of-the-art performance in offline RL problems.
 
 .. image:: /images/cql_comparison.png
@@ -344,6 +348,7 @@ implicit (Experimental)
 
 Neural Networks recommenders
 ____________________________
+Neural Networks recommenders are Lightning-compatible. They can be trained using a Trainer from Lightning module.
 
 Bert4Rec
 ````````
@@ -353,4 +358,73 @@ Bert4Rec
 SasRec
 ``````
 .. autoclass:: replay.models.nn.SasRec
-   :members: __init__, predict_step
+   :members: __init__, predict
+
+Compiled sequential models
+```````````````````````````
+Sequential models like SasRec and Bert4Rec can be converted to ONNX format for fast inference on CPU.
+
+SasRecCompiled
+~~~~~~~~~~~~~~
+
+.. autoclass:: replay.models.nn.sequential.compiled.SasRecCompiled
+   :members: compile, predict
+
+Bert4RecCompiled
+~~~~~~~~~~~~~~~~
+TODO
+
+Features for easy training and validation with Lightning
+________________________________________________________
+Replay provides Callbacks and Postprocessors to make the model training and validation process as convenient as possible.
+
+During training:
+
+You can define the list of validation metrics and the model is determined to be the best and is saved if the metric
+updates its value during validation.
+
+During inference:
+
+You can get the recommendations in four formats: PySpark DataFrame, Pandas DataFrame, Polars DataFrame, PyTorch tensors. Each of the types corresponds a callback.
+You can filter the results using postprocessors strategy.
+
+For a better understanding, you should look at examples of using neural network models.
+
+Callbacks
+``````````
+ValidationMetricsCallback
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. autoclass:: replay.models.nn.sequential.callbacks.ValidationMetricsCallback
+   :members: __init__
+
+SparkPredictionCallback
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. autoclass:: replay.models.nn.sequential.callbacks.SparkPredictionCallback
+   :members: __init__, get_result
+
+PandasPredictionCallback
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. autoclass:: replay.models.nn.sequential.callbacks.PandasPredictionCallback
+   :members: __init__, get_result
+
+TorchPredictionCallback
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. autoclass:: replay.models.nn.sequential.callbacks.TorchPredictionCallback
+   :members: __init__, get_result
+
+QueryEmbeddingsPredictionCallback
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. autoclass:: replay.models.nn.sequential.callbacks.QueryEmbeddingsPredictionCallback
+   :members: __init__, get_result
+
+Postprocessors
+```````````````
+RemoveSeenItems
+~~~~~~~~~~~~~~~~
+.. autoclass:: replay.models.nn.sequential.postprocessors.postprocessors.RemoveSeenItems
+   :members: __init__
+
+SampleItems
+~~~~~~~~~~~~
+.. autoclass:: replay.models.nn.sequential.postprocessors.postprocessors.SampleItems
+   :members: __init__
