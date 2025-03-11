@@ -30,7 +30,7 @@ def test_class(log, log2):
     model = Fallback(ItemKNN(), threshold=3)
     assert model._init_args == {"threshold": 3}
     s = str(model)
-    assert s == "Fallback_ItemKNN_PopRec"
+    assert s == "Fallback_ItemKNN__PopRecSpark"
     dataset = create_dataset(log)
     dataset2 = create_dataset(log2)
     model.fit(dataset2)

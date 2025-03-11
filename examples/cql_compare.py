@@ -15,7 +15,7 @@ from replay.experimental.models.cql import MdpDatasetBuilder
 from replay.experimental.preprocessing.data_preparator import DataPreparator, Indexer
 from replay.metrics import MAP, MRR, NDCG, Coverage, HitRate, Surprisal
 from replay.metrics.experiment import Experiment
-from replay.models import SLIM, UCB, ALSWrap, ItemKNN, Recommender, Wilson
+from replay.models import SLIM, UCB, ALSWrap, ItemKNN, _RecommenderSparkImpl, Wilson
 from replay.splitters import TimeSplitter
 from replay.data import Dataset, FeatureSchema, FeatureHint, FeatureInfo, FeatureType
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame
@@ -30,7 +30,7 @@ if PYSPARK_AVAILABLE:
 
 def fit_predict_add_res(
     name: str,
-    model: Recommender,
+    model: _RecommenderSparkImpl,
     experiment: Experiment,
     train: PandasDataFrame,
     top_k: int,
