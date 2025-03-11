@@ -129,16 +129,16 @@ class PopRec(NonPersonolizedRecommenderClient):
         else:
             msg = f"Class '{self._impl.__class__}' does not have the 'use_rating' attribute"
             raise AttributeError(msg)
-    
+
     @use_rating.setter
     def use_rating(self, value: bool):
-        if not isinstance(value, bool) :
+        if not isinstance(value, bool):
             msg = f"incorrect type of argument 'value' ({type(value)}). Use bool"
             raise ValueError(msg)
 
         self._use_rating = value
         if self._impl is not None:
-            self._impl.use_rating =  self._use_rating
+            self._impl.use_rating = self._use_rating
 
     @property
     def _init_args(self):

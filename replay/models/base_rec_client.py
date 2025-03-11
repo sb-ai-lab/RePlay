@@ -338,34 +338,41 @@ class BaseRecommenderClient(ABC):
             msg = f"Class '{self._impl.__class__}' does not have the '_item_dim_size' attribute"
             raise AttributeError(msg)
 
-    @property 
+    @property
     def _before_fit_attributes(self):
         return {
-            "can_predict_cold_queries" : self.can_predict_cold_queries,
-            "can_predict_cold_items" : self.can_predict_cold_items,
-            "_search_space" : deepcopy(self._search_space) if hasattr(self, "_search_space") else None,  # Нужен ли для него property, либо забирать через self._impl
-            "_objective" : deepcopy(self._objective) if hasattr(self, "_objective") else None,  # Нужен ли для него property, либо забирать через self._impl
-            "_study" : deepcopy(self._study) if hasattr(self, "_study") else None, # Нужен ли для него property, либо забирать через self._impl
-            "_criterion" : deepcopy(self._criterion) if hasattr(self, "_criterion") else None, # TODO: # Нужен ли для него property, либо забирать через self._impl
+            "can_predict_cold_queries": self.can_predict_cold_queries,
+            "can_predict_cold_items": self.can_predict_cold_items,
+            "_search_space": (
+                deepcopy(self._search_space) if hasattr(self, "_search_space") else None
+            ),  # Нужен ли для него property, либо забирать через self._impl
+            "_objective": (
+                deepcopy(self._objective) if hasattr(self, "_objective") else None
+            ),  # Нужен ли для него property, либо забирать через self._impl
+            "_study": (
+                deepcopy(self._study) if hasattr(self, "_study") else None
+            ),  # Нужен ли для него property, либо забирать через self._impl
+            "_criterion": (
+                deepcopy(self._criterion) if hasattr(self, "_criterion") else None
+            ),  # TODO: # Нужен ли для него property, либо забирать через self._impl
             # TODO: # copy_implementation._init_args = deepcopy(self._init_args
             # )# TODO: Нужно ли здесь вообще копировать init_args и _dataframes
         }
-        
+
     @property
     def _after_fit_attributes(self):
         if self.is_fitted:
             return {
                 "query_column": self.query_column,
-                "item_column" : self.item_column,
-                "rating_column" : self.rating_column,
-                "timestamp_column" : self.timestamp_column,
-                "_num_queries" : self._num_queries,
-                "_num_items" : self._num_items,
-                "_query_dim_size" : self._query_dim_size,
-                "_item_dim_size" : self._item_dim_size
+                "item_column": self.item_column,
+                "rating_column": self.rating_column,
+                "timestamp_column": self.timestamp_column,
+                "_num_queries": self._num_queries,
+                "_num_items": self._num_items,
+                "_query_dim_size": self._query_dim_size,
+                "_item_dim_size": self._item_dim_size,
             }
         return None
-
 
     def __str__(self):
         return type(self).__name__
@@ -706,7 +713,7 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
         else:
             msg = "`cold_weight` value should be in interval (0, 1]"
             raise ValueError(msg)
-        
+
     @property
     def _init_args(self):
         return {
@@ -714,17 +721,6 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
             "cold_weight": self._cold_weight,
         }
 
-    @property
-    def item_popularity(self):
-        if hasattr(self._impl, "item_popularity"):  # add the required attribute setting
-            return self._impl.item_popularity
-        elif "item_popularity" in self._get_all_attributes_or_functions():
-            msg = "Attribute 'item_popularity' has not been set yet. Set it"
-            raise AttributeError(msg)
-        else:
-            msg = f"Class '{self._impl.__class__}' does not have the 'item_popularity' attribute"
-            raise AttributeError(msg)
-    
     @property
     def add_cold_items(self):
         if self._impl is not None and hasattr(self._impl, "add_cold_items"):
@@ -735,18 +731,16 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
         else:
             msg = f"Class '{self._impl.__class__}' does not have the 'add_cold_items' attribute"
             raise AttributeError(msg)
-    
+
     @add_cold_items.setter
     def add_cold_items(self, value: bool):
-        if not isinstance(value, bool) :
+        if not isinstance(value, bool):
             msg = f"incorrect type of argument 'value' ({type(value)}). Use bool"
             raise ValueError(msg)
 
         self._add_cold_items = value
         if self._impl is not None:
-            self._impl.add_cold_items =  self._add_cold_items
-        
-        
+            self._impl.add_cold_items = self._add_cold_items
 
     @property
     def cold_weight(self):
@@ -758,8 +752,8 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
         else:
             msg = f"Class '{self._impl.__class__}' does not have the 'cold_weight' attribute"
             raise AttributeError(msg)
-    
-    @add_cold_items.setter
+
+    @cold_weight.setter
     def cold_weight(self, value: float):
         if not isinstance(value, float) or value == 1:
             msg = f"incorrect type of argument 'value' ({type(value)}). Use float"
@@ -772,6 +766,16 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
             msg = "`cold_weight` value should be in interval (0, 1]"
             raise ValueError(msg)
 
+    @property
+    def item_popularity(self):
+        if hasattr(self._impl, "item_popularity"):  # add the required attribute setting
+            return self._impl.item_popularity
+        elif "item_popularity" in self._get_all_attributes_or_functions():
+            msg = "Attribute 'item_popularity' has not been set yet. Set it"
+            raise AttributeError(msg)
+        else:
+            msg = f"Class '{self._impl.__class__}' does not have the 'item_popularity' attribute"
+            raise AttributeError(msg)
 
     @item_popularity.setter
     def item_popularity(self, value):

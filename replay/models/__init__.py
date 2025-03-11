@@ -11,7 +11,14 @@ from .als import ALSWrap
 from .association_rules import AssociationRulesItemRec
 from .cat_pop_rec import CatPopRec
 from .cluster import ClusterRec
-from .implementations import _RecommenderSparkImpl
+from .implementations import (
+    _BaseRecommenderSparkImpl,
+    _HybridRecommenderSparkImpl,
+    _ItemVectorModelSparkImpl,
+    _NonPersonalizedRecommenderSparkImpl,
+    _RecommenderCommonsSparkImpl,
+    _RecommenderSparkImpl,
+)
 from .kl_ucb import KLUCB
 from .knn import ItemKNN
 from .lin_ucb import LinUCB
