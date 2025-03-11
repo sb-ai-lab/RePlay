@@ -22,7 +22,7 @@ For example, you can see all trials with `model.study.trials`.
 
 
 ```{eval-rst}
-.. autofunction:: replay.models.base_rec.BaseRecommender.optimize
+.. autofunction:: replay.models.implementations.spark.base_rec._BaseRecommenderSparkImpl.optimize
 ```
 
 You can either use default borders or specify them yourself. 

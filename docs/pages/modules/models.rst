@@ -41,10 +41,10 @@ To get more info on how to choose base model, please see this  :doc:`page </page
 Recommender interface
 ____________________________
 
-.. autoclass:: replay.models.Recommender
+.. autoclass:: replay.models.implementations.spark.base_rec._RecommenderSparkImpl
     :members:
 
-.. autoclass:: replay.models.base_rec.BaseRecommender
+.. autoclass:: replay.models.implementations.spark.base_rec._BaseRecommenderSparkImpl
     :members: optimize
     :noindex: optimize
 
