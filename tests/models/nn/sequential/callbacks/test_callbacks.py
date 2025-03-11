@@ -1,7 +1,6 @@
 import pytest
 
 from replay.utils import (
-    PYSPARK_AVAILABLE,
     TORCH_AVAILABLE,
     PandasDataFrame,
     PolarsDataFrame,
@@ -15,19 +14,26 @@ if TORCH_AVAILABLE:
         PandasPredictionCallback,
         PolarsPredictionCallback,
         QueryEmbeddingsPredictionCallback,
+        SparkPredictionCallback,
         TorchPredictionCallback,
         ValidationMetricsCallback,
     )
     from replay.models.nn.sequential.postprocessors import RemoveSeenItems
-
-    if PYSPARK_AVAILABLE:
-        from replay.models.nn.sequential.callbacks import SparkPredictionCallback
+    from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionDataset
 
 torch = pytest.importorskip("torch")
 L = pytest.importorskip("lightning")
 
 
-@pytest.mark.torch
+@pytest.mark.parametrize(
+    "callback_class",
+    [
+        pytest.param(TorchPredictionCallback, marks=pytest.mark.torch),
+        pytest.param(PandasPredictionCallback, marks=pytest.mark.torch),
+        pytest.param(PolarsPredictionCallback, marks=pytest.mark.torch),
+        pytest.param(SparkPredictionCallback, marks=[pytest.mark.torch, pytest.mark.spark]),
+    ],
+)
 @pytest.mark.parametrize(
     "is_postprocessor",
     [
@@ -35,132 +41,78 @@ L = pytest.importorskip("lightning")
         (True),
     ],
 )
-def test_torch_prediction_callback_fast_forward(item_user_sequential_dataset, train_loader, is_postprocessor):
-    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
-    pred_loader = torch.utils.data.DataLoader(pred)
-
-    callback = TorchPredictionCallback(
-        1,
-        postprocessors=[RemoveSeenItems(item_user_sequential_dataset)] if is_postprocessor else None,
-    )
-
-    trainer = L.Trainer(max_epochs=1, callbacks=[callback])
-    model = Bert4Rec(
-        tensor_schema=item_user_sequential_dataset._tensor_schema,
-        max_seq_len=5,
-        hidden_size=64,
-    )
-    trainer.fit(model, train_loader)
-    predicted = trainer.predict(model, pred_loader)
-
-    assert len(predicted) == len(pred)
-    assert predicted[0].size() == (1, 6)
-    users, items, scores = callback.get_result()
-    assert isinstance(users, torch.LongTensor)
-    assert isinstance(items, torch.LongTensor)
-    assert isinstance(scores, torch.Tensor)
-
-
-@pytest.mark.torch
 @pytest.mark.parametrize(
-    "is_postprocessor",
+    "candidates", [torch.LongTensor([0]), torch.LongTensor([1, 2]), torch.LongTensor([1, 2, 3, 4]), None]
+)
+@pytest.mark.parametrize(
+    "model, dataset, train_dataloader",
     [
-        (False),
-        (True),
+        (Bert4Rec, Bert4RecPredictionDataset, "train_bert_loader"),
+        (SasRec, SasRecPredictionDataset, "train_sasrec_loader"),
     ],
 )
-def test_pandas_prediction_callback_fast_forward(item_user_sequential_dataset, train_loader, is_postprocessor):
-    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+def test_prediction_callbacks_fast_forward(
+    item_user_sequential_dataset,
+    callback_class,
+    is_postprocessor,
+    candidates,
+    model,
+    dataset,
+    train_dataloader,
+    request,
+):
+    cardinality = item_user_sequential_dataset.schema["item_id"].cardinality
+    pred = dataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_loader = torch.utils.data.DataLoader(pred)
 
-    callback = PandasPredictionCallback(
-        1,
-        "user_id",
-        "item_id",
-        postprocessors=[RemoveSeenItems(item_user_sequential_dataset)] if is_postprocessor else None,
-    )
+    kwargs = {
+        "top_k": 1,
+        "postprocessors": ([RemoveSeenItems(item_user_sequential_dataset)] if is_postprocessor else None),
+    }
+    if callback_class in [PandasPredictionCallback, PolarsPredictionCallback, SparkPredictionCallback]:
+        kwargs["query_column"] = "user_id"
+        kwargs["item_column"] = "item_id"
+    if callback_class == SparkPredictionCallback:
+        kwargs["spark_session"] = get_spark_session()
+        kwargs["rating_column"] = "score"
+
+    callback = callback_class(**kwargs)
 
     trainer = L.Trainer(max_epochs=1, callbacks=[callback])
-    model = Bert4Rec(
+    model = model(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
         hidden_size=64,
     )
-    trainer.fit(model, train_loader)
+    trainer.fit(model, request.getfixturevalue(train_dataloader))
+    if candidates is not None:
+        if isinstance(model, SasRec):
+            model.candidates_to_score = candidates
+        else:
+            # TODO: remove with bert4rec implementation
+            with pytest.raises(NotImplementedError):
+                model.candidates_to_score = candidates
+            return
     predicted = trainer.predict(model, pred_loader)
 
     assert len(predicted) == len(pred)
-    assert predicted[0].size() == (1, 6)
-    assert isinstance(callback.get_result(), PandasDataFrame)
 
+    score_size = cardinality if candidates is None else candidates.shape[0]
+    assert predicted[0].size() == (1, score_size)
 
-@pytest.mark.torch
-@pytest.mark.parametrize(
-    "is_postprocessor",
-    [
-        (False),
-        (True),
-    ],
-)
-def test_polars_prediction_callback_fast_forward(item_user_sequential_dataset, train_loader, is_postprocessor):
-    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
-    pred_loader = torch.utils.data.DataLoader(pred)
-
-    callback = PolarsPredictionCallback(
-        1,
-        "user_id",
-        "item_id",
-        postprocessors=[RemoveSeenItems(item_user_sequential_dataset)] if is_postprocessor else None,
-    )
-
-    trainer = L.Trainer(max_epochs=1, callbacks=[callback])
-    model = Bert4Rec(
-        tensor_schema=item_user_sequential_dataset._tensor_schema,
-        max_seq_len=5,
-        hidden_size=64,
-    )
-    trainer.fit(model, train_loader)
-    predicted = trainer.predict(model, pred_loader)
-
-    assert len(predicted) == len(pred)
-    assert predicted[0].size() == (1, 6)
-    assert isinstance(callback.get_result(), PolarsDataFrame)
-
-
-@pytest.mark.torch
-@pytest.mark.spark
-@pytest.mark.parametrize(
-    "is_postprocessor",
-    [
-        (False),
-        (True),
-    ],
-)
-def test_spark_prediction_callback_fast_forward(item_user_sequential_dataset, train_loader, is_postprocessor):
-    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
-    pred_loader = torch.utils.data.DataLoader(pred)
-
-    callback = SparkPredictionCallback(
-        1,
-        "user_id",
-        "item_id",
-        "score",
-        get_spark_session(),
-        postprocessors=[RemoveSeenItems(item_user_sequential_dataset)] if is_postprocessor else None,
-    )
-
-    trainer = L.Trainer(max_epochs=1, callbacks=[callback])
-    model = Bert4Rec(
-        tensor_schema=item_user_sequential_dataset._tensor_schema,
-        max_seq_len=5,
-        hidden_size=64,
-    )
-    trainer.fit(model, train_loader)
-    predicted = trainer.predict(model, pred_loader)
-
-    assert len(predicted) == len(pred)
-    assert predicted[0].size() == (1, 6)
-    assert isinstance(callback.get_result(), SparkDataFrame)
+    if callback_class == TorchPredictionCallback:
+        users, items, scores = callback.get_result()
+        assert isinstance(users, torch.LongTensor)
+        assert isinstance(items, torch.LongTensor)
+        assert isinstance(scores, torch.Tensor)
+    else:
+        if callback_class == PandasPredictionCallback:
+            result_type = PandasDataFrame
+        elif callback_class == PolarsPredictionCallback:
+            result_type = PolarsDataFrame
+        elif callback_class == SparkPredictionCallback:
+            result_type = SparkDataFrame
+        assert isinstance(callback.get_result(), result_type)
 
 
 @pytest.mark.torch
@@ -173,30 +125,60 @@ def test_spark_prediction_callback_fast_forward(item_user_sequential_dataset, tr
         (["coverage"], None),
     ],
 )
-def test_validation_callbacks(item_user_sequential_dataset, train_loader, val_loader, metrics, postprocessor):
+@pytest.mark.parametrize(
+    "candidates", [torch.LongTensor([0]), torch.LongTensor([1, 2]), torch.LongTensor([1, 2, 3, 4]), None]
+)
+@pytest.mark.parametrize(
+    "model, dataset, train_dataloader, val_dataloader",
+    [
+        (Bert4Rec, Bert4RecPredictionDataset, "train_bert_loader", "val_bert_loader"),
+        (SasRec, SasRecPredictionDataset, "train_sasrec_loader", "val_sasrec_loader"),
+    ],
+)
+def test_validation_callbacks(
+    item_user_sequential_dataset,
+    metrics,
+    postprocessor,
+    candidates,
+    model,
+    dataset,
+    train_dataloader,
+    val_dataloader,
+    request,
+):
+    cardinality = item_user_sequential_dataset.schema["item_id"].cardinality
     callback = ValidationMetricsCallback(
         metrics=metrics,
         ks=[1],
         item_count=1,
-        postprocessors=[postprocessor(item_user_sequential_dataset)] if postprocessor else None,
+        postprocessors=([postprocessor(item_user_sequential_dataset)] if postprocessor else None),
     )
 
     trainer = L.Trainer(max_epochs=1, callbacks=[callback])
-    model = Bert4Rec(
+    model = model(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
         hidden_size=64,
         loss_type="BCE",
         loss_sample_count=6,
     )
-    trainer.fit(model, train_loader, val_loader)
+    trainer.fit(model, request.getfixturevalue(train_dataloader), request.getfixturevalue(val_dataloader))
+    if candidates is not None:
+        if isinstance(model, SasRec):
+            model.candidates_to_score = candidates
+        else:
+            with pytest.raises(NotImplementedError):
+                model.candidates_to_score = candidates
+            return
 
-    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred = dataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_loader = torch.utils.data.DataLoader(pred)
     predicted = trainer.predict(model, pred_loader)
 
     assert len(predicted) == len(pred)
-    assert predicted[0].size() == (1, 6)
+
+    score_size = cardinality if candidates is None else candidates.shape[0]
+    assert predicted[0].size() == (1, score_size)
 
 
 @pytest.mark.torch
@@ -207,55 +189,99 @@ def test_validation_callbacks(item_user_sequential_dataset, train_loader, val_lo
         (["coverage"], RemoveSeenItems),
         (["coverage", "precision"], None),
         (["coverage"], None),
+    ],
+)
+@pytest.mark.parametrize(
+    "candidates", [torch.LongTensor([0]), torch.LongTensor([1, 2]), torch.LongTensor([1, 2, 3, 4]), None]
+)
+@pytest.mark.parametrize(
+    "model, dataset, train_dataloader, val_dataloader",
+    [
+        (Bert4Rec, Bert4RecPredictionDataset, "train_bert_loader", "val_bert_loader"),
+        (SasRec, SasRecPredictionDataset, "train_sasrec_loader", "val_sasrec_loader"),
     ],
 )
 def test_validation_callbacks_multiple_dataloaders(
     item_user_sequential_dataset,
-    train_loader,
-    val_loader,
     metrics,
     postprocessor,
+    candidates,
+    model,
+    dataset,
+    train_dataloader,
+    val_dataloader,
+    request,
 ):
+    cardinality = item_user_sequential_dataset.schema["item_id"].cardinality
     callback = ValidationMetricsCallback(
         metrics=metrics,
         ks=[1],
         item_count=1,
-        postprocessors=[postprocessor(item_user_sequential_dataset)] if postprocessor else None,
+        postprocessors=([postprocessor(item_user_sequential_dataset)] if postprocessor else None),
     )
 
     trainer = L.Trainer(max_epochs=1, callbacks=[callback])
-    model = Bert4Rec(
+    model = model(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
         hidden_size=64,
         loss_type="BCE",
         loss_sample_count=6,
     )
-    trainer.fit(model, train_loader, [val_loader, val_loader])
+    val_loader = request.getfixturevalue(val_dataloader)
+    trainer.fit(model, request.getfixturevalue(train_dataloader), [val_loader, val_loader])
 
-    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    if candidates is not None:
+        if isinstance(model, SasRec):
+            model.candidates_to_score = candidates
+        else:
+            with pytest.raises(NotImplementedError):
+                model.candidates_to_score = candidates
+            return
+
+    pred = dataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_loader = torch.utils.data.DataLoader(pred)
     predicted = trainer.predict(model, pred_loader)
 
     assert len(predicted) == len(pred)
-    assert predicted[0].size() == (1, 6)
+
+    score_size = cardinality if candidates is None else candidates.shape[0]
+    assert predicted[0].size() == (1, score_size)
 
 
 @pytest.mark.torch
-def test_query_embeddings_callback(item_user_sequential_dataset):
+@pytest.mark.parametrize(
+    "model, dataset",
+    [
+        (Bert4Rec, Bert4RecPredictionDataset),
+        (SasRec, SasRecPredictionDataset),
+    ],
+)
+@pytest.mark.parametrize(
+    "candidates", [torch.LongTensor([0]), torch.LongTensor([1, 2]), torch.LongTensor([1, 2, 3, 4]), None]
+)
+def test_query_embeddings_callback(item_user_sequential_dataset, candidates, model, dataset):
     callback = QueryEmbeddingsPredictionCallback()
-    model = Bert4Rec(
+    model = model(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
         hidden_size=64,
         loss_type="BCE",
         loss_sample_count=6,
     )
-    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    if candidates is not None:
+        if isinstance(model, SasRec):
+            model.candidates_to_score = candidates
+        else:
+            with pytest.raises(NotImplementedError):
+                model.candidates_to_score = candidates
+            return
+
+    pred = dataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_loader = torch.utils.data.DataLoader(pred)
 
     trainer = L.Trainer(callbacks=[callback], inference_mode=True)
     trainer.predict(model, pred_loader)
     embs = callback.get_result()
 
-    assert embs.shape == (4, 64)
+    assert embs.shape == (item_user_sequential_dataset._sequences.shape[0], model._model.hidden_size)
