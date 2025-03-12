@@ -6,7 +6,27 @@ from pathlib import Path
 from typing import Union
 
 from replay.data.dataset_utils import DatasetLabelEncoder
-from replay.models import _BaseRecommenderSparkImpl
+from replay.models import (
+    KLUCB,  # noqa: F401
+    SLIM,  # noqa: F401
+    UCB,  # noqa: F401
+    ALSWrap,  # noqa: F401
+    AssociationRulesItemRec,  # noqa: F401
+    CatPopRec,  # noqa: F401
+    ClusterRec,  # noqa: F401
+    ItemKNN,  # noqa: F401
+    LinUCB,  # noqa: F401
+    PopRec,  # noqa: F401
+    QueryPopRec,  # noqa: F401
+    RandomRec,  # noqa: F401
+    ThompsonSampling,  # noqa: F401
+    Wilson,  # noqa: F401
+    Word2VecRec,  # noqa: F401
+    _BaseRecommenderSparkImpl,
+    client_model_list,
+)
+from replay.models.base_rec_client import BaseRecommenderClient
+from replay.models.implementations import *
 from replay.splitters import *
 from replay.utils.warnings import deprecation_warning  # noqa: F401
 
@@ -41,7 +61,7 @@ if PYSPARK_AVAILABLE:
         return [str(f.getPath()) for f in statuses]
 
 
-def save(model: _BaseRecommenderSparkImpl, path: Union[str, Path], overwrite: bool = False):
+def save(model: _BaseRecommenderSparkImpl | BaseRecommenderClient, path: Union[str, Path], overwrite: bool = False):
     """
     Save fitted model to disk as a folder
 
@@ -60,17 +80,21 @@ def save(model: _BaseRecommenderSparkImpl, path: Union[str, Path], overwrite: bo
         if is_exists:
             msg = f"Path '{path}' already exists. Mode is 'overwrite = False'."
             raise FileExistsError(msg)
-
+    is_many_frameworks_model = type(model) in client_model_list
     fs.mkdirs(spark._jvm.org.apache.hadoop.fs.Path(path))
-    model._save_model(join(path, "model"))
+    if is_many_frameworks_model:
+        model = model._impl
 
+    model._save_model(join(path, "model"))
     init_args = model._init_args
     init_args["_model_name"] = str(model)
+    dataframes = model._dataframes
+
     sc = spark.sparkContext
     df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
     df.coalesce(1).write.mode("overwrite").option("ignoreNullFields", "false").json(join(path, "init_args.json"))
+    # TODO: let's use repartition(1) instead of coalesce - its faster and more optimize
 
-    dataframes = model._dataframes
     df_path = join(path, "dataframes")
     for name, df in dataframes.items():
         if df is not None:
@@ -95,9 +119,12 @@ def load(path: str, model_type=None) -> _BaseRecommenderSparkImpl:
     args = spark.read.json(join(path, "init_args.json")).first().asDict(recursive=True)
     name = args["_model_name"]
     del args["_model_name"]
-
     model_class = model_type if model_type is not None else globals()[name]
-
+    if name in list(map(str, implementations_list)):
+        client_class = globals()[
+            name.replace("Spark", "").replace("Polars", "").replace("Pandas", "")
+        ]  # TODO доработать передачу переменной model_type
+        client = client_class(**args)
     model = model_class(**args)
 
     dataframes_paths = get_list_of_paths(spark, join(path, "dataframes"))
@@ -113,7 +140,8 @@ def load(path: str, model_type=None) -> _BaseRecommenderSparkImpl:
         if fs.exists(spark._jvm.org.apache.hadoop.fs.Path(join(path, "study")))
         else None
     )
-
+    if name in list(map(str, implementations_list)):
+        client._impl = model
     return model
 
 

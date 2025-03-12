@@ -30,3 +30,30 @@ from .thompson_sampling import ThompsonSampling
 from .ucb import UCB
 from .wilson import Wilson
 from .word2vec import Word2VecRec
+
+client_model_list = [PopRec]
+
+__all__ = [
+    "ALSWrap",
+    "AssociationRulesItemRec",
+    "CatPopRec",
+    "ClusterRec",
+    "_BaseRecommenderSparkImpl",
+    "_HybridRecommenderSparkImpl",
+    "_ItemVectorModelSparkImpl",
+    "_NonPersonalizedRecommenderSparkImpl",
+    "_RecommenderCommonsSparkImpl",
+    "_RecommenderSparkImpl",
+    "KLUCB",
+    "ItemKNN",
+    "LinUCB",
+    "PopRec",
+    "QueryPopRec",
+    "RandomRec",
+    "SLIM",
+    "ThompsonSampling",
+    "UCB",
+    "Wilson",
+    "Word2VecRec",
+    "client_model_list",
+]

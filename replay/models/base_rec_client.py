@@ -7,6 +7,7 @@ import pandas as pd
 
 from replay.data.dataset import Dataset
 from replay.metrics import NDCG, Metric
+from replay.optimization.optuna_objective import MainObjective
 from replay.utils import DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 from replay.utils.common import convert2pandas, convert2polars, convert2spark
 
@@ -25,6 +26,14 @@ class BaseRecommenderClient(ABC):
         self.is_pandas = False
         self.is_spark = False
         self.is_polars = False
+        self._init_when_first_impl_arrived_args = {
+            "can_predict_cold_queries": False,
+            "can_predict_cold_items": False,
+            "_search_space": None,
+            "_objective": MainObjective,
+            "criterion": None,
+            "study": None,
+        }
 
     @property
     @abstractmethod
@@ -112,8 +121,10 @@ class BaseRecommenderClient(ABC):
     @fit_items.setter
     def fit_items(self, value):
         """Column of fitted items in model"""
-        if isinstance(value, DataFrameLike):
+        if self._impl is not None and isinstance(value, DataFrameLike):
             self._impl.fit_items = value
+        elif self._impl is None and isinstance(value, DataFrameLike):
+            self._init_when_first_impl_arrived_args.update({"fit_items": value})
         else:
             msg = f"Can't set to 'fit_items' value {value} in class '{self._impl.__class__}'"
             raise AttributeError(msg)
@@ -133,8 +144,10 @@ class BaseRecommenderClient(ABC):
     @fit_queries.setter
     def fit_queries(self, value):
         """Column of fitted queries in model"""
-        if isinstance(value, DataFrameLike):
+        if self._impl is not None and isinstance(value, DataFrameLike):
             self._impl.fit_queries = value
+        elif self._impl is None and isinstance(value, DataFrameLike):
+            self._init_when_first_impl_arrived_args.update({"fit_queries": value})
         else:
             msg = f"Can't set to 'fit_queries' value ** {value} ** in class '{self._impl.__class__}'"
             raise AttributeError(msg)
@@ -184,6 +197,14 @@ class BaseRecommenderClient(ABC):
             msg = f"Class '{self._impl.__class__}' does not have the 'model' attribute"
             raise AttributeError(msg)
 
+    @model.setter
+    def model(self, value):
+        """Column of fitted queries in model"""
+        if self._impl is not None:
+            self._impl.model = value
+        elif self._impl is None:
+            self._init_when_first_impl_arrived_args.update({"model": value})
+
     @property
     def can_predict_cold_queries(self):
         if hasattr(self._impl, "can_predict_cold_queries"):
@@ -208,7 +229,7 @@ class BaseRecommenderClient(ABC):
 
     @property
     def _search_space(self):
-        if hasattr(self._impl, "_search_space"):  # add the required attribute setting
+        if hasattr(self._impl, "_search_space"):
             return self._impl._search_space
         elif "_search_space" in self._get_all_attributes_or_functions():
             msg = "Attribute '_search_space' has not been set yet. Set it"
@@ -229,32 +250,46 @@ class BaseRecommenderClient(ABC):
             raise AttributeError(msg)
 
     @property
-    def _study(self):
-        if hasattr(self._impl, "_study"):
-            return self._impl._study
-        elif "_study" in self._get_all_attributes_or_functions():
-            msg = "Attribute '_study' has not been set yet. Set it"
+    def study(self):
+        if hasattr(self._impl, "study"):
+            return self._impl.study
+        elif "study" in self._get_all_attributes_or_functions():
+            msg = "Attribute 'study' has not been set yet. Set it"
             raise AttributeError(msg)
         else:
-            msg = f"Class '{self._impl.__class__}' does not have the '_study' attribute"
+            msg = f"Class '{self._impl.__class__}' does not have the 'study' attribute"
             raise AttributeError(msg)
 
+    @study.setter
+    def study(self, value):
+        if self._impl is not None:
+            self._impl.study = value
+        else:
+            self._init_when_first_impl_arrived_args.update({"study": value})
+
     @property
-    def _criterion(self):
-        if hasattr(self._impl, "_criterion"):
-            return self._impl._criterion
-        elif "_criterion" in self._get_all_attributes_or_functions():
-            msg = "Attribute '_criterion' has not been set yet. Set it"
+    def criterion(self):
+        if hasattr(self._impl, "criterion"):
+            return self._impl.criterion
+        elif "criterion" in self._get_all_attributes_or_functions():
+            msg = "Attribute 'criterion' has not been set yet. Set it"
             raise AttributeError(msg)
         else:
-            msg = f"Class '{self._impl.__class__}' does not have the '_criterion' attribute"
+            msg = f"Class '{self._impl.__class__}' does not have the 'criterion' attribute"
             raise AttributeError(msg)
+
+    @criterion.setter
+    def criterion(self, value):
+        if self._impl is not None:
+            self._impl.criterion = value
+        else:
+            self._init_when_first_impl_arrived_args.update({"criterion": value})
 
     @property
     def query_column(self):
         if hasattr(self._impl, "query_column"):  # add the required attribute setting
             return self._impl.query_column
-        elif "_criterion" in self._get_all_attributes_or_functions():
+        elif "query_column" in self._get_all_attributes_or_functions():
             msg = "Attribute 'query_column' has not been set yet. Set it"
             raise AttributeError(msg)
         else:
@@ -265,7 +300,7 @@ class BaseRecommenderClient(ABC):
     def item_column(self):
         if hasattr(self._impl, "item_column"):
             return self._impl.item_column
-        elif "_criterion" in self._get_all_attributes_or_functions():
+        elif "item_column" in self._get_all_attributes_or_functions():
             msg = "Attribute 'item_column' has not been set yet. Set it"
             raise AttributeError(msg)
         else:
@@ -276,7 +311,7 @@ class BaseRecommenderClient(ABC):
     def rating_column(self):
         if hasattr(self._impl, "rating_column"):
             return self._impl.rating_column
-        elif "_criterion" in self._get_all_attributes_or_functions():
+        elif "rating_column" in self._get_all_attributes_or_functions():
             msg = "Attribute 'rating_column' has not been set yet. Set it"
             raise AttributeError(msg)
         else:
@@ -287,7 +322,7 @@ class BaseRecommenderClient(ABC):
     def timestamp_column(self):
         if hasattr(self._impl, "timestamp_column"):
             return self._impl.timestamp_column
-        elif "_criterion" in self._get_all_attributes_or_functions():
+        elif "timestamp_column" in self._get_all_attributes_or_functions():
             msg = "Attribute 'timestamp_column' has not been set yet. Set it"
             raise AttributeError(msg)
         else:
@@ -298,7 +333,7 @@ class BaseRecommenderClient(ABC):
     def _num_queries(self):
         if hasattr(self._impl, "_num_queries"):
             return self._impl._num_queries
-        elif "_criterion" in self._get_all_attributes_or_functions():
+        elif "_num_queries" in self._get_all_attributes_or_functions():
             msg = "Attribute '_num_queries' has not been set yet. Set it"
             raise AttributeError(msg)
         else:
@@ -309,7 +344,7 @@ class BaseRecommenderClient(ABC):
     def _num_items(self):
         if hasattr(self._impl, "_num_items"):
             return self._impl._num_items
-        elif "_criterion" in self._get_all_attributes_or_functions():
+        elif "_num_items" in self._get_all_attributes_or_functions():
             msg = "Attribute '_num_items' has not been set yet. Set it"
             raise AttributeError(msg)
         else:
@@ -320,7 +355,7 @@ class BaseRecommenderClient(ABC):
     def _query_dim_size(self):
         if hasattr(self._impl, "_query_dim_size"):
             return self._impl._query_dim_size
-        elif "_criterion" in self._get_all_attributes_or_functions():
+        elif "_query_dim_size" in self._get_all_attributes_or_functions():
             msg = "Attribute '_query_dim_size' has not been set yet. Set it"
             raise AttributeError(msg)
         else:
@@ -331,7 +366,7 @@ class BaseRecommenderClient(ABC):
     def _item_dim_size(self):
         if hasattr(self._impl, "_item_dim_size"):
             return self._impl._item_dim_size
-        elif "_criterion" in self._get_all_attributes_or_functions():
+        elif "_item_dim_size" in self._get_all_attributes_or_functions():
             msg = "Attribute '_item_dim_size' has not been set yet. Set it"
             raise AttributeError(msg)
         else:
@@ -344,19 +379,25 @@ class BaseRecommenderClient(ABC):
             "can_predict_cold_queries": self.can_predict_cold_queries,
             "can_predict_cold_items": self.can_predict_cold_items,
             "_search_space": (
-                deepcopy(self._search_space) if hasattr(self, "_search_space") else None
-            ),  # Нужен ли для него property, либо забирать через self._impl
+                deepcopy(self._search_space)
+                if hasattr(self, "_search_space")
+                else self._init_when_first_impl_arrived_args["_search_space"]
+            ),
             "_objective": (
-                deepcopy(self._objective) if hasattr(self, "_objective") else None
-            ),  # Нужен ли для него property, либо забирать через self._impl
-            "_study": (
-                deepcopy(self._study) if hasattr(self, "_study") else None
-            ),  # Нужен ли для него property, либо забирать через self._impl
-            "_criterion": (
-                deepcopy(self._criterion) if hasattr(self, "_criterion") else None
-            ),  # TODO: # Нужен ли для него property, либо забирать через self._impl
-            # TODO: # copy_implementation._init_args = deepcopy(self._init_args
-            # )# TODO: Нужно ли здесь вообще копировать init_args и _dataframes
+                deepcopy(self._objective)
+                if hasattr(self, "_objective")
+                else self._init_when_first_impl_arrived_args["_objective"]
+            ),
+            "study": (
+                deepcopy(self.study) if hasattr(self, "study") else self._init_when_first_impl_arrived_args["study"]
+            ),
+            "criterion": (
+                deepcopy(self.criterion)
+                if hasattr(self, "criterion")
+                else self._init_when_first_impl_arrived_args["criterion"]
+            ),
+            "_init_when_first_impl_arrived_args": deepcopy(self._init_when_first_impl_arrived_args),
+            # )# TODO: Is _init_args and _dataframes needed to copy? and where (maybe in _after_fit_attributes)
         }
 
     @property
@@ -383,11 +424,23 @@ class BaseRecommenderClient(ABC):
         """
         self._impl._save_model(path)
 
+    def _save_model(self, path: str) -> None:
+        """
+        Syntax sugar for saving model
+        """
+        self.save_model(path)
+
     def load_model(self, path: str) -> None:
         """
         Method for loading model attributes from disk
         """
         self._impl._load_model(path)
+
+    def _load_model(self, path: str) -> None:
+        """
+        Syntax sugar for  loading model
+        """
+        self.load_model(path)
 
     def set_params(self, **params: Dict[str, Any]) -> None:
         """
@@ -438,7 +491,7 @@ class BaseRecommenderClient(ABC):
         :param new_study: keep searching with previous study or start a new study
         :return: dictionary with best parameters
         """
-        if hasattr(self._impl, "optimize"):
+        if self._impl is not None and hasattr(self._impl, "optimize"):
             return self._impl.optimize(train_dataset, test_dataset, param_borders, criterion, k, budget, new_study)
         else:
             msg = f"Class '{self._impl.__class__}' does not have the 'optimize()' function "
@@ -452,6 +505,8 @@ class BaseRecommenderClient(ABC):
         self._assign_realization_type(realization)
         if dataset.is_spark or dataset.is_pandas or dataset.is_polars:
             self._impl = self._class_map[realization](**self._init_args)
+            if not self.is_fitted:
+                self._impl.set_params(**self._init_when_first_impl_arrived_args)
         else:
             msg = "Model Implementation can't calculate input data due to missmatch of types"
             raise DataModelMissmatchError(msg)
@@ -482,6 +537,8 @@ class BaseRecommenderClient(ABC):
 
         if self._impl is None and (dataset.is_spark or dataset.is_pandas or dataset.is_polars):
             self._impl = self._class_map[realization](**self._init_args)
+            if not self.is_fitted:
+                self._impl.set_params(**self._init_when_first_impl_arrived_args)
         self._impl.fit(dataset)
         self.is_fitted = True
         recs = self._impl.predict(dataset, k, queries, items, filter_seen_items, recs_file_path)
@@ -640,28 +697,17 @@ class BaseRecommenderClient(ABC):
         return self._impl.get_features(ids, features)
 
     def _copy_base_params_to_new_model(self, copy_implementation):
-        copy_implementation.can_predict_cold_queries = self.can_predict_cold_queries
-        copy_implementation.can_predict_cold_items = self.can_predict_cold_items
-        copy_implementation._search_space = deepcopy(
-            self._search_space
-        )  # Нужен ли для него property, либо забирать через self._impl
-        copy_implementation._objective = deepcopy(
-            self._objective
-        )  # Нужен ли для него property, либо забирать через self._impl
-        copy_implementation._study = (
-            deepcopy(self._study) if hasattr(self, "_study") else None
-        )  # Нужен ли для него property, либо забирать через self._impl
-        copy_implementation._criterion = (
-            deepcopy(self._criterion) if hasattr(self, "_criterion") else None
-        )  # TODO: # Нужен ли для него property, либо забирать через self._impl
-        # TODO: # copy_implementation._init_args = deepcopy(self._init_args
-        # )# Нужно ли здесь вообще копировать init_args и _dataframes
+        for name, value in self._before_fit_attributes.items():
+            setattr(copy_implementation, name, value)
         if self.is_fitted:
             for name, value in self._after_fit_attributes.items():
                 setattr(copy_implementation, name, value)
         return copy_implementation
 
     def to_spark(self):
+        if self._impl is None:
+            msg = "Can't convert not fitted model"
+            raise NotFittedModelError(msg)
         if self.is_spark:
             return self
         copy_implementation = self._class_map["spark"](**self._init_args)
@@ -677,6 +723,9 @@ class BaseRecommenderClient(ABC):
         return self
 
     def to_pandas(self):
+        if self._impl is None:
+            msg = "Can't convert not fitted model"
+            raise NotFittedModelError(msg)
         if self.is_pandas:
             return self
         copy_implementation = self._class_map["pandas"](**self._init_args)
@@ -690,6 +739,9 @@ class BaseRecommenderClient(ABC):
         return self
 
     def to_polars(self):
+        if self._impl is None:
+            msg = "Can't convert not fitted model"
+            raise NotFittedModelError(msg)
         if self.is_polars:
             return self
         copy_implementation = self._class_map["polars"](**self._init_args)
@@ -707,6 +759,9 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
 
     def __init__(self, add_cold_items: bool, cold_weight: float):
         super().__init__()
+        self._init_when_first_impl_arrived_args.update(
+            {"can_predict_cold_items": True, "can_predict_cold_queries": True, "seed": None}
+        )
         self._add_cold_items = add_cold_items
         if 0 < cold_weight <= 1:
             self._cold_weight = cold_weight
@@ -755,7 +810,7 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
 
     @cold_weight.setter
     def cold_weight(self, value: float):
-        if not isinstance(value, float) or value == 1:
+        if not isinstance(value, float) or value != 1:
             msg = f"incorrect type of argument 'value' ({type(value)}). Use float"
             raise ValueError(msg)
         if 0 < value <= 1:
@@ -790,11 +845,22 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
 
     @property
     def fill(self):
-        return self._impl.fill
+        if hasattr(self._impl, "fill"):
+            return self._impl.fill
+        elif "fill" in self._get_all_attributes_or_functions():
+            msg = "Attribute 'fill' has not been set yet. Set it"
+            raise AttributeError(msg)
+        else:
+            msg = f"Class '{self._impl.__class__}' does not have the 'fill' attribute"
+            raise AttributeError(msg)
 
     @fill.setter
     def fill(self, value):
-        self._impl.fill = value
+        if self._impl is not None:
+            self._impl.fill = value
+        else:
+            msg = f"Can't set to 'fill' value {value} in class '{self._impl.__class__}'"
+            raise AttributeError(msg)
 
     @property
     def sample(self):

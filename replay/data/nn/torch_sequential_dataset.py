@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset as TorchDataset
 
-from replay.utils.model_handler import deprecation_warning
+from replay.utils.warnings import deprecation_warning
 
 from .schema import TensorFeatureInfo, TensorMap, TensorSchema
 from .sequential_dataset import SequentialDataset
