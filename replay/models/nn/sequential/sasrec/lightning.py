@@ -66,8 +66,6 @@ class SasRec(lightning.LightningModule):
             Default: ``FatOptimizerFactory``.
         :param lr_scheduler_factory: Learning rate schedule factory.
             Default: ``None``.
-        :param candidates_to_score: Item ids to calculate scores.
-            Default: ``None``.
         """
         super().__init__()
         self.save_hyperparameters()
