@@ -61,7 +61,9 @@ if PYSPARK_AVAILABLE:
         return [str(f.getPath()) for f in statuses]
 
 
-def save(model: _BaseRecommenderSparkImpl | BaseRecommenderClient, path: Union[str, Path], overwrite: bool = False):
+def save(
+    model: Union[BaseRecommenderClient, _BaseRecommenderSparkImpl], path: Union[str, Path], overwrite: bool = False
+):
     """
     Save fitted model to disk as a folder
 
