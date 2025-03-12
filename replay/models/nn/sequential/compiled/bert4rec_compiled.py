@@ -21,10 +21,11 @@ from replay.models.nn.sequential.compiled.base_compiled_model import (
 class Bert4RecCompiled(BaseCompiledModel):
     """
     Bert4Rec CPU-optimized model for inference via OpenVINO.
-    It is recommended to compile model with ``compile`` method and pass Bert4Rec checkpoint
+    It is recommended to compile model with ``compile`` method and pass ``Bert4Rec`` checkpoint
     or the model object itself into it.
-    It is also possible to compile model by yourself and pass it to the ``__init__`` with TensorSchema.
-    Note that compilation requires disk write (and maybe delete) permission.
+    It is also possible to compile model by yourself and pass it to the ``__init__`` with ``TensorSchema``.
+
+    **Note** that compilation requires disk write (and maybe delete) permission.
     """
 
     def __init__(
@@ -34,7 +35,7 @@ class Bert4RecCompiled(BaseCompiledModel):
     ) -> None:
         """
         :param compiled_model: Compiled model.
-        :param schema: Tensor schema of SasRec model.
+        :param schema: Tensor schema of Bert4Rec model.
         """
         super().__init__(compiled_model, schema)
 
@@ -108,7 +109,7 @@ class Bert4RecCompiled(BaseCompiledModel):
             Default: ``None``.
         :param num_threads: Number of CPU threads to use.
             Must be a natural number or ``None``.
-            If ``None``, then compiler will set this parameter independently.
+            If ``None``, then compiler will set this parameter automatically.
             Default: ``None``.
         :param onnx_path: Save ONNX model to path, if defined.
             Default: ``None``.
@@ -156,7 +157,8 @@ class Bert4RecCompiled(BaseCompiledModel):
             is_saveble = True
 
         # Need to disable "Better Transformer" optimizations that interfere with the compilation process
-        torch.backends.mha.set_fastpath_enabled(value=False)
+        if hasattr(torch.backends, "mha"):
+            torch.backends.mha.set_fastpath_enabled(value=False)
         lightning_model.to_onnx(
             onnx_path,
             input_sample=model_input_sample,

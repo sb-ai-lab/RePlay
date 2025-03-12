@@ -24,6 +24,7 @@ class SasRecCompiled(BaseCompiledModel):
     It is recommended to compile model with ``compile`` method and pass ``SasRec`` checkpoint
     or the model object itself into it.
     It is also possible to compile model by yourself and pass it to the ``__init__`` with ``TensorSchema``.
+
     **Note** that compilation requires disk write (and maybe delete) permission.
     """
 

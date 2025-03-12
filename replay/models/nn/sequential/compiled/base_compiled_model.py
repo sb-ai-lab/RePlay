@@ -88,7 +88,7 @@ class BaseCompiledModel:
         :return: Tensor with scores.
         """
 
-    def _validate_candidates_to_score(self, candidates: torch.LongTensor):
+    def _validate_candidates_to_score(self, candidates: torch.LongTensor) -> None:
         """Check if candidates param has proper type"""
 
         if not (isinstance(candidates, torch.Tensor) and candidates.dtype is torch.long):
