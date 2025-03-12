@@ -1,4 +1,4 @@
-from typing import List, Optional, Set, Tuple, cast
+from typing import List, Optional, Set, Tuple, Union, cast
 
 import numpy as np
 import pandas as pd
@@ -90,6 +90,21 @@ class RemoveSeenItems(BasePostProcessor):
 
         flat_seen_item_ids_np = np.concatenate(item_id_sequences)
         return torch.LongTensor(flat_seen_item_ids_np)
+
+    @property
+    def candidates(self) -> Union[torch.LongTensor, None]:
+        """
+        Returns tensor of item ids to calculate scores.
+        """
+        return self._candidates
+
+    @candidates.setter
+    def candidates(self, candidates: Optional[torch.LongTensor] = None) -> None:
+        """
+        Sets tensor of item ids to calculate scores.
+        :param candidates: Tensor of item ids to calculate scores.
+        """
+        self._candidates = candidates
 
 
 class SampleItems(BasePostProcessor):

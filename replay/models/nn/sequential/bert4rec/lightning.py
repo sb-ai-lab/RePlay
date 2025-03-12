@@ -514,11 +514,19 @@ class Bert4Rec(lightning.LightningModule):
             raise ValueError(msg)
 
     @property
+<<<<<<< HEAD
     def candidates_to_score(self) -> Union[torch.LongTensor, None]:
         """
         Returns tensor of item ids to calculate scores.
         """
         return self._candidates_to_score
+=======
+    def candidates_to_score(self) -> Union[torch.LongTensor, None]:  # pragma: no cover
+        """
+        Returns tensor of item ids to calculate scores.
+        """
+        return None
+>>>>>>> origin/main
 
     @candidates_to_score.setter
     def candidates_to_score(self, candidates: Optional[torch.LongTensor] = None) -> None:
@@ -526,6 +534,7 @@ class Bert4Rec(lightning.LightningModule):
         Sets tensor of item ids to calculate scores.
         :param candidates: Tensor of item ids to calculate scores.
         """
+<<<<<<< HEAD
         total_item_count = self._model.item_count
         if isinstance(candidates, torch.Tensor) and candidates.dtype is torch.long:
             if 0 < candidates.shape[0] <= total_item_count:
@@ -537,6 +546,9 @@ class Bert4Rec(lightning.LightningModule):
             msg = f"Expected candidates to be of type torch.LongTensor or None, gpt {type(candidates)}"
             raise ValueError(msg)
         self._candidates_to_score = candidates
+=======
+        raise NotImplementedError()
+>>>>>>> origin/main
 
     def _set_new_item_embedder_to_model(self, weights_new: torch.nn.Embedding, new_vocab_size: int):
         self._model.item_embedder.cat_embeddings[self._model.schema.item_id_feature_name] = weights_new

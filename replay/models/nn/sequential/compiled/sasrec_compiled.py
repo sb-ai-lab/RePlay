@@ -21,10 +21,10 @@ from replay.models.nn.sequential.sasrec.lightning import _prepare_prediction_bat
 class SasRecCompiled(BaseCompiledModel):
     """
     SasRec CPU-optimized model for inference via OpenVINO.
-    It is recommended to compile model with ``compile`` method and pass SasRec checkpoint
+    It is recommended to compile model with ``compile`` method and pass ``SasRec`` checkpoint
     or the model object itself into it.
-    It is also possible to compile model by yourself and pass it to the ``__init__`` with TensorSchema.
-    Note that compilation requires disk write (and maybe delete) permission.
+    It is also possible to compile model by yourself and pass it to the ``__init__`` with ``TensorSchema``.
+    **Note** that compilation requires disk write (and maybe delete) permission.
     """
 
     def __init__(
@@ -107,7 +107,7 @@ class SasRecCompiled(BaseCompiledModel):
             Default: ``None``.
         :param num_threads: Number of CPU threads to use.
             Must be a natural number or ``None``.
-            If ``None``, then compiler will set this parameter independently.
+            If ``None``, then compiler will set this parameter automatically.
             Default: ``None``.
         :param onnx_path: Save ONNX model to path, if defined.
             Default: ``None``.

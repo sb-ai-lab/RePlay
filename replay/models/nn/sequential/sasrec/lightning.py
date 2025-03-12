@@ -35,7 +35,6 @@ class SasRec(lightning.LightningModule):
         negatives_sharing: bool = False,
         optimizer_factory: OptimizerFactory = FatOptimizerFactory(),
         lr_scheduler_factory: Optional[LRSchedulerFactory] = None,
-        candidates_to_score: Optional[torch.LongTensor] = None,
     ):
         """
         :param tensor_schema: Tensor schema of features.
@@ -95,7 +94,7 @@ class SasRec(lightning.LightningModule):
         item_count = tensor_schema.item_id_features.item().cardinality
         assert item_count
         self._vocab_size = item_count
-        self.candidates_to_score = candidates_to_score
+        self.candidates_to_score = None
 
     def training_step(self, batch: SasRecTrainingBatch, batch_idx: int) -> torch.Tensor:
         """
