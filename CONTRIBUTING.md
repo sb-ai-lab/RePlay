@@ -80,8 +80,18 @@ If you are installing from the source, you will need Python 3.8.1-3.11.
     So, you don't need to rebuild the full project every time.
     Each change in the code will be reflected in the library inside the environment.
 
+4. **optional**: If the JDK is not installed, you can install it.
+    Some of the library's functions **require** the JDK.
+    If you get the error `RuntimeError: Java gateway process exited before sending its part number`, this is a clear signal that you need to install the JDK
+    Install it with:
+    ```bash
+    sudo add-apt-repository ppa:openjdk-r/ppa
+    sudo apt-get update
+    sudo apt-get install openjdk-11-jdk
+    ```
 
-4. **optional**: Build wheel package:
+
+5. **optional**: Build wheel package:
 
     ```bash
     ./poetry_wrapper.sh build
@@ -93,7 +103,7 @@ If you are installing from the source, you will need Python 3.8.1-3.11.
     You can find the assembled package in the ``dist`` folder.
 
 
-5. **optional**: Сhanging dependencies:
+6. **optional**: Сhanging dependencies:
     - If you want to make changes in the pyproject.toml file then change the projects/pyproject.toml.template file. There may be inserts in it that relate only to the main part of the library or experimental. In this case, it is necessary to make inserts in Jinja2-like syntax. For example:
     ```bash
     {% if project == "default" %}
@@ -115,7 +125,7 @@ If you are installing from the source, you will need Python 3.8.1-3.11.
     Note that during this step, updated poetry.lock file do not need to be copied anywhere.
 
 
-6. **optional**: Generate pyproject.toml file
+7. **optional**: Generate pyproject.toml file
 - If you want to get default pyproject.toml file, then get it from projects/pyproject.toml.template, using command:
     ```bash
     ./poetry_wrapper.sh --generate
