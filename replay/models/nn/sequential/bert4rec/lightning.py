@@ -360,7 +360,6 @@ class Bert4Rec(lightning.LightningModule):
         labels_mask = (~padding_mask) + tokens_mask
         masked_tokens = ~labels_mask
 
-        pad_token = feature_tensors[self._schema.item_id_feature_name].view(-1)[~padding_mask.view(-1)][0]
         emb = self._model.forward_step(feature_tensors, padding_mask, tokens_mask)
         hd = torch.tensor(emb.shape[-1])
 
@@ -386,7 +385,6 @@ class Bert4Rec(lightning.LightningModule):
 
             y_bucket = buckets @ w.T # (n_b, hd) x (hd, n_cl) -> (n_b, n_cl)
 
-            y_bucket[:, pad_token] = float('-inf')
             _, top_y_bucket = torch.topk(y_bucket, dim=1, k=self._bucket_size_y) # (n_b, bs_y)
             del y_bucket
 
