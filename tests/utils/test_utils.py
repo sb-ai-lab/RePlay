@@ -258,30 +258,51 @@ def test_check_if_dataframe_false():
 
 @pytest.mark.core
 @pytest.mark.parametrize(
-    "df, warm_df, expected_num_cold, expected_filtered_df",
+    "data, warm_data, expected_num_cold, expected_filtered_data",
     [
-        (None, pl.DataFrame({"id": [1, 2]}), 0, None),
+        (None, {"id": [1, 2]}, 0, None),
         (
-            pl.DataFrame({"id": [1, 2], "value": [10, 20]}),
-            pl.DataFrame({"id": [1, 2]}),
+            {"id": [1, 2], "value": [10, 20]},
+            {"id": [1, 2]},
             0,
-            pl.DataFrame({"id": [1, 2], "value": [10, 20]}),
+            {"id": [1, 2], "value": [10, 20]},
         ),
         (
-            pl.DataFrame({"id": [1, 2, 3], "value": [10, 20, 30]}),
-            pl.DataFrame({"id": [1, 2]}),
+            {"id": [1, 2, 3], "value": [10, 20, 30]},
+            {"id": [1, 2]},
             1,
-            pl.DataFrame({"id": [1, 2], "value": [10, 20]}),
+            {"id": [1, 2], "value": [10, 20]},
         ),
     ],
 )
-def test_filter_cold(df, warm_df, expected_num_cold, expected_filtered_df):
+def test_filter_cold(data, warm_data, expected_num_cold, expected_filtered_data):
     col_name = "id"
-    num_cold, filtered_df = polars_utils.filter_cold(df, warm_df, col_name)
+    if data is not None:
+        pd_dataframe = pd.DataFrame(data)
+        pl_dataframe = pl.DataFrame(data)
+        warm_pd_dataframe = pd.DataFrame(warm_data)
+        warm_pl_dataframe = pl.DataFrame(warm_data)
+        expected_df_pd = pd.DataFrame(expected_filtered_data)
+        expected_df_pl = pl.DataFrame(expected_filtered_data)
+    else:
+        pd_dataframe, pl_dataframe, warm_pd_dataframe, warm_pl_dataframe = None, None, None, None
+        expected_df_pd, expected_df_pl = None, None
+    num_cold, filtered_df_pd = pandas_utils.filter_cold(pd_dataframe, warm_pd_dataframe, col_name)
+    num_cold, filtered_df_pl = polars_utils.filter_cold(pl_dataframe, warm_pl_dataframe, col_name)
 
     assert num_cold == expected_num_cold
-    if expected_filtered_df is not None:
-        assert filtered_df.equals(expected_filtered_df)
+    if data is None:
+        pass
+    if expected_df_pd is not None:
+        assert filtered_df_pd.equals(expected_df_pd)
+    if expected_df_pl is not None:
+        assert filtered_df_pl.equals(expected_df_pl)
+    if filtered_df_pl is None or filtered_df_pd is None:
+        with pytest.raises(ValueError, match="One of dataframes is None"):
+            msg = "One of dataframes is None"
+            raise ValueError(msg)
+    else:
+        assert filtered_df_pl.to_pandas().equals(expected_df_pd)
 
 
 @pytest.mark.spark
@@ -497,3 +518,133 @@ def test_return_recs_spark(recs, recs_file_path, expected_result):
     else:
         result = utils.return_recs(recs, recs_file_path)
         assert result.toPandas().equals(expected_result)
+
+
+@pytest.mark.core
+def test_save_and_load_simple_object():
+    # Создаем временный файл
+    with tempfile.TemporaryDirectory() as tempdir:
+        filename = os.path.join(tempdir, "temp.parquet")
+        # Простое значение для сохранения
+        simple_obj = {"a": 1, "b": 2}
+
+        # Сохраняем объект в паркет
+        pandas_utils.save_picklable_to_parquet(simple_obj, filename)
+
+        # Загружаем объект обратно
+        loaded_obj = pandas_utils.load_pickled_from_parquet(filename)
+
+        # Проверка равенства исходного и загруженного объектов
+        assert simple_obj == loaded_obj
+
+
+@pytest.mark.core
+def test_save_and_load_complex_object():
+    # Создаем временный файл
+    with tempfile.TemporaryDirectory() as tempdir:
+        filename = os.path.join(tempdir, "temp.parquet")
+        # Сложный объект для сохранения
+        complex_obj = {"list": [1, 2, 3], "dict": {"a": 1}, "tuple": (4, 5)}
+
+        # Сохраняем объект в паркет
+        pandas_utils.save_picklable_to_parquet(complex_obj, filename)
+
+        # Загружаем объект обратно
+        loaded_obj = pandas_utils.load_pickled_from_parquet(filename)
+
+        # Проверка равенства исходного и загруженного объектов
+        assert complex_obj == loaded_obj
+
+
+@pytest.mark.core
+def test_save_and_load_none_value():
+    # Создаем временный файл
+    with tempfile.TemporaryDirectory() as tempdir:
+        filename = os.path.join(tempdir, "temp.parquet")
+        # Сохраняем None в паркет
+        pandas_utils.save_picklable_to_parquet(None, filename)
+
+        # Загружаем объект обратно
+        loaded_obj = pandas_utils.load_pickled_from_parquet(filename)
+
+        # Проверка равенства исходного и загруженного объектов
+        assert loaded_obj is None
+
+
+@pytest.mark.core
+@pytest.mark.parametrize("obj", [{"a": 1, "b": 2}, [1, 2, 3], ("a", "b"), 42, None])
+def test_save_and_load_various_objects(obj):
+    # Создаем временный файл
+    with tempfile.TemporaryDirectory() as tempdir:
+        filename = os.path.join(tempdir, "temp.parquet")
+        # Сохраняем объект в паркет
+        pandas_utils.save_picklable_to_parquet(obj, filename)
+
+        # Загружаем объект обратно
+        loaded_obj = pandas_utils.load_pickled_from_parquet(filename)
+
+        # Проверка равенства исходного и загруженного объектов
+        assert obj == loaded_obj
+
+
+@pytest.mark.spark
+def test_save_and_load_simple_object_spark():
+    # Создаем временный файл
+    with tempfile.TemporaryDirectory() as tempdir:
+        filename = os.path.join(tempdir, "temp.parquet")
+        simple_obj = {"a": 1, "b": 2}
+
+        # Сохраняем объект в паркет
+        utils.save_picklable_to_parquet(simple_obj, filename)
+
+        # Загружаем объект обратно
+        loaded_obj = utils.load_pickled_from_parquet(filename)
+
+        # Проверка равенства исходного и загруженного объектов
+        assert simple_obj == loaded_obj
+
+
+@pytest.mark.spark
+def test_save_and_load_complex_object_spark():
+    # Создаем временный файл
+    with tempfile.TemporaryDirectory() as tempdir:
+        filename = os.path.join(tempdir, "temp.parquet")
+        complex_obj = {"list": [1, 2, 3], "dict": {"a": 1}, "tuple": (4, 5)}
+
+        # Сохраняем объект в паркет
+        utils.save_picklable_to_parquet(complex_obj, filename)
+
+        # Загружаем объект обратно
+        loaded_obj = utils.load_pickled_from_parquet(filename)
+
+        # Проверка равенства исходного и загруженного объектов
+        assert complex_obj == loaded_obj
+
+
+@pytest.mark.spark
+def test_save_and_load_none_value_spark():
+    # Создаем временный файл
+    with tempfile.TemporaryDirectory() as tempdir:
+        filename = os.path.join(tempdir, "temp.parquet")
+        utils.save_picklable_to_parquet(None, filename)
+
+        # Загружаем объект обратно
+        loaded_obj = utils.load_pickled_from_parquet(filename)
+
+        # Проверка равенства исходного и загруженного объектов
+        assert loaded_obj is None
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize("obj", [{"a": 1, "b": 2}, [1, 2, 3], ("a", "b"), 42, None])
+def test_save_and_load_various_objects_spark(obj):
+    # Создаем временный файл
+    with tempfile.TemporaryDirectory() as tempdir:
+        filename = os.path.join(tempdir, "temp.parquet")
+        utils.save_picklable_to_parquet(obj, filename)
+
+        # Загружаем объект обратно
+        loaded_obj = utils.load_pickled_from_parquet(filename)
+
+        # Проверка равенства исходного и загруженного объектов
+        assert obj == loaded_obj
