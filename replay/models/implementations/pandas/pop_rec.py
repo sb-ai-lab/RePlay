@@ -386,7 +386,7 @@ class _PopRecPandas:
         recs = self._predict_without_sampling(dataset, k, queries, items, filter_seen_items)
         if filter_seen_items and dataset is not None:
             recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
-        recs = get_top_k(recs, self.query_column, [(self.rating_column, False), (self.item_column, False)], k)[
+        recs = get_top_k(recs, self.query_column, [(self.rating_column, False), (self.item_column, True)], k)[
             [self.query_column, self.item_column, self.rating_column]
         ].reset_index(drop=True)
         recs = return_recs(recs, recs_file_path)

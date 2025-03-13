@@ -1,5 +1,6 @@
 import logging
 import os
+import tempfile
 from datetime import datetime, timezone
 from functools import partial
 
@@ -17,8 +18,11 @@ from pyspark.sql import SparkSession
 from pyspark.sql.types import TimestampType
 
 import replay.utils.session_handler
-from replay.utils import spark_utils as utils
-from replay.utils import pandas_utils, polars_utils
+from replay.utils import (
+    pandas_utils,
+    polars_utils,
+    spark_utils as utils,
+)
 from replay.utils.common import _check_if_dataframe
 from replay.utils.time import get_item_recency
 
@@ -118,7 +122,7 @@ def test_get_unique_entities(spark, array):
 @pytest.mark.core
 @pytest.mark.parametrize("array", [None, [1, 2, 2, 3]])
 def test_get_unique_entities_polars(array):
-    log = pl.DataFrame({"test" : [1, 2, 3]})
+    log = pl.DataFrame({"test": [1, 2, 3]})
     assert sorted(polars_utils.get_unique_entities(array or log, "test")["test"]) == [1, 2, 3]
 
 
@@ -195,7 +199,7 @@ def test_get_unique_entities_fake_pandas():
     with pytest.raises(ValueError, match="Wrong type <class 'int'>"):
         pandas_utils.get_unique_entities(df=log, column="fake_column")
 
-        
+
 @pytest.mark.core
 def test_get_unique_entities_fake_polars():
     log = 42
@@ -250,3 +254,246 @@ def test_check_if_dataframe_false():
     var = "Definitely not a dataframe"
     with pytest.raises(ValueError):
         _check_if_dataframe(var)
+
+
+@pytest.mark.core
+@pytest.mark.parametrize(
+    "df, warm_df, expected_num_cold, expected_filtered_df",
+    [
+        (None, pl.DataFrame({"id": [1, 2]}), 0, None),
+        (
+            pl.DataFrame({"id": [1, 2], "value": [10, 20]}),
+            pl.DataFrame({"id": [1, 2]}),
+            0,
+            pl.DataFrame({"id": [1, 2], "value": [10, 20]}),
+        ),
+        (
+            pl.DataFrame({"id": [1, 2, 3], "value": [10, 20, 30]}),
+            pl.DataFrame({"id": [1, 2]}),
+            1,
+            pl.DataFrame({"id": [1, 2], "value": [10, 20]}),
+        ),
+    ],
+)
+def test_filter_cold(df, warm_df, expected_num_cold, expected_filtered_df):
+    col_name = "id"
+    num_cold, filtered_df = polars_utils.filter_cold(df, warm_df, col_name)
+
+    assert num_cold == expected_num_cold
+    if expected_filtered_df is not None:
+        assert filtered_df.equals(expected_filtered_df)
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "data, order_by_col, k, expected_data",
+    [
+        (
+            {"user": [1, 1, 2, 2], "item": [10, 20, 30, 40], "score": [0.9, 0.8, 0.7, 0.6]},
+            [("score", False)],
+            1,
+            {"user": [1, 2], "item": [10, 30], "score": [0.9, 0.7]},
+        ),
+        (
+            {"user": [1, 1, 2, 2], "item": [10, 20, 30, 40], "score": [0.9, 0.8, 0.7, 0.6]},
+            [("score", True)],
+            2,
+            {"user": [1, 1, 2, 2], "item": [20, 10, 40, 30], "score": [0.8, 0.9, 0.6, 0.7]},
+        ),
+    ],
+)
+def test_get_top_k_spark(data, order_by_col, k, expected_data):
+    partition_by_col = "user"
+    pd_dataframe = pd.DataFrame(data)
+    spark_dataframe = utils.convert2spark(pd_dataframe)
+    spark_order_cols = [
+        sf.col(column).desc() if order is False else sf.col(column).asc() for column, order in order_by_col
+    ]
+    expected_df_pd = pd.DataFrame(expected_data)
+    expected_df_spark = utils.convert2spark(expected_df_pd)
+    result_df_pd = pandas_utils.get_top_k(pd_dataframe, partition_by_col, order_by_col, k)
+    result_df_spark = utils.get_top_k(spark_dataframe, partition_by_col, spark_order_cols, k)
+    assert result_df_pd.equals(expected_df_pd)
+    assert result_df_spark.toPandas().equals(expected_df_spark.toPandas())
+    assert result_df_pd.equals(result_df_spark.toPandas())
+
+
+@pytest.mark.core
+@pytest.mark.parametrize(
+    "data, order_by_col, k, expected_data",
+    [
+        (
+            {"user": [1, 1, 2, 2], "item": [10, 20, 30, 40], "score": [0.9, 0.8, 0.7, 0.6]},
+            [("score", False)],
+            1,
+            {"user": [1, 2], "item": [10, 30], "score": [0.9, 0.7]},
+        ),
+        (
+            {"user": [1, 1, 2, 2], "item": [10, 20, 30, 40], "score": [0.9, 0.8, 0.7, 0.6]},
+            [("score", True)],
+            2,
+            {"user": [1, 1, 2, 2], "item": [20, 10, 40, 30], "score": [0.8, 0.9, 0.6, 0.7]},
+        ),
+    ],
+)
+def test_get_top_k_pandas_polars(data, order_by_col, k, expected_data):
+    partition_by_col = "user"
+    pd_dataframe = pd.DataFrame(data)
+    pl_dataframe = pl.DataFrame(data)
+    expected_df_pd = pd.DataFrame(expected_data)
+    expected_df_pl = pl.DataFrame(expected_data)
+    result_df_pd = pandas_utils.get_top_k(pd_dataframe, partition_by_col, order_by_col, k)
+    result_df_pl = polars_utils.get_top_k(pl_dataframe, partition_by_col, order_by_col, k)
+    assert result_df_pd.equals(expected_df_pd)
+    assert result_df_pl.equals(expected_df_pl)
+    assert result_df_pd.equals(result_df_pl.to_pandas())
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "data, k, query_column, rating_column, expected_data",
+    [
+        (
+            {"user": [1, 1, 2, 2], "item": [10, 20, 30, 40], "relevance": [0.9, 0.8, 0.7, 0.6]},
+            1,
+            "user",
+            "relevance",
+            {"user": [1, 2], "item": [10, 30], "relevance": [0.9, 0.7]},
+        ),
+        (
+            {"user": [1, 1, 2, 2], "item": [10, 20, 30, 40], "relevance": [0.9, 0.8, 0.7, 0.6]},
+            2,
+            "user",
+            "relevance",
+            {"user": [1, 1, 2, 2], "item": [10, 20, 30, 40], "relevance": [0.9, 0.8, 0.7, 0.6]},
+        ),
+    ],
+)
+def test_get_top_k_recs_spark(data, k, query_column, rating_column, expected_data):
+    query_column = "user"
+    rating_column = "relevance"
+    pd_dataframe = pd.DataFrame(data)
+    spark_dataframe = utils.convert2spark(pd_dataframe)
+    expected_df_pd = pd.DataFrame(expected_data)
+    expected_df_spark = utils.convert2spark(expected_df_pd)
+    result_df_pd = pandas_utils.get_top_k_recs(pd_dataframe, k, query_column, rating_column)
+    result_df_spark = utils.get_top_k_recs(spark_dataframe, k, query_column, rating_column)
+    assert result_df_pd.equals(expected_df_pd)
+    assert result_df_spark.toPandas().equals(expected_df_spark.toPandas())
+    assert result_df_pd.equals(result_df_spark.toPandas())
+
+
+@pytest.mark.core
+@pytest.mark.parametrize(
+    "data, k, query_column, rating_column, expected_data",
+    [
+        (
+            {"user": [1, 1, 2, 2], "item": [10, 20, 30, 40], "relevance": [0.9, 0.8, 0.7, 0.6]},
+            1,
+            "user",
+            "relevance",
+            {"user": [1, 2], "item": [10, 30], "relevance": [0.9, 0.7]},
+        ),
+        (
+            {"user": [1, 1, 2, 2], "item": [10, 20, 30, 40], "relevance": [0.9, 0.8, 0.7, 0.6]},
+            2,
+            "user",
+            "relevance",
+            {"user": [1, 1, 2, 2], "item": [10, 20, 30, 40], "relevance": [0.9, 0.8, 0.7, 0.6]},
+        ),
+    ],
+)
+def test_get_top_k_recs_pandas_polars(data, k, query_column, rating_column, expected_data):
+    query_column = "user"
+    rating_column = "relevance"
+    pd_dataframe = pd.DataFrame(data)
+    pl_dataframe = pl.DataFrame(data)
+    expected_df_pd = pd.DataFrame(expected_data)
+    expected_df_pl = pl.DataFrame(expected_data)
+    result_df_pd = pandas_utils.get_top_k_recs(
+        pd_dataframe,
+        k,
+        query_column,
+        rating_column,
+    )
+    result_df_pl = polars_utils.get_top_k_recs(pl_dataframe, k, query_column, rating_column)
+    assert result_df_pd.equals(expected_df_pd)
+    assert result_df_pl.equals(expected_df_pl)
+    assert result_df_pd.equals(result_df_pl.to_pandas())
+
+
+@pytest.mark.core
+@pytest.mark.parametrize(
+    "recs, recs_file_path, expected_result",
+    [
+        (
+            pl.DataFrame({"user": [1, 2], "item": [10, 20], "relevance": [0.9, 0.8]}),
+            None,
+            pl.DataFrame({"user": [1, 2], "item": [10, 20], "relevance": [0.9, 0.8]}),
+        ),
+        (pl.DataFrame({"user": [1, 2], "item": [10, 20], "relevance": [0.9, 0.8]}), "/tmp/test.parquet", None),
+    ],
+)
+def test_return_recs_polars(recs, recs_file_path, expected_result):
+    if recs_file_path is not None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            recs_file_path = os.path.join(temp_dir, "test.parquet")
+            result = polars_utils.return_recs(recs, recs_file_path)
+            assert result is None
+            loaded_df = pl.read_parquet(recs_file_path)
+            assert loaded_df.equals(recs)
+    else:
+        result = polars_utils.return_recs(recs, recs_file_path)
+        assert result.equals(expected_result)
+
+
+@pytest.mark.core
+@pytest.mark.parametrize(
+    "recs, recs_file_path, expected_result",
+    [
+        (
+            pd.DataFrame({"user": [1, 2], "item": [10, 20], "relevance": [0.9, 0.8]}),
+            None,
+            pd.DataFrame({"user": [1, 2], "item": [10, 20], "relevance": [0.9, 0.8]}),
+        ),
+        (pd.DataFrame({"user": [1, 2], "item": [10, 20], "relevance": [0.9, 0.8]}), "/tmp/test.parquet", None),
+    ],
+)
+def test_return_recs_pandas(recs, recs_file_path, expected_result):
+    if recs_file_path is not None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            recs_file_path = os.path.join(temp_dir, "test.parquet")
+            result = pandas_utils.return_recs(recs, recs_file_path)
+            assert result is None
+            loaded_df = pd.read_parquet(recs_file_path)
+            assert loaded_df.equals(recs)
+    else:
+        result = pandas_utils.return_recs(recs, recs_file_path)
+        assert result.equals(expected_result)
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "recs, recs_file_path, expected_result",
+    [
+        (
+            {"user": [1, 2], "item": [10, 20], "relevance": [0.9, 0.8]},
+            None,
+            {"user": [1, 2], "item": [10, 20], "relevance": [0.9, 0.8]},
+        ),
+        ({"user": [1, 2], "item": [10, 20], "relevance": [0.9, 0.8]}, "/tmp/test.parquet", None),
+    ],
+)
+def test_return_recs_spark(recs, recs_file_path, expected_result):
+    recs = utils.convert2spark(pd.DataFrame(recs))
+    expected_result = pd.DataFrame(expected_result)
+    if recs_file_path is not None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            recs_file_path = os.path.join(temp_dir, "test.parquet")
+            result = utils.return_recs(recs, recs_file_path)
+            assert result is None
+            loaded_df = pd.read_parquet(recs_file_path)
+            assert loaded_df.equals(recs.toPandas())
+    else:
+        result = utils.return_recs(recs, recs_file_path)
+        assert result.toPandas().equals(expected_result)

@@ -86,7 +86,7 @@ def get_top_k(
     top_k_df = (
         sorted_df.group_by(partition_by_col)
         .map_groups(lambda group: group.sort(by=sort_columns, descending=sort_descending).head(k))
-        .sort(by=sort_columns)
+        .sort(by=sort_columns, descending=sort_descending)
     )
     return top_k_df
 
