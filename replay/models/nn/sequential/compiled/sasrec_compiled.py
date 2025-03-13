@@ -131,11 +131,15 @@ class SasRecCompiled(BaseCompiledModel):
         else:
             model_input_sample = ({item_seq_name: item_sequence}, padding_mask)
 
-        onnx_conversion_params = (model_input_sample, model_input_names, model_dynamic_axes_in_input)
-        compilation_params = (batch_size, num_candidates_to_score, num_threads)
-
         compiled_model = SasRecCompiled._run_model_compilation(
-            lightning_model, onnx_conversion_params, compilation_params, onnx_path
+            lightning_model,
+            model_input_sample,
+            model_input_names,
+            model_dynamic_axes_in_input,
+            batch_size,
+            num_candidates_to_score,
+            num_threads,
+            onnx_path,
         )
 
         return cls(compiled_model, schema)

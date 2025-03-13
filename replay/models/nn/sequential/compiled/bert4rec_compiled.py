@@ -134,15 +134,19 @@ class Bert4RecCompiled(BaseCompiledModel):
         else:
             model_input_sample = ({item_seq_name: item_sequence}, padding_mask, tokens_mask)
 
-        onnx_conversion_params = (model_input_sample, model_input_names, model_dynamic_axes_in_input)
-        compilation_params = (batch_size, num_candidates_to_score, num_threads)
-
         # Need to disable "Better Transformer" optimizations that interfere with the compilation process
         if hasattr(torch.backends, "mha"):
             torch.backends.mha.set_fastpath_enabled(value=False)
 
         compiled_model = Bert4RecCompiled._run_model_compilation(
-            lightning_model, onnx_conversion_params, compilation_params, onnx_path
+            lightning_model,
+            model_input_sample,
+            model_input_names,
+            model_dynamic_axes_in_input,
+            batch_size,
+            num_candidates_to_score,
+            num_threads,
+            onnx_path,
         )
 
         return cls(compiled_model, schema)

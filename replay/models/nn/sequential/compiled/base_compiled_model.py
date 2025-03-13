@@ -1,7 +1,7 @@
 import pathlib
 import tempfile
 from abc import abstractmethod
-from typing import Any, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import lightning
 import openvino as ov
@@ -131,7 +131,7 @@ class BaseCompiledModel:
         self._output_name = compiled_model.output().names.pop()
 
     @staticmethod
-    def _validate_num_candidates_to_score(num_candidates: int) -> Union[int, None]:
+    def _validate_num_candidates_to_score(num_candidates: Union[int, None]) -> Union[int, None]:
         """Check if num_candidates param is proper"""
 
         if num_candidates is None:
@@ -169,24 +169,33 @@ class BaseCompiledModel:
     @staticmethod
     def _run_model_compilation(
         lightning_model: lightning.LightningModule,
-        onnx_conversion_params: Tuple,
-        compilation_params: Tuple,
+        model_input_sample: Tuple[Union[torch.Tensor, Dict[str, torch.Tensor]]],
+        model_input_names: List[str],
+        model_dynamic_axes_in_input: Dict[str, Dict],
+        batch_size: int,
+        num_candidates_to_score: Union[int, None],
+        num_threads: Optional[int] = None,
         onnx_path: Optional[str] = None,
     ) -> ov.CompiledModel:
         """
         Model conversion into ONNX format and compilation with defined engine.
 
         :param lightning_model: Lightning model to be compiled.
-        :param onnx_conversion_params: Input sample, input names and dynamic axes in input.
-        :param compilation_params: Batch size, num candidates to score and num threads.
+        :param model_input_sample: An example of model input with proper data type.
+        :param model_input_names: Input tensor names.
+        :param model_dynamic_axes_in_input: Dynamic axes in input.
+        :param batch_size: Defines the size of the axis with index 0 in the input of the compiled model.
+        :param num_candidates_to_score: Defines the size of the candidates in the input of the compiled model.
+        :param num_threads: Number of CPU threads to use.
+            Must be a natural number or ``None``.
+            If ``None``, then compiler will set this parameter automatically.
+            Default: ``None``.
         :param onnx_path: Save ONNX model to path, if defined.
             Default: ``None``.
 
         :return: Compiled model.
         """
         max_seq_len = lightning_model._model.max_len
-        model_input_sample, model_input_names, model_dynamic_axes_in_input = onnx_conversion_params
-        batch_size, num_candidates_to_score, num_threads = compilation_params
 
         if onnx_path is None:
             is_saveble = False
