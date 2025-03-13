@@ -18,6 +18,7 @@ from pyspark.sql.types import TimestampType
 
 import replay.utils.session_handler
 from replay.utils import spark_utils as utils
+from replay.utils import pandas_utils, polars_utils
 from replay.utils.common import _check_if_dataframe
 from replay.utils.time import get_item_recency
 
@@ -114,6 +115,20 @@ def test_get_unique_entities(spark, array):
     assert sorted(utils.get_unique_entities(array or log, "test").toPandas()["test"]) == [1, 2, 3]
 
 
+@pytest.mark.core
+@pytest.mark.parametrize("array", [None, [1, 2, 2, 3]])
+def test_get_unique_entities_polars(array):
+    log = pl.DataFrame({"test" : [1, 2, 3]})
+    assert sorted(polars_utils.get_unique_entities(array or log, "test")["test"]) == [1, 2, 3]
+
+
+@pytest.mark.core
+@pytest.mark.parametrize("array", [None, [1, 2, 2, 3]])
+def test_get_unique_entities_pandas(array):
+    log = pd.DataFrame(data=[[1], [2], [3]], columns=["test"])
+    assert sorted(pandas_utils.get_unique_entities(array or log, "test")["test"]) == [1, 2, 3]
+
+
 @pytest.mark.spark
 def test_utils_time_raise():
     d = {
@@ -172,6 +187,20 @@ def test_get_unique_entities_fake_column():
     log = 42
     with pytest.raises(ValueError, match="Wrong type <class 'int'>"):
         utils.get_unique_entities(df=log, column="fake_column")
+
+
+@pytest.mark.core
+def test_get_unique_entities_fake_pandas():
+    log = 42
+    with pytest.raises(ValueError, match="Wrong type <class 'int'>"):
+        pandas_utils.get_unique_entities(df=log, column="fake_column")
+
+        
+@pytest.mark.core
+def test_get_unique_entities_fake_polars():
+    log = 42
+    with pytest.raises(ValueError, match="Wrong type <class 'int'>"):
+        polars_utils.get_unique_entities(df=log, column="fake_column")
 
 
 @pytest.mark.spark

@@ -50,7 +50,7 @@ def get_unique_entities(
         unique = df.select(pl.col(column)).unique()
     elif isinstance(df, collections.abc.Iterable):
         # Preserve order of appearance
-        unique_sequence = pd.Series(pd.unique(list(df)), columns=[column])
+        unique_sequence = pd.DataFrame(pd.unique(list(df)), columns=[column])
         unique = pl.DataFrame(unique_sequence, schema=[f"{column}"])
     else:
         msg = f"Wrong type {type(df)}"
