@@ -51,7 +51,7 @@ jobs:
           toml-sort --check pyproject.toml
           ./poetry_wrapper.sh --experimental --generate
           toml-sort --check pyproject.toml
-          
+
   pytest_core:
     needs: static_tests
     runs-on: ubuntu-20.04
@@ -98,7 +98,7 @@ jobs:
           python -m venv venv
           . ./venv/bin/activate
           pip install --upgrade pip wheel poetry==1.5.1
-          ./poetry_wrapper.sh install -E torch
+          ./poetry_wrapper.sh install -E torch-openvino
       - name: pytest
         run: |
           . ./venv/bin/activate

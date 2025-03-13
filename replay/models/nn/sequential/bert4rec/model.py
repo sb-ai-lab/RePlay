@@ -98,6 +98,27 @@ class Bert4RecModel(torch.nn.Module):
 
         return all_scores  # [B x L x E]
 
+    def predict(
+        self,
+        inputs: TensorMap,
+        pad_mask: torch.BoolTensor,
+        token_mask: torch.BoolTensor,
+        candidates_to_score: Optional[torch.LongTensor] = None,
+    ) -> torch.Tensor:
+        """
+        :param inputs: Batch of features.
+        :param pad_mask: Padding mask where 0 - <PAD>, 1 otherwise.
+        :param token_mask: Token mask where 0 - <MASK> tokens, 1 otherwise.
+        :param candidates_to_score: Item ids to calculate scores.
+            if `None` predicts for all items
+
+        :returns: Calculated scores among canditates_to_score items.
+        """
+        # final_emb: [B x E]
+        final_emb = self.get_query_embeddings(inputs, pad_mask, token_mask)
+        candidate_scores = self.get_logits(final_emb, candidates_to_score)
+        return candidate_scores
+
     def forward_step(self, inputs: TensorMap, pad_mask: torch.BoolTensor, token_mask: torch.BoolTensor) -> torch.Tensor:
         """
 

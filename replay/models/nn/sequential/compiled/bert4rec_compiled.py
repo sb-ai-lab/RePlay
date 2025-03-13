@@ -5,21 +5,21 @@ import openvino as ov
 import torch
 
 from replay.data.nn import TensorSchema
+from replay.models.nn.sequential.bert4rec import (
+    Bert4Rec,
+    Bert4RecPredictionBatch,
+)
+from replay.models.nn.sequential.bert4rec.lightning import _prepare_prediction_batch
 from replay.models.nn.sequential.compiled.base_compiled_model import (
     BaseCompiledModel,
     OptimizedModeType,
 )
-from replay.models.nn.sequential.sasrec import (
-    SasRec,
-    SasRecPredictionBatch,
-)
-from replay.models.nn.sequential.sasrec.lightning import _prepare_prediction_batch
 
 
-class SasRecCompiled(BaseCompiledModel):
+class Bert4RecCompiled(BaseCompiledModel):
     """
-    SasRec CPU-optimized model for inference via OpenVINO.
-    It is recommended to compile model with ``compile`` method and pass ``SasRec`` checkpoint
+    Bert4Rec CPU-optimized model for inference via OpenVINO.
+    It is recommended to compile model with ``compile`` method and pass ``Bert4Rec`` checkpoint
     or the model object itself into it.
     It is also possible to compile model by yourself and pass it to the ``__init__`` with ``TensorSchema``.
 
@@ -33,13 +33,13 @@ class SasRecCompiled(BaseCompiledModel):
     ) -> None:
         """
         :param compiled_model: Compiled model.
-        :param schema: Tensor schema of SasRec model.
+        :param schema: Tensor schema of Bert4Rec model.
         """
         super().__init__(compiled_model, schema)
 
     def predict(
         self,
-        batch: SasRecPredictionBatch,
+        batch: Bert4RecPredictionBatch,
         candidates_to_score: Optional[torch.LongTensor] = None,
     ) -> torch.Tensor:
         """
@@ -57,26 +57,27 @@ class SasRecCompiled(BaseCompiledModel):
         model_inputs = {
             self._inputs_names[0]: batch.features[self._inputs_names[0]],
             self._inputs_names[1]: batch.padding_mask,
+            self._inputs_names[2]: batch.tokens_mask,
         }
         if self._num_candidates_to_score is not None:
             self._validate_candidates_to_score(candidates_to_score)
-            model_inputs[self._inputs_names[2]] = candidates_to_score
+            model_inputs[self._inputs_names[3]] = candidates_to_score
         return torch.from_numpy(self._model(model_inputs)[self._output_name])
 
     @classmethod
     def compile(
         cls,
-        model: Union[SasRec, str, pathlib.Path],
+        model: Union[Bert4Rec, str, pathlib.Path],
         mode: OptimizedModeType = "one_query",
         batch_size: Optional[int] = None,
         num_candidates_to_score: Optional[int] = None,
         num_threads: Optional[int] = None,
         onnx_path: Optional[str] = None,
-    ) -> "SasRecCompiled":
+    ) -> "Bert4RecCompiled":
         """
         Model compilation.
 
-        :param model: Path to lightning SasRec model saved in .ckpt format or the SasRec object itself.
+        :param model: Path to lightning Bert4Rec model saved in .ckpt format or the Bert4Rec object itself.
         :param mode: Inference mode, defines shape of inputs.
             Could be one of [``one_query``, ``batch``, ``dynamic_batch_size``].\n
             ``one_query`` - sets input shape to [1, max_seq_len]\n
@@ -89,7 +90,7 @@ class SasRecCompiled(BaseCompiledModel):
             Could be one of [``None``, ``-1``, ``N``].\n
             ``-1`` - sets candidates_to_score shape to dynamic range [1, ?]\n
             ``N`` - sets candidates_to_score shape to [1, N]\n
-            ``None`` - disable candidates_to_score usage\n
+            ``None`` - disables candidates_to_score usage\n
             Default: ``None``.
         :param num_threads: Number of CPU threads to use.
             Must be a natural number or ``None``.
@@ -101,37 +102,43 @@ class SasRecCompiled(BaseCompiledModel):
         if mode not in get_args(OptimizedModeType):
             msg = f"Parameter ``mode`` could be one of {get_args(OptimizedModeType)}."
             raise ValueError(msg)
-        num_candidates_to_score = SasRecCompiled._validate_num_candidates_to_score(num_candidates_to_score)
-        if isinstance(model, SasRec):
+        num_candidates_to_score = Bert4RecCompiled._validate_num_candidates_to_score(num_candidates_to_score)
+        if isinstance(model, Bert4Rec):
             lightning_model = model.cpu()
         elif isinstance(model, (str, pathlib.Path)):
-            lightning_model = SasRec.load_from_checkpoint(model, map_location=torch.device("cpu"))
+            lightning_model = Bert4Rec.load_from_checkpoint(model, map_location=torch.device("cpu"))
 
         schema = lightning_model._schema
         item_seq_name = schema.item_id_feature_name
         max_seq_len = lightning_model._model.max_len
 
-        batch_size, num_candidates_to_score = SasRecCompiled._get_input_params(
+        batch_size, num_candidates_to_score = Bert4RecCompiled._get_input_params(
             mode, batch_size, num_candidates_to_score
         )
 
         item_sequence = torch.zeros((1, max_seq_len)).long()
         padding_mask = torch.zeros((1, max_seq_len)).bool()
+        tokens_mask = torch.zeros((1, max_seq_len)).bool()
 
-        model_input_names = [item_seq_name, "padding_mask"]
+        model_input_names = [item_seq_name, "padding_mask", "tokens_mask"]
         model_dynamic_axes_in_input = {
             item_seq_name: {0: "batch_size", 1: "max_len"},
             "padding_mask": {0: "batch_size", 1: "max_len"},
+            "tokens_mask": {0: "batch_size", 1: "max_len"},
         }
         if num_candidates_to_score:
             candidates_to_score = torch.zeros((1,)).long()
             model_input_names += ["candidates_to_score"]
             model_dynamic_axes_in_input["candidates_to_score"] = {0: "num_candidates_to_score"}
-            model_input_sample = ({item_seq_name: item_sequence}, padding_mask, candidates_to_score)
+            model_input_sample = ({item_seq_name: item_sequence}, padding_mask, tokens_mask, candidates_to_score)
         else:
-            model_input_sample = ({item_seq_name: item_sequence}, padding_mask)
+            model_input_sample = ({item_seq_name: item_sequence}, padding_mask, tokens_mask)
 
-        compiled_model = SasRecCompiled._run_model_compilation(
+        # Need to disable "Better Transformer" optimizations that interfere with the compilation process
+        if hasattr(torch.backends, "mha"):
+            torch.backends.mha.set_fastpath_enabled(value=False)
+
+        compiled_model = Bert4RecCompiled._run_model_compilation(
             lightning_model,
             model_input_sample,
             model_input_names,
