@@ -80,15 +80,13 @@ If you are installing from the source, you will need Python 3.8.1-3.11.
     So, you don't need to rebuild the full project every time.
     Each change in the code will be reflected in the library inside the environment.
 
-4. **optional**: If the JDK is not installed, you can install it.
-    Some of the library's functions **require** the JDK.
-    If you get the error `RuntimeError: Java gateway process exited before sending its part number`, this is a clear signal that you need to install the JDK
-    Install it with:
+4. **optional**: When installing the library extension to work with `PySpark`, make sure that you have JDK installed.
+    If you get the error `RuntimeError: Java gateway process exited before sending its part number`, this is a clear signal that you need to install the JDK.
+    Installation example:
     ```bash
-    sudo add-apt-repository ppa:openjdk-r/ppa
-    sudo apt-get update
     sudo apt-get install openjdk-11-jdk
     ```
+
 
 
 5. **optional**: Build wheel package:
