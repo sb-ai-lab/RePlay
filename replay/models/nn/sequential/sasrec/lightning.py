@@ -340,8 +340,6 @@ class SasRec(lightning.LightningModule):
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
 
-        pad_token = self._model._head._item_embedder.item_emb.padding_idx - 1
-
         emb = self._model.forward_step(feature_tensors, padding_mask)
         hd = torch.tensor(emb.shape[-1])
 
@@ -367,8 +365,6 @@ class SasRec(lightning.LightningModule):
             del x_bucket
 
             y_bucket = buckets @ w.T # (n_b, hd) x (hd, n_cl) -> (n_b, n_cl)
-
-            y_bucket[:, pad_token] = float('-inf')
             _, top_y_bucket = torch.topk(y_bucket, dim=1, k=self._bucket_size_y) # (n_b, bs_y)
             del y_bucket
 

@@ -133,8 +133,6 @@ class TrainRunner(BaseRunner):
             ),
         }
 
-        pad_idx = self.tensor_schema.item_id_features.item().cardinality - 1
-
         datasets = dataset_mapping.get(self.model_name.lower())
         if not datasets:
             raise ValueError(
@@ -152,7 +150,6 @@ class TrainRunner(BaseRunner):
             dataset=TrainingDataset(
                 seq_train_dataset,
                 max_sequence_length=self.model_cfg["model_params"]["max_seq_len"],
-                padding_value=pad_idx,
             ),
             shuffle=True,
             **common_params,
@@ -163,7 +160,6 @@ class TrainRunner(BaseRunner):
                 seq_validation_gt,
                 seq_train_dataset,
                 max_sequence_length=self.model_cfg["model_params"]["max_seq_len"],
-                padding_value=pad_idx,
             ),
             **common_params,
         )
@@ -171,7 +167,6 @@ class TrainRunner(BaseRunner):
             dataset=PredictionDataset(
                 seq_validation_dataset,
                 max_sequence_length=self.model_cfg["model_params"]["max_seq_len"],
-                padding_value=pad_idx,
             ),
             **common_params,
         )
