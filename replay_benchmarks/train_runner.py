@@ -251,7 +251,10 @@ class TrainRunner(BaseRunner):
 
         all_metrics = base_metrics + diversity_metrics
         metrics_results = OfflineMetrics(
-            all_metrics, query_column="user_id", rating_column="score"
+            all_metrics, 
+            query_column=self.user_column, 
+            item_column=self.item_column, 
+            rating_column="score",
         )(
             predictions,
             ground_truth,
@@ -438,8 +441,8 @@ class TrainRunner(BaseRunner):
             logging.info("Evaluating on val set...")
             pandas_prediction_callback = PandasPredictionCallback(
                 top_k=max(self.config["metrics"]["ks"]),
-                query_column="user_id",
-                item_column="item_id",
+                query_column=self.user_column,
+                item_column=self.item_column,
                 rating_column="score",
                 postprocessors=[RemoveSeenItems(self.seq_val_dataset)],
             )
@@ -473,8 +476,8 @@ class TrainRunner(BaseRunner):
             logging.info("Evaluating on test set...")
             pandas_prediction_callback = PandasPredictionCallback(
                 top_k=max(self.config["metrics"]["ks"]),
-                query_column="user_id",
-                item_column="item_id",
+                query_column=self.user_column,
+                item_column=self.item_column,
                 rating_column="score",
                 postprocessors=[RemoveSeenItems(self.seq_test_dataset)],
             )

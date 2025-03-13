@@ -1,0 +1,15 @@
+dataset:
+  name: gowalla
+  path: "./replay_benchmarks/data/gowalla"
+
+  feature_schema:
+    query_column: "userId"
+    item_column: "locationId"
+    rating_column: "relevant"
+    timestamp_column: "checkInTime"
+
+  preprocess:
+    global_split_ratio: 0.1
+    val_users_ratio: 0.05
+    min_users_per_item: 5
+    min_items_per_user: 3

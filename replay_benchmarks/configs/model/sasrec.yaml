@@ -4,10 +4,10 @@ model:
 
   params:
     model_params:
-      block_count: 4
+      block_count: 2
       head_count: 2
       max_seq_len: 100
-      hidden_size: 384
+      hidden_size: 256
       dropout_rate: 0.1
       loss_type: BCE # CE, BCE, SCE
       loss_sample_count: 500

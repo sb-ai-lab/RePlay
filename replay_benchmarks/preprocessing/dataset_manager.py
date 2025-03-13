@@ -1,3 +1,6 @@
+from pathlib import Path
+from urllib.parse import urlencode
+from zipfile import ZipFile
 import os
 import pandas as pd
 import requests
@@ -21,6 +24,10 @@ AMAZON_URLS = {
     "games": "https://mcauleylab.ucsd.edu/public_datasets/data/amazon_2023/benchmark/5core/rating_only/Toys_and_Games.csv.gz",
     "beauty": "https://mcauleylab.ucsd.edu/public_datasets/data/amazon_2023/benchmark/5core/rating_only/Beauty_and_Personal_Care.csv.gz",
     "sports": "https://mcauleylab.ucsd.edu/public_datasets/data/amazon_2023/benchmark/5core/rating_only/Sports_and_Outdoors.csv.gz",
+}
+YANDEX_URLS = {
+    "30music": "https://disk.yandex.ru/d/XwRRFVuJG-ECng",
+    "gowalla": "https://disk.yandex.ru/d/PaPpcpwkWcHRHg",
 }
 SUPPORTED_RS_DATASETS = ["movielens", "netflix"]
 
@@ -81,8 +88,37 @@ class DatasetManager:
             self._download_rs_dataset(data_path, dataset_name, interactions_file)
         elif dataset_name in AMAZON_URLS:
             self._download_csv_gz_dataset(dataset_name, interactions_file)
+        elif dataset_name in YANDEX_URLS:
+            self._load_yandex_dataset(dataset_name)
         else:
             raise ValueError(f"Unsupported dataset: {dataset_name}")
+
+    def _load_yandex_dataset(self, dataset_name: str) -> None:
+        data_src = Path(os.path.dirname(self.data_path))
+        data_src.mkdir(exist_ok=True)
+
+        url = "https://cloud-api.yandex.net/v1/disk/public/resources/download?" + \
+                urlencode({"public_key": YANDEX_URLS[dataset_name]})
+
+        download_url = requests.get(url, timeout=10).json()["href"]
+
+        with open("temp.zip", 'wb') as file:
+            for i, chunk in enumerate(
+                requests.get(download_url, stream=True, timeout=10).iter_content(1024)
+            ):
+                file.write(chunk)
+                if i < 1024:
+                    output = f"{round(i, 2)} K"
+                elif 1024 <= i < 1024 ** 2:
+                    output = f"{round(i / 1024, 2)} M"
+                else:
+                    output = f"{round(i / 1024 ** 2, 2)} G"
+                print(f"Total downloaded - " + output.rjust(9), end="\r")
+
+        with ZipFile("temp.zip") as zfile:
+            zfile.extractall(data_src)
+
+        os.remove("temp.zip")
 
     def _download_csv_gz_dataset(self, dataset_name: str, interactions_file: str):
         """Download and preprocess datasets from CSV GZ format."""
@@ -143,7 +179,7 @@ class DatasetManager:
             for line in open(raw_data_file, "r", encoding="UTF-8"):
                 val = json.loads(line)
                 prime.append(
-                    [val["user_id"], val["business_id"], val["stars"], val["date"]]
+                    [val[self.user_column], val["business_id"], val["stars"], val["date"]]
                 )
             interactions = pd.DataFrame(
                 prime,
@@ -163,7 +199,7 @@ class DatasetManager:
         if dataset_name == "megamarket":
             interactions = interactions[interactions.event == 2]  # take only purchase
         if dataset_name == "zvuk":
-            interactions.rename(columns={"track_id": "item_id"}, inplace=True)
+            interactions.rename(columns={"track_id": self.item_column}, inplace=True)
         interactions.to_parquet(interactions_file)
 
     def _download_rs_dataset(
@@ -249,6 +285,7 @@ class DatasetManager:
             test_size=self.config["dataset"]["preprocess"]["val_users_ratio"],
             drop_cold_items=True,
             query_column=self.user_column,
+            item_column=self.item_column,
             seed=42,
         )
         loo_splitter = LastNSplitter(
@@ -257,22 +294,23 @@ class DatasetManager:
             drop_cold_items=False,
             divide_column=self.user_column,
             query_column=self.user_column,
+            item_column=self.item_column,
             strategy="interactions",
             timestamp_column=self.timestamp_column,
         )
 
         train, raw_test = global_splitter.split(interactions)
         train_events, val = val_splitter.split(train)
-        test_users = set(raw_test["user_id"]) - set(val["user_id"])
+        test_users = set(raw_test[self.user_column]) - set(val[self.user_column])
         test_events, test_gt = loo_splitter.split(
             interactions[
-                (interactions["user_id"].isin(test_users))
-                & interactions["item_id"].isin(train_events["item_id"].unique())
+                (interactions[self.user_column].isin(test_users))
+                & interactions[self.item_column].isin(train_events[self.item_column].unique())
             ]
         )
         validation_events, validation_gt = loo_splitter.split(val)
-        test_gt = test_gt[test_gt["item_id"].isin(train_events["item_id"])]
-        test_gt = test_gt[test_gt["user_id"].isin(train_events["user_id"])]
+        test_gt = test_gt[test_gt[self.item_column].isin(train_events[self.item_column])]
+        test_gt = test_gt[test_gt[self.user_column].isin(train_events[self.user_column])]
 
         return {
             "train": train_events,
