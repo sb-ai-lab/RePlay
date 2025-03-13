@@ -353,7 +353,7 @@ Neural Networks recommenders are Lightning-compatible. They can be trained using
 Bert4Rec
 ````````
 .. autoclass:: replay.models.nn.Bert4Rec
-   :members: __init__, predict_step
+   :members: __init__, predict
 
 SasRec
 ``````
@@ -372,7 +372,8 @@ SasRecCompiled
 
 Bert4RecCompiled
 ~~~~~~~~~~~~~~~~
-TODO
+.. autoclass:: replay.models.nn.sequential.compiled.Bert4RecCompiled
+   :members: compile, predict
 
 Features for easy training and validation with Lightning
 ________________________________________________________
