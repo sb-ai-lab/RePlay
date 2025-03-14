@@ -313,6 +313,8 @@ class TrainRunner(BaseRunner):
                 postprocessors=[RemoveSeenItems(self.seq_val_dataset)],
             )
 
+            devices = [int(self.config["env"]["CUDA_VISIBLE_DEVICES"])]
+
             trainer = L.Trainer(
                 max_epochs=20,
                 callbacks=[
@@ -321,7 +323,8 @@ class TrainRunner(BaseRunner):
                     validation_metrics_callback,
                 ],
                 logger=[self.csv_logger, self.tb_logger],
-                devices=1,
+                precision=self.model_cfg["training_params"]["precision"],
+                devices=devices,
             )
 
             trainer.fit(model, train_dataloader, val_dataloader)
@@ -455,6 +458,7 @@ class TrainRunner(BaseRunner):
                 callbacks=[pandas_prediction_callback],
                 inference_mode=True,
                 devices=devices,
+                precision=self.model_cfg["training_params"]["precision"]
             ).predict(
                 best_model, dataloaders=val_pred_dataloader, return_predictions=False
             )
@@ -490,6 +494,7 @@ class TrainRunner(BaseRunner):
                 callbacks=[pandas_prediction_callback],
                 inference_mode=True,
                 devices=devices,
+                precision=self.model_cfg["training_params"]["precision"]
             ).predict(best_model, dataloaders=prediction_dataloader, return_predictions=False)
 
             result = pandas_prediction_callback.get_result()
