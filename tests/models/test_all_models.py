@@ -1,17 +1,26 @@
+import logging
+
+import numpy as np
 import pytest
 
 from replay.models import (
     KLUCB,
+    SLIM,
     UCB,
     ALSWrap,
+    AssociationRulesItemRec,
+    ClusterRec,
+    ItemKNN,
     PopRec,
     QueryPopRec,
     RandomRec,
     ThompsonSampling,
     Wilson,
+    Word2VecRec,
 )
 from tests.utils import (
     create_dataset,
+    sparkDataFrameEqual,
 )
 
 pyspark = pytest.importorskip("pyspark")
@@ -25,7 +34,6 @@ def log_binary_rating(log):
     return log.withColumn("relevance", sf.when(sf.col("relevance") > 3, 1).otherwise(0))
 
 
-"""
 @pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
@@ -169,7 +177,6 @@ def test_predict_empty_log(log, log_binary_rating, model):
     model.predict(pred_dataset, 1)
 
     model._clear_cache()
-"""
 
 
 @pytest.mark.spark
@@ -206,8 +213,6 @@ def test_predict_empty_dataset(log, log_binary_rating, model):
     model.fit(dataset)
     model.predict(None, 1)
 
-
-"""
 
 @pytest.mark.spark
 @pytest.mark.parametrize(
@@ -608,4 +613,3 @@ def test_similarity_metric_raises(log, model):
         train_dataset = create_dataset(log)
         model.fit(train_dataset)
         model.similarity_metric = "some"
-"""
