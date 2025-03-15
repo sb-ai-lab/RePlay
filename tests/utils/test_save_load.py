@@ -6,7 +6,7 @@ import pytest
 pyspark = pytest.importorskip("pyspark")
 
 import replay
-from replay.models import ItemKNN
+from replay.models import ItemKNN, PopRec
 from replay.preprocessing.label_encoder import LabelEncoder, LabelEncodingRule
 from replay.splitters import (
     ColdUserRandomSplitter,
@@ -97,8 +97,15 @@ def test_splitter(splitter, init_args, df, tmp_path):
 
 
 @pytest.mark.spark
-def test_save_load_model(long_log_with_features, tmp_path):
-    model = ItemKNN()
+@pytest.mark.parametrize(
+    "model",
+    [
+        ItemKNN(),
+        PopRec(),
+    ],
+    ids=["knn", "pop_rec"],
+)
+def test_save_load_model(model, long_log_with_features, tmp_path):
     path = (tmp_path / "test").resolve()
     dataset = create_dataset(long_log_with_features)
     model.fit(dataset)

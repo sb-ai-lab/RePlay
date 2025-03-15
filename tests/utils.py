@@ -8,6 +8,7 @@ from numpy.testing import assert_allclose
 
 from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType, get_schema
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
+from replay.utils.common import convert2pandas, convert2polars
 from replay.utils.spark_utils import convert2spark
 
 if PYSPARK_AVAILABLE:
@@ -79,6 +80,56 @@ def create_dataset(log, user_features=None, item_features=None, feature_schema=N
         user_features = convert2spark(user_features)
     if item_features is not None:
         item_features = convert2spark(item_features)
+
+    if feature_schema is None:
+        feature_schema = FeatureSchema(
+            [
+                FeatureInfo(
+                    column="user_idx",
+                    feature_type=FeatureType.CATEGORICAL,
+                    feature_hint=FeatureHint.QUERY_ID,
+                ),
+                FeatureInfo(
+                    column="item_idx",
+                    feature_type=FeatureType.CATEGORICAL,
+                    feature_hint=FeatureHint.ITEM_ID,
+                ),
+                FeatureInfo(
+                    column="relevance",
+                    feature_type=FeatureType.NUMERICAL,
+                    feature_hint=FeatureHint.RATING,
+                ),
+                FeatureInfo(
+                    column="timestamp",
+                    feature_type=FeatureType.NUMERICAL,
+                    feature_hint=FeatureHint.TIMESTAMP,
+                ),
+            ]
+        )
+    return Dataset(
+        feature_schema=feature_schema,
+        interactions=log,
+        query_features=user_features,
+        item_features=item_features,
+        check_consistency=False,
+    )
+
+
+def get_dataset_any_type(log, user_features=None, item_features=None, feature_schema=None):
+    convert_function_map = {"spark": convert2spark, "pandas": convert2pandas, "polars": convert2polars}
+    realization = (
+        "spark"
+        if isinstance(log, SparkDataFrame)
+        else "pandas" if isinstance(log, PandasDataFrame) else "polars" if isinstance(log, PolarsDataFrame) else None
+    )
+    if realization is None:
+        msg = f"Incorrect type of input argument 'log': {type(log)}"
+        raise ValueError(msg)
+    log = convert_function_map[realization](log)
+    if user_features is not None:
+        user_features = convert_function_map[realization](user_features)
+    if item_features is not None:
+        item_features = convert_function_map[realization](item_features)
 
     if feature_schema is None:
         feature_schema = FeatureSchema(

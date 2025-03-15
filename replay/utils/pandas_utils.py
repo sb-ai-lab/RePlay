@@ -4,10 +4,12 @@ from typing import Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
 
+from replay.utils import PandasDataFrame
+
 
 def filter_cold(
     df: Optional[pd.DataFrame],
-    warm_df: pd.DataFrame,
+    warm_df: PandasDataFrame,
     col_name: str,
 ) -> Tuple[int, Optional[pd.DataFrame]]:
     """
@@ -57,7 +59,7 @@ def get_unique_entities(  # TODO: Сделать диспатчер на каж�
 
 
 def get_top_k(
-    dataframe: pd.DataFrame,
+    dataframe: PandasDataFrame,
     partition_by_col: str,
     order_by_col: List[Tuple[str, bool]],
     k: int,
@@ -75,6 +77,8 @@ def get_top_k(
     :param k: number of first rows for each entity in `partition_by_col` to return.
     :return: filtered pandas dataframe.
     """
+    if dataframe.empty:
+        return dataframe
     sort_columns = [partition_by_col] + [col for col, _ in order_by_col]
     sort_ascending = [True] + [asc for _, asc in order_by_col]
 
@@ -85,7 +89,7 @@ def get_top_k(
 
 
 def get_top_k_recs(
-    recs: pd.DataFrame,
+    recs: PandasDataFrame,
     k: int,
     query_column: str = "user_idx",
     rating_column: str = "relevance",
@@ -110,7 +114,7 @@ def get_top_k_recs(
     )
 
 
-def return_recs(recs: pd.DataFrame, recs_file_path: Optional[str] = None) -> pd.DataFrame:
+def return_recs(recs: PandasDataFrame, recs_file_path: Optional[str] = None) -> pd.DataFrame:
     """
     Save dataframe `recs` to `recs_file_path` if presents otherwise cache
     and materialize the dataframe.

@@ -84,8 +84,14 @@ def save(
             raise FileExistsError(msg)
     is_many_frameworks_model = type(model) in client_model_list
     fs.mkdirs(spark._jvm.org.apache.hadoop.fs.Path(path))
-    if is_many_frameworks_model:
-        model = model._impl
+    if is_many_frameworks_model and model._impl is not None:
+        if model._impl is not None:
+            model = model._impl
+        else:
+            msg = "Cant save client of model. Fit model, to give client his implementation"
+            raise ValueError(msg)
+
+    model._save_model(join(path, "model"))
 
     model._save_model(join(path, "model"))
     init_args = model._init_args

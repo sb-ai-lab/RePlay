@@ -5,6 +5,7 @@ from typing import Any, Dict, Iterable, Optional, Union
 import polars as pl
 
 from replay.data.dataset import Dataset
+from replay.utils import PolarsDataFrame
 from replay.utils.pandas_utils import load_pickled_from_parquet, save_picklable_to_parquet
 
 # In this code PandasDataFrame is replaced by pl.DataFrame.
@@ -67,7 +68,7 @@ class _PopRecPolars:
         }
 
     @staticmethod
-    def _calc_fill(item_popularity: pl.DataFrame, weight: float, rating_column: str) -> float:
+    def _calc_fill(item_popularity: PolarsDataFrame, weight: float, rating_column: str) -> float:
         return item_popularity[rating_column].min() * weight
 
     def _get_selected_item_popularity(self, items: pl.DataFrame) -> pl.DataFrame:
@@ -142,8 +143,10 @@ class _PopRecPolars:
         return max_hist_len
 
     def _filter_seen(
-        self, recs: pl.DataFrame, interactions: pl.DataFrame, k: int, queries: pl.DataFrame
+        self, recs: PolarsDataFrame, interactions: PolarsDataFrame, k: int, queries: pl.DataFrame
     ) -> pl.DataFrame:
+        queries = queries.with_columns(pl.col(self.query_column).cast(pl.Int64).alias(self.query_column))
+        interactions = interactions.with_columns(pl.col(self.query_column).cast(pl.Int64).alias(self.query_column))
         queries_interactions = interactions.join(queries, on=self.query_column, how="inner")
         num_seen = queries_interactions.group_by(self.query_column).agg(
             pl.col(self.item_column).count().alias("seen_count")
@@ -157,6 +160,10 @@ class _PopRecPolars:
         recs = recs.join(num_seen, on=self.query_column, how="left").with_columns(pl.col("seen_count").fill_null(0))
         recs = recs.filter(pl.col("temp_rank") <= (pl.col("seen_count") + k)).drop(["temp_rank", "seen_count"])
         queries_interactions = queries_interactions.rename({self.item_column: "item", self.query_column: "query"})
+        if recs.is_empty():
+            recs = recs.with_columns(pl.lit(None).alias(self.item_column)).limit(0)
+        queries_interactions = queries_interactions.with_columns(pl.col("item").cast(pl.Int64).alias("item"))
+        recs = recs.with_columns(pl.col(self.item_column).cast(pl.Int64).alias(self.item_column))
         recs = recs.join(
             queries_interactions.select(["query", "item"]),
             left_on=[self.query_column, self.item_column],
@@ -167,7 +174,7 @@ class _PopRecPolars:
 
     def _filter_cold_for_predict(
         self,
-        main_df: pl.DataFrame,
+        main_df: PolarsDataFrame,
         interactions_df: Optional[pl.DataFrame],
         entity: str,
     ):
@@ -187,8 +194,8 @@ class _PopRecPolars:
         self,
         dataset: Optional[Dataset],
         k: int,
-        queries: Optional[Union[pl.DataFrame, Iterable]] = None,
-        items: Optional[Union[pl.DataFrame, Iterable]] = None,
+        queries: Optional[Union[PolarsDataFrame, Iterable]] = None,
+        items: Optional[Union[PolarsDataFrame, Iterable]] = None,
     ):
         self.logger.debug("Starting predict %s", type(self).__name__)
         if dataset is not None:
@@ -196,19 +203,41 @@ class _PopRecPolars:
                 (
                     df
                     for df in [queries, dataset.interactions, dataset.query_features, self.fit_queries]
-                    if df is not None and not df.is_empty()
+                    if df is not None
+                    and (
+                        (isinstance(df, (list, tuple, set))) or (isinstance(df, PolarsDataFrame) and not df.is_empty())
+                    )
                 ),
                 None,
             )
             interactions = dataset.interactions
+            interactions = interactions.with_columns(pl.col(self.query_column).cast(pl.Int64).alias(self.query_column))
         else:
-            query_data = queries or self.fit_queries
+            query_data = next(
+                (
+                    df
+                    for df in [queries, self.fit_queries]
+                    if df is not None
+                    and (
+                        (isinstance(df, (list, tuple, set))) or (isinstance(df, PolarsDataFrame) and not df.is_empty())
+                    )
+                ),
+                None,
+            )
             interactions = None
 
         queries = get_unique_entities(query_data, self.query_column)
         queries, interactions = self._filter_cold_for_predict(queries, interactions, "query")
 
-        item_data = items or self.fit_items
+        item_data = next(
+            (
+                df
+                for df in [items, self.fit_items]
+                if df is not None
+                and ((isinstance(df, (list, tuple, set))) or (isinstance(df, PolarsDataFrame) and not df.is_empty()))
+            ),
+            None,
+        )
         items = get_unique_entities(item_data, self.item_column)
         items, interactions = self._filter_cold_for_predict(items, interactions, "item")
 
@@ -246,18 +275,30 @@ class _PopRecPolars:
         self,
         dataset: Dataset,
         k: int,
-        queries: pl.DataFrame,
-        items: pl.DataFrame,
+        queries: PolarsDataFrame,
+        items: PolarsDataFrame,
         filter_seen_items: bool = True,
     ) -> pl.DataFrame:
-        selected_item_popularity = self._get_selected_item_popularity(items).sort("item_id", descending=True)
-        # Sort by rating and item in descending order and add a row count as rank
-        sorted_df = selected_item_popularity.sort(by=[self.rating_column, self.item_column], descending=[True, True])
-        sorted_df = sorted_df.with_row_count("rank", offset=1)
-        selected_item_popularity = sorted_df
+        selected_item_popularity = self._get_selected_item_popularity(items)
+        if not selected_item_popularity.is_empty():
+            selected_item_popularity = selected_item_popularity.sort(self.item_column, descending=True)
+            # Sort by rating and item in descending order and add a row count as rank
+            sorted_df = selected_item_popularity.sort(
+                by=[self.rating_column, self.item_column], descending=[True, True]
+            )
+            selected_item_popularity = sorted_df.with_row_count("rank", offset=1)
+        else:
+            selected_item_popularity = (
+                selected_item_popularity.with_columns(
+                    pl.lit(None).alias(self.item_column), pl.lit(None).alias(self.rating_column)
+                )
+                .with_row_count("rank", offset=1)
+                .limit(0)
+            )
 
         if filter_seen_items and dataset is not None:
             queries = queries if queries is not None else self.fit_queries
+            queries = queries.with_columns(pl.col(self.query_column).cast(pl.Int64).alias(self.query_column))
 
             query_to_num_items = (
                 dataset.interactions.join(queries, on=self.query_column, how="inner")
@@ -281,8 +322,8 @@ class _PopRecPolars:
         self,
         dataset: Dataset,
         k: int,
-        queries: pl.DataFrame,
-        items: pl.DataFrame,
+        queries: PolarsDataFrame,
+        items: PolarsDataFrame,
         filter_seen_items: bool = True,
     ) -> pl.DataFrame:
         # TODO: In Other NonPersonolizedRecommeder models we need to use _predict_with_sample
@@ -292,8 +333,8 @@ class _PopRecPolars:
         self,
         dataset: Dataset,
         k: int,
-        queries: Optional[Union[pl.DataFrame, Iterable]] = None,
-        items: Optional[Union[pl.DataFrame, Iterable]] = None,
+        queries: Optional[Union[PolarsDataFrame, Iterable]] = None,
+        items: Optional[Union[PolarsDataFrame, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
     ) -> Optional[pl.DataFrame]:
@@ -302,15 +343,16 @@ class _PopRecPolars:
         recs = self._predict_without_sampling(dataset, k, queries, items, filter_seen_items)
         if filter_seen_items and dataset is not None:
             recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
-        recs = get_top_k(recs, self.query_column, [(self.rating_column, False), (self.item_column, True)], k).select(
-            self.query_column, self.item_column, self.rating_column
-        )
+        if not recs.is_empty():
+            recs = get_top_k(
+                recs, self.query_column, [(self.rating_column, False), (self.item_column, True)], k
+            ).select(self.query_column, self.item_column, self.rating_column)
         recs = return_recs(recs, recs_file_path)
         return recs
 
     def fit_predict(
         self,
-        dataset: pl.DataFrame,
+        dataset: PolarsDataFrame,
         k: int,
         queries: pl.DataFrame = None,
         items: pl.DataFrame = None,
@@ -319,17 +361,47 @@ class _PopRecPolars:
         self.fit(dataset)
         return self.predict(dataset, k, queries, items, filter_seen_items)
 
-    def predict_pairs(self, pairs: pl.DataFrame, dataset: pl.DataFrame = None) -> pl.DataFrame:  # noqa: ARG002
+    def predict_pairs(
+        self,
+        pairs: PolarsDataFrame,
+        dataset: Optional[Dataset] = None,
+        recs_file_path: Optional[str] = None,
+        k: Optional[int] = None,
+    ) -> Optional[pl.DataFrame]:
+        if dataset is not None:
+            interactions, query_features, item_features = (
+                dataset.interactions,
+                dataset.query_features,
+                dataset.item_features,
+            )
+            if set(pairs.columns) != {self.item_column, self.query_column}:
+                msg = "pairs must be a dataframe with columns strictly [user_idx, item_idx]"
+                raise ValueError(msg)
+            pairs, interactions = self._filter_cold_for_predict(pairs, interactions, "query")
+            pairs, interactions = self._filter_cold_for_predict(pairs, interactions, "item")
+            dataset = Dataset(
+                feature_schema=dataset.feature_schema,
+                interactions=interactions,
+                query_features=query_features,
+                item_features=item_features,
+            )
         if self.item_popularity is None:
             msg = "Model not fitted. Please call fit() first."
             raise ValueError(msg)
-        preds = pairs.join(self.item_popularity, on=self.item_column, how="left" if self.add_cold_items else "inner")
+        pred = pairs.join(self.item_popularity, on=self.item_column, how="left" if self.add_cold_items else "inner")
         fill_value = self._calc_fill(self.item_popularity, self.cold_weight, self.rating_column)
-        preds = preds.with_columns(pl.col(self.rating_column).fill_null(fill_value))
-        return preds.select([self.query_column, self.item_column, self.rating_column])
+        pred = pred.with_columns(pl.col(self.rating_column).fill_null(fill_value))
+        pred = pred.select([self.query_column, self.item_column, self.rating_column])
+        if k:
+            pred = get_top_k(pred, self.query_column, [(self.rating_column, False), (self.item_column, True)], k)
+
+        if recs_file_path is not None:
+            pred.write_parquet(recs_file_path)  # it's overwrite operation
+            return None
+        return pred
 
     def _predict_proba(
-        self, dataset: pl.DataFrame, k: int, queries, items: pl.DataFrame, filter_seen_items=True
+        self, dataset: PolarsDataFrame, k: int, queries, items: PolarsDataFrame, filter_seen_items=True
     ) -> pl.DataFrame:
         # TODO: Implement it in NonPersonolizedRecommender, if you need this function in other models
         raise NotImplementedError()

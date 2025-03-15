@@ -4,10 +4,12 @@ from typing import Iterable, List, Optional, Tuple, Union
 import pandas as pd
 import polars as pl
 
+from replay.utils import PolarsDataFrame
+
 
 def filter_cold(
     df: Optional[pl.DataFrame],
-    warm_df: pl.DataFrame,
+    warm_df: PolarsDataFrame,
     col_name: str,
 ) -> Tuple[int, Optional[pl.DataFrame]]:
     """
@@ -59,7 +61,7 @@ def get_unique_entities(
 
 
 def get_top_k(
-    dataframe: pl.DataFrame,
+    dataframe: PolarsDataFrame,
     partition_by_col: str,
     order_by_col: List[Tuple[str, bool]],
     k: int,
@@ -82,6 +84,8 @@ def get_top_k(
     # In polars the sort 'descending' parameter is the opposite of pandas 'ascending' parameter.
     sort_descending = [not asc for asc in sort_ascending]
     sorted_df = dataframe.sort(by=sort_columns, descending=sort_descending)
+    if sorted_df.is_empty():
+        return dataframe
     # Group by the partition column and take the first k rows per group.
     top_k_df = (
         sorted_df.group_by(partition_by_col)
@@ -92,7 +96,7 @@ def get_top_k(
 
 
 def get_top_k_recs(
-    recs: pl.DataFrame,
+    recs: PolarsDataFrame,
     k: int,
     query_column: str = "user_idx",
     rating_column: str = "relevance",
@@ -119,7 +123,7 @@ def get_top_k_recs(
     )
 
 
-def return_recs(recs: pl.DataFrame, recs_file_path: Optional[str] = None) -> Optional[pl.DataFrame]:
+def return_recs(recs: PolarsDataFrame, recs_file_path: Optional[str] = None) -> Optional[pl.DataFrame]:
     """
     Save DataFrame `recs` to `recs_file_path` if provided otherwise cache
     and materialize the DataFrame.

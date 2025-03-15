@@ -605,7 +605,6 @@ class _BaseRecommenderSparkImpl(_RecommenderCommonsSparkImpl, IsSavable, ABC):
             ``(n_users, n_items, k)``
             where we have probability for each user to choose item at fixed position(top-k).
         """
-
         n_users = queries.select("user_idx").count()
         n_items = items.select("item_idx").count()
 

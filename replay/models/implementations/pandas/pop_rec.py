@@ -160,7 +160,7 @@ class _PopRecPandas:
         return max_hist_len
 
     def _filter_seen(
-        self, recs: pd.DataFrame, interactions: pd.DataFrame, k: int, queries: pd.DataFrame
+        self, recs: PandasDataFrame, interactions: PandasDataFrame, k: int, queries: pd.DataFrame
     ) -> pd.DataFrame:
         """
         Filter seen items (present in interactions) out of the queries' recommendations.
@@ -201,7 +201,7 @@ class _PopRecPandas:
 
     def _filter_cold_for_predict(
         self,
-        main_df: pd.DataFrame,
+        main_df: PandasDataFrame,
         interactions_df: Optional[pd.DataFrame],
         entity: str,
     ):
@@ -230,8 +230,8 @@ class _PopRecPandas:
         self,
         dataset: Optional[Dataset],
         k: int,
-        queries: Optional[Union[pd.DataFrame, Iterable]] = None,
-        items: Optional[Union[pd.DataFrame, Iterable]] = None,
+        queries: Optional[Union[PandasDataFrame, Iterable]] = None,
+        items: Optional[Union[PandasDataFrame, Iterable]] = None,
     ):
         """
         Returns triplet of filtered `dataset`, `queries`, and `items`.
@@ -258,19 +258,36 @@ class _PopRecPandas:
                 (
                     df
                     for df in [queries, dataset.interactions, dataset.query_features, self.fit_queries]
-                    if df is not None and not df.empty
+                    if df is not None
+                    and ((isinstance(df, (list, tuple, set))) or (isinstance(df, PandasDataFrame) and not df.empty))
                 ),
                 None,
             )
             interactions = dataset.interactions
         else:
-            query_data = queries or self.fit_queries
+            query_data = next(
+                (
+                    df
+                    for df in [queries, self.fit_queries]
+                    if df is not None
+                    and ((isinstance(df, (list, tuple, set))) or (isinstance(df, PandasDataFrame) and not df.empty))
+                ),
+                None,
+            )
             interactions = None
 
         queries = get_unique_entities(query_data, self.query_column)
         queries, interactions = self._filter_cold_for_predict(queries, interactions, "query")
 
-        item_data = items or self.fit_items
+        item_data = next(
+            (
+                df
+                for df in [items, self.fit_items]
+                if df is not None
+                and ((isinstance(df, (list, tuple, set))) or (isinstance(df, PandasDataFrame) and not df.empty))
+            ),
+            None,
+        )
         items = get_unique_entities(item_data, self.item_column)
         items, interactions = self._filter_cold_for_predict(items, interactions, "item")
         num_items = len(items)
@@ -404,13 +421,44 @@ class _PopRecPandas:
         self.fit(dataset)
         return self.predict(dataset, k, queries, items, filter_seen_items, recs_file_path)
 
-    def predict_pairs(self, pairs: PandasDataFrame, dataset: PandasDataFrame = None) -> PandasDataFrame:  # noqa: ARG002
+    def predict_pairs(
+        self,
+        pairs: PandasDataFrame,
+        dataset: Optional[Dataset] = None,
+        recs_file_path: Optional[str] = None,
+        k: Optional[int] = None,
+    ) -> Optional[PandasDataFrame]:
+        if dataset is not None:
+            interactions, query_features, item_features = (
+                dataset.interactions,
+                dataset.query_features,
+                dataset.item_features,
+            )
+            if set(pairs.columns) != {self.item_column, self.query_column}:
+                msg = "pairs must be a dataframe with columns strictly [user_idx, item_idx]"
+                raise ValueError(msg)
+            pairs, interactions = self._filter_cold_for_predict(pairs, interactions, "query")
+            pairs, interactions = self._filter_cold_for_predict(pairs, interactions, "item")
+            dataset = Dataset(
+                feature_schema=dataset.feature_schema,
+                interactions=interactions,
+                query_features=query_features,
+                item_features=item_features,
+            )
         if self.item_popularity is None:
             msg = "Model not fitted. Please call fit() first."
             raise ValueError(msg)
-        preds = pairs.merge(self.item_popularity, on=self.item_column, how="left" if self.add_cold_items else "inner")
-        preds[self.rating_column].fillna(self._calc_fill(), inplace=True)
-        return preds[[self.query_column, self.item_column, self.rating_column]]
+        pred = pairs.merge(self.item_popularity, on=self.item_column, how="left" if self.add_cold_items else "inner")
+        fill_value = self._calc_fill(self.item_popularity, self.cold_weight, self.rating_column)
+        pred[self.rating_column].fillna(fill_value, inplace=True)
+        pred = pred[[self.query_column, self.item_column, self.rating_column]]
+        if k:
+            pred = get_top_k(pred, self.query_column, [(self.rating_column, False), (self.item_column, True)], k)
+
+        if recs_file_path is not None:
+            pred.to_parquet(recs_file_path)  # it's overwrite operation
+            return None
+        return pred
 
     def _predict_proba(
         self, dataset: PandasDataFrame, k: int, queries, items: PandasDataFrame, filter_seen_items=True

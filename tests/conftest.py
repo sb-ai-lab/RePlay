@@ -69,6 +69,16 @@ def log(spark):
 
 
 @pytest.fixture(scope="session")
+def log_pandas(log):
+    return log.toPandas()
+
+
+@pytest.fixture(scope="session")
+def log_polars(log):
+    return pl.from_pandas(log.toPandas())
+
+
+@pytest.fixture(scope="session")
 def long_log_with_features(spark):
     date = datetime(2019, 1, 1)
     return spark.createDataFrame(
@@ -88,6 +98,16 @@ def long_log_with_features(spark):
         ],
         schema=["user_idx", "item_idx", "timestamp", "relevance"],
     )
+
+
+@pytest.fixture(scope="session")
+def long_log_with_features_pandas(long_log_with_features):
+    return long_log_with_features.toPandas()
+
+
+@pytest.fixture(scope="session")
+def long_log_with_features_polars(long_log_with_features):
+    return pl.from_pandas(long_log_with_features.toPandas())
 
 
 @pytest.fixture(scope="session")
@@ -116,6 +136,16 @@ def user_features(spark):
             (2, 75.0, -1.0, "M"),
         ]
     ).toDF("user_idx", "age", "mood", "gender")
+
+
+@pytest.fixture(scope="session")
+def user_features_pandas(user_features):
+    return user_features.toPandas()
+
+
+@pytest.fixture(scope="session")
+def user_features_polars(user_features):
+    return pl.from_pandas(user_features.toPandas())
 
 
 @pytest.fixture(scope="session")
