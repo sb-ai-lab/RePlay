@@ -330,16 +330,8 @@ def test_consecutive_duplicates_filter_temporary_column_exists_error(backend):
         ConsecutiveDuplicatesFilter().transform(interactions)
 
 
-@pytest.mark.parametrize("first", [True, False])
-@pytest.mark.parametrize(
-    "backend",
-    [
-        pytest.param("pandas", marks=pytest.mark.core),
-        pytest.param("polars", marks=pytest.mark.core),
-        pytest.param("spark", marks=pytest.mark.spark),
-    ],
-)
-def test_consecutive_duplicates_filter_param_first(first, backend):
+@pytest.fixture(scope="module", params=[True, False])
+def consecutive_duplicates_to_test_param_first(request):
     target = pd.DataFrame(
         {
             "query_id": ["u0", "u1", "u2", "u3", "u4"],
@@ -348,17 +340,27 @@ def test_consecutive_duplicates_filter_param_first(first, backend):
         }
     )
     duplicates = target.copy()
-    duplicates["timestamp"] += pd.Timedelta(days=1 if first else -1)
-
+    duplicates["timestamp"] += pd.Timedelta(days=1 if request.param else -1)
     inputs = pd.concat([target, duplicates])
-    inputs = to_backend(inputs, backend)
-    target = target.sort_values(["query_id", "timestamp"])
-    filtered = to_pandas(ConsecutiveDuplicatesFilter(first=first).transform(inputs))
+    return inputs, target, request.param
 
+
+@pytest.mark.parametrize(
+    "backend",
+    [
+        pytest.param("pandas", marks=pytest.mark.core),
+        pytest.param("polars", marks=pytest.mark.core),
+        pytest.param("spark", marks=pytest.mark.spark),
+    ],
+)
+def test_consecutive_duplicates_filter_param_first(consecutive_duplicates_to_test_param_first, backend):
+    inputs, target, first = consecutive_duplicates_to_test_param_first
+    inputs = to_backend(inputs, backend)
+    filtered = to_pandas(ConsecutiveDuplicatesFilter(first=first).transform(inputs))
     assert (filtered == target).all(axis=None)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def same_item_consecutive_duplicates():
     inputs = pd.DataFrame(
         {"query_id": ["u1", "u2", "u1", "u2", "u2", "u3"], "item_id": ["i1"] * 6, "timestamp": list(range(6))}
@@ -367,7 +369,7 @@ def same_item_consecutive_duplicates():
     return inputs, target
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def extra_column_consecutive_duplicates():
     inputs = pd.DataFrame(
         {
@@ -377,7 +379,6 @@ def extra_column_consecutive_duplicates():
             "timestamp": list(range(6)),
         }
     )
-
     target = pd.DataFrame(
         {
             "query_id": ["u0", "u1", "u1", "u2", "u3"],
