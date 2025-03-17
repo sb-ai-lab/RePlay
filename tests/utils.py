@@ -23,8 +23,18 @@ def assertDictAlmostEqual(d1: Dict, d2: Dict) -> None:
         assert_allclose(d1[key], d2[key])
 
 
-def unify_dataframe(data_frame: SparkDataFrame):
-    pandas_df = data_frame.toPandas()
+def unify_dataframe(data_frame: DataFrameLike):
+    if isinstance(data_frame, SparkDataFrame):
+        pandas_df = data_frame.toPandas()
+    elif isinstance(data_frame, PolarsDataFrame):
+        pandas_df = data_frame.to_pandas()
+    elif isinstance(data_frame, PandasDataFrame):
+        pandas_df = data_frame
+    elif isinstance(data_frame, pd.Series):
+        pandas_df = data_frame.to_frame()
+    else:
+        msg = f"Not supported type: {type(data_frame)}"
+        raise ValueError(msg)
     columns_to_sort_by: List[str] = []
 
     if len(pandas_df) == 0:
@@ -38,11 +48,15 @@ def unify_dataframe(data_frame: SparkDataFrame):
             }:
                 columns_to_sort_by.append(column)
 
-    return pandas_df[sorted(data_frame.columns)].sort_values(by=sorted(columns_to_sort_by)).reset_index(drop=True)
+    return pandas_df[sorted(pandas_df.columns)].sort_values(by=sorted(columns_to_sort_by)).reset_index(drop=True)
 
 
 def sparkDataFrameEqual(df1: SparkDataFrame, df2: SparkDataFrame):
     return pd.testing.assert_frame_equal(unify_dataframe(df1), unify_dataframe(df2), check_like=True)
+
+
+def isDataFrameEqual(df1: DataFrameLike, df2: DataFrameLike):
+    return unify_dataframe(df1).equals(unify_dataframe(df2))
 
 
 def sparkDataFrameNotEqual(df1: SparkDataFrame, df2: SparkDataFrame):

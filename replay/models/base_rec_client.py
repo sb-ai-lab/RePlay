@@ -422,7 +422,7 @@ class BaseRecommenderClient(ABC):
         """
         Method for dump model attributes to disk
         """
-        self._impl._save_model(path)
+        self._impl._save_model(path)  # TODO: Not actual method in implementations. Change it!
 
     def _save_model(self, path: str) -> None:
         """
@@ -434,7 +434,7 @@ class BaseRecommenderClient(ABC):
         """
         Method for loading model attributes from disk
         """
-        self._impl._load_model(path)
+        self._impl._load_model(path)  # TODO: Not actual method in implementations. Change it!
 
     def _load_model(self, path: str) -> None:
         """
@@ -517,8 +517,8 @@ class BaseRecommenderClient(ABC):
         self,
         dataset: Dataset,
         k: int,
-        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
-        items: Optional[Union[SparkDataFrame, Iterable]] = None,
+        queries: Optional[Union[DataFrameLike, Iterable]] = None,
+        items: Optional[Union[DataFrameLike, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
     ) -> Optional[DataFrameLike]:
@@ -895,10 +895,10 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
             msg = f"Class '{self._impl.__class__}' does not have the '_dataframes' attribute"
             raise AttributeError(msg)
 
-    def get_items_pd(self, items: SparkDataFrame) -> pd.DataFrame:
+    def get_items_pd(self, items: DataFrameLike) -> pd.DataFrame:
         """Clear the cache in spark realization"""
-        if hasattr(self._impl, "get_pandas_pd") and isinstance(self._impl, self._class_map["spark"]):
-            return self._impl.get_pandas_pd(items)
+        if hasattr(self._impl, "get_items_pd") and not isinstance(self._impl, self._class_map["pandas"]):
+            return self._impl.get_items_pd(items)
         else:
-            msg = f"Class '{self._impl.__class__}' does not have the 'get_pandas_pd' function "
+            msg = f"Class '{self._impl.__class__}' does not have the 'get_items_pd' function "
             raise AttributeError(msg)

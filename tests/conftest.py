@@ -175,6 +175,16 @@ def item_features(spark):
 
 
 @pytest.fixture(scope="session")
+def item_features_pandas(item_features):
+    return item_features.toPandas()
+
+
+@pytest.fixture(scope="session")
+def item_features_polars(item_features):
+    return pl.from_pandas(item_features.toPandas())
+
+
+@pytest.fixture(scope="session")
 def fake_fit_items(spark):
     return spark.createDataFrame(
         [

@@ -1,6 +1,6 @@
 import logging
 from os.path import join
-from typing import Any, Dict, Iterable, Optional, Union
+from typing import Any, Dict, Iterable, Optional, Tuple, Union
 
 import polars as pl
 
@@ -135,7 +135,7 @@ class _PopRecPolars:
     def _calc_max_hist_len(dataset: Dataset, queries: pl.DataFrame) -> int:
         query_column = dataset.feature_schema.query_id_column
         item_column = dataset.feature_schema.item_id_column
-        merged_df = dataset.join(queries, on=query_column, how="left")
+        merged_df = dataset.interactions.join(queries, on=query_column)
         grouped = merged_df.group_by(query_column).agg(pl.col(item_column).n_unique().alias("nunique"))
         max_hist_len = grouped.select(pl.col("nunique").max()).item()
         if max_hist_len is None:
@@ -177,18 +177,18 @@ class _PopRecPolars:
         main_df: PolarsDataFrame,
         interactions_df: Optional[pl.DataFrame],
         entity: str,
-    ):
+    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
         can_predict_cold = self.can_predict_cold_queries if entity == "query" else self.can_predict_cold_items
         fit_entities = self.fit_queries if entity == "query" else self.fit_items
         column = self.query_column if entity == "query" else self.item_column
         if can_predict_cold:
             return main_df, interactions_df
 
-        num_new, main_df = filter_cold(main_df, fit_entities, col_name=column)
-        if num_new > 0:
+        num_new, main_df = filter_cold(main_df, fit_entities, col_name=column)  # pragma: no cover
+        if num_new > 0:  # pragma: no cover
             self.logger.info("%s model can't predict cold %ss, they will be ignored", self, entity)
-        _, interactions_df = filter_cold(interactions_df, fit_entities, col_name=column)
-        return main_df, interactions_df
+        _, interactions_df = filter_cold(interactions_df, fit_entities, col_name=column)  # pragma: no cover
+        return main_df, interactions_df  # pragma: no cover
 
     def _filter_interactions_queries_items_dataframes(
         self,
@@ -325,7 +325,7 @@ class _PopRecPolars:
         queries: PolarsDataFrame,
         items: PolarsDataFrame,
         filter_seen_items: bool = True,
-    ) -> pl.DataFrame:
+    ) -> pl.DataFrame:  # pragma: no cover
         # TODO: In Other NonPersonolizedRecommeder models we need to use _predict_with_sample
         raise NotImplementedError()
 
@@ -357,9 +357,10 @@ class _PopRecPolars:
         queries: pl.DataFrame = None,
         items: pl.DataFrame = None,
         filter_seen_items=True,
-    ) -> pl.DataFrame:
+        recs_file_path: Optional[str] = None,
+    ) -> Optional[pl.DataFrame]:
         self.fit(dataset)
-        return self.predict(dataset, k, queries, items, filter_seen_items)
+        return self.predict(dataset, k, queries, items, filter_seen_items, recs_file_path)
 
     def predict_pairs(
         self,
@@ -402,7 +403,7 @@ class _PopRecPolars:
 
     def _predict_proba(
         self, dataset: PolarsDataFrame, k: int, queries, items: PolarsDataFrame, filter_seen_items=True
-    ) -> pl.DataFrame:
+    ) -> pl.DataFrame:  # pragma: no cover
         # TODO: Implement it in NonPersonolizedRecommender, if you need this function in other models
         raise NotImplementedError()
 

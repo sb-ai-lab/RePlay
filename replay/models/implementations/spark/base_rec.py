@@ -884,12 +884,13 @@ class _BaseRecommenderSparkImpl(_RecommenderCommonsSparkImpl, IsSavable, ABC):
             "item_column": self.item_column,
             "rating_column": self.rating_column,
             "timestamp_column": self.timestamp_column,
-        }
+        }  # TODO: почему нет сохранения fit_queries
         if additional_params is not None:
             saved_params.update(additional_params)
         save_picklable_to_parquet(saved_params, join(path, "params.dump"))
 
     def _load_model(self, path: str):
+        # TODO: почему нет загрузки fit_queries
         loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
         for param, value in loaded_params.items():
             setattr(self, param, value)

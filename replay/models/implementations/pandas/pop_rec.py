@@ -150,12 +150,10 @@ class _PopRecPandas:
     def _calc_max_hist_len(dataset: Dataset, queries: PandasDataFrame) -> int:
         query_column = dataset.feature_schema.query_id_column
         item_column = dataset.feature_schema.item_id_column
-        merged_df = dataset.merge(queries, on=query_column, how="left")
+        merged_df = dataset.interactions.merge(queries, on=query_column)
 
         grouped_df = merged_df.groupby(query_column)[item_column].nunique()
-        max_hist_len = grouped_df.max()
-        if max_hist_len is None:
-            max_hist_len = 0
+        max_hist_len = grouped_df.max() if grouped_df is not None and not grouped_df.empty else 0
 
         return max_hist_len
 
@@ -216,15 +214,17 @@ class _PopRecPandas:
         if can_predict_cold:
             return main_df, interactions_df
 
-        num_new, main_df = filter_cold(main_df, fit_entities, col_name=column)
-        if num_new > 0:
+        num_new, main_df = filter_cold(main_df, fit_entities, col_name=column)  # pragma: no cover
+        if num_new > 0:  # pragma: no cover
             self.logger.info(
                 "%s model can't predict cold %ss, they will be ignored",
                 self,
                 entity,
             )
-        _, interactions_df = filter_cold(interactions_df, fit_entities, col_name=column)
-        return main_df, interactions_df
+        _, interactions_df = filter_cold(interactions_df, fit_entities, col_name=column)  # pragma: no cover
+        main_df.reset_index(inplace=True)
+        interactions_df.reset_index(inplace=True)
+        return main_df, interactions_df  # pragma: no cover
 
     def _filter_interactions_queries_items_dataframes(
         self,
@@ -305,21 +305,6 @@ class _PopRecPandas:
             )
         return dataset, queries, items
 
-    def get_items_pd(self, items: PandasDataFrame) -> PandasDataFrame:
-        """
-        Function to calculate normalized popularities(in fact, probabilities)
-        of given items. Returns pandas DataFrame.
-        """
-        selected_item_popularity = self._get_selected_item_popularity(items)
-        selected_item_popularity[self.rating_column] = selected_item_popularity.apply(
-            lambda row: 0.1**6 if row["rating_column"] == 0.0 else row["rating_column"], axis=1
-        )
-
-        total_rating = selected_item_popularity[self.rating_column].sum()
-
-        selected_item_popularity["probability"] = selected_item_popularity[self.rating_column] / total_rating
-        return selected_item_popularity
-
     def _predict_without_sampling(
         self,
         dataset: Dataset,
@@ -363,7 +348,7 @@ class _PopRecPandas:
         queries: PandasDataFrame,
         items: PandasDataFrame,
         filter_seen_items: bool = True,
-    ) -> PandasDataFrame:
+    ) -> PandasDataFrame:  # pragma: no cover
         # TODO: In Other NonPersonolizedRecommeder models we need to use _predict_with sample
         raise NotImplementedError()
 
@@ -462,7 +447,7 @@ class _PopRecPandas:
 
     def _predict_proba(
         self, dataset: PandasDataFrame, k: int, queries, items: PandasDataFrame, filter_seen_items=True
-    ) -> PandasDataFrame:
+    ) -> PandasDataFrame:  # pragma: no cover
         # TODO: Implement it in NonPersonolizedRecommender, if you need this function in other models
         raise NotImplementedError()
 

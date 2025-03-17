@@ -37,7 +37,7 @@ def filter_cold(
     return num_cold, filtered_df
 
 
-def get_unique_entities(  # TODO: Сделать диспатчер на каждую из одинаковых функций
+def get_unique_entities(
     df: Union[Iterable, pd.DataFrame],
     column: str,
 ) -> pd.DataFrame:
