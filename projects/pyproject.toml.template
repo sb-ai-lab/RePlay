@@ -113,7 +113,7 @@ filelock = "~3.14.0"
 
 [tool.poetry-dynamic-versioning]
 enable = true
-format-jinja = """0.18.1{{ env['PACKAGE_SUFFIX'] }}"""
+format-jinja = """0.18.2{{ env['PACKAGE_SUFFIX'] }}"""
 vcs = "git"
 
 [tool.ruff]
