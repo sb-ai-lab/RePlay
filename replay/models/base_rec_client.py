@@ -40,7 +40,7 @@ class BaseRecommenderClient(ABC):
     def _class_map(self):
         """Map of all implementations (Usually - Spark, Polars and Pandas)"""
 
-    def _assign_realization_type(self, type_of_model: Literal["pandas", "spark", "polars"]):
+    def _assign_implementation_type(self, type_of_model: Literal["pandas", "spark", "polars"]):
         if type_of_model not in ["pandas", "spark", "polars"]:
             msg = f"Argument type_of_model can be spark|pandas|polars, not {type_of_model}"
             raise ValueError(msg)
@@ -48,7 +48,7 @@ class BaseRecommenderClient(ABC):
         self.is_spark = type_of_model == "spark"
         self.is_polars = type_of_model == "polars"
 
-    def _get_realization_type(self) -> Optional[str]:
+    def _get_implementation_type(self) -> Optional[str]:
         """
         :returns: Stored dataframe type.
         """
@@ -58,11 +58,9 @@ class BaseRecommenderClient(ABC):
             return "pandas"
         if self.is_polars:
             return "polars"
-        msg = "Model type is not setted"
-        self.logger.warning(msg)
         return None
 
-    def _get_all_attributes_or_functions(self):
+    def _get_all_attributes_or_functions(self): # TODO: Возможно можно убрать, что аттрибуиы аннотированы но не проставлены
         if self._impl is None:
             return []
         cls = self._impl.__class__
@@ -71,7 +69,7 @@ class BaseRecommenderClient(ABC):
         all_params.extend(self._impl.__dict__)
         all_params.extend(getattr(cls, "__annotations__", {}))
         all_params.extend(dir(cls))
-        return list(set(all_params))
+        return list(set(all_params)) # TODO: Переделать на O(1) поиск
 
     @property
     @abstractmethod
@@ -97,7 +95,7 @@ class BaseRecommenderClient(ABC):
     @property
     def cached_dfs(self):
         """Storage of Spark's queries plan"""
-        if hasattr(self._impl, "cached_dfs") and self._get_realization_type() == "spark":
+        if hasattr(self._impl, "cached_dfs") and self._get_implementation_type() == "spark":
             return self._impl.cached_dfs
         elif "cached_dfs" in self._get_all_attributes_or_functions():
             msg = "Attribute 'cached_dfs' has not been set yet. Set it"
@@ -111,7 +109,7 @@ class BaseRecommenderClient(ABC):
         """Column of fitted items in model"""
         if hasattr(self._impl, "fit_items"):
             return self._impl.fit_items
-        elif "fit_items" in self._get_all_attributes_or_functions():
+        elif "fit_items" in self._get_all_attributes_or_functions(): # TODO: точно стоит убрать
             msg = "Attribute 'fit_items' has not been set yet. Set it"
             raise AttributeError(msg)
         else:
@@ -449,7 +447,7 @@ class BaseRecommenderClient(ABC):
         :param params: dictionary param name - param value
         :return:
         """
-        if hasattr(self._impl, "logger"):
+        if hasattr(self._impl, "set_params"):
             self._impl.set_params(**params)
         else:
             msg = f"Class '{self._impl.__class__}' does not have the 'set_params()' function "
@@ -457,7 +455,7 @@ class BaseRecommenderClient(ABC):
 
     def _clear_cache(self):
         """Clear the cache in spark realization"""
-        if hasattr(self._impl, "_clear_cache") and self._get_realization_type() == "spark":
+        if hasattr(self._impl, "_clear_cache") and self._get_implementation_type() == "spark":
             return self._impl._clear_cache
         elif "_clear_cache" in self._get_all_attributes_or_functions():
             msg = "Attribute 'cached_dfs' has not been set yet. Set it"
@@ -502,8 +500,8 @@ class BaseRecommenderClient(ABC):
         realization = (
             "spark" if dataset.is_spark else "pandas" if dataset.is_pandas else "polars" if dataset.is_polars else None
         )
-        self._assign_realization_type(realization)
-        if dataset.is_spark or dataset.is_pandas or dataset.is_polars:
+        self._assign_implementation_type(realization)
+        if dataset.is_spark or dataset.is_pandas or dataset.is_polars: # сначала записать в переменную, затем в self._impl
             self._impl = self._class_map[realization](**self._init_args)
             if not self.is_fitted:
                 self._impl.set_params(**self._init_when_first_impl_arrived_args)
@@ -511,7 +509,7 @@ class BaseRecommenderClient(ABC):
             msg = "Model Implementation can't calculate input data due to missmatch of types"
             raise DataModelMissmatchError(msg)
         self._impl.fit(dataset)
-        self.is_fitted = True
+        self.is_fitted = True #TODO: передлать на функцию is
 
     def fit_predict(
         self,
@@ -525,8 +523,8 @@ class BaseRecommenderClient(ABC):
         """_RecommenderCommonsSparkImpl._init_args"""
         realization = (
             "spark" if dataset.is_spark else "pandas" if dataset.is_pandas else "polars" if dataset.is_polars else None
-        )
-        self._assign_realization_type(realization)
+        ) # TODO: заменить на self.fit и self.predict
+        self._assign_implementation_type(realization)
         if (
             self.is_spark != dataset.is_spark
             or self.is_pandas != dataset.is_pandas
@@ -548,8 +546,8 @@ class BaseRecommenderClient(ABC):
         self,
         dataset: Dataset,
         k: int,
-        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
-        items: Optional[Union[SparkDataFrame, Iterable]] = None,
+        queries: Optional[Union[DataFrameLike, Iterable]] = None,
+        items: Optional[Union[DataFrameLike, Iterable]] = None,
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
     ) -> Optional[DataFrameLike]:
@@ -561,7 +559,7 @@ class BaseRecommenderClient(ABC):
             raise NotFittedModelError()
         if (
             (
-                self.is_spark
+                self.is_spark #TODO: Dict[str, Unions[]]
                 and (
                     not dataset.is_spark
                     or (
@@ -682,8 +680,8 @@ class BaseRecommenderClient(ABC):
         return recs
 
     def get_features(
-        self, ids: SparkDataFrame, features: Optional[SparkDataFrame] = None
-    ) -> Optional[Tuple[SparkDataFrame, int]]:
+        self, ids: DataFrameLike, features: Optional[DataFrameLike] = None
+    ) -> Optional[Tuple[DataFrameLike, int]]:
         """
         Returns query or item feature vectors as a Column with type ArrayType
 
@@ -705,20 +703,22 @@ class BaseRecommenderClient(ABC):
         return copy_implementation
 
     def to_spark(self):
-        if self._impl is None:
+        if not self.is_fitted: #TODO: просмотреть, где можно
             msg = "Can't convert not fitted model"
             raise NotFittedModelError(msg)
         if self.is_spark:
             return self
         copy_implementation = self._class_map["spark"](**self._init_args)
-        self._assign_realization_type("spark")
+        self._assign_implementation_type("spark")
         copy_implementation = self._copy_base_params_to_new_model(copy_implementation)
+        copy_implementation.query = self.queries_column # TODO: избавиться от лишних словарей, просто 7 подряд
+
+
         if self.is_fitted:
             copy_implementation.fit_items = convert2spark(self.fit_items)
             copy_implementation.fit_queries = convert2spark(
                 self.fit_queries
-            )  # TODO: Use list of '_dataframes' instead convert all dfs manually.
-            # Is it needed? Not all of dataframes is needed to convert
+            )
         self._impl = copy_implementation
         return self
 
@@ -729,7 +729,7 @@ class BaseRecommenderClient(ABC):
         if self.is_pandas:
             return self
         copy_implementation = self._class_map["pandas"](**self._init_args)
-        self._assign_realization_type("pandas")
+        self._assign_implementation_type("pandas") #TODO: перенести ниже
         copy_implementation = self._copy_base_params_to_new_model(copy_implementation)
         if self.is_fitted:
             self.logger.warning("Converting big dataframes from spark to pandas can cause OOM error.")
@@ -745,7 +745,7 @@ class BaseRecommenderClient(ABC):
         if self.is_polars:
             return self
         copy_implementation = self._class_map["polars"](**self._init_args)
-        self._assign_realization_type("polars")
+        self._assign_implementation_type("polars")
         copy_implementation = self._copy_base_params_to_new_model(copy_implementation)
         if self.is_fitted:
             self.logger.warning("Converting big dataframes from spark to polars can cause OOM error.")
@@ -839,7 +839,7 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
             if type(value) == SparkDataFrame
             else "pandas" if type(value) == PandasDataFrame else "polars" if type(value) == PolarsDataFrame else None
         )
-        if not self._get_realization_type == value_type:
+        if not self._get_implementation_type == value_type:
             raise DataModelMissmatchError
         self._impl.item_popularity = value
 

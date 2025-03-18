@@ -9,6 +9,7 @@ models with non-distributed training and distributed inference in PySpark.
 
 from .als import ALSWrap
 from .association_rules import AssociationRulesItemRec
+from .base_rec_client import BaseRecommenderClient, NonPersonolizedRecommenderClient
 from .cat_pop_rec import CatPopRec
 from .cluster import ClusterRec
 from .implementations import (
@@ -44,6 +45,8 @@ __all__ = [
     "_NonPersonalizedRecommenderSparkImpl",
     "_RecommenderCommonsSparkImpl",
     "_RecommenderSparkImpl",
+    "BaseRecommenderClient",
+    "NonPersonolizedRecommenderClient",
     "KLUCB",
     "ItemKNN",
     "LinUCB",
