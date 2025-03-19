@@ -1070,7 +1070,7 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
 
     def _filter_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
         self._check_temporary_column_existence(interactions)
-        interactions = interactions.sort_values([self.query_column, self.timestamp_column])
+        interactions = interactions.sort_values(self.timestamp_column)
         interactions[self.temporary_column] = interactions.groupby(self.query_column)[self.item_column].shift(
             periods=self.bias
         )
@@ -1083,7 +1083,7 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
     def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
         self._check_temporary_column_existence(interactions)
         return (
-            interactions.sort(self.query_column, self.timestamp_column)
+            interactions.sort(self.timestamp_column)
             .with_columns(
                 pl.col(self.item_column).shift(n=self.bias).over(self.query_column).alias(self.temporary_column)
             )
