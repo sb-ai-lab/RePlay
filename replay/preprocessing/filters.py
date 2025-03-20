@@ -5,6 +5,7 @@ Select or remove data by some criteria
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import Callable, Literal, Optional, Tuple, Union
+from uuid import uuid4
 
 import numpy as np
 import pandas as pd
@@ -1038,7 +1039,6 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
         query_column: str = "query_id",
         item_column: str = "item_id",
         timestamp_column: str = "timestamp",
-        temporary_column: str = "__shifted",
     ) -> None:
         """
         :param keep: whether to keep first or last occurrence,
@@ -1049,32 +1049,20 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
             default: `item_id`.
         :param timestamp_column: timestamp column,
             default: `timestamp`.
-        :param temporary_column: temporary column for shifted data,
-            default: `__shifted`.
-            Ensure it does not already exist in `interactions` to avoid conflicts.
         """
         super().__init__()
         self.query_column = query_column
         self.item_column = item_column
         self.timestamp_column = timestamp_column
-        self.temporary_column = temporary_column
 
         if keep not in ("first", "last"):
             msg = "`keep` must be either 'first' or 'last'"
             raise ValueError(msg)
 
         self.bias = 1 if keep == "first" else -1
-
-    def _check_temporary_column_existence(self, interactions: DataFrameLike) -> None:
-        if self.temporary_column in interactions.columns:
-            msg = (
-                f"Column '{self.temporary_column}' already exists in `interactions`. "
-                "Please specify a different value for `temporary_column`."
-            )
-            raise ValueError(msg)
+        self.temporary_column = f"__shifted_{uuid4().hex[:8]}"
 
     def _filter_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
-        self._check_temporary_column_existence(interactions)
         interactions = interactions.sort_values(self.timestamp_column)
         interactions[self.temporary_column] = interactions.groupby(self.query_column)[self.item_column].shift(
             periods=self.bias
@@ -1086,7 +1074,6 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
         )
 
     def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
-        self._check_temporary_column_existence(interactions)
         return (
             interactions.sort(self.timestamp_column)
             .with_columns(
@@ -1097,7 +1084,6 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
         )
 
     def _filter_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
-        self._check_temporary_column_existence(interactions)
         window = Window.partitionBy(self.query_column).orderBy(self.timestamp_column)
         return (
             interactions.withColumn(self.temporary_column, sf.lag(self.item_column, offset=self.bias).over(window))
