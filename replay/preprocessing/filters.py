@@ -4,7 +4,7 @@ Select or remove data by some criteria
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Callable, Optional, Tuple, Union
+from typing import Callable, Literal, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -1034,15 +1034,15 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
 
     def __init__(
         self,
-        first: bool = True,
+        keep: Literal["first", "last"] = "first",
         query_column: str = "query_id",
         item_column: str = "item_id",
         timestamp_column: str = "timestamp",
         temporary_column: str = "__shifted",
     ) -> None:
         """
-        :param first: whether to keep first (True) or last (False) occurrence,
-            default: `True`.
+        :param keep: whether to keep first or last occurrence,
+            default: `first`.
         :param query_column: query column,
             default: `query_id`.
         :param item_column: item column,
@@ -1054,11 +1054,16 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
             Ensure it does not already exist in `interactions` to avoid conflicts.
         """
         super().__init__()
-        self.bias = 1 if first else -1
         self.query_column = query_column
         self.item_column = item_column
         self.timestamp_column = timestamp_column
         self.temporary_column = temporary_column
+
+        if keep not in ("first", "last"):
+            msg = "`keep` must be either 'first' or 'last'"
+            raise ValueError(msg)
+
+        self.bias = 1 if keep == "first" else -1
 
     def _check_temporary_column_existence(self, interactions: DataFrameLike) -> None:
         if self.temporary_column in interactions.columns:
