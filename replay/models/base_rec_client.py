@@ -45,7 +45,7 @@ class BaseRecommenderClient(ABC):
             expected_class = (
                 DataFrameLike
                 if attribute_name.startswith("fit_")
-                else str if attribute_name.endwith("_column") else int
+                else str if attribute_name.endswith("_column") else int
             )
             if self.is_fitted and isinstance(value, expected_class):
                 setattr(self._impl, attribute_name, value)
@@ -62,7 +62,7 @@ class BaseRecommenderClient(ABC):
 
     attributes_after_fit_with_setter = attributes_after_fit[:2]  # fit_items and fit_queries
     for attr in attributes_after_fit:
-        locals()[attr] = _make_property(attr, attributes_after_fit_with_setter)
+        locals()[attr] = _make_property.__func__(attr, attributes_after_fit_with_setter)
 
     def __init__(self):
         self.is_pandas = False
@@ -141,45 +141,6 @@ class BaseRecommenderClient(ABC):
             msg = f"Class '{self._impl.__class__}' does not have the 'cached_dfs' attribute"
             raise AttributeError(msg)
 
-    @property
-    def fit_items(self):
-        """Column of fitted items in model"""
-        if hasattr(self._impl, "fit_items"):
-            return self._impl.fit_items
-        else:
-            msg = f"Class '{self._impl.__class__}' does not have the 'fit_items' attribute"
-            raise AttributeError(msg)
-
-    @fit_items.setter
-    def fit_items(self, value):
-        """Column of fitted items in model"""
-        if self.is_fitter and isinstance(value, DataFrameLike):
-            self._impl.fit_items = value
-        elif not self.is_fitted and isinstance(value, DataFrameLike):
-            self._init_when_first_impl_arrived_args.update({"fit_items": value})
-        else:
-            msg = f"Can't set to 'fit_items' value {value} in class '{self._impl.__class__}'"
-            raise AttributeError(msg)
-
-    @property
-    def fit_queries(self):
-        """Column of fitted queries in model. Usually, it's column of user_ids"""
-        if hasattr(self._impl, "fit_queries"):  # add the required attribute setting
-            return self._impl.fit_queries
-        else:
-            msg = f"Class '{self._impl.__class__}' does not have the 'fit_queries' attribute"
-            raise AttributeError(msg)
-
-    @fit_queries.setter
-    def fit_queries(self, value):
-        """Column of fitted queries in model"""
-        if self.is_fitted and isinstance(value, DataFrameLike):
-            self._impl.fit_queries = value
-        elif not self.is_fitted and isinstance(value, DataFrameLike):
-            self._init_when_first_impl_arrived_args.update({"fit_queries": value})
-        else:
-            msg = f"Can't set to 'fit_queries' value ** {value} ** in class '{self._impl.__class__}'"
-            raise AttributeError(msg)
 
     @property
     def logger(self):
