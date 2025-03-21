@@ -123,9 +123,6 @@ class PopRec(NonPersonolizedRecommenderClient):
     def use_rating(self):
         if self._impl is not None and hasattr(self._impl, "use_rating"):
             return self._impl.use_rating
-        elif "use_rating" in self._get_all_attributes_or_functions():
-            msg = "Attribute 'use_rating' has not been set yet. Set it"
-            raise AttributeError(msg)
         else:
             msg = f"Class '{self._impl.__class__}' does not have the 'use_rating' attribute"
             raise AttributeError(msg)

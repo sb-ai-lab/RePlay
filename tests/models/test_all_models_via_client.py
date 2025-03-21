@@ -6,18 +6,13 @@ import polars as pl
 import pytest
 
 import replay
-from replay.metrics import NDCG
 from replay.data.dataset import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType
+from replay.metrics import NDCG
 from replay.models import UCB, ClusterRec, ItemKNN, PopRec, RandomRec, Wilson, client_model_list
 from replay.models.base_rec_client import NotFittedModelError
-from replay.utils.common import convert2pandas, convert2polars, convert2spark
+from replay.utils.common import convert2polars, convert2spark
 from replay.utils.types import DataFrameLike
-from tests.utils import (
-    SparkDataFrame,
-    get_dataset_any_type,
-    isDataFrameEqual
-)
-
+from tests.utils import SparkDataFrame, get_dataset_any_type, isDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
@@ -28,7 +23,12 @@ cols = ["user_id", "item_id", "rating"]
 
 data = [
     [1, 1, 0.5],
-    [1, 2, 1.0], # TODO: попробовать несколько датасетов - пустой, неупорядаченный, с одним айтемом, 
+    [
+        1,
+        2,
+        1.0,
+    ],
+    # TODO: Use a lot dfs - empty, not sorted, one user/item_id, one None item / user, check conftest
     [2, 2, 0.1],
     [2, 3, 0.8],
     [3, 3, 0.7],
@@ -97,7 +97,7 @@ def polars_interactions(pandas_interactions):
     return pl.DataFrame(pandas_interactions)
 
 
-@pytest.fixture(scope="function") 
+@pytest.fixture(scope="function")
 def datasets(spark_interactions, polars_interactions, pandas_interactions):
     return {
         "pandas": Dataset(feature_schema_small_df, pandas_interactions),
@@ -134,7 +134,6 @@ def big_datasets(pandas_big_df, polars_big_df, spark_big_df):
         "polars": Dataset(feature_schema, polars_big_df),
         "spark": Dataset(feature_schema, spark_big_df),
     }
-
 
 
 @pytest.mark.spark
@@ -197,7 +196,6 @@ def test_predict_pairs_k_all_models(base_model, arguments, request):
         assert isDataFrameEqual(pairs_pred_k_pd, pairs_pred_k_pl), "Pandas predictions not equals Polars predictions"
         assert isDataFrameEqual(pairs_pred_pd, pairs_pred_spark), "Pandas predictions not equals Spark predictions"
         assert isDataFrameEqual(pairs_pred_pd, pairs_pred_pl), "Pandas predictions not equals Polars predictions"
-
 
 
 @pytest.mark.spark
@@ -908,26 +906,37 @@ def test_add_cold_items_for_nonpersonalized_polars(model, add_cold_items, predic
                 )
 
 
-
-
 @pytest.mark.spark
 @pytest.mark.parametrize(
     "base_model, arguments",
     [(PopRec, {})],
     ids=["pop_rec"],
 )
-@pytest.mark.parametrize("params", [
-    {"add_cold_items": True},
-    {"model": 123},
-    {"study": 123},
-    {"criterion": NDCG(1)},
-    {"cold_weight": 0.6},
-    {"fill": 0.4},
-    {"fit_queries": pd.DataFrame([1, 2, 3], columns=["user_id"])},
-    {"fit_items": pd.DataFrame([1, 2, 3], columns=["item_id"])},
-    {"item_popularity": pd.DataFrame([1, 2, 3], columns=["item_popularity"])},
-    ], 
-    ids=["add_cold_items", "model", "study", "criterion", "cold_weight", "fill", "fit_queries", "fit_items", "item_popularity"])
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"add_cold_items": True},
+        {"model": 123},
+        {"study": 123},
+        {"criterion": NDCG(1)},
+        {"cold_weight": 0.6},
+        {"fill": 0.4},
+        {"fit_queries": pd.DataFrame([1, 2, 3], columns=["user_id"])},
+        {"fit_items": pd.DataFrame([1, 2, 3], columns=["item_id"])},
+        {"item_popularity": pd.DataFrame([1, 2, 3], columns=["item_popularity"])},
+    ],
+    ids=[
+        "add_cold_items",
+        "model",
+        "study",
+        "criterion",
+        "cold_weight",
+        "fill",
+        "fit_queries",
+        "fit_items",
+        "item_popularity",
+    ],
+)
 def test_set_params(base_model, arguments, params, datasets):
     polars_df = datasets["polars"]
     pandas_df = datasets["pandas"]
@@ -935,12 +944,12 @@ def test_set_params(base_model, arguments, params, datasets):
     model_pd = base_model(**arguments)
     model_pl = base_model(**arguments)
     model_spark = base_model(**arguments)
-    with pytest.raises(AttributeError, match="does not have the 'set_params\(\)' function"):
+    with pytest.raises(AttributeError, match=r"does not have the 'set_params\(\)' function"):
         model_pd.set_params(**params)
-    with pytest.raises(AttributeError, match="does not have the 'set_params\(\)' function"):
+    with pytest.raises(AttributeError, match=r"does not have the 'set_params\(\)' function"):
         model_pl.set_params(**params)
-    with pytest.raises(AttributeError, match="does not have the 'set_params\(\)' function"):
-        model_spark.set_params(**params)     
+    with pytest.raises(AttributeError, match=r"does not have the 'set_params\(\)' function"):
+        model_spark.set_params(**params)
     model_pd.fit(pandas_df)
     model_pl.fit(polars_df)
     model_spark.fit(spark_df)
@@ -952,11 +961,11 @@ def test_set_params(base_model, arguments, params, datasets):
     for key, value in params.items():
         if isinstance(value, pd.DataFrame):
             params[key] = convert2spark(value)
-    if list(params.keys())[0] == "item_popularity":
+    if next(iter(params.keys())) == "item_popularity":
         with pytest.raises(AttributeError, match="'DataFrame' object has no attribute 'unpersist'"):
-            model_spark.set_params(**params) 
+            model_spark.set_params(**params)
     else:
-        model_spark.set_params(**params) 
+        model_spark.set_params(**params)
     for key, value in params.items():
         if isinstance(value, DataFrameLike):
             assert isDataFrameEqual(getattr(model_spark, key), value)
@@ -970,8 +979,6 @@ def test_set_params(base_model, arguments, params, datasets):
             assert isDataFrameEqual(getattr(model_pl, key), value)
         else:
             assert getattr(model_pl, key) == value
-        
-
 
 
 @pytest.mark.spark
@@ -1219,7 +1226,6 @@ def test_predict_pairs_incorrect_call(base_model, arguments, datasets, spark):
         model_pd.predict_pairs(pairs_pd, dataset=pandas_df)
 
 
-
 @pytest.mark.spark
 @pytest.mark.parametrize(
     "base_model, arguments",
@@ -1236,31 +1242,20 @@ def test_filter_seen(base_model, arguments, datasets):
     model_pd.fit(dataset_pd)
     model_pl.fit(dataset_pl)
     model_spark.fit(dataset_spark)
-    dataset_pd, queries_pd, items_pd = model_pd._impl._filter_interactions_queries_items_dataframes(
-        dataset_pd, 1
-    )
-    dataset_pl, queries_pl, items_pl = model_pl._impl._filter_interactions_queries_items_dataframes(
-        dataset_pl, 1
-    )
+    dataset_pd, queries_pd, items_pd = model_pd._impl._filter_interactions_queries_items_dataframes(dataset_pd, 1)
+    dataset_pl, queries_pl, items_pl = model_pl._impl._filter_interactions_queries_items_dataframes(dataset_pl, 1)
     dataset_spark, queries_spark, items_spark = model_spark._impl._filter_interactions_queries_items_dataframes(
         dataset_spark, 1
     )
     recs_pd = model_pd._impl._predict_without_sampling(dataset_pd, 1, queries_pd, items_pd).head(0)
-    recs_pl = model_pl._impl._predict_without_sampling(dataset_pl, 1, queries_pl, items_pl).limit(1)
+    recs_pl = model_pl._impl._predict_without_sampling(dataset_pl, 1, queries_pl, items_pl).limit(0)
     recs_spark = model_spark._impl._predict_without_sampling(dataset_spark, 1, queries_spark, items_spark).limit(0)
     recs_pd = model_pd._impl._filter_seen(recs=recs_pd, interactions=dataset_pd.interactions, queries=queries_pd, k=1)
     recs_pl = model_pl._impl._filter_seen(recs=recs_pl, interactions=dataset_pl.interactions, queries=queries_pl, k=1)
     recs_spark = model_spark._impl._filter_seen(
         recs=recs_spark, interactions=dataset_spark.interactions, queries=queries_spark, k=1
     )
-    print("pandas:")
-    print(recs_pd)
-    print("spark")
-    print(recs_spark.toPandas())
-    print("polars")
-    print(recs_pl.to_pandas())
     assert recs_pd.empty == recs_pl.is_empty() == recs_spark.limit(1).isEmpty()
-
 
 
 @pytest.mark.spark

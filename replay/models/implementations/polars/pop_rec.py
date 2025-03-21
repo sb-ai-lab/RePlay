@@ -407,7 +407,7 @@ class _PopRecPolars:
         # TODO: Implement it in NonPersonolizedRecommender, if you need this function in other models
         raise NotImplementedError()
 
-    def save_model(self, path: str, additional_params=None):
+    def _save_model(self, path: str, additional_params=None):
         saved_params = {
             "query_column": self.query_column,
             "item_column": self.item_column,
@@ -419,7 +419,7 @@ class _PopRecPolars:
             save_picklable_to_parquet(saved_params, join(path, "params.dump"))
         return saved_params
 
-    def load_model(self, path: str):
+    def _load_model(self, path: str):
         loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
         for param, value in loaded_params.items():
             setattr(self, param, value)

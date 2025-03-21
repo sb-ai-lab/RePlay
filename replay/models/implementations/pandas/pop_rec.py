@@ -173,7 +173,6 @@ class _PopRecPandas:
             .rename(columns={self.item_column: "seen_count"})
             .reset_index()
         )
-
         max_seen = num_seen["seen_count"].max() if not num_seen.empty else 0
         # Rank recommendations to first k + max_seen items for each query
         recs = recs.sort_values(by=[self.query_column, self.rating_column], ascending=[True, False])
@@ -451,7 +450,7 @@ class _PopRecPandas:
         # TODO: Implement it in NonPersonolizedRecommender, if you need this function in other models
         raise NotImplementedError()
 
-    def save_model(self, path: str, additional_params=None):
+    def _save_model(self, path: str, additional_params=None):
         saved_params = {
             "query_column": self.query_column,
             "item_column": self.item_column,
@@ -463,7 +462,7 @@ class _PopRecPandas:
         save_picklable_to_parquet(saved_params, join(path, "params.dump"))
         return saved_params
 
-    def load_model(self, path: str):
+    def _load_model(self, path: str):
         loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
         for param, value in loaded_params.items():
             setattr(self, param, value)
