@@ -141,7 +141,6 @@ class BaseRecommenderClient(ABC):
             msg = f"Class '{self._impl.__class__}' does not have the 'cached_dfs' attribute"
             raise AttributeError(msg)
 
-
     @property
     def logger(self):
         """
