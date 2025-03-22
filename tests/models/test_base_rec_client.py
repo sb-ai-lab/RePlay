@@ -367,3 +367,58 @@ def test_clear_cache(base_model, arguments, impl_class):
             model._clear_cache()
     else:
         model._clear_cache()
+
+
+# ----------------- NonPersonolizedRecommenderClient -----------------
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, arguments",
+    [(PopRec, {"add_cold_items": True, "cold_weight": 0.5})],
+    ids=["pop_rec"],
+)
+def test_nonpersonalized_client_valid_init(base_model, arguments):
+    model = base_model(**arguments)
+    for i, val in arguments.items():
+        assert model._init_args[i] == val
+    assert model._init_when_first_impl_arrived_args["can_predict_cold_items"] is True
+    assert model._init_when_first_impl_arrived_args["can_predict_cold_queries"] is True
+    assert model._init_when_first_impl_arrived_args["seed"] is None
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize("invalid_weight", [0, -0.1, 1.1])
+@pytest.mark.parametrize(
+    "base_model",
+    [PopRec],
+    ids=["pop_rec"],
+)
+def test_nonpersonalized_client_invalid_cold_weight(base_model, invalid_weight):
+    with pytest.raises(ValueError, match="'cold_weight' value should be in interval"):
+        base_model(cold_weight=invalid_weight)
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize("invalid_weight", [0, -0.1, 1.1])
+@pytest.mark.parametrize(
+    "base_model",
+    [PopRec],
+    ids=["pop_rec"],
+)
+def test_nonpersonalized_client_invalid_cold_weight_setter(base_model, invalid_weight):
+    model = base_model()
+    with pytest.raises(ValueError, match=r"'cold_weight' value should be float in interval \(0, 1]"):
+        model.cold_weight = invalid_weight
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize("valid_weight", [0.00001, 0.9999])
+@pytest.mark.parametrize(
+    "base_model",
+    [PopRec],
+    ids=["pop_rec"],
+)
+def test_nonpersonalized_client_valid_cold_weight_setter(base_model, valid_weight):
+    model = base_model()
+    model.cold_weight = valid_weight
+    assert model._cold_weight == valid_weight
+    model

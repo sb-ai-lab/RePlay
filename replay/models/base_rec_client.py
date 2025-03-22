@@ -621,7 +621,7 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
         if 0 < cold_weight <= 1:
             self._cold_weight = cold_weight
         else:
-            msg = "`cold_weight` value should be in interval (0, 1]"
+            msg = "'cold_weight' value should be in interval (0, 1]"
             raise ValueError(msg)
 
     @property
@@ -661,9 +661,6 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
 
     @cold_weight.setter
     def cold_weight(self, value: float):
-        if not isinstance(value, float) or value != 1:
-            msg = f"incorrect type of argument 'value' ({type(value)}). Use float"
-            raise ValueError(msg)
         if 0 < value <= 1:
             self._cold_weight = value
             if self.is_fitted:
@@ -671,7 +668,7 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
             else:
                 self._init_when_first_impl_arrived_args.update({"cold_weight": value})
         else:
-            msg = "`cold_weight` value should be in interval (0, 1]"
+            msg = "'cold_weight' value should be float in interval (0, 1]"
             raise ValueError(msg)
 
     @property
