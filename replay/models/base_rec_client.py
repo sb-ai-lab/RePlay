@@ -39,11 +39,17 @@ class BaseRecommenderClient(ABC):
         def getter(self):
             if self.is_fitted:
                 return getattr(self._impl, attribute_name)
+            else:
+                msg = (
+                    f"Class '{self._impl.__class__}' does not have the '{attribute_name}'. "
+                    f"If class is NoneType - fit model, before call '{attribute_name}'"
+                )
+                raise AttributeError(msg)
 
         def setter(self, value):
             """Column of fitted items in model"""
             expected_class = (
-                DataFrameLike
+                tuple(DataFrameLike.__args__)  # just 'isinstance(DataFrameLike)' not supported below py3.10
                 if attribute_name.startswith("fit_")
                 else str if attribute_name.endswith("_column") else int
             )
@@ -349,14 +355,15 @@ class BaseRecommenderClient(ABC):
             dataset.is_spark or dataset.is_pandas or dataset.is_polars
         ):  # сначала записать в переменную, затем в self._impl
             new_impl = self._class_map[realization](**self._init_args)
+            for attr, value in self._init_when_first_impl_arrived_args.items():
+                if not hasattr(new_impl, attr) or value is not None and getattr(new_impl, attr) is None:
+                    setattr(new_impl, attr, value)
             new_impl.fit(dataset)
             self._impl = new_impl
             self._assign_implementation_type(realization)
-            if not self.is_fitted:
-                self._impl.set_params(**self._init_when_first_impl_arrived_args)
         else:
-            msg = "Model Implementation can't calculate input data due to missmatch of types"
-            raise DataModelMissmatchError(msg)
+            msg = "Model Implementation can't calculate input data due to unknown type"
+            raise ValueError(msg)
 
     def fit_predict(
         self,
@@ -402,9 +409,15 @@ class BaseRecommenderClient(ABC):
         if not self.is_fitted:
             raise NotFittedModelError()
         if (
-            self.is_spark != dataset.is_spark
-            or self.is_pandas != dataset.is_pandas
-            or self.is_polars != dataset.is_polars
+            self.is_spark
+            != isinstance(pairs, SparkDataFrame)
+            != (dataset.is_spark if dataset is not None else self.is_spark)
+            or self.is_pandas
+            != isinstance(pairs, PandasDataFrame)
+            != (dataset.is_pandas if dataset is not None else self.is_pandas)
+            or self.is_polars
+            != isinstance(pairs, PolarsDataFrame)
+            != (dataset.is_polars if dataset is not None else self.is_spark)
         ):
             msg = "Model Implementation can't calculate input data due to missmatch of types"
             raise DataModelMissmatchError(msg)
@@ -484,7 +497,6 @@ class BaseRecommenderClient(ABC):
             if hasattr(self, "criterion")
             else self._init_when_first_impl_arrived_args["criterion"]
         )
-        copy_implementation._init_when_first_impl_arrived_args = deepcopy(self._init_when_first_impl_arrived_args)
         copy_implementation.query_column = self.query_column
         copy_implementation.item_column = self.item_column
         copy_implementation.rating_column = self.rating_column
@@ -526,7 +538,6 @@ class BaseRecommenderClient(ABC):
             if hasattr(self, "criterion")
             else self._init_when_first_impl_arrived_args["criterion"]
         )
-        copy_implementation._init_when_first_impl_arrived_args = deepcopy(self._init_when_first_impl_arrived_args)
         copy_implementation.query_column = self.query_column
         copy_implementation.item_column = self.item_column
         copy_implementation.rating_column = self.rating_column
@@ -568,7 +579,6 @@ class BaseRecommenderClient(ABC):
             if hasattr(self, "criterion")
             else self._init_when_first_impl_arrived_args["criterion"]
         )
-        copy_implementation._init_when_first_impl_arrived_args = deepcopy(self._init_when_first_impl_arrived_args)
         copy_implementation.query_column = self.query_column
         copy_implementation.item_column = self.item_column
         copy_implementation.rating_column = self.rating_column
@@ -621,6 +631,8 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
         self._add_cold_items = value
         if self.is_fitted:
             self._impl.add_cold_items = self._add_cold_items
+        else:
+            self._init_when_first_impl_arrived_args.update({"add_cold_items": value})
 
     @property
     def cold_weight(self):
@@ -639,6 +651,8 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
             self._cold_weight = value
             if self.is_fitted:
                 self._impl.cold_weight = value
+            else:
+                self._init_when_first_impl_arrived_args.update({"cold_weight": value})
         else:
             msg = "`cold_weight` value should be in interval (0, 1]"
             raise ValueError(msg)

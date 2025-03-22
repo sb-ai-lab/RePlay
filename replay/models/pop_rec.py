@@ -118,6 +118,10 @@ class PopRec(NonPersonolizedRecommenderClient):
             msg = "Model can be one of these classes: '_PopRecSpark', '_PopRecPandas', '_PopRecPolars'"
             raise ValueError(msg)
         self.__impl = value
+        realization = (
+            "spark" if isinstance(value, _PopRecSpark) else "pandas" if isinstance(value, _PopRecPandas) else "polars"
+        )
+        self._assign_implementation_type(realization)
 
     @property
     def use_rating(self):

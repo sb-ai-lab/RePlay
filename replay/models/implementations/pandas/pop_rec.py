@@ -44,8 +44,8 @@ class _PopRecPandas:
         self._logger = None
         self._search_space = None
         self._objective = None
-        self._study = None
-        self._criterion = None
+        self.study = None
+        self.criterion = None
         self.other_params = kwargs
 
     def set_params(self, **params: Dict[str, Any]) -> None:
@@ -321,7 +321,9 @@ class _PopRecPandas:
         )
         selected_item_popularity = selected_item_popularity.sort_values(
             by=[self.rating_column, self.item_column], ascending=[False, False]
-        ).reset_index(drop=True)
+        ).reset_index(
+            drop=True
+        )  # TODO: Think about to remove sorting if tests is ok. In other place, like utils too
         selected_item_popularity["rank"] = range(1, len(selected_item_popularity) + 1)
 
         if filter_seen_items and dataset is not None:

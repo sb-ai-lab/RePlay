@@ -1,139 +1,21 @@
-from os.path import dirname, join
-
 import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
 
-import replay
-from replay.data.dataset import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType
+from replay.data import Dataset
 from replay.metrics import NDCG
 from replay.models import UCB, ClusterRec, ItemKNN, PopRec, RandomRec, Wilson, client_model_list
-from replay.models.base_rec_client import NotFittedModelError
+from replay.models.base_rec_client import DataModelMissmatchError, NotFittedModelError
 from replay.utils.common import convert2polars, convert2spark
 from replay.utils.types import DataFrameLike
+from tests.models.conftest import cols, feature_schema_small_df
 from tests.utils import SparkDataFrame, get_dataset_any_type, isDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
 
 SEED = 123
-
-cols = ["user_id", "item_id", "rating"]
-
-data = [
-    [1, 1, 0.5],
-    [
-        1,
-        2,
-        1.0,
-    ],
-    # TODO: Use a lot dfs - empty, not sorted, one user/item_id, one None item / user, check conftest
-    [2, 2, 0.1],
-    [2, 3, 0.8],
-    [3, 3, 0.7],
-    [4, 3, 1.0],
-]
-
-new_data = [[5, 4, 1.0]]
-feature_schema_small_df = FeatureSchema(
-    [
-        FeatureInfo(
-            column="user_id",
-            feature_type=FeatureType.CATEGORICAL,
-            feature_hint=FeatureHint.QUERY_ID,
-        ),
-        FeatureInfo(
-            column="item_id",
-            feature_type=FeatureType.CATEGORICAL,
-            feature_hint=FeatureHint.ITEM_ID,
-        ),
-        FeatureInfo(
-            column="rating",
-            feature_type=FeatureType.NUMERICAL,
-            feature_hint=FeatureHint.RATING,
-        ),
-    ]
-)
-
-feature_schema = FeatureSchema(
-    [
-        FeatureInfo(
-            column="user_id",
-            feature_type=FeatureType.CATEGORICAL,
-            feature_hint=FeatureHint.QUERY_ID,
-        ),
-        FeatureInfo(
-            column="item_id",
-            feature_type=FeatureType.CATEGORICAL,
-            feature_hint=FeatureHint.ITEM_ID,
-        ),
-        FeatureInfo(
-            column="rating",
-            feature_type=FeatureType.NUMERICAL,
-            feature_hint=FeatureHint.RATING,
-        ),
-        FeatureInfo(
-            column="timestamp",
-            feature_type=FeatureType.NUMERICAL,
-            feature_hint=FeatureHint.TIMESTAMP,
-        ),
-    ]
-)
-
-
-@pytest.fixture(scope="module")
-def pandas_interactions():
-    return pd.DataFrame(data, columns=cols)
-
-
-@pytest.fixture(scope="module")
-def spark_interactions(spark, pandas_interactions):
-    return spark.createDataFrame(pandas_interactions)
-
-
-@pytest.fixture(scope="module")
-def polars_interactions(pandas_interactions):
-    return pl.DataFrame(pandas_interactions)
-
-
-@pytest.fixture(scope="function")
-def datasets(spark_interactions, polars_interactions, pandas_interactions):
-    return {
-        "pandas": Dataset(feature_schema_small_df, pandas_interactions),
-        "polars": Dataset(feature_schema_small_df, polars_interactions),
-        "spark": Dataset(feature_schema_small_df, spark_interactions),
-    }
-
-
-@pytest.fixture(scope="function")
-def pandas_big_df():
-    folder = dirname(replay.__file__)
-    res = pd.read_csv(
-        join(folder, "../examples/data/ml1m_ratings.dat"),
-        sep="\t",
-        names=["user_id", "item_id", "rating", "timestamp"],
-    ).head(1000)
-    return res
-
-
-@pytest.fixture(scope="function")
-def polars_big_df(pandas_big_df):
-    return pl.from_pandas(pandas_big_df)
-
-
-@pytest.fixture(scope="function")
-def spark_big_df(spark, pandas_big_df):
-    return spark.createDataFrame(pandas_big_df)
-
-
-@pytest.fixture(scope="function")
-def big_datasets(pandas_big_df, polars_big_df, spark_big_df):
-    return {
-        "pandas": Dataset(feature_schema, pandas_big_df),
-        "polars": Dataset(feature_schema, polars_big_df),
-        "spark": Dataset(feature_schema, spark_big_df),
-    }
 
 
 @pytest.mark.spark
@@ -299,6 +181,57 @@ def test_predict_empty_dataset_core(model, dataset_type, request):
 
 
 @pytest.mark.spark
+@pytest.mark.parametrize(
+    "model",
+    [
+        ItemKNN(),
+        PopRec(),
+    ],
+    ids=["knn", "pop_rec"],
+)
+def test_predict_empty_interactions_dataset_spark(model, request):
+    log = request.getfixturevalue("log")
+    dataset = get_dataset_any_type(log)
+    if model.__class__ == ItemKNN:
+        with pytest.raises(ValueError, match="interactions is not provided"):
+            model.fit(dataset)
+            pred_dataset = Dataset(feature_schema_small_df, None)
+            model.predict(pred_dataset, 1)
+    else:
+        model.fit(dataset)
+        pred_dataset = Dataset(feature_schema_small_df, None)
+        model.predict(pred_dataset, 1)
+
+
+@pytest.mark.core
+@pytest.mark.parametrize(
+    "model",
+    [
+        ItemKNN(),
+        PopRec(),
+    ],
+    ids=["knn", "pop_rec"],
+)
+@pytest.mark.parametrize("dataset_type", ["pandas", "polars"], ids=["pandas", "polars"])
+def test_predict_empty_interactions_dataset_core(model, dataset_type, request):
+    if dataset_type == "pandas":
+        log = request.getfixturevalue("log_" + dataset_type)
+    elif dataset_type == "polars":
+        log = request.getfixturevalue("log_" + dataset_type)
+    else:
+        msg = "Incorrect test"
+        raise ValueError(msg)
+    dataset = get_dataset_any_type(log)
+    pred_dataset = Dataset(feature_schema_small_df, None)
+    if model.__class__ == ItemKNN:
+        with pytest.raises(AttributeError, match="'DataFrame' object has no attribute"):
+            model.fit(dataset)
+    else:
+        model.fit(dataset)
+        model.predict(pred_dataset, 1)
+
+
+@pytest.mark.spark
 def test_filter_seen_items_spark(request):
     log = request.getfixturevalue("log")
     model = PopRec()
@@ -311,6 +244,8 @@ def test_filter_seen_items_spark(request):
     assert pred.count() == 1
     pred = model.predict(dataset=pred_dataset, queries=[0], k=5, filter_seen_items=False)
     assert pred.count() == 4
+    with pytest.raises(DataModelMissmatchError, match="calculate input data due to missmatch of types"):
+        pred = model.predict(dataset=pred_dataset, queries=1, k=5)
 
 
 @pytest.mark.core
@@ -1224,6 +1159,56 @@ def test_predict_pairs_incorrect_call(base_model, arguments, datasets, spark):
         model_spark.predict_pairs(pairs_spark, dataset=spark_df)
     with pytest.raises(ValueError, match="pairs must be a dataframe with columns strictly"):
         model_pd.predict_pairs(pairs_pd, dataset=pandas_df)
+    with pytest.raises(DataModelMissmatchError):
+        model_pl.predict_pairs(pairs_spark, dataset=polars_df)
+    with pytest.raises(DataModelMissmatchError):
+        model_spark.predict_pairs(pairs_pd, dataset=spark_df)
+    with pytest.raises(DataModelMissmatchError):
+        model_pd.predict_pairs(pairs_pl, dataset=pandas_df)
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, arguments",
+    [(PopRec, {})],
+    ids=["pop_rec"],
+)
+def test_predict_proba(base_model, arguments, datasets):
+    polars_df = datasets["polars"]
+    pandas_df = datasets["pandas"]
+    spark_df = datasets["spark"]
+    model_pd = base_model(**arguments)
+    model_pl = base_model(**arguments)
+    model_spark = base_model(**arguments)
+    model_pd.fit(pandas_df)
+    model_pl.fit(polars_df)
+    model_spark.fit(spark_df)
+    model_spark._predict_proba(spark_df, 1, [0], [3])
+    with pytest.raises(NotImplementedError):
+        model_pl._predict_proba(polars_df, 1, [0], [3])
+    with pytest.raises(NotImplementedError):
+        model_pd._predict_proba(pandas_df, 1, [0], [3])
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, arguments",
+    [(PopRec, {})],
+    ids=["pop_rec"],
+)
+def test_predict_proba_incorrect_call(base_model, arguments, datasets):
+    polars_df = datasets["polars"]
+    pandas_df = datasets["pandas"]
+    spark_df = datasets["spark"]
+    model_pd = base_model(**arguments)
+    model_pl = base_model(**arguments)
+    model_spark = base_model(**arguments)
+    with pytest.raises(NotFittedModelError):
+        model_pl._predict_proba(polars_df, 1, [0], [3])
+    with pytest.raises(NotFittedModelError):
+        model_spark._predict_proba(spark_df, 1, [0], [3])
+    with pytest.raises(NotFittedModelError):
+        model_pd._predict_proba(pandas_df, 1, [0], [3])
 
 
 @pytest.mark.spark

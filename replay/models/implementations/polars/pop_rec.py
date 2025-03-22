@@ -45,8 +45,8 @@ class _PopRecPolars:
         self._logger = None
         self._search_space = None
         self._objective = None
-        self._study = None
-        self._criterion = None
+        self.study = None
+        self.criterion = None
         self.other_params = kwargs
 
     def set_params(self, **params: Dict[str, Any]) -> None:
