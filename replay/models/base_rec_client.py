@@ -55,7 +55,7 @@ class BaseRecommenderClient(ABC):
             )
             if self.is_fitted and isinstance(value, expected_class):
                 setattr(self._impl, attribute_name, value)
-            elif not self.is_fitted and isinstance(value, expected_class) and attribute_name[0] != "_":
+            elif not self.is_fitted and isinstance(value, expected_class):  # and attribute_name[0] != "_":
                 self._init_when_first_impl_arrived_args.update({attribute_name: value})
             else:
                 msg = f"Can't set to 'fit_items' value {value} in class '{self._impl.__class__}'"
@@ -207,6 +207,26 @@ class BaseRecommenderClient(ABC):
             raise AttributeError(msg)
 
     @property
+    def items_count(self):
+        if self.is_fitted and hasattr(self._impl, "items_count"):
+            return self._impl.items_count
+        elif not self.is_fitted and "fit_items" in self._init_when_first_impl_arrived_args:
+            return self._init_when_first_impl_arrived_args["fit_items"].count()
+        else:
+            msg = f"Class '{self._impl.__class__}' does not have the 'items_count' attribute"
+            raise AttributeError(msg)
+
+    @property
+    def queries_count(self):
+        if self.is_fitted and hasattr(self._impl, "queries_count"):
+            return self._impl.queries_count
+        elif not self.is_fitted and "fit_queries" in self._init_when_first_impl_arrived_args:
+            return self._init_when_first_impl_arrived_args["fit_queries"].count()
+        else:
+            msg = f"Class '{self._impl.__class__}' does not have the 'queries_count' attribute"
+            raise AttributeError(msg)
+
+    @property
     def study(self):
         if hasattr(self._impl, "study"):
             return self._impl.study
@@ -261,7 +281,7 @@ class BaseRecommenderClient(ABC):
         if hasattr(self._impl, "set_params"):
             self._impl.set_params(**params)
         else:
-            msg = f"Class '{self._impl.__class__}' does not have the 'set_params()' function "
+            msg = f"Class '{self._impl.__class__}' does not have the 'set_params()' method "
             raise AttributeError(msg)
 
     def _clear_cache(self):
@@ -269,7 +289,7 @@ class BaseRecommenderClient(ABC):
         if hasattr(self._impl, "_clear_cache") and self._get_implementation_type() == "spark":
             return self._impl._clear_cache
         else:
-            msg = f"Class '{self._impl.__class__}' does not have the 'cached_dfs' attribute"
+            msg = f"Class '{self._impl.__class__}' does not have the '_clear_cache()' method"
             raise AttributeError(msg)
 
     def _check_input_for_predict_is_correct(self, dataset, queries, items):
@@ -315,7 +335,7 @@ class BaseRecommenderClient(ABC):
             raise DataModelMissmatchError(msg)
         return True
 
-    def optimize(
+    def optimize(  # pragma: no cover
         self,
         train_dataset: Dataset,
         test_dataset: Dataset,
@@ -464,7 +484,8 @@ class BaseRecommenderClient(ABC):
         if features is None:
             # Some of _impl.get_features() have 1 mandatory arg, some have 2 mandatory args
             return self._impl.get_features(ids)
-        return self._impl.get_features(ids, features)  # TODO: test it, when HybridRecommenderClient will implemented
+        return self._impl.get_features(ids, features)  # pragma: no cover
+        # TODO: test arg 'features', when HybridRecommenderClient will implemented
 
     def to_spark(self):
         if not self.is_fitted:

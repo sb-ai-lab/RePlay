@@ -71,6 +71,9 @@ class _PopRecPolars:
     def _calc_fill(item_popularity: PolarsDataFrame, weight: float, rating_column: str) -> float:
         return item_popularity[rating_column].min() * weight
 
+    def __str__(self):
+        return type(self).__name__
+
     def _get_selected_item_popularity(self, items: pl.DataFrame) -> pl.DataFrame:
 
         df = items.join(self.item_popularity, on=self.item_column, how="left" if self.add_cold_items else "inner")
@@ -114,7 +117,17 @@ class _PopRecPolars:
 
     @property
     def queries_count(self) -> int:
+        """
+        :returns: number of queries the model was trained on
+        """
         return self._get_fit_counts("query")
+
+    @property
+    def items_count(self) -> int:
+        """
+        :returns: number of items the model was trained on
+        """
+        return self._get_fit_counts("item")
 
     def fit(self, dataset: pl.DataFrame):
         self.query_column = dataset.feature_schema.query_id_column

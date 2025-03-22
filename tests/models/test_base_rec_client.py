@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 
 from replay.models import PopRec
+from replay.models.base_rec_client import NotFittedModelError
 from replay.models.implementations import _PopRecPandas, _PopRecPolars, _PopRecSpark
 from tests.utils import isDataFrameEqual
 
@@ -191,7 +192,8 @@ def test_setters_of_attributes_after_fit(base_model, arguments, attribute_name, 
 
     model = base_model(**arguments)
     model.fit(datasets[type_of_impl])
-    setattr(model, attribute_name, Attribute())
+    if attribute_name not in ["items_count", "queries_count"]:  # alredy init properties
+        setattr(model, attribute_name, Attribute())
     assert getattr(model, attribute_name).value == 123
 
 
@@ -287,10 +289,81 @@ def test_get_features(base_model, arguments, attribute_name, type_of_impl, datas
     [(PopRec, {}, "polars"), (PopRec, {}, "pandas"), (PopRec, {}, "spark")],
     ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
 )
-@pytest.mark.parametrize("attribute_name", PopRec.attributes_after_fit_with_setter)
-def test_convertation(base_model, arguments, type_of_impl, attribute_name, datasets):
-    example_df = datasets[type_of_impl].interactions
+def test_convertation(base_model, arguments, type_of_impl, datasets):
     model = base_model(**arguments)
+    if not model.is_fitted:
+        with pytest.raises(NotFittedModelError):
+            model.to_spark()
+        with pytest.raises(NotFittedModelError):
+            model.to_pandas()
+        with pytest.raises(NotFittedModelError):
+            model.to_polars()
     model.fit(datasets[type_of_impl])
-    setattr(model, attribute_name, example_df)
-    assert isDataFrameEqual(getattr(model, attribute_name), example_df)
+    old_id = id(model)
+    if model.is_spark:
+        model.to_spark()
+    elif model.is_pandas:
+        model.to_pandas()
+    elif model.is_polars:
+        model.to_polars
+    assert id(model) == old_id
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, arguments, type_of_impl",
+    [(PopRec, {}, "polars"), (PopRec, {}, "pandas"), (PopRec, {}, "spark")],
+    ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
+)
+def test_get_fit_counts(base_model, arguments, type_of_impl, datasets, fake_fit_items, fake_fit_queries):
+    dataset = datasets[type_of_impl]
+    model = base_model(**arguments)
+    assert not hasattr(model, "_num_items")
+    assert not hasattr(model, "_num_queries")
+    model.fit_items = fake_fit_items
+    model.fit_queries = fake_fit_queries
+    assert model.items_count == 7
+    assert model.queries_count == 6
+    assert not hasattr(model, "_num_items")
+    assert not hasattr(model, "_num_queries")
+    model.fit(dataset)
+    # ---- after fit setter of fit_items not working, because when model is fitted, it use  _num_items / _num_queries --
+    model.fit_items = fake_fit_items
+    model.fit_queries = fake_fit_queries
+    assert hasattr(model, "_num_items")
+    assert hasattr(model, "_num_queries")
+    assert model.items_count == 3
+    assert model.queries_count == 4
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, arguments, impl_class",
+    [(PopRec, {}, _PopRecPolars), (PopRec, {}, _PopRecPandas), (PopRec, {}, _PopRecSpark)],
+    ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
+)
+def test_string_name(base_model, arguments, impl_class):
+    model = base_model(**arguments)
+    assert str(model) == base_model.__name__
+    model._impl = impl_class()
+    assert str(model._impl) == impl_class.__name__
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, arguments, impl_class",
+    [
+        (PopRec, {}, _PopRecPolars),
+        (PopRec, {}, _PopRecPandas),
+        (PopRec, {}, _PopRecSpark),
+    ],
+    ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
+)
+def test_clear_cache(base_model, arguments, impl_class):
+    model = base_model(**arguments)
+    model._impl = impl_class()
+    if not model.is_spark:
+        with pytest.raises(AttributeError, match=r"does not have the '_clear_cache\(\)' method"):
+            model._clear_cache()
+    else:
+        model._clear_cache()

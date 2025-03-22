@@ -83,6 +83,9 @@ class _PopRecPandas:
         """
         return item_popularity[rating_column].min() * weight
 
+    def __str__(self):
+        return type(self).__name__
+
     def _get_selected_item_popularity(self, items: PandasDataFrame) -> PandasDataFrame:
         """
         Choose only required item from `item_popularity` dataframe
@@ -136,6 +139,13 @@ class _PopRecPandas:
         :returns: number of queries the model was trained on
         """
         return self._get_fit_counts("query")
+
+    @property
+    def items_count(self) -> int:
+        """
+        :returns: number of items the model was trained on
+        """
+        return self._get_fit_counts("item")
 
     def fit(self, dataset: PandasDataFrame):
         self.query_column = dataset.feature_schema.query_id_column
@@ -248,8 +258,8 @@ class _PopRecPandas:
                 entity,
             )
         _, interactions_df = filter_cold(interactions_df, fit_entities, col_name=column)  # pragma: no cover
-        main_df.reset_index(inplace=True)
-        interactions_df.reset_index(inplace=True)
+        main_df.reset_index(inplace=True)  # pragma: no cover
+        interactions_df.reset_index(inplace=True)  # pragma: no cover
         return main_df, interactions_df  # pragma: no cover
 
     def _filter_interactions_queries_items_dataframes(

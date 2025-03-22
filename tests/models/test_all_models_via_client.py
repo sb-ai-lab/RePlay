@@ -133,6 +133,22 @@ def test_predict_empty_log_core(model, dataset_type, request):
 @pytest.mark.parametrize(
     "model",
     [
+        PopRec(),
+    ],
+    ids=["pop_rec"],
+)
+def test_predict_before_fit(model, request):
+    log = request.getfixturevalue("log")
+    empty_df = log
+    pred_dataset = get_dataset_any_type(empty_df)
+    with pytest.raises(NotFittedModelError):
+        model.predict(pred_dataset, 1)
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "model",
+    [
         ItemKNN(),
         PopRec(),
     ],
@@ -827,11 +843,11 @@ def test_set_params(base_model, arguments, params, datasets):
     model_pd = base_model(**arguments)
     model_pl = base_model(**arguments)
     model_spark = base_model(**arguments)
-    with pytest.raises(AttributeError, match=r"does not have the 'set_params\(\)' function"):
+    with pytest.raises(AttributeError, match=r"does not have the 'set_params\(\)' method"):
         model_pd.set_params(**params)
-    with pytest.raises(AttributeError, match=r"does not have the 'set_params\(\)' function"):
+    with pytest.raises(AttributeError, match=r"does not have the 'set_params\(\)' method"):
         model_pl.set_params(**params)
-    with pytest.raises(AttributeError, match=r"does not have the 'set_params\(\)' function"):
+    with pytest.raises(AttributeError, match=r"does not have the 'set_params\(\)' method"):
         model_spark.set_params(**params)
     model_pd.fit(pandas_df)
     model_pl.fit(polars_df)
@@ -849,16 +865,17 @@ def test_set_params(base_model, arguments, params, datasets):
             model_spark.set_params(**params)
     else:
         model_spark.set_params(**params)
+
     for key, value in params.items():
-        if isinstance(value, DataFrameLike):
+        if isinstance(value, tuple(DataFrameLike.__args__)):
             assert isDataFrameEqual(getattr(model_spark, key), value)
         else:
             assert getattr(model_spark, key) == value
-        if isinstance(value, DataFrameLike):
+        if isinstance(value, tuple(DataFrameLike.__args__)):
             assert isDataFrameEqual(getattr(model_pd, key), value)
         else:
             assert getattr(model_pd, key) == value
-        if isinstance(value, DataFrameLike):
+        if isinstance(value, tuple(DataFrameLike.__args__)):
             assert isDataFrameEqual(getattr(model_pl, key), value)
         else:
             assert getattr(model_pl, key) == value
@@ -1051,7 +1068,8 @@ def test_filter_interactions_queries_items_dataframes(base_model, arguments, dat
     [(PopRec, {})],
     ids=["pop_rec"],
 )
-def test_fit_predict_all_arguments(base_model, arguments, datasets, tmp_path):
+@pytest.mark.parametrize("filter_seen", [False, True])
+def test_fit_predict_all_arguments(base_model, arguments, filter_seen, datasets, tmp_path):
     polars_df = datasets["polars"]
     pandas_df = datasets["pandas"]
     spark_df = datasets["spark"]
@@ -1061,9 +1079,9 @@ def test_fit_predict_all_arguments(base_model, arguments, datasets, tmp_path):
     model_pd = base_model(**arguments)
     model_pl = base_model(**arguments)
     model_spark = base_model(**arguments)
-    model_pl.fit_predict(polars_df, 5, [0], [3], filter_seen_items=False, recs_file_path=path_pl)
-    model_spark.fit_predict(spark_df, 5, [0], [3], filter_seen_items=False, recs_file_path=path_spark)
-    model_pd.fit_predict(pandas_df, 5, [0], [3], filter_seen_items=False, recs_file_path=path_pd)
+    model_pl.fit_predict(polars_df, 5, [0], [3], filter_seen_items=filter_seen, recs_file_path=path_pl)
+    model_spark.fit_predict(spark_df, 5, [0], [3], filter_seen_items=filter_seen, recs_file_path=path_spark)
+    model_pd.fit_predict(pandas_df, 5, [0], [3], filter_seen_items=filter_seen, recs_file_path=path_pd)
     pred_pl = pd.read_parquet(path_pl)
     pred_spark = pd.read_parquet(path_spark)
     pred_pd = pd.read_parquet(path_pd)
