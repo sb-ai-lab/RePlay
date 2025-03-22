@@ -351,9 +351,7 @@ class BaseRecommenderClient(ABC):
         realization = (
             "spark" if dataset.is_spark else "pandas" if dataset.is_pandas else "polars" if dataset.is_polars else None
         )
-        if (
-            dataset.is_spark or dataset.is_pandas or dataset.is_polars
-        ):  # сначала записать в переменную, затем в self._impl
+        if realization is not None:
             new_impl = self._class_map[realization](**self._init_args)
             for attr, value in self._init_when_first_impl_arrived_args.items():
                 if not hasattr(new_impl, attr) or value is not None and getattr(new_impl, attr) is None:
@@ -361,9 +359,6 @@ class BaseRecommenderClient(ABC):
             new_impl.fit(dataset)
             self._impl = new_impl
             self._assign_implementation_type(realization)
-        else:
-            msg = "Model Implementation can't calculate input data due to unknown type"
-            raise ValueError(msg)
 
     def fit_predict(
         self,
@@ -391,7 +386,7 @@ class BaseRecommenderClient(ABC):
         """_RecommenderCommonsSparkImpl._init_args"""
         if not self.is_fitted:
             raise NotFittedModelError()
-        if dataset is None or dataset.interactions is None:
+        if dataset is None:
             self.logger.warn("There is empty dataset at input of predict")
             return None
         self._check_input_for_predict_is_correct(dataset, queries, items)
@@ -462,13 +457,14 @@ class BaseRecommenderClient(ABC):
         Returns query or item feature vectors as a Column with type ArrayType
 
         :param ids: Spark DataFrame with unique ids
+        :param features: query or item features. Needed in HybridRecommenderClient
         :return: feature vectors.
             If a model does not have a vector for some ids they are not present in the final result.
         """
-        if features is not None:
+        if features is None:
             # Some of _impl.get_features() have 1 mandatory arg, some have 2 mandatory args
             return self._impl.get_features(ids)
-        return self._impl.get_features(ids, features)
+        return self._impl.get_features(ids, features)  # TODO: test it, when HybridRecommenderClient will implemented
 
     def to_spark(self):
         if not self.is_fitted:

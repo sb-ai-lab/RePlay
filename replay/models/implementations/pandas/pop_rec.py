@@ -1,6 +1,6 @@
 import logging
 from os.path import join
-from typing import Any, Dict, Iterable, Optional, Union
+from typing import Any, Dict, Iterable, Optional, Tuple, Union
 
 import pandas as pd
 
@@ -91,6 +91,33 @@ class _PopRecPandas:
         df = self.item_popularity.merge(items, on=self.item_column, how="right" if self.add_cold_items else "inner")
         df = df.fillna(value=self.fill)
         return df
+
+    def get_features(
+        self, ids: PandasDataFrame, features: Optional[PandasDataFrame] = None
+    ) -> Optional[Tuple[PandasDataFrame, int]]:
+        if self.query_column not in ids.columns and self.item_column not in ids.columns:
+            msg = f"{self.query_column} or {self.item_column} missing"
+            raise ValueError(msg)
+        vectors, rank = self._get_features(ids, features)
+
+        return vectors, rank
+
+    def _get_features(
+        self, ids: PandasDataFrame, features: Optional[PandasDataFrame]  # noqa: ARG002
+    ) -> Tuple[Optional[PandasDataFrame], Optional[int]]:
+        """
+        Get embeddings from model
+
+        :param ids: id ids to get embeddings for Spark DataFrame containing user_idx or item_idx
+        :param features: query or item features
+        :return: SparkDataFrame with biases and embeddings, and vector size
+        """
+
+        self.logger.info(
+            "get_features method is not defined for the model %s. Features will not be returned.",
+            str(self),
+        )
+        return None, None
 
     def _get_fit_counts(self, entity: str) -> int:
         num_entities = "_num_queries" if entity == "query" else "_num_items"

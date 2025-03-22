@@ -7,7 +7,7 @@ import pytest
 import replay
 from replay.data.dataset import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType
 
-cols = ["user_id", "item_id", "rating"]
+cols = ["user_idx", "item_idx", "rating"]
 
 data = [
     [1, 1, 0.5],
@@ -27,17 +27,17 @@ new_data = [[5, 4, 1.0]]
 feature_schema_small_df = FeatureSchema(
     [
         FeatureInfo(
-            column="user_id",
+            column=cols[0],
             feature_type=FeatureType.CATEGORICAL,
             feature_hint=FeatureHint.QUERY_ID,
         ),
         FeatureInfo(
-            column="item_id",
+            column=cols[1],
             feature_type=FeatureType.CATEGORICAL,
             feature_hint=FeatureHint.ITEM_ID,
         ),
         FeatureInfo(
-            column="rating",
+            column=cols[2],
             feature_type=FeatureType.NUMERICAL,
             feature_hint=FeatureHint.RATING,
         ),

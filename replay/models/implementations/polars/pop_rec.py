@@ -85,6 +85,33 @@ class _PopRecPolars:
             setattr(self, num_entities, fit_entities.height)
         return getattr(self, num_entities)
 
+    def get_features(
+        self, ids: PolarsDataFrame, features: Optional[PolarsDataFrame] = None
+    ) -> Optional[Tuple[PolarsDataFrame, int]]:
+        if self.query_column not in ids.columns and self.item_column not in ids.columns:
+            msg = f"{self.query_column} or {self.item_column} missing"
+            raise ValueError(msg)
+        vectors, rank = self._get_features(ids, features)
+
+        return vectors, rank
+
+    def _get_features(
+        self, ids: PolarsDataFrame, features: Optional[PolarsDataFrame]  # noqa: ARG002
+    ) -> Tuple[Optional[PolarsDataFrame], Optional[int]]:
+        """
+        Get embeddings from model
+
+        :param ids: id ids to get embeddings for Spark DataFrame containing user_idx or item_idx
+        :param features: query or item features
+        :return: SparkDataFrame with biases and embeddings, and vector size
+        """
+
+        self.logger.info(
+            "get_features method is not defined for the model %s. Features will not be returned.",
+            str(self),
+        )
+        return None, None
+
     @property
     def queries_count(self) -> int:
         return self._get_fit_counts("query")

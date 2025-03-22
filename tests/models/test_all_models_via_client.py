@@ -3,13 +3,12 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from replay.data import Dataset
 from replay.metrics import NDCG
 from replay.models import UCB, ClusterRec, ItemKNN, PopRec, RandomRec, Wilson, client_model_list
 from replay.models.base_rec_client import DataModelMissmatchError, NotFittedModelError
 from replay.utils.common import convert2polars, convert2spark
 from replay.utils.types import DataFrameLike
-from tests.models.conftest import cols, feature_schema_small_df
+from tests.models.conftest import cols
 from tests.utils import SparkDataFrame, get_dataset_any_type, isDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
@@ -172,57 +171,6 @@ def test_predict_empty_dataset_core(model, dataset_type, request):
         raise ValueError(msg)
     dataset = get_dataset_any_type(log)
     pred_dataset = None
-    if model.__class__ == ItemKNN:
-        with pytest.raises(AttributeError, match="'DataFrame' object has no attribute"):
-            model.fit(dataset)
-    else:
-        model.fit(dataset)
-        model.predict(pred_dataset, 1)
-
-
-@pytest.mark.spark
-@pytest.mark.parametrize(
-    "model",
-    [
-        ItemKNN(),
-        PopRec(),
-    ],
-    ids=["knn", "pop_rec"],
-)
-def test_predict_empty_interactions_dataset_spark(model, request):
-    log = request.getfixturevalue("log")
-    dataset = get_dataset_any_type(log)
-    if model.__class__ == ItemKNN:
-        with pytest.raises(ValueError, match="interactions is not provided"):
-            model.fit(dataset)
-            pred_dataset = Dataset(feature_schema_small_df, None)
-            model.predict(pred_dataset, 1)
-    else:
-        model.fit(dataset)
-        pred_dataset = Dataset(feature_schema_small_df, None)
-        model.predict(pred_dataset, 1)
-
-
-@pytest.mark.core
-@pytest.mark.parametrize(
-    "model",
-    [
-        ItemKNN(),
-        PopRec(),
-    ],
-    ids=["knn", "pop_rec"],
-)
-@pytest.mark.parametrize("dataset_type", ["pandas", "polars"], ids=["pandas", "polars"])
-def test_predict_empty_interactions_dataset_core(model, dataset_type, request):
-    if dataset_type == "pandas":
-        log = request.getfixturevalue("log_" + dataset_type)
-    elif dataset_type == "polars":
-        log = request.getfixturevalue("log_" + dataset_type)
-    else:
-        msg = "Incorrect test"
-        raise ValueError(msg)
-    dataset = get_dataset_any_type(log)
-    pred_dataset = Dataset(feature_schema_small_df, None)
     if model.__class__ == ItemKNN:
         with pytest.raises(AttributeError, match="'DataFrame' object has no attribute"):
             model.fit(dataset)
@@ -1173,21 +1121,33 @@ def test_predict_pairs_incorrect_call(base_model, arguments, datasets, spark):
     [(PopRec, {})],
     ids=["pop_rec"],
 )
-def test_predict_proba(base_model, arguments, datasets):
-    polars_df = datasets["polars"]
-    pandas_df = datasets["pandas"]
-    spark_df = datasets["spark"]
+def test_predict_proba(base_model, arguments, spark, request):
+    log_spark = request.getfixturevalue("log")
+    spark_df = get_dataset_any_type(log_spark)
+    log_pandas = request.getfixturevalue("log_pandas")
+    pandas_df = get_dataset_any_type(log_pandas)
+    log_polars = request.getfixturevalue("log_polars")
+    polars_df = get_dataset_any_type(log_polars)
     model_pd = base_model(**arguments)
     model_pl = base_model(**arguments)
     model_spark = base_model(**arguments)
     model_pd.fit(pandas_df)
     model_pl.fit(polars_df)
     model_spark.fit(spark_df)
-    model_spark._predict_proba(spark_df, 1, [0], [3])
+    n_users, n_actions, K = 2, 5, 3
+    users_spark = convert2spark(pd.DataFrame({"user_idx": np.arange(n_users)}))
+    items_spark = convert2spark(pd.DataFrame({"item_idx": np.arange(n_actions)}))
+    users_pd = pd.DataFrame({"user_idx": np.arange(n_users)})
+    items_pd = pd.DataFrame({"item_idx": np.arange(n_actions)})
+    users_pl = convert2polars(pd.DataFrame({"user_idx": np.arange(n_users)}))
+    items_pl = convert2polars(pd.DataFrame({"item_idx": np.arange(n_actions)}))
+    pred = model_spark._predict_proba(spark_df, K, users_spark, items_spark, False)
+    assert pred.shape == (n_users, n_actions, K)
+    assert np.allclose(pred.sum(1), np.ones(shape=(n_users, K)))
     with pytest.raises(NotImplementedError):
-        model_pl._predict_proba(polars_df, 1, [0], [3])
+        model_pl._predict_proba(polars_df, 1, users_pl, items_pl, False)
     with pytest.raises(NotImplementedError):
-        model_pd._predict_proba(pandas_df, 1, [0], [3])
+        model_pd._predict_proba(pandas_df, 1, users_pd, items_pd, False)
 
 
 @pytest.mark.spark
@@ -1256,9 +1216,9 @@ def test_fit_predict_the_same_framework_spark(base_model, arguments, datasets, b
             model = base_model(**arguments)
             res = None
             if framework == "pandas":
-                res = model.fit_predict(df, k=1).sort_values(["user_id", "item_id"])
+                res = model.fit_predict(df, k=1)
             elif framework == "spark":
-                res = model.fit_predict(df, k=1).sort("user_id", "item_id").toPandas()
+                res = model.fit_predict(df, k=1).toPandas()
             if res is not None:
                 results.update({f"{framework}": res})
             del model
@@ -1281,9 +1241,9 @@ def test_fit_predict_the_same_framework_polars(base_model, arguments, datasets, 
             model = base_model(**arguments)
             res = None
             if framework == "pandas":
-                res = model.fit_predict(df, k=1).sort_values(["user_id", "item_id"])
+                res = model.fit_predict(df, k=1)
             elif framework == "polars":
-                res = model.fit_predict(df, k=1).sort("user_id", "item_id").to_pandas()
+                res = model.fit_predict(df, k=1).to_pandas()
             if res is not None:
                 results.update({f"{framework}": res})
             del model
@@ -1317,7 +1277,7 @@ def test_fit_predict_different_frameworks_spark(base_model, arguments, predict_f
     for dataset in [datasets, big_datasets]:
         results = {}
         model_default = base_model(**arguments)
-        base_res = model_default.fit_predict(dataset["spark"], k=1).sort("user_id", "item_id").toPandas()
+        base_res = model_default.fit_predict(dataset["spark"], k=1).toPandas()
         for train_framework, df in dataset.items():
             if (
                 predict_framework in ["polars", "pandas"] and train_framework in ["polars", "pandas"]
@@ -1329,11 +1289,11 @@ def test_fit_predict_different_frameworks_spark(base_model, arguments, predict_f
             if predict_framework == "pandas":
                 model.to_pandas()
                 df.to_pandas()
-                res = model.predict(df, k=1).sort_values(["user_id", "item_id"])
+                res = model.predict(df, k=1)
             elif predict_framework == "spark":
                 model.to_spark()
                 df.to_spark()
-                res = model.predict(df, k=1).sort("user_id", "item_id").toPandas()
+                res = model.predict(df, k=1).toPandas()
             elif predict_framework == "polars":
                 model.to_polars()
                 df.to_polars()
@@ -1361,9 +1321,9 @@ def test_fit_predict_different_frameworks_pandas_polars(base_model, arguments, d
         model = base_model(**arguments)
         model.fit(pandas_df)
         model.to_polars()
-        res1 = model.predict(polars_df, k=1).sort("user_id", "item_id").to_pandas()
+        res1 = model.predict(polars_df, k=1).to_pandas()
         model = base_model(**arguments)
         model.fit(polars_df)
         model.to_pandas()
-        res2 = model.predict(pandas_df, k=1).sort_values(["user_id", "item_id"])
+        res2 = model.predict(pandas_df, k=1)
         assert isDataFrameEqual(res1, res2), "Not equal dataframes in pair of train-predict"

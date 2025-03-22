@@ -1,3 +1,4 @@
+import pandas as pd
 import pytest
 
 from replay.models import PopRec
@@ -252,3 +253,44 @@ def test_invalid_attrubutes_after_fit(base_model, arguments, attribute_name):
     model = base_model(**arguments)
     with pytest.raises(AttributeError, match=f"does not have the '{attribute_name}'"):
         getattr(model, attribute_name)
+
+
+pytest.mark.spark
+
+
+@pytest.mark.parametrize(
+    "base_model, arguments, type_of_impl",
+    [(PopRec, {}, "polars"), (PopRec, {}, "pandas"), (PopRec, {}, "spark")],
+    ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
+)
+@pytest.mark.parametrize("attribute_name", ["model", "study", "criterion"])
+def test_get_features(base_model, arguments, attribute_name, type_of_impl, datasets):
+    dataset_pd = datasets["pandas"]
+    dataset_spark = datasets["spark"]
+    dataset_pl = datasets["polars"]
+    item_col = dataset_pd._feature_schema.item_id_column
+    model_pd = base_model(**arguments)
+    model_spark = base_model(**arguments)
+    model_pl = base_model(**arguments)
+    model_pd.fit(dataset_pd)
+    model_pl.fit(dataset_pl)
+    model_spark.fit(dataset_spark)
+    _, rank_spark = model_spark.get_features(ids=dataset_spark.interactions.select(item_col).distinct())
+    _, rank_pd = model_pd.get_features(ids=pd.DataFrame(dataset_pd.interactions[item_col].unique(), columns=[item_col]))
+    _, rank_pl = model_pl.get_features(ids=dataset_pl.interactions.select(item_col).unique())
+    assert rank_spark == rank_pd == rank_pl  # If add new client_models in future, add comparison of dfs
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, arguments, type_of_impl",
+    [(PopRec, {}, "polars"), (PopRec, {}, "pandas"), (PopRec, {}, "spark")],
+    ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
+)
+@pytest.mark.parametrize("attribute_name", PopRec.attributes_after_fit_with_setter)
+def test_convertation(base_model, arguments, type_of_impl, attribute_name, datasets):
+    example_df = datasets[type_of_impl].interactions
+    model = base_model(**arguments)
+    model.fit(datasets[type_of_impl])
+    setattr(model, attribute_name, example_df)
+    assert isDataFrameEqual(getattr(model, attribute_name), example_df)
