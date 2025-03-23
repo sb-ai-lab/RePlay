@@ -9,7 +9,7 @@ model:
       max_seq_len: 128
       hidden_size: 256
       dropout_rate: 0.1
-      loss_type: CE # CE, BCE, SCE
+      loss_type: CE # CE, BCE, SCE, CE_restricted
       loss_sample_count: Null
       n_buckets: 443
       bucket_size_x: 443
@@ -23,4 +23,4 @@ model:
       num_workers: 4
       patience: 4
       max_epochs: 20
-      precision: null #default 32, bf16-mixed
+      precision: null #default 32, 16-mixed, bf16-mixed

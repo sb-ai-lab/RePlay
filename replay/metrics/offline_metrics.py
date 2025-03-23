@@ -156,13 +156,13 @@ class OfflineMetrics:
     ):
         """
         :param metrics: (list of metrics): List of metrics to be calculated.
-        :param query_column:: (str): The name of the query column.
+        :param user_column: (str): The name of the user column.
             Note that you do not need to specify the value of this parameter for each metric separately.
             It is enough to specify the value of this parameter here once.
         :param item_column: (str): The name of the item column.
             Note that you do not need to specify the value of this parameter for each metric separately.
             It is enough to specify the value of this parameter here once.
-        :param rating_column: (str): The name of the rating column.
+        :param score_column: (str): The name of the score column.
             Note that you do not need to specify the value of this parameter for each metric separately.
             It is enough to specify the value of this parameter here once.
         :param category_column: (str): The name of the category column.

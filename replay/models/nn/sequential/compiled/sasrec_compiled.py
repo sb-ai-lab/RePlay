@@ -1,4 +1,5 @@
 import pathlib
+import tempfile
 from typing import Optional, Union, get_args
 
 import openvino as ov
@@ -8,6 +9,7 @@ from replay.data.nn import TensorSchema
 from replay.models.nn.sequential.compiled.base_compiled_model import (
     BaseCompiledModel,
     OptimizedModeType,
+    _compile_openvino,
 )
 from replay.models.nn.sequential.sasrec import (
     SasRec,
@@ -22,7 +24,6 @@ class SasRecCompiled(BaseCompiledModel):
     It is recommended to compile model with ``compile`` method and pass ``SasRec`` checkpoint
     or the model object itself into it.
     It is also possible to compile model by yourself and pass it to the ``__init__`` with ``TensorSchema``.
-
     **Note** that compilation requires disk write (and maybe delete) permission.
     """
 
@@ -51,7 +52,20 @@ class SasRecCompiled(BaseCompiledModel):
 
         :return: Tensor with scores.
         """
-        self._valilade_predict_input(batch, candidates_to_score)
+        if self._num_candidates_to_score is None and candidates_to_score is not None:
+            msg = (
+                "If ``num_candidates_to_score`` is None, "
+                "it is impossible to infer the model with passed ``candidates_to_score``."
+            )
+            raise ValueError(msg)
+
+        if self._batch_size != -1 and batch.padding_mask.shape[0] != self._batch_size:
+            msg = (
+                f"The batch is smaller then defined batch_size={self._batch_size}. "
+                "It is impossible to infer the model with dynamic batch size in ``mode`` = ``batch``. "
+                "Use ``mode`` = ``dynamic_batch_size``."
+            )
+            raise ValueError(msg)
 
         batch = _prepare_prediction_batch(self._schema, self._max_seq_len, batch)
         model_inputs = {
@@ -131,15 +145,28 @@ class SasRecCompiled(BaseCompiledModel):
         else:
             model_input_sample = ({item_seq_name: item_sequence}, padding_mask)
 
-        compiled_model = SasRecCompiled._run_model_compilation(
-            lightning_model,
-            model_input_sample,
-            model_input_names,
-            model_dynamic_axes_in_input,
-            batch_size,
-            num_candidates_to_score,
-            num_threads,
+        if onnx_path is None:
+            is_saveble = False
+            onnx_file = tempfile.NamedTemporaryFile(suffix=".onnx")
+            onnx_path = onnx_file.name
+        else:
+            is_saveble = True
+
+        lightning_model.to_onnx(
             onnx_path,
+            input_sample=model_input_sample,
+            export_params=True,
+            opset_version=torch.onnx._constants.ONNX_DEFAULT_OPSET,
+            do_constant_folding=True,
+            input_names=model_input_names,
+            output_names=["scores"],
+            dynamic_axes=model_dynamic_axes_in_input,
         )
+        del lightning_model
+
+        compiled_model = _compile_openvino(onnx_path, batch_size, max_seq_len, num_candidates_to_score, num_threads)
+
+        if not is_saveble:
+            onnx_file.close()
 
         return cls(compiled_model, schema)

@@ -9,7 +9,7 @@ model:
       max_seq_len: 100
       hidden_size: 256
       dropout_rate: 0.1
-      loss_type: BCE # CE, BCE, SCE
+      loss_type: BCE # CE, BCE, SCE, CCE
       loss_sample_count: 500
       n_buckets: 443
       bucket_size_x: 443

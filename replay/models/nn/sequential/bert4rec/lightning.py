@@ -126,7 +126,6 @@ class Bert4Rec(lightning.LightningModule):
         item_count = tensor_schema.item_id_features.item().cardinality
         assert item_count
         self._vocab_size = item_count
-        self.candidates_to_score = None
 
     def training_step(self, batch: Bert4RecTrainingBatch, batch_idx: int) -> torch.Tensor:  # noqa: ARG002
         """
@@ -139,6 +138,21 @@ class Bert4Rec(lightning.LightningModule):
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         return loss
 
+    def forward(
+        self,
+        feature_tensors: TensorMap,
+        padding_mask: torch.BoolTensor,
+        tokens_mask: torch.BoolTensor,
+    ) -> torch.Tensor:  # pragma: no cover
+        """
+        :param feature_tensors:  Batch of features.
+        :param padding_mask: Padding mask where 0 - <PAD>, 1 otherwise.
+        :param tokens_mask: Token mask where 0 - <MASK> tokens, 1 otherwise.
+
+        :returns: Calculated scores.
+        """
+        return self._model_predict(feature_tensors, padding_mask, tokens_mask)
+
     def predict_step(
         self, batch: Bert4RecPredictionBatch, batch_idx: int, dataloader_idx: int = 0  # noqa: ARG002
     ) -> torch.Tensor:
@@ -149,41 +163,8 @@ class Bert4Rec(lightning.LightningModule):
 
         :returns: Calculated scores on prediction batch.
         """
-        batch = _prepare_prediction_batch(self._schema, self._model.max_len, batch)
+        batch = self._prepare_prediction_batch(batch)
         return self._model_predict(batch.features, batch.padding_mask, batch.tokens_mask)
-
-    def predict(
-        self,
-        batch: Bert4RecPredictionBatch,
-        candidates_to_score: Optional[torch.LongTensor] = None,
-    ) -> torch.Tensor:
-        """
-        :param batch (Bert4RecPredictionBatch): Batch of prediction data.
-        :param candidates_to_score: Item ids to calculate scores.
-            Default: ``None``.
-
-        :returns: Calculated scores on prediction batch.
-        """
-        batch = _prepare_prediction_batch(self._schema, self._model.max_len, batch)
-        return self._model_predict(batch.features, batch.padding_mask, batch.tokens_mask, candidates_to_score)
-
-    def forward(
-        self,
-        feature_tensors: TensorMap,
-        padding_mask: torch.BoolTensor,
-        tokens_mask: torch.BoolTensor,
-        candidates_to_score: Optional[torch.LongTensor] = None,
-    ) -> torch.Tensor:  # pragma: no cover
-        """
-        :param feature_tensors:  Batch of features.
-        :param padding_mask: Padding mask where 0 - <PAD>, 1 otherwise.
-        :param tokens_mask: Token mask where 0 - <MASK> tokens, 1 otherwise.
-        :param candidates_to_score: Item ids to calculate scores.
-            Default: ``None``.
-
-        :returns: Calculated scores.
-        """
-        return self._model_predict(feature_tensors, padding_mask, tokens_mask, candidates_to_score)
 
     def validation_step(
         self, batch: Bert4RecValidationBatch, batch_idx: int, dataloader_idx: int = 0  # noqa: ARG002
@@ -208,20 +189,51 @@ class Bert4Rec(lightning.LightningModule):
         lr_scheduler = self._lr_scheduler_factory.create(optimizer)
         return [optimizer], [lr_scheduler]
 
+    def _prepare_prediction_batch(self, batch: Bert4RecPredictionBatch) -> Bert4RecPredictionBatch:
+        if batch.padding_mask.shape[1] > self._model.max_len:
+            msg = f"The length of the submitted sequence \
+                must not exceed the maximum length of the sequence. \
+                The length of the sequence is given {batch.padding_mask.shape[1]}, \
+                while the maximum length is {self._model.max_len}"
+            raise ValueError(msg)
+
+        if batch.padding_mask.shape[1] < self._model.max_len:
+            query_id, padding_mask, features, _ = batch
+            sequence_item_count = padding_mask.shape[1]
+            for feature_name, feature_tensor in features.items():
+                if self._schema[feature_name].is_cat:
+                    features[feature_name] = torch.nn.functional.pad(
+                        feature_tensor,
+                        (self._model.max_len - sequence_item_count, 0),
+                        value=self._schema[feature_name].padding_value,
+                    )
+                else:
+                    features[feature_name] = torch.nn.functional.pad(
+                        feature_tensor.view(feature_tensor.size(0), feature_tensor.size(1)),
+                        (self._model.max_len - sequence_item_count, 0),
+                        value=self._schema[feature_name].padding_value,
+                    ).unsqueeze(-1)
+            padding_mask = torch.nn.functional.pad(
+                padding_mask, (self._model.max_len - sequence_item_count, 0), value=0
+            )
+            shifted_features, shifted_padding_mask, tokens_mask = _shift_features(self._schema, features, padding_mask)
+            batch = Bert4RecPredictionBatch(query_id, shifted_padding_mask, shifted_features, tokens_mask)
+        return batch
+
     def _model_predict(
         self,
         feature_tensors: TensorMap,
         padding_mask: torch.BoolTensor,
         tokens_mask: torch.BoolTensor,
-        candidates_to_score: torch.LongTensor = None,
     ) -> torch.Tensor:
         model: Bert4RecModel
-        model = (
-            cast(Bert4RecModel, self._model.module) if isinstance(self._model, torch.nn.DataParallel) else self._model
-        )
-        candidates_to_score = self.candidates_to_score if candidates_to_score is None else candidates_to_score
-        scores = model.predict(feature_tensors, padding_mask, tokens_mask, candidates_to_score)
-        return scores
+        if isinstance(self._model, torch.nn.DataParallel):
+            model = cast(Bert4RecModel, self._model.module)  # multigpu
+        else:
+            model = self._model
+        scores = model(feature_tensors, padding_mask, tokens_mask)
+        candidate_scores = scores[:, -1, :]
+        return candidate_scores
 
     def _compute_loss(self, batch: Bert4RecTrainingBatch) -> torch.Tensor:
         if self._loss_type == "BCE":
@@ -230,6 +242,8 @@ class Bert4Rec(lightning.LightningModule):
             loss_func = self._compute_loss_ce if self._loss_sample_count is None else self._compute_loss_ce_sampled
         elif self._loss_type == "SCE":
             loss_func = self._compute_loss_scalable_ce
+        elif self._loss_type == "CE_restricted":
+            loss_func = self._compute_loss_ce_restricted
         else:
             msg = f"Not supported loss type: {self._loss_type}"
             raise ValueError(msg)
@@ -385,6 +399,7 @@ class Bert4Rec(lightning.LightningModule):
 
             y_bucket = buckets @ w.T # (n_b, hd) x (hd, n_cl) -> (n_b, n_cl)
 
+            y_bucket[:, pad_token] = float('-inf')
             _, top_y_bucket = torch.topk(y_bucket, dim=1, k=self._bucket_size_y) # (n_b, bs_y)
             del y_bucket
 
@@ -403,6 +418,20 @@ class Bert4Rec(lightning.LightningModule):
         loss = loss[(loss != 0) & (masked_tokens).view(-1)]
         loss = torch.mean(loss)
 
+        return loss
+
+    def _compute_loss_ce_restricted(
+        self,
+        feature_tensors: TensorMap,
+        positive_labels: torch.LongTensor,
+        padding_mask: torch.BoolTensor,
+        tokens_mask: torch.BoolTensor,
+    ) -> torch.Tensor:
+        (logits, labels) = self._get_restricted_logits_for_ce_loss(
+                feature_tensors, positive_labels, padding_mask, tokens_mask
+            )
+
+        loss = self._loss(logits, labels)
         return loss
 
     def _get_sampled_logits(
@@ -487,11 +516,27 @@ class Bert4Rec(lightning.LightningModule):
             vocab_size,
         )
 
+    def _get_restricted_logits_for_ce_loss(
+        self,
+        feature_tensors: TensorMap,
+        positive_labels: torch.LongTensor,
+        padding_mask: torch.BoolTensor,
+        tokens_mask: torch.BoolTensor
+    ):
+        labels_mask = (~padding_mask) + tokens_mask
+        masked_tokens = ~labels_mask
+        positive_labels = cast(
+            torch.LongTensor, torch.masked_select(positive_labels, masked_tokens)
+        )  # (masked_batch_seq_size,)
+        output_emb = self._model.forward_step(feature_tensors, padding_mask, tokens_mask)[masked_tokens]
+        logits = self._model.get_logits_for_restricted_loss(output_emb)
+        return (logits, positive_labels)            
+
     def _create_loss(self) -> Union[torch.nn.BCEWithLogitsLoss, torch.nn.CrossEntropyLoss]:
         if self._loss_type == "BCE":
             return torch.nn.BCEWithLogitsLoss(reduction="sum")
 
-        if self._loss_type == "CE" or self._loss_type == "SCE":
+        if self._loss_type == "CE" or self._loss_type == "SCE"  or self._loss_type == "CE_restricted":
             return torch.nn.CrossEntropyLoss()
 
         msg = "Not supported loss_type"
@@ -602,11 +647,11 @@ class Bert4Rec(lightning.LightningModule):
             raise ValueError(msg)
 
     @property
-    def candidates_to_score(self) -> Union[torch.LongTensor, None]:
+    def candidates_to_score(self) -> Union[torch.LongTensor, None]:  # pragma: no cover
         """
         Returns tensor of item ids to calculate scores.
         """
-        return self._candidates_to_score
+        return None
 
     @candidates_to_score.setter
     def candidates_to_score(self, candidates: Optional[torch.LongTensor] = None) -> None:
@@ -614,17 +659,7 @@ class Bert4Rec(lightning.LightningModule):
         Sets tensor of item ids to calculate scores.
         :param candidates: Tensor of item ids to calculate scores.
         """
-        total_item_count = self._model.item_count
-        if isinstance(candidates, torch.Tensor) and candidates.dtype is torch.long:
-            if 0 < candidates.shape[0] <= total_item_count:
-                self._candidates_to_score = candidates
-            else:
-                msg = f"Expected candidates length to be between 1 and {total_item_count=}"
-                raise ValueError(msg)
-        elif candidates is not None:
-            msg = f"Expected candidates to be of type torch.LongTensor or None, gpt {type(candidates)}"
-            raise ValueError(msg)
-        self._candidates_to_score = candidates
+        raise NotImplementedError()
 
     def _set_new_item_embedder_to_model(self, weights_new: torch.nn.Embedding, new_vocab_size: int):
         self._model.item_embedder.cat_embeddings[self._model.schema.item_id_feature_name] = weights_new
@@ -643,37 +678,3 @@ class Bert4Rec(lightning.LightningModule):
         self._vocab_size = new_vocab_size
         self._model.item_count = new_vocab_size
         self._schema.item_id_features[self._schema.item_id_feature_name]._set_cardinality(new_vocab_size)
-
-
-def _prepare_prediction_batch(
-    schema: TensorSchema, max_len: int, batch: Bert4RecPredictionBatch
-) -> Bert4RecPredictionBatch:
-    if batch.padding_mask.shape[1] > max_len:
-        msg = (
-            f"The length of the submitted sequence "
-            "must not exceed the maximum length of the sequence. "
-            f"The length of the sequence is given {batch.padding_mask.shape[1]}, "
-            f"while the maximum length is {max_len}"
-        )
-        raise ValueError(msg)
-
-    if batch.padding_mask.shape[1] < max_len:
-        query_id, padding_mask, features, _ = batch
-        sequence_item_count = padding_mask.shape[1]
-        for feature_name, feature_tensor in features.items():
-            if schema[feature_name].is_cat:
-                features[feature_name] = torch.nn.functional.pad(
-                    feature_tensor,
-                    (max_len - sequence_item_count, 0),
-                    value=schema[feature_name].padding_value,
-                )
-            else:
-                features[feature_name] = torch.nn.functional.pad(
-                    feature_tensor.view(feature_tensor.size(0), feature_tensor.size(1)),
-                    (max_len - sequence_item_count, 0),
-                    value=schema[feature_name].padding_value,
-                ).unsqueeze(-1)
-        padding_mask = torch.nn.functional.pad(padding_mask, (max_len - sequence_item_count, 0), value=0)
-        shifted_features, shifted_padding_mask, tokens_mask = _shift_features(schema, features, padding_mask)
-        batch = Bert4RecPredictionBatch(query_id, shifted_padding_mask, shifted_features, tokens_mask)
-    return batch

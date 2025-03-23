@@ -106,7 +106,7 @@ class SasRecModel(torch.nn.Module):
     def forward(
         self,
         feature_tensor: TensorMap,
-        padding_mask: torch.BoolTensor,
+        padding_mask: torch.BoolTensor
     ) -> torch.Tensor:
         """
         :param feature_tensor: Batch of features.
@@ -185,6 +185,18 @@ class SasRecModel(torch.nn.Module):
         :returns: Logits for each element in `item_ids`.
         """
         return self._head(out_embeddings, item_ids)
+    
+    def get_logits_for_restricted_loss(self, out_embeddings: torch.Tensor, item_ids: Optional[torch.LongTensor] = None) -> torch.Tensor:
+        """
+        Apply head to output embeddings of `forward_step`.
+
+        :param out_embeddings: Embeddings after `forward step`.
+        :param item_ids: Item ids to calculate scores.
+            Default: ``None``.
+
+        :returns: Logits for each element in `item_ids`.
+        """
+        return self._head.forward_for_restricted_loss(out_embeddings, item_ids)
 
     def _init(self) -> None:
         for _, param in self.named_parameters():

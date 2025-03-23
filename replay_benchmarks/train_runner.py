@@ -5,6 +5,7 @@ import pickle
 from pathlib import Path
 
 import optuna
+import pandas as pd
 import torch
 import lightning as L
 from lightning.pytorch.loggers import CSVLogger, TensorBoardLogger
@@ -357,6 +358,27 @@ class TrainRunner(BaseRunner):
 
         logging.info(f"Best hyperparameters: {study.best_params}")
 
+    def _save_allocated_memory(self):
+        devices = [int(self.config["env"]["CUDA_VISIBLE_DEVICES"])]
+        torch.cuda.synchronize()
+        allocated = torch.cuda.memory_allocated(device=devices[0]) / 1024**3  # GB
+        max_allocated = torch.cuda.max_memory_allocated(device=devices[0]) / 1024**3  # GB
+        torch.cuda.reset_peak_memory_stats()
+
+        data = {
+            'allocated_memory': [allocated],
+            'max_allocated_memory': [max_allocated]
+        }
+        df = pd.DataFrame(data)
+
+        df.to_csv(os.path.join(
+            self.csv_logger.log_dir,
+            "memory_stats.csv"
+        ), index=False)
+
+        logging.info(f"Allocated memory: {allocated} GB")
+        logging.info(f"Max allocated memory: {max_allocated} GB")    
+
     def run(self):
         """Execute the training pipeline."""
         train_dataloader, val_dataloader, val_pred_dataloader, prediction_dataloader = (
@@ -435,6 +457,7 @@ class TrainRunner(BaseRunner):
                 )
             else:
                 trainer.fit(model, train_dataloader, val_dataloader)
+                self._save_allocated_memory()
 
             if self.model_name.lower() == "sasrec":
                 best_model = SasRec.load_from_checkpoint(

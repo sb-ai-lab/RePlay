@@ -1,10 +1,10 @@
 import pytest
 
-from replay.data import FeatureHint
+from replay.data import FeatureHint, FeatureType
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
-    from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
+    from replay.data.nn import TensorFeatureInfo, TensorSchema
     from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
     from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionBatch, Bert4RecPredictionDataset
 
@@ -72,76 +72,6 @@ def test_prediction_bert4rec(item_user_sequential_dataset, train_bert_loader):
 
     assert len(predicted) == len(pred)
     assert predicted[0].size() == (1, 6)
-
-
-@pytest.mark.torch
-@pytest.mark.parametrize(
-    "candidates",
-    [torch.LongTensor([1]), torch.LongTensor([1, 2, 3, 4]), torch.LongTensor([0, 1, 2, 3, 4, 5]), None],
-)
-def test_prediction_bert_with_candidates(item_user_sequential_dataset, train_bert_loader, candidates):
-    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
-    pred_bert_loader = torch.utils.data.DataLoader(pred, batch_size=1)
-    trainer = L.Trainer(max_epochs=1)
-    model = Bert4Rec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64)
-    trainer.fit(model, train_bert_loader)
-
-    # test online inference with candidates
-    for batch in pred_bert_loader:
-        predicted = model.predict(batch, candidates)
-        assert model.candidates_to_score is None
-        if candidates is not None:
-            assert predicted.size() == (1, candidates.shape[0])
-        else:
-            assert predicted.size() == (1, item_user_sequential_dataset.schema["item_id"].cardinality)
-
-    # test offline inference with candidates
-    model.candidates_to_score = candidates
-    predicted = trainer.predict(model, pred_bert_loader)
-    if candidates is not None:
-        assert torch.equal(model.candidates_to_score, candidates)
-    else:
-        assert model.candidates_to_score is None
-
-    for pred in predicted:
-        if candidates is not None:
-            assert pred.size() == (1, candidates.shape[0])
-        else:
-            assert pred.size() == (1, item_user_sequential_dataset.schema["item_id"].cardinality)
-
-
-@pytest.mark.torch
-def test_predictions_bert_equal_with_permuted_candidates(item_user_sequential_dataset, train_bert_loader):
-    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
-    pred_bert_loader = torch.utils.data.DataLoader(pred)
-    trainer = L.Trainer(max_epochs=1)
-    model = Bert4Rec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64)
-    trainer.fit(model, train_bert_loader)
-
-    sorted_candidates = torch.LongTensor([0, 1, 2, 3])
-    permuted_candidates = torch.LongTensor([3, 0, 2, 1])
-    _, ordering = torch.sort(permuted_candidates)
-
-    model.candidates_to_score = sorted_candidates
-    predictions_sorted_candidates = trainer.predict(model, pred_bert_loader)
-
-    model.candidates_to_score = permuted_candidates
-    predictions_permuted_candidates = trainer.predict(model, pred_bert_loader)
-    for i in range(len(predictions_permuted_candidates)):
-        assert torch.equal(predictions_permuted_candidates[i][:, ordering], predictions_sorted_candidates[i])
-
-
-@pytest.mark.torch
-@pytest.mark.parametrize(
-    "candidates",
-    [torch.FloatTensor([1]), torch.LongTensor([1] * 100000)],
-)
-def test_prediction_optimized_bert_invalid_candidates_to_score(
-    item_user_sequential_dataset, train_bert_loader, candidates
-):
-    model = Bert4Rec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64)
-    with pytest.raises(ValueError):
-        model.candidates_to_score = candidates
 
 
 @pytest.mark.torch
@@ -252,20 +182,22 @@ def test_model_predict_with_nn_parallel(item_user_sequential_dataset, simple_mas
 
 @pytest.mark.torch
 def test_bert4rec_get_embeddings():
-    schema = (
-        TensorSchemaBuilder()
-        .categorical(
-            "item_id",
-            cardinality=6,
-            is_seq=True,
-            feature_hint=FeatureHint.ITEM_ID,
-        )
-        .categorical(
-            "some_feature",
-            cardinality=6,
-            is_seq=True,
-        )
-        .build()
+    schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                "item_id",
+                cardinality=6,
+                is_seq=True,
+                feature_hint=FeatureHint.ITEM_ID,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+            TensorFeatureInfo(
+                "some_feature",
+                cardinality=6,
+                is_seq=True,
+                feature_type=FeatureType.CATEGORICAL,
+            ),
+        ]
     )
     model = Bert4Rec(schema, max_seq_len=5, enable_embedding_tying=True)
     model_embeddings = model.get_all_embeddings()

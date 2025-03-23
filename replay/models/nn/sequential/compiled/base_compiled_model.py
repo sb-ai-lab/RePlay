@@ -1,7 +1,6 @@
 import pathlib
-import tempfile
 from abc import abstractmethod
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, List, Literal, Optional, Union
 
 import lightning
 import openvino as ov
@@ -33,8 +32,6 @@ def _compile_openvino(
     :param num_threads: Defines number of CPU threads for which the model will be compiled by the OpenVino core.
         If ``None``, then compiler will set this parameter automatically.
         Default: ``None``.
-
-    :return: Compiled model.
     """
     core = ov.Core()
     if num_threads is not None:
@@ -91,29 +88,13 @@ class BaseCompiledModel:
         :return: Tensor with scores.
         """
 
-    def _validate_candidates_to_score(self, candidates: torch.LongTensor) -> None:
+    def _validate_candidates_to_score(self, candidates: torch.LongTensor):
         """Check if candidates param has proper type"""
 
         if not (isinstance(candidates, torch.Tensor) and candidates.dtype is torch.long):
             msg = (
                 "Expected candidates to be of type ``torch.Tensor`` with dtype ``torch.long``, "
                 f"got {type(candidates)} with dtype {candidates.dtype}."
-            )
-            raise ValueError(msg)
-
-    def _valilade_predict_input(self, batch: Any, candidates_to_score: Optional[torch.LongTensor] = None) -> None:
-        if self._num_candidates_to_score is None and candidates_to_score is not None:
-            msg = (
-                "If ``num_candidates_to_score`` is None, "
-                "it is impossible to infer the model with passed ``candidates_to_score``."
-            )
-            raise ValueError(msg)
-
-        if self._batch_size != -1 and batch.padding_mask.shape[0] != self._batch_size:
-            msg = (
-                f"The batch is smaller then defined batch_size={self._batch_size}. "
-                "It is impossible to infer the model with dynamic batch size in ``mode`` = ``batch``. "
-                "Use ``mode`` = ``dynamic_batch_size``."
             )
             raise ValueError(msg)
 
@@ -131,7 +112,7 @@ class BaseCompiledModel:
         self._output_name = compiled_model.output().names.pop()
 
     @staticmethod
-    def _validate_num_candidates_to_score(num_candidates: Union[int, None]) -> Union[int, None]:
+    def _validate_num_candidates_to_score(num_candidates: int) -> Union[int, None]:
         """Check if num_candidates param is proper"""
 
         if num_candidates is None:
@@ -165,63 +146,6 @@ class BaseCompiledModel:
 
         num_candidates_to_score = num_candidates_to_score if num_candidates_to_score else None
         return batch_size, num_candidates_to_score
-
-    @staticmethod
-    def _run_model_compilation(
-        lightning_model: lightning.LightningModule,
-        model_input_sample: Tuple[Union[torch.Tensor, Dict[str, torch.Tensor]]],
-        model_input_names: List[str],
-        model_dynamic_axes_in_input: Dict[str, Dict],
-        batch_size: int,
-        num_candidates_to_score: Union[int, None],
-        num_threads: Optional[int] = None,
-        onnx_path: Optional[str] = None,
-    ) -> ov.CompiledModel:
-        """
-        Model conversion into ONNX format and compilation with defined engine.
-
-        :param lightning_model: Lightning model to be compiled.
-        :param model_input_sample: An example of model input with proper data type.
-        :param model_input_names: Input tensor names.
-        :param model_dynamic_axes_in_input: Dynamic axes in input.
-        :param batch_size: Defines the size of the axis with index 0 in the input of the compiled model.
-        :param num_candidates_to_score: Defines the size of the candidates in the input of the compiled model.
-        :param num_threads: Number of CPU threads to use.
-            Must be a natural number or ``None``.
-            If ``None``, then compiler will set this parameter automatically.
-            Default: ``None``.
-        :param onnx_path: Save ONNX model to path, if defined.
-            Default: ``None``.
-
-        :return: Compiled model.
-        """
-        max_seq_len = lightning_model._model.max_len
-
-        if onnx_path is None:
-            is_saveble = False
-            onnx_file = tempfile.NamedTemporaryFile(suffix=".onnx")
-            onnx_path = onnx_file.name
-        else:
-            is_saveble = True
-
-        lightning_model.to_onnx(
-            onnx_path,
-            input_sample=model_input_sample,
-            export_params=True,
-            opset_version=torch.onnx._constants.ONNX_DEFAULT_OPSET,
-            do_constant_folding=True,
-            input_names=model_input_names,
-            output_names=["scores"],
-            dynamic_axes=model_dynamic_axes_in_input,
-        )
-        del lightning_model
-
-        compiled_model = _compile_openvino(onnx_path, batch_size, max_seq_len, num_candidates_to_score, num_threads)
-
-        if not is_saveble:
-            onnx_file.close()
-
-        return compiled_model
 
     @classmethod
     @abstractmethod

@@ -1162,11 +1162,10 @@ class HybridRecommender(BaseRecommender, ABC):
     ) -> Optional[Tuple[SparkDataFrame, int]]:
         """
         Returns query or item feature vectors as a Column with type ArrayType
-        If a model does not have a vector for some ids they are not present in the final result.
-
         :param ids: Spark DataFrame with unique ids
         :param features: Spark DataFrame with features for provided ids
         :return: feature vectors
+            If a model does not have a vector for some ids they are not present in the final result.
         """
         return self._get_features_wrap(ids, features)
 

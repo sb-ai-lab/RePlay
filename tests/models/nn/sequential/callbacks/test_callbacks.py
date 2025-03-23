@@ -86,7 +86,13 @@ def test_prediction_callbacks_fast_forward(
     )
     trainer.fit(model, request.getfixturevalue(train_dataloader))
     if candidates is not None:
-        model.candidates_to_score = candidates
+        if isinstance(model, SasRec):
+            model.candidates_to_score = candidates
+        else:
+            # TODO: remove with bert4rec implementation
+            with pytest.raises(NotImplementedError):
+                model.candidates_to_score = candidates
+            return
     predicted = trainer.predict(model, pred_loader)
 
     assert len(predicted) == len(pred)
@@ -158,7 +164,12 @@ def test_validation_callbacks(
     )
     trainer.fit(model, request.getfixturevalue(train_dataloader), request.getfixturevalue(val_dataloader))
     if candidates is not None:
-        model.candidates_to_score = candidates
+        if isinstance(model, SasRec):
+            model.candidates_to_score = candidates
+        else:
+            with pytest.raises(NotImplementedError):
+                model.candidates_to_score = candidates
+            return
 
     pred = dataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_loader = torch.utils.data.DataLoader(pred)
@@ -221,7 +232,12 @@ def test_validation_callbacks_multiple_dataloaders(
     trainer.fit(model, request.getfixturevalue(train_dataloader), [val_loader, val_loader])
 
     if candidates is not None:
-        model.candidates_to_score = candidates
+        if isinstance(model, SasRec):
+            model.candidates_to_score = candidates
+        else:
+            with pytest.raises(NotImplementedError):
+                model.candidates_to_score = candidates
+            return
 
     pred = dataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_loader = torch.utils.data.DataLoader(pred)
@@ -254,7 +270,12 @@ def test_query_embeddings_callback(item_user_sequential_dataset, candidates, mod
         loss_sample_count=6,
     )
     if candidates is not None:
-        model.candidates_to_score = candidates
+        if isinstance(model, SasRec):
+            model.candidates_to_score = candidates
+        else:
+            with pytest.raises(NotImplementedError):
+                model.candidates_to_score = candidates
+            return
 
     pred = dataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_loader = torch.utils.data.DataLoader(pred)

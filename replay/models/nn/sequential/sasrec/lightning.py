@@ -10,6 +10,26 @@ from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFac
 from .dataset import SasRecPredictionBatch, SasRecTrainingBatch, SasRecValidationBatch
 from .model import SasRecModel
 
+from replay.models.nn.optimizer_utils import LigerFusedLinearCrossEntropyFunction
+
+
+try:
+    import sys
+    sys.path.append("/home/jovyan/zhmax/cce_loss/")
+    from cut_cross_entropy.cce import CCEParams, LinearCrossEntropyFunction, _build_flat_valids
+    from cut_cross_entropy.cce_backward import cce_backward_kernel
+    from cut_cross_entropy.cce_lse_forward import cce_lse_forward_kernel
+    from cut_cross_entropy.constants import IGNORE_INDEX
+    from cut_cross_entropy.doc import CCE_OPTS_DOC, LINEAR_CROSS_ENTROPY_DOC, add_doc_start
+    from cut_cross_entropy.indexed_dot import indexed_neg_dot_forward_kernel
+    from cut_cross_entropy.utils import (
+        _build_flat_valids,
+        _handle_eps,
+        handle_reduction_none,
+    )
+except ModuleNotFoundError:
+    print("cut_cross_entropy is not installed. CCE / CCE_minus loss cannot be used.")
+
 
 class SasRec(lightning.LightningModule):
     """
@@ -215,6 +235,10 @@ class SasRec(lightning.LightningModule):
             loss_func = self._compute_loss_ce if self._loss_sample_count is None else self._compute_loss_ce_sampled
         elif self._loss_type == "SCE":
             loss_func = self._compute_loss_scalable_ce
+        elif self._loss_type == "CE_restricted":
+            loss_func = self._compute_loss_ce_restricted
+        elif self._loss_type == "CCE":
+            loss_func = self._compute_loss_cce
         else:
             msg = f"Not supported loss type: {self._loss_type}"
             raise ValueError(msg)
@@ -291,18 +315,13 @@ class SasRec(lightning.LightningModule):
         padding_mask: torch.BoolTensor,
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
-        # logits: [B x L x V]
-        logits = self._model.forward(
-            feature_tensors,
-            padding_mask,
-        )
-
+        # [B x L x V]
+        logits = self._model.forward(feature_tensors, padding_mask)
         # labels: [B x L]
         labels = positive_labels.masked_fill(mask=(~target_padding_mask), value=-100)
 
         logits_flat = logits.view(-1, logits.size(-1))  # [(B * L) x V]
         labels_flat = labels.view(-1)  # [(B * L)]
-
         loss = self._loss(logits_flat, labels_flat)
         return loss
 
@@ -385,6 +404,163 @@ class SasRec(lightning.LightningModule):
 
         return loss
 
+    def _compute_loss_ce_restricted(
+        self,
+        feature_tensors: TensorMap,
+        positive_labels: torch.LongTensor,
+        padding_mask: torch.BoolTensor,
+        target_padding_mask: torch.BoolTensor,
+    ) -> torch.Tensor:
+        """
+        Calculate the Cross-Entropy (CE) loss restricting size of
+        out_emb and positive labels according to the target padding mask.
+        """
+
+        (logits, labels) = self._get_restricted_logits_for_ce_loss(
+                feature_tensors, positive_labels, padding_mask, target_padding_mask
+            )
+        logits_flat = logits.view(-1, logits.size(-1))  # [(B * L) x V]
+        labels_flat = labels.view(-1)  # [(B * L)]
+        loss = self._loss(logits_flat, labels_flat)
+
+        return loss
+
+    def _compute_loss_fused_linear_CE(
+        self,
+        feature_tensors: TensorMap,
+        positive_labels: torch.LongTensor,
+        padding_mask: torch.BoolTensor,
+        target_padding_mask: torch.BoolTensor
+    ) -> torch.Tensor:
+
+        output_emb = self._model.forward_step(feature_tensors, padding_mask)[target_padding_mask]
+        positive_labels = cast(
+            torch.LongTensor, torch.masked_select(positive_labels, target_padding_mask)
+        )
+
+        # Next token prediction
+        # output_emb = self._model.forward_step(feature_tensors, target_padding_mask)
+        # output_emb = output_emb[:, :-1, :][target_padding_mask[:, :-1]]
+
+        # padding_mask[:, 0] = False
+        # positive_labels = cast(torch.LongTensor, torch.masked_select(positive_labels, padding_mask))
+
+        loss = self._loss.apply(
+            output_emb.view(-1, self._model.hidden_size),
+            self._model._head._item_embedder.get_all_item_weights(),
+            positive_labels
+        )
+
+        return loss
+
+    def _compute_loss_cce(
+        self,
+        feature_tensors: TensorMap,
+        positive_labels: torch.LongTensor,
+        padding_mask: torch.BoolTensor,
+        target_padding_mask: torch.BoolTensor
+    ) -> torch.Tensor:
+        """
+        Cut Cross-Entropy (CCE), a method that computes the cross-entropy loss 
+        without materializing the logits for all tokens into global memory.
+        The method is implemented in a custom kernel that performs the matrix multiplications 
+        and the log-sum-exp reduction over the vocabulary in flash memory, 
+        making global memory consumption for the cross-entropy computation negligible.
+
+        https://arxiv.org/abs/2411.09009
+        https://github.com/apple/ml-cross-entropy
+        """
+
+        bias = None
+        ignore_index = -100
+        softcap = None
+        reduction = "mean"
+        shift = False
+        filter_eps = "auto"
+        use_kahan = False
+        item_inds = None
+
+        e = self._model.forward_step(feature_tensors, padding_mask)
+        e = e.to(torch.float16)
+        targets = cast(torch.LongTensor, positive_labels)
+        c = self._model._head._item_embedder.get_all_item_weights()
+
+        # Next token prediction
+        # e = self._model.forward_step(feature_tensors, target_padding_mask)
+        # e = e[:, :-1, :][target_padding_mask[:, :-1]]
+        # e = e.to(torch.float16)
+        # c = self._model._head._item_embedder.get_all_item_weights()
+        # padding_mask[:, 0] = False
+        # targets = cast(torch.LongTensor, torch.masked_select(positive_labels, padding_mask))
+
+        e = e.contiguous()
+        padding_mask = padding_mask.contiguous()
+
+        assert e.size()[0:-1] == targets.size()
+        assert e.size(-1) == c.size(1)
+        if not torch.cuda.is_bf16_supported():
+            raise RuntimeError(
+                "Cut Cross Entropy requires an ampere GPU or newer. "
+                "Consider using torch_compile_linear_cross_entropy for scenarios where one is not available."
+            )
+
+        batch_shape = targets.size()
+
+        shift = int(shift)
+        valids = _build_flat_valids(targets, ignore_index, shift)
+        
+        e = e.flatten(0, -2)
+        targets = targets.flatten()
+
+        if (targets.data_ptr() % 16) != 0:
+            targets = torch.nn.functional.pad(targets, (0, 1))[:-1]
+
+        assert (targets.data_ptr() % 16) == 0
+
+        if self._loss_sample_count is not None:
+            filter_eps = None
+            n_negative_samples = self._loss_sample_count
+            vocab_size = self._vocab_size
+            device = padding_mask.device
+            
+            masked_batch_seq_size = targets.size(0)
+            # probs = torch.ones((masked_batch_seq_size, vocab_size), device=device)
+            # ids = torch.arange(masked_batch_seq_size, dtype=torch.long, device=device)
+            # probs[ids, targets] = 0.0
+            # negative_labels = torch.multinomial(probs, num_samples=n_negative_samples, replacement=False)
+
+            negative_labels = torch.randint(
+                low=0,
+                high=vocab_size,
+                size=(masked_batch_seq_size, n_negative_samples),
+                dtype=torch.long,
+                device=device,
+            )
+
+            reject_labels_mask = targets.view(-1, 1) == negative_labels
+            negative_labels[reject_labels_mask] = vocab_size - 1
+         
+            
+            item_inds = torch.hstack([targets.view(-1, 1), negative_labels])
+
+
+        params = CCEParams(
+            targets,
+            valids,
+            softcap,
+            reduction,
+            _handle_eps(filter_eps, e.dtype),
+            shift,
+            batch_shape,
+            use_kahan,
+            item_inds
+        ) 
+      
+        loss = self._loss.apply(e, c.to(e.dtype), bias, params)
+        assert isinstance(loss, torch.Tensor)
+
+        return loss
+
     def _get_sampled_logits(
         self,
         feature_tensors: TensorMap,
@@ -400,6 +576,15 @@ class SasRec(lightning.LightningModule):
         masked_batch_seq_size = positive_labels.size(0)
         device = padding_mask.device
         output_emb = self._model.forward_step(feature_tensors, padding_mask)[target_padding_mask]
+
+        # Next token prediction
+        # output_emb = self._model.forward_step(feature_tensors, target_padding_mask)
+        # output_emb = output_emb[:, :-1, :][target_padding_mask[:, :-1]]
+        # padding_mask[:, 0] = False
+        # positive_labels = cast(torch.LongTensor, torch.masked_select(positive_labels, padding_mask))
+        # masked_batch_seq_size = positive_labels.size(0)
+        # device = padding_mask.device
+
 
         positive_labels = cast(torch.LongTensor, positive_labels.view(-1, 1))
         ids = torch.arange(masked_batch_seq_size, dtype=torch.long, device=device)
@@ -465,12 +650,42 @@ class SasRec(lightning.LightningModule):
 
         return (positive_logits, negative_logits, positive_labels, negative_labels, vocab_size)
 
+    def _get_restricted_logits_for_ce_loss(
+        self,
+        feature_tensors: TensorMap,
+        positive_labels: torch.LongTensor,
+        padding_mask: torch.BoolTensor,
+        target_padding_mask: torch.BoolTensor
+    ):
+        device = padding_mask.device
+        positive_labels = cast(
+            torch.LongTensor, torch.masked_select(positive_labels, target_padding_mask)
+        )  # (masked_batch_seq_size,)
+        output_emb = self._model.forward_step(feature_tensors, padding_mask)
+        output_emb = output_emb[target_padding_mask]
+
+        # Next token prediction
+        # output_emb = self._model.forward_step(feature_tensors, target_padding_mask)
+        # output_emb = output_emb[:, :-1, :][target_padding_mask[:, :-1]]
+
+        # padding_mask[:, 0] = False
+        # positive_labels = cast(torch.LongTensor, torch.masked_select(positive_labels, padding_mask))
+
+        logits = self._model.get_logits_for_restricted_loss(output_emb)
+        return (logits, positive_labels)
+        
     def _create_loss(self) -> Union[torch.nn.BCEWithLogitsLoss, torch.nn.CrossEntropyLoss]:
         if self._loss_type == "BCE":
             return torch.nn.BCEWithLogitsLoss(reduction="sum")
 
-        if self._loss_type == "CE" or self._loss_type == "SCE":
+        if self._loss_type == "CE" or self._loss_type == "SCE" or self._loss_type == "CE_restricted":
             return torch.nn.CrossEntropyLoss()
+
+        if self._loss_type == "fused_linear_CE":
+            return LigerFusedLinearCrossEntropyFunction()
+
+        if self._loss_type == "CCE":
+            return LinearCrossEntropyFunction()
 
         msg = "Not supported loss_type"
         raise NotImplementedError(msg)

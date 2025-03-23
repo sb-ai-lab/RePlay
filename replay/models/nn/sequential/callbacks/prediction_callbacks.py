@@ -127,7 +127,7 @@ class PandasPredictionCallback(BasePredictionCallback[PandasDataFrame]):
             {
                 self.query_column: query_ids.flatten().cpu().numpy(),
                 self.item_column: list(item_ids.cpu().numpy()),
-                self.rating_column: list(item_scores.cpu().numpy()),
+                self.rating_column: list(item_scores.float().cpu().numpy()),
             }
         )
         return prediction.explode([self.item_column, self.rating_column])
