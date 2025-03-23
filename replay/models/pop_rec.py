@@ -159,14 +159,6 @@ class PopRec(NonPersonolizedRecommenderClient):
     def item_popularity(self, value):
         self._impl.item_popularity = value
 
-    @property
-    def fill(self):
-        return self._impl.fill
-
-    @fill.setter
-    def fill(self, value):
-        self._impl.fill = value
-
     def to_pandas(self):
         if self.is_pandas:
             return self

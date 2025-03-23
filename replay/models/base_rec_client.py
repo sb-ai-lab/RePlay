@@ -644,7 +644,6 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
         if not isinstance(value, bool):
             msg = f"incorrect type of argument 'value' ({type(value)}). Use bool"
             raise ValueError(msg)
-
         self._add_cold_items = value
         if self.is_fitted:
             self._impl.add_cold_items = self._add_cold_items
@@ -692,7 +691,7 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
 
     @property
     def fill(self):
-        if hasattr(self._impl, "fill"):
+        if self.is_fitted and hasattr(self._impl, "fill"):
             return self._impl.fill
         else:
             msg = f"Class '{self._impl.__class__}' does not have the 'fill' attribute"

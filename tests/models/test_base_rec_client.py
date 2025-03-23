@@ -417,8 +417,86 @@ def test_nonpersonalized_client_invalid_cold_weight_setter(base_model, invalid_w
     [PopRec],
     ids=["pop_rec"],
 )
-def test_nonpersonalized_client_valid_cold_weight_setter(base_model, valid_weight):
+def test_nonpersonalized_client_valid_cold_weight_setter(base_model, valid_weight, datasets):
+    dataset = datasets["spark"]
     model = base_model()
     model.cold_weight = valid_weight
     assert model._cold_weight == valid_weight
-    model
+    assert model._init_when_first_impl_arrived_args["cold_weight"] == valid_weight
+    model.fit(dataset)
+    model.cold_weight = valid_weight
+    assert model._impl.cold_weight == valid_weight
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model",
+    [PopRec],
+    ids=["pop_rec"],
+)
+def test_nonpersonalized_client_add_cold_items(base_model, datasets):
+    model = base_model(add_cold_items=True)
+    value = True
+    dataset = datasets["spark"]
+    model = base_model()
+    with pytest.raises(AttributeError, match="does not have the 'add_cold_items' attribute"):
+        model.add_cold_items
+    model.add_cold_items = value
+    assert model._add_cold_items == value
+    model.fit(dataset)
+    assert model.add_cold_items
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model",
+    [PopRec],
+    ids=["pop_rec"],
+)
+def test_nonpersonalized_client_valid_add_cold_items_setter(base_model, datasets):
+    value = True
+    dataset = datasets["spark"]
+    model = base_model()
+    model.add_cold_items = value
+    assert model._add_cold_items == value
+    assert model._init_when_first_impl_arrived_args["add_cold_items"] == value
+    model.fit(dataset)
+    model.add_cold_items = value
+    assert model._impl.add_cold_items == value
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model",
+    [PopRec],
+    ids=["pop_rec"],
+)
+def test_nonpersonalized_client_fill(base_model, datasets):
+    model = base_model(add_cold_items=True)
+    value = True
+    dataset = datasets["spark"]
+    model = base_model()
+    with pytest.raises(AttributeError, match="does not have the 'fill' attribute"):
+        model.fill
+    with pytest.raises(AttributeError, match="Can't set to 'fill' value"):
+        model.fill = value
+    model.fit(dataset)
+    assert model.fill is not None
+    model.fill = value
+    assert model.fill is not None
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model",
+    [PopRec],
+    ids=["pop_rec"],
+)
+def test_nonpersonalized_client_sample(base_model, datasets):
+    model = base_model(add_cold_items=True)
+    dataset = datasets["spark"]
+    model = base_model()
+    with pytest.raises(AttributeError, match="does not have the 'sample' attribute"):
+        model.sample
+    model.fit(dataset)
+    assert model.sample is not None
