@@ -10,7 +10,6 @@ import abc
 import json
 import os
 import warnings
-from itertools import chain
 from pathlib import Path
 from typing import Dict, List, Literal, Mapping, Optional, Sequence, Union
 
@@ -27,7 +26,7 @@ from replay.utils import (
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import Window, functions as sf  # noqa: I001
-    from pyspark.sql.types import LongType
+    from pyspark.sql.types import LongType, IntegerType, ArrayType
 
 HandleUnknownStrategies = Literal["error", "use_default_value", "drop"]
 
@@ -629,8 +628,12 @@ class SequenceEncodingRule(LabelEncodingRule):
         return self
 
     def _transform_spark(self, df: SparkDataFrame, default_value: Optional[int]) -> SparkDataFrame:
-        map_expr = sf.create_map([sf.lit(x) for x in chain(*self.get_mapping().items())])
-        encoded_df = df.withColumn(self._target_col, sf.transform(self.column, lambda x: map_expr.getItem(x)))
+        def mapper_udf(x):
+            return [mapping.get(value) for value in x]  # pragma: no cover
+
+        mapping = self.get_mapping()
+        call_mapper_udf = sf.udf(mapper_udf, ArrayType(IntegerType()))
+        encoded_df = df.withColumn(self._target_col, call_mapper_udf(sf.col(self.column)))
 
         if self._handle_unknown == "drop":
             encoded_df = encoded_df.withColumn(self._target_col, sf.filter(self._target_col, lambda x: x.isNotNull()))
