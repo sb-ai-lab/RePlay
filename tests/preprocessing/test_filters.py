@@ -384,6 +384,12 @@ def test_consecutive_duplicates_filter(consecutive_duplicates, backend, request)
 
 
 @pytest.mark.core
+def test_consecutive_duplicates_filter_invalid_param_keep_error():
+    with pytest.raises(ValueError, match="`keep` must be either 'first' or 'last'"):
+        ConsecutiveDuplicatesFilter(keep="42")
+
+
+@pytest.mark.core
 @pytest.mark.parametrize("quantile, items_proportion", [(2, 0.5), (0.5, -1)])
 def test_quantile_filter_error(quantile, items_proportion):
     with pytest.raises(ValueError):
