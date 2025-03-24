@@ -1,8 +1,9 @@
 import pandas as pd
+import polars as pl
 import pytest
 
 from replay.models import PopRec
-from replay.models.base_rec_client import NotFittedModelError
+from replay.models.base_rec_client import DataModelMissmatchError, NotFittedModelError
 from replay.models.implementations import _PopRecPandas, _PopRecPolars, _PopRecSpark
 from tests.utils import isDataFrameEqual
 
@@ -123,6 +124,29 @@ def test_logger_invalid(base_model, arguments):
     model = base_model(**arguments)
     with pytest.raises(AttributeError, match="does not have the 'logger' attribute"):
         model.logger.debug("This call is not working")
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, arguments, impl",
+    [(PopRec, {}, "spark"), (PopRec, {}, "pandas"), (PopRec, {}, "polars")],
+    ids=["pop_rec_spark", "pop_rec_pandas", "pop_rec_polars"],
+)
+@pytest.mark.parametrize("attribute_name", ["queries_count", "items_count"])
+def test_queries_items_count(base_model, arguments, impl, attribute_name, datasets):
+    model = base_model(**arguments)
+    with pytest.raises(AttributeError, match=f"does not have the '{attribute_name}' attribute"):
+        assert getattr(model, attribute_name)
+    assert model._impl is None
+    assert not model.is_fitted
+    model.fit_items = pd.DataFrame([1, 2])
+    model.fit_queries = pd.DataFrame([1])
+    assert model.items_count == 2
+    assert model.queries_count == 1
+    model.fit(datasets[impl])
+    assert model._impl is not None
+    assert model.items_count == 3
+    assert model.queries_count == 4
 
 
 @pytest.mark.spark
@@ -289,7 +313,7 @@ def test_get_features(base_model, arguments, attribute_name, type_of_impl, datas
     [(PopRec, {}, "polars"), (PopRec, {}, "pandas"), (PopRec, {}, "spark")],
     ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
 )
-def test_convertation(base_model, arguments, type_of_impl, datasets):
+def test_convertation_not_fitted(base_model, arguments, type_of_impl, datasets):
     model = base_model(**arguments)
     if not model.is_fitted:
         with pytest.raises(NotFittedModelError):
@@ -305,8 +329,27 @@ def test_convertation(base_model, arguments, type_of_impl, datasets):
     elif model.is_pandas:
         model.to_pandas()
     elif model.is_polars:
-        model.to_polars
+        model.to_polars()
     assert id(model) == old_id
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, arguments, type_of_impl",
+    [(PopRec, {}, "polars"), (PopRec, {}, "pandas"), (PopRec, {}, "spark")],
+    ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
+)
+def test_convertation_in_same_type(base_model, arguments, type_of_impl, datasets):
+    model = base_model(**arguments)
+    model.fit(datasets[type_of_impl])
+    old_id = id(model)
+    if model.is_spark:
+        res = model.to_spark()
+    elif model.is_pandas:
+        res = model.to_pandas()
+    elif model.is_polars:
+        res = model.to_polars()
+    assert id(res) == old_id
 
 
 @pytest.mark.spark
@@ -406,6 +449,8 @@ def test_nonpersonalized_client_invalid_cold_weight(base_model, invalid_weight):
 )
 def test_nonpersonalized_client_invalid_cold_weight_setter(base_model, invalid_weight):
     model = base_model()
+    with pytest.raises(AttributeError, match="does not have the 'cold_weight' attribute"):
+        model.cold_weight
     with pytest.raises(ValueError, match=r"'cold_weight' value should be float in interval \(0, 1]"):
         model.cold_weight = invalid_weight
 
@@ -436,6 +481,9 @@ def test_nonpersonalized_client_valid_cold_weight_setter(base_model, valid_weigh
 )
 def test_nonpersonalized_client_add_cold_items(base_model, datasets):
     model = base_model(add_cold_items=True)
+    incorrect_value = "string"
+    with pytest.raises(ValueError, match="incorrect type of argument 'value'"):
+        model.add_cold_items = incorrect_value
     value = True
     dataset = datasets["spark"]
     model = base_model()
@@ -472,7 +520,6 @@ def test_nonpersonalized_client_valid_add_cold_items_setter(base_model, datasets
     ids=["pop_rec"],
 )
 def test_nonpersonalized_client_fill(base_model, datasets):
-    model = base_model(add_cold_items=True)
     value = True
     dataset = datasets["spark"]
     model = base_model()
@@ -500,3 +547,98 @@ def test_nonpersonalized_client_sample(base_model, datasets):
         model.sample
     model.fit(dataset)
     assert model.sample is not None
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model",
+    [PopRec],
+    ids=["pop_rec"],
+)
+def test_nonpersonalized_client_seed(base_model, datasets):
+    model = base_model()
+    model = base_model()
+    with pytest.raises(AttributeError, match="does not have the 'seed' attribute"):
+        model.seed
+    model._impl = _PopRecPandas()
+    model._impl.seed = SEED
+    assert model.seed == SEED
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, arguments, type_of_impl",
+    [(PopRec, {}, "polars"), (PopRec, {}, "pandas"), (PopRec, {}, "spark")],
+    ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
+)
+def test_nonpersinolized_client_dataframes(base_model, arguments, type_of_impl, datasets):
+    model = base_model(**arguments)
+    with pytest.raises(AttributeError, match="does not have the '_dataframes' attribute"):
+        model._dataframes
+    model.fit(datasets[type_of_impl])
+    assert model._dataframes is not None
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model",
+    [PopRec],
+    ids=["pop_rec"],
+)
+def test_nonpersonalized_client_item_popularity(base_model, datasets, spark):
+    dataset_spark = datasets["spark"]
+    dataset_pd = datasets["pandas"]
+    dataset_pl = datasets["polars"]
+    model_spark = base_model()
+    model_pd = base_model()
+    model_pl = base_model()
+    with pytest.raises(AttributeError, match="does not have the 'item_popularity' attribute"):
+        model_pd.item_popularity
+    with pytest.raises(DataModelMissmatchError):
+        model_spark.item_popularity = pd.DataFrame([1, 2, 3])
+    with pytest.raises(DataModelMissmatchError):
+        model_pd.item_popularity = pl.DataFrame([1, 2, 3])
+    with pytest.raises(DataModelMissmatchError):
+        model_pl.item_popularity = spark.createDataFrame(pd.DataFrame([1, 2, 3]))
+    model_spark.fit(dataset_spark)
+    model_pd.fit(dataset_pd)
+    model_pl.fit(dataset_pl)
+    model_spark.item_popularity = spark.createDataFrame(pd.DataFrame([1, 2, 3]))
+    model_pd.item_popularity = pd.DataFrame([1, 2, 3])
+    model_pl.item_popularity = pl.DataFrame([1, 2, 3])
+    assert isDataFrameEqual(model_pd.item_popularity, pd.DataFrame([1, 2, 3]))
+    assert isDataFrameEqual(model_pl.item_popularity, pl.DataFrame([1, 2, 3]))
+    assert isDataFrameEqual(model_spark.item_popularity, spark.createDataFrame(pd.DataFrame([1, 2, 3])))
+
+
+"""
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, arguments, type_of_impl",
+    [(PopRec, {}, "polars"), (PopRec, {}, "pandas"), (PopRec, {}, "spark")],
+    ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
+)
+def test_nonpersinolized_client_get_items_pd(base_model, arguments, type_of_impl, datasets):
+    model = base_model(**arguments)
+    with pytest.raises(AttributeError, match="does not have the 'get_items_pd' function"):
+        model.get_items_pd
+    model.fit(datasets[type_of_impl])
+    if type_of_impl == "pandas":
+        with pytest.raises(AttributeError, match="does not have the 'get_items_pd' function"):
+            model.get_items_pd is not None
+    else:
+        assert isinstance(model.get_items_pd, pd.DataFrame)
+"""
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model",
+    [PopRec],
+    ids=["pop_rec"],
+)
+@pytest.mark.parametrize("wrong_implementation", [1, None, {}])
+def test_wrong_implementation(base_model, wrong_implementation):
+    model = base_model()
+    with pytest.raises(ValueError, match="Model can be one of these classes:"):
+        model._impl = wrong_implementation

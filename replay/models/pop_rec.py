@@ -104,24 +104,8 @@ class PopRec(NonPersonolizedRecommenderClient):
             of a least relevant item multiplied by a `cold_weight` value.
             `Cold_weight` value should be in interval (0, 1].
         """
-        self.__impl = None
         self._use_rating = use_rating
         super().__init__(add_cold_items=add_cold_items, cold_weight=cold_weight)
-
-    @property
-    def _impl(self):
-        return self.__impl
-
-    @_impl.setter
-    def _impl(self, value):
-        if not isinstance(value, (_PopRecSpark, _PopRecPandas, _PopRecPolars)):
-            msg = "Model can be one of these classes: '_PopRecSpark', '_PopRecPandas', '_PopRecPolars'"
-            raise ValueError(msg)
-        self.__impl = value
-        realization = (
-            "spark" if isinstance(value, _PopRecSpark) else "pandas" if isinstance(value, _PopRecPandas) else "polars"
-        )
-        self._assign_implementation_type(realization)
 
     @property
     def use_rating(self):
@@ -151,42 +135,28 @@ class PopRec(NonPersonolizedRecommenderClient):
             }
         return self._impl._init_args
 
-    @property
-    def item_popularity(self):
-        return self._impl.item_popularity
-
-    @item_popularity.setter
-    def item_popularity(self, value):
-        self._impl.item_popularity = value
-
     def to_pandas(self):
-        if self.is_pandas:
-            return self
-        if self._impl is not None:
+        if self.is_fitted:
             item_popularity = convert2pandas(self.item_popularity)
             fill = self.fill
-        copy_realization = super().to_pandas()
+        same_object = super().to_pandas()
         if self.is_fitted:
-            copy_realization.item_popularity = item_popularity
-            copy_realization.fill = fill
-        return self
+            same_object.item_popularity = item_popularity
+            same_object.fill = fill
+        return same_object
 
     def to_spark(self):
-        if self.is_spark:
-            return self
-        if self._impl is not None:
+        if self.is_fitted:
             item_popularity = convert2spark(self.item_popularity)
             fill = self.fill
-        copy_realization = super().to_spark()
+        same_object = super().to_spark()
         if self.is_fitted:
-            copy_realization.item_popularity = item_popularity
-            copy_realization.fill = fill
-        return self
+            same_object.item_popularity = item_popularity
+            same_object.fill = fill
+        return same_object
 
     def to_polars(self):
-        if self.is_polars:
-            return self
-        if self._impl is not None:
+        if self.is_fitted:
             item_popularity = convert2polars(self.item_popularity)
             fill = self.fill
         copy_realization = super().to_polars()

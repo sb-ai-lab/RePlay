@@ -147,6 +147,10 @@ class _PopRecPandas:
         """
         return self._get_fit_counts("item")
 
+    @property
+    def _dataframes(self):
+        return {"item_popularity": self.item_popularity}
+
     def fit(self, dataset: PandasDataFrame):
         self.query_column = dataset.feature_schema.query_id_column
         self.item_column = dataset.feature_schema.item_id_column
@@ -489,7 +493,9 @@ class _PopRecPandas:
         # TODO: Implement it in NonPersonolizedRecommender, if you need this function in other models
         raise NotImplementedError()
 
-    def _save_model(self, path: str, additional_params=None):
+    def _save_model(
+        self, path: str, additional_params=None
+    ):  # TODO: Think how to save models like on spark(utils.save)
         saved_params = {
             "query_column": self.query_column,
             "item_column": self.item_column,
@@ -501,7 +507,7 @@ class _PopRecPandas:
         save_picklable_to_parquet(saved_params, join(path, "params.dump"))
         return saved_params
 
-    def _load_model(self, path: str):
+    def _load_model(self, path: str):  # TODO: Think how to load models like on spark(utils.save)
         loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
         for param, value in loaded_params.items():
             setattr(self, param, value)

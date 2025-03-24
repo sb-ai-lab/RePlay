@@ -5,7 +5,7 @@ from typing import Any, Dict, Iterable, Optional, Tuple, Union
 import polars as pl
 
 from replay.data.dataset import Dataset
-from replay.utils import PolarsDataFrame
+from replay.utils import PandasDataFrame, PolarsDataFrame
 from replay.utils.pandas_utils import load_pickled_from_parquet, save_picklable_to_parquet
 
 # In this code PandasDataFrame is replaced by pl.DataFrame.
@@ -128,6 +128,10 @@ class _PopRecPolars:
         :returns: number of items the model was trained on
         """
         return self._get_fit_counts("item")
+
+    @property
+    def _dataframes(self):
+        return {"item_popularity": self.item_popularity}
 
     def fit(self, dataset: pl.DataFrame):
         self.query_column = dataset.feature_schema.query_id_column
@@ -296,7 +300,7 @@ class _PopRecPolars:
             )
         return dataset, queries, items
 
-    def get_items_pd(self, items: pl.DataFrame) -> pl.DataFrame:
+    def get_items_pd(self, items: pl.DataFrame) -> PandasDataFrame:
         selected_item_popularity = self._get_selected_item_popularity(items)
         # Replace row-wise apply with an expression
         selected_item_popularity = selected_item_popularity.with_columns(
@@ -309,7 +313,7 @@ class _PopRecPolars:
         selected_item_popularity = selected_item_popularity.with_columns(
             (pl.col(self.rating_column) / total_rating).alias("probability")
         )
-        return selected_item_popularity
+        return selected_item_popularity.to_pandas()
 
     def _predict_without_sampling(
         self,
@@ -447,7 +451,9 @@ class _PopRecPolars:
         # TODO: Implement it in NonPersonolizedRecommender, if you need this function in other models
         raise NotImplementedError()
 
-    def _save_model(self, path: str, additional_params=None):
+    def _save_model(
+        self, path: str, additional_params=None
+    ):  # TODO: Think how to save models like on spark(utils.save)
         saved_params = {
             "query_column": self.query_column,
             "item_column": self.item_column,
@@ -459,7 +465,7 @@ class _PopRecPolars:
             save_picklable_to_parquet(saved_params, join(path, "params.dump"))
         return saved_params
 
-    def _load_model(self, path: str):
+    def _load_model(self, path: str):  # TODO: Think how to load models like on spark(utils.save)
         loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
         for param, value in loaded_params.items():
             setattr(self, param, value)

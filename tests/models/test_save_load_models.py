@@ -124,7 +124,7 @@ def test_word(df, tmp_path):
     model = Word2VecRec()
     model.fit(dataset)
     base_pred = model.predict(dataset, 5)
-    save(model, path)
+    (model, path)
     loaded_model = load(path)
     new_pred = loaded_model.predict(dataset, 5)
     sparkDataFrameEqual(base_pred, new_pred)

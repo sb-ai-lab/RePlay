@@ -1345,3 +1345,24 @@ def test_fit_predict_different_frameworks_pandas_polars(base_model, arguments, d
         model.to_pandas()
         res2 = model.predict(pandas_df, k=1)
         assert isDataFrameEqual(res1, res2), "Not equal dataframes in pair of train-predict"
+
+
+"""
+@pytest.mark.spark # TODO: Save.load not working on pandas and polars. Check replay.utils.save 'todo' for context
+@pytest.mark.parametrize(
+    "recommender, type_of_impl",
+    [(PopRec, "spark"), (PopRec, "pandas"), (PopRec, "polars")],
+    ids=["pop_rec_spark", "pop_rec_pd", "pop_rec_pl"]
+)
+def test_equal_preds_after_save_load(recommender, type_of_impl, tmp_path, request):
+    path = (tmp_path / "test").resolve()
+    log = request.getfixturevalue("long_log_with_features" + ("_"+ type_of_impl) if type_of_impl != "spark" else "")
+    dataset = get_dataset_any_type(log)
+    model = recommender()
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(dataset, 5)
+    assert isDataFrameEqual(new_pred, base_pred)
+"""

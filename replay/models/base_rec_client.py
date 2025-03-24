@@ -71,6 +71,7 @@ class BaseRecommenderClient(ABC):
         locals()[attr] = _make_property.__func__(attr, attributes_after_fit_with_setter)
 
     def __init__(self):
+        self.__impl = None
         self.is_pandas = False
         self.is_spark = False
         self.is_polars = False
@@ -82,6 +83,23 @@ class BaseRecommenderClient(ABC):
             "criterion": None,
             "study": None,
         }
+
+    @property
+    def _impl(self):
+        return self.__impl
+
+    @_impl.setter
+    def _impl(self, value):
+        if not isinstance(value, tuple(self._class_map.values())):
+            msg = f"Model can be one of these classes: {tuple(self._class_map.values())}, not '{type(value)}'"
+            raise ValueError(msg)
+        self.__impl = value
+        realization = (
+            "spark"
+            if isinstance(value, self._class_map["spark"])
+            else "pandas" if isinstance(value, self._class_map["pandas"]) else "polars"
+        )
+        self._assign_implementation_type(realization)
 
     @property
     def is_fitted(self):
@@ -111,16 +129,6 @@ class BaseRecommenderClient(ABC):
         if self.is_polars:
             return "polars"
         return None
-
-    @property
-    @abstractmethod
-    def _impl(self):
-        """Implementation of model on Spark, Polars or Pandas"""
-
-    @_impl.setter
-    @abstractmethod
-    def _impl(self, value):
-        """Setter of implementation of model on Spark, Polars or Pandas"""
 
     @property
     @abstractmethod
@@ -211,7 +219,10 @@ class BaseRecommenderClient(ABC):
         if self.is_fitted and hasattr(self._impl, "items_count"):
             return self._impl.items_count
         elif not self.is_fitted and "fit_items" in self._init_when_first_impl_arrived_args:
-            return self._init_when_first_impl_arrived_args["fit_items"].count()
+            if isinstance(self._init_when_first_impl_arrived_args["fit_items"], PandasDataFrame):
+                return self._init_when_first_impl_arrived_args["fit_items"].shape[0]
+            else:
+                return self._init_when_first_impl_arrived_args["fit_items"].count()
         else:
             msg = f"Class '{self._impl.__class__}' does not have the 'items_count' attribute"
             raise AttributeError(msg)
@@ -221,7 +232,10 @@ class BaseRecommenderClient(ABC):
         if self.is_fitted and hasattr(self._impl, "queries_count"):
             return self._impl.queries_count
         elif not self.is_fitted and "fit_queries" in self._init_when_first_impl_arrived_args:
-            return self._init_when_first_impl_arrived_args["fit_queries"].count()
+            if isinstance(self._init_when_first_impl_arrived_args["fit_queries"], PandasDataFrame):
+                return self._init_when_first_impl_arrived_args["fit_queries"].shape[0]
+            else:
+                return self._init_when_first_impl_arrived_args["fit_queries"].count()
         else:
             msg = f"Class '{self._impl.__class__}' does not have the 'queries_count' attribute"
             raise AttributeError(msg)
@@ -625,7 +639,7 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
             raise ValueError(msg)
 
     @property
-    def _init_args(self):
+    def _init_args(self):  # TODO: переделать на self._impl и если нет тогда словарь
         return {
             "add_cold_items": self._add_cold_items,
             "cold_weight": self._cold_weight,
@@ -685,7 +699,7 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
             if type(value) == SparkDataFrame
             else "pandas" if type(value) == PandasDataFrame else "polars" if type(value) == PolarsDataFrame else None
         )
-        if not self._get_implementation_type == value_type:
+        if not self._get_implementation_type() == value_type or value_type is None:
             raise DataModelMissmatchError
         self._impl.item_popularity = value
 
@@ -731,8 +745,12 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
 
     def get_items_pd(self, items: DataFrameLike) -> pd.DataFrame:
         """Clear the cache in spark realization"""
-        if hasattr(self._impl, "get_items_pd") and not isinstance(self._impl, self._class_map["pandas"]):
+        if (
+            self.is_fitted
+            and hasattr(self._impl, "get_items_pd")
+            and not isinstance(self._impl, self._class_map["pandas"])
+        ):
             return self._impl.get_items_pd(items)
         else:
-            msg = f"Class '{self._impl.__class__}' does not have the 'get_items_pd' function "
+            msg = f"Class '{self._impl.__class__}' does not have the 'get_items_pd' function"
             raise AttributeError(msg)

@@ -61,7 +61,7 @@ if PYSPARK_AVAILABLE:
         return [str(f.getPath()) for f in statuses]
 
 
-def save(
+def save(  # TODO: Think how to save model's implementations on pandas and polars without spark
     model: Union[BaseRecommenderClient, _BaseRecommenderSparkImpl], path: Union[str, Path], overwrite: bool = False
 ):
     """
@@ -123,7 +123,7 @@ def load(path: str, model_type=None) -> _BaseRecommenderSparkImpl:
     :param path: path to model folder
     :return: Restored trained model
     """
-    spark = State().session
+    spark = State().session  # TODO: Think how to load model's implementations on pandas and polars without spark
     args = spark.read.json(join(path, "init_args.json")).first().asDict(recursive=True)
     name = args["_model_name"]
     del args["_model_name"]
