@@ -629,7 +629,7 @@ class SequenceEncodingRule(LabelEncodingRule):
 
     def _transform_spark(self, df: SparkDataFrame, default_value: Optional[int]) -> SparkDataFrame:
         def mapper_udf(x):
-            return [mapping[v] for v in x]
+            return [mapping.get(value) for value in x]
 
         mapping = self.get_mapping()
         call_mapper_udf = sf.udf(mapper_udf, ArrayType(IntegerType()))
