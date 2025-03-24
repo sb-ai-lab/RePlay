@@ -98,9 +98,8 @@ class LinUCB(HybridRecommender):
     The model assumes a linear relationship between user context, item features and action rewards,
     making it efficient for high-dimensional contexts.
 
-    Note:
-        It's recommended to scale features to a similar range (e.g., using StandardScaler or MinMaxScaler)
-        to ensure proper convergence and prevent numerical instability (since relationships to learn are linear).
+    Note: It's recommended to scale features to a similar range (e.g., using StandardScaler or MinMaxScaler)
+    to ensure proper convergence and prevent numerical instability (since relationships to learn are linear).
 
     >>> import pandas as pd
     >>> from replay.data.dataset import (
