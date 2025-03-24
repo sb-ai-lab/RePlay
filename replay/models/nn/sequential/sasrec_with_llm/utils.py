@@ -1,8 +1,8 @@
-import torch
 import json
 
+import torch
 from torch import nn
-import torch.nn.functional as F
+from torch.nn.functional import softmax
 
 
 def load_user_profile_embeddings(file_path: str, user_id_mapping: dict):
@@ -13,7 +13,7 @@ def load_user_profile_embeddings(file_path: str, user_id_mapping: dict):
 
     :return: Tuple of user profile embeddings tensor and binary mask for missing profiles
     """
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         user_profiles_data = json.load(f)
 
     embedding_dim = len(next(iter(user_profiles_data.values())))
@@ -69,6 +69,6 @@ class SimpleAttentionAggregator(nn.Module):
         :returns: Aggregated tensor of shape [batch_size, hidden_units]
         """
         scores = self.attention(x)
-        weights = F.softmax(scores, dim=1)
+        weights = softmax(scores, dim=1)
         weighted_sum = (x * weights).sum(dim=1)
         return weighted_sum

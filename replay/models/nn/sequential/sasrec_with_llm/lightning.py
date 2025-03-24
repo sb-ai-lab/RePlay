@@ -7,10 +7,9 @@ from torch import nn
 
 from replay.data.nn import TensorMap, TensorSchema
 from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
-from .dataset import SasRecLLMTrainingBatch
-
-from .model import SasRecLLMModel
-from ..sasrec.lightning import SasRec
+from replay.models.nn.sequential.sasrec.lightning import SasRec
+from replay.models.nn.sequential.sasrec_with_llm.dataset import SasRecLLMTrainingBatch
+from replay.models.nn.sequential.sasrec_with_llm.model import SasRecLLMModel
 
 
 class SasRecLLM(SasRec):
@@ -42,13 +41,13 @@ class SasRecLLM(SasRec):
         alpha: float = 0.8,
         profile_distil_epochs: int = 0,
         reconstruction_layer: int = -1,
-        criterion_reconstruct_name: str = 'MSE',
-        weighting_scheme='mean',
+        criterion_reconstruct_name: str = "MSE",
+        weighting_scheme="mean",
         use_down_scale=True,
         use_upscale=False,
         weight_scale=None,
         multi_profile=False,
-        multi_profile_aggr_scheme='mean'
+        multi_profile_aggr_scheme="mean"
     ) -> None:
         """
         :param tensor_schema: Tensor schema of features.
@@ -147,13 +146,14 @@ class SasRecLLM(SasRec):
         :param criterion_name: Name of criterion for reconstruction.
         :return: Criterion for reconstruction
         """
-        if criterion_name == 'MSE':
+        if criterion_name == "MSE":
             return lambda x,y: nn.MSELoss()(x,y)
-        if criterion_name == 'RMSE':
+        if criterion_name == "RMSE":
             return lambda x,y: torch.sqrt(nn.MSELoss()(x,y))
-        if criterion_name == 'CosSim':
+        if criterion_name == "CosSim":
             return lambda x,y: 1 - torch.mean(nn.CosineSimilarity(dim=1, eps=1e-6)(x,y))
-        raise Exception('Not existing reconstruction loss')
+        error_msg = f"Not existing reconstruction loss {criterion_name}"
+        raise NotImplementedError(error_msg)
 
     def _compute_loss(self, batch: SasRecLLMTrainingBatch) -> torch.Tensor:
         if self._loss_type == "BCE":
@@ -302,9 +302,12 @@ class SasRecLLM(SasRec):
         target_padding_mask: torch.BoolTensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         assert self._loss_sample_count is not None
-        (positive_logits, negative_logits, hidden_state, positive_labels, negative_labels, vocab_size) = self._get_sampled_logits(
-            feature_tensors, positive_labels, padding_mask, target_padding_mask
-        )
+        (positive_logits, negative_logits, hidden_state, positive_labels, negative_labels, vocab_size) =\
+            self._get_sampled_logits(feature_tensors,
+                                     positive_labels,
+                                     padding_mask,
+                                     target_padding_mask
+                                     )
         n_negative_samples = min(self._loss_sample_count, vocab_size)
 
         # Reject negative samples matching target label & correct for remaining samples
