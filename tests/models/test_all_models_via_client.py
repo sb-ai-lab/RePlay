@@ -501,7 +501,7 @@ def test_predict_pairs_to_file_spark(model, tmp_path, request):
     ],
     ids=["pop_rec", "knn"],
 )
-@pytest.mark.parametrize("dataset_type", ["spark", "pandas", "polars"], ids=["spark", "pandas", "polars"])
+@pytest.mark.parametrize("dataset_type", ["spark", "pandas", "polars"])
 def test_predict_pairs_to_file_core(model, dataset_type, tmp_path, request):
     if dataset_type == "pandas":
         long_log_with_features = request.getfixturevalue("long_log_with_features_" + dataset_type)
@@ -595,7 +595,7 @@ def test_predict_to_file_spark(model, tmp_path, request):
     ],
     ids=["pop_rec", "knn"],
 )
-@pytest.mark.parametrize("dataset_type", ["spark", "pandas", "polars"], ids=["spark", "pandas", "polars"])
+@pytest.mark.parametrize("dataset_type", ["spark", "pandas", "polars"])
 def test_predict_to_file_core(model, dataset_type, tmp_path, request):
     model = model()
     if dataset_type == "pandas":
@@ -1347,6 +1347,24 @@ def test_fit_predict_different_frameworks_pandas_polars(base_model, arguments, d
         assert isDataFrameEqual(res1, res2), "Not equal dataframes in pair of train-predict"
 
 
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, arguments",
+    [(PopRec, {})],
+    ids=["pop_rec"],
+)
+@pytest.mark.parametrize("type_of_impl", ["pandas", "spark", "polars"])
+def test_compare_fit_predict_client_and_implementation(base_model, arguments, type_of_impl, datasets):
+    dataset = datasets[type_of_impl]
+    model_client = base_model(**arguments)
+    model_impl = base_model(**arguments)
+    res_client = model_client.fit_predict(dataset, k=2)
+
+    model_impl._impl = model_impl._class_map[type_of_impl]()
+    res_impl = model_impl._impl.fit_predict(dataset, k=2)
+    assert isDataFrameEqual(res_client, res_impl)
+
+
 """
 @pytest.mark.spark # TODO: Save.load not working on pandas and polars. Check replay.utils.save 'todo' for context
 @pytest.mark.parametrize(
@@ -1354,7 +1372,7 @@ def test_fit_predict_different_frameworks_pandas_polars(base_model, arguments, d
     [(PopRec, "spark"), (PopRec, "pandas"), (PopRec, "polars")],
     ids=["pop_rec_spark", "pop_rec_pd", "pop_rec_pl"]
 )
-def test_equal_preds_after_save_load(recommender, type_of_impl, tmp_path, request):
+def test_equal_preds_after_save_load_model(recommender, type_of_impl, tmp_path, request):
     path = (tmp_path / "test").resolve()
     log = request.getfixturevalue("long_log_with_features" + ("_"+ type_of_impl) if type_of_impl != "spark" else "")
     dataset = get_dataset_any_type(log)

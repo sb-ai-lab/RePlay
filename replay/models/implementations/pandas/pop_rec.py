@@ -124,13 +124,6 @@ class _PopRecPandas:
 
     def _get_fit_counts(self, entity: str) -> int:
         num_entities = "_num_queries" if entity == "query" else "_num_items"
-        fit_entities = self.fit_queries if entity == "query" else self.fit_items
-        if not hasattr(self, num_entities):
-            setattr(
-                self,
-                num_entities,
-                fit_entities.count(),
-            )
         return getattr(self, num_entities)
 
     @property
@@ -221,9 +214,7 @@ class _PopRecPandas:
         recs = recs[recs["temp_rank"] <= max_seen + k]
         recs = recs.merge(num_seen, on=self.query_column, how="left").fillna({"seen_count": 0})
 
-        # Filter based on ranking
         recs = recs[recs["temp_rank"] <= recs["seen_count"] + k].drop(columns=["temp_rank", "seen_count"])
-        # Filter recommendations presented in interactions
         queries_interactions = queries_interactions.rename(
             columns={self.item_column: "item", self.query_column: "query"}
         )
@@ -472,9 +463,6 @@ class _PopRecPandas:
                 query_features=query_features,
                 item_features=item_features,
             )
-        if self.item_popularity is None:
-            msg = "Model not fitted. Please call fit() first."
-            raise ValueError(msg)
         pred = pairs.merge(self.item_popularity, on=self.item_column, how="left" if self.add_cold_items else "inner")
         fill_value = self._calc_fill(self.item_popularity, self.cold_weight, self.rating_column)
         pred[self.rating_column].fillna(fill_value, inplace=True)
@@ -483,7 +471,7 @@ class _PopRecPandas:
             pred = get_top_k(pred, self.query_column, [(self.rating_column, False), (self.item_column, True)], k)
 
         if recs_file_path is not None:
-            pred.to_parquet(recs_file_path)  # it's overwrite operation
+            pred.to_parquet(recs_file_path)  # it's overwrite operation - as expected
             return None
         return pred
 
@@ -493,7 +481,7 @@ class _PopRecPandas:
         # TODO: Implement it in NonPersonolizedRecommender, if you need this function in other models
         raise NotImplementedError()
 
-    def _save_model(
+    def _save_model(  # pragma: no cover
         self, path: str, additional_params=None
     ):  # TODO: Think how to save models like on spark(utils.save)
         saved_params = {
@@ -507,7 +495,7 @@ class _PopRecPandas:
         save_picklable_to_parquet(saved_params, join(path, "params.dump"))
         return saved_params
 
-    def _load_model(self, path: str):  # TODO: Think how to load models like on spark(utils.save)
+    def _load_model(self, path: str):  # pragma: no cover # TODO: Think how to load models like on spark(utils.save)
         loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
         for param, value in loaded_params.items():
             setattr(self, param, value)

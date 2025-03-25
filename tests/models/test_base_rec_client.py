@@ -2,9 +2,10 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from replay.models import PopRec
+from replay.models import NonPersonolizedRecommenderClient, PopRec
 from replay.models.base_rec_client import DataModelMissmatchError, NotFittedModelError
 from replay.models.implementations import _PopRecPandas, _PopRecPolars, _PopRecSpark
+from replay.utils.common import convert2spark
 from tests.utils import isDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
@@ -68,10 +69,10 @@ def test_get_implementation_type(base_model, arguments, attribute, expected_resu
 
 
 @pytest.mark.spark
-@pytest.mark.parametrize("base_model, arguments, impl_class", [(PopRec, {}, _PopRecSpark)], ids=["pop_rec_spark"])
-def test_cached_dfs(base_model, arguments, impl_class, spark_interactions):
+@pytest.mark.parametrize("base_model, arguments", [(PopRec, {})], ids=["pop_rec_spark"])
+def test_cached_dfs(base_model, arguments, spark_interactions):
     model = base_model(**arguments)
-    model._impl = impl_class()
+    model._impl = model._class_map["spark"]()
     model._assign_implementation_type("spark")
     assert model.cached_dfs is None
     df_name = "interactions"
@@ -84,31 +85,34 @@ def test_cached_dfs(base_model, arguments, impl_class, spark_interactions):
 
 @pytest.mark.spark
 @pytest.mark.parametrize(
-    "base_model, arguments, impl_class, type_of_impl",
-    [
-        (PopRec, {}, _PopRecPolars, "polars"),
-        (PopRec, {}, _PopRecPandas, "pandas"),
-        (PopRec, {}, _PopRecSpark, "pandas"),
-    ],
-    ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_invalid_assignation"],
+    "base_model, arguments",
+    [(PopRec, {})],
+    ids=["pop_rec"],
 )
-def test_cached_dfs_invalid(base_model, arguments, impl_class, type_of_impl):
+@pytest.mark.parametrize(
+    "type_of_impl", ["pandas", "spark", "polars"], ids=["invalid_pandas", "valid_impl_spark", "invalid_polars"]
+)
+def test_cached_dfs_invalid(base_model, arguments, type_of_impl):
     model = base_model(**arguments)
-    model._impl = impl_class()
+    model._impl = model._class_map[type_of_impl]()
     model._assign_implementation_type(type_of_impl)
-    with pytest.raises(AttributeError, match="does not have the 'cached_dfs' attribute"):
-        model.cached_dfs
+    if type_of_impl != "spark":
+        with pytest.raises(AttributeError, match="does not have the 'cached_dfs' attribute"):
+            model.cached_dfs
+    else:
+        assert model.cached_dfs is None
 
 
 @pytest.mark.spark
 @pytest.mark.parametrize(
-    "base_model, arguments, impl_class",
-    [(PopRec, {}, _PopRecPolars), (PopRec, {}, _PopRecPandas), (PopRec, {}, _PopRecSpark)],
-    ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
+    "base_model, arguments",
+    [(PopRec, {})],
+    ids=["pop_rec"],
 )
-def test_logger(base_model, arguments, impl_class):
+@pytest.mark.parametrize("type_of_impl", ["pandas", "spark", "polars"])
+def test_logger(base_model, arguments, type_of_impl):
     model = base_model(**arguments)
-    model._impl = impl_class()
+    model._impl = model._class_map[type_of_impl]()
     assert model._impl._logger is None  # In implementations _logger is None after __init__
     assert model.logger is not None  # but after first time logger called, it is not None
     model.logger.debug("Logger works")
@@ -151,19 +155,20 @@ def test_queries_items_count(base_model, arguments, impl, attribute_name, datase
 
 @pytest.mark.spark
 @pytest.mark.parametrize(
-    "base_model, arguments, impl_class, type_of_impl",
-    [(PopRec, {}, _PopRecPolars, "polars"), (PopRec, {}, _PopRecPandas, "pandas"), (PopRec, {}, _PopRecSpark, "spark")],
-    ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
+    "base_model, arguments",
+    [(PopRec, {})],
+    ids=["pop_rec"],
 )
 @pytest.mark.parametrize(
     "attribute_name", ["model", "can_predict_cold_queries", "can_predict_cold_items", "_search_space", "_objective"]
 )
-def test_attributes(base_model, arguments, impl_class, type_of_impl, attribute_name):
+@pytest.mark.parametrize("type_of_impl", ["pandas", "spark", "polars"])
+def test_attributes(base_model, arguments, type_of_impl, attribute_name):
     class Attribute:
         value = 123
 
     model = base_model(**arguments)
-    model._impl = impl_class()
+    model._impl = model._class_map[type_of_impl]()
     model._assign_implementation_type(type_of_impl)
     setattr(model._impl, attribute_name, Attribute())
     assert getattr(model, attribute_name).value == 123
@@ -285,12 +290,11 @@ pytest.mark.spark
 
 
 @pytest.mark.parametrize(
-    "base_model, arguments, type_of_impl",
-    [(PopRec, {}, "polars"), (PopRec, {}, "pandas"), (PopRec, {}, "spark")],
-    ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
+    "base_model, arguments",
+    [(PopRec, {})],
+    ids=["pop_rec"],
 )
-@pytest.mark.parametrize("attribute_name", ["model", "study", "criterion"])
-def test_get_features(base_model, arguments, attribute_name, type_of_impl, datasets):
+def test_get_features(base_model, arguments, datasets):
     dataset_pd = datasets["pandas"]
     dataset_spark = datasets["spark"]
     dataset_pl = datasets["polars"]
@@ -305,6 +309,14 @@ def test_get_features(base_model, arguments, attribute_name, type_of_impl, datas
     _, rank_pd = model_pd.get_features(ids=pd.DataFrame(dataset_pd.interactions[item_col].unique(), columns=[item_col]))
     _, rank_pl = model_pl.get_features(ids=dataset_pl.interactions.select(item_col).unique())
     assert rank_spark == rank_pd == rank_pl  # If add new client_models in future, add comparison of dfs
+    fake_dataset = pd.DataFrame({"fake_id": [1, 2], "fake_item": [2, 3]})
+    assert item_col not in fake_dataset.columns
+    with pytest.raises(ValueError, match="missing"):
+        model_spark.get_features(ids=fake_dataset)
+    with pytest.raises(ValueError, match="missing"):
+        model_pd.get_features(ids=fake_dataset)
+    with pytest.raises(ValueError, match="missing"):
+        model_pl.get_features(ids=fake_dataset)
 
 
 @pytest.mark.spark
@@ -381,30 +393,28 @@ def test_get_fit_counts(base_model, arguments, type_of_impl, datasets, fake_fit_
 
 @pytest.mark.spark
 @pytest.mark.parametrize(
-    "base_model, arguments, impl_class",
-    [(PopRec, {}, _PopRecPolars), (PopRec, {}, _PopRecPandas), (PopRec, {}, _PopRecSpark)],
-    ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
+    "base_model, arguments",
+    [(PopRec, {})],
+    ids=["pop_rec"],
 )
-def test_string_name(base_model, arguments, impl_class):
+@pytest.mark.parametrize("type_of_impl", ["pandas", "spark", "polars"])
+def test_string_name(base_model, arguments, type_of_impl):
     model = base_model(**arguments)
     assert str(model) == base_model.__name__
-    model._impl = impl_class()
-    assert str(model._impl) == impl_class.__name__
+    model._impl = model._class_map[type_of_impl]()
+    assert str(model._impl) == model._class_map[type_of_impl].__name__
 
 
 @pytest.mark.spark
 @pytest.mark.parametrize(
-    "base_model, arguments, impl_class",
-    [
-        (PopRec, {}, _PopRecPolars),
-        (PopRec, {}, _PopRecPandas),
-        (PopRec, {}, _PopRecSpark),
-    ],
-    ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
+    "base_model, arguments",
+    [(PopRec, {})],
+    ids=["pop_rec"],
 )
-def test_clear_cache(base_model, arguments, impl_class):
+@pytest.mark.parametrize("type_of_impl", ["pandas", "spark", "polars"])
+def test_clear_cache(base_model, arguments, type_of_impl):
     model = base_model(**arguments)
-    model._impl = impl_class()
+    model._impl = model._class_map[type_of_impl]()
     if not model.is_spark:
         with pytest.raises(AttributeError, match=r"does not have the '_clear_cache\(\)' method"):
             model._clear_cache()
@@ -412,14 +422,26 @@ def test_clear_cache(base_model, arguments, impl_class):
         model._clear_cache()
 
 
-# ----------------- NonPersonolizedRecommenderClient -----------------
+# ----------------- NonPersonalizedRecommenderClient -----------------
+
+
+class NonPersRec(NonPersonolizedRecommenderClient):
+    _class_map = {"spark": _PopRecSpark, "pandas": _PopRecPandas, "polars": _PopRecPolars}
+
+    def _fit(
+        self,
+        dataset,
+    ) -> None:
+        pass
+
+
 @pytest.mark.spark
 @pytest.mark.parametrize(
     "base_model, arguments",
-    [(PopRec, {"add_cold_items": True, "cold_weight": 0.5})],
-    ids=["pop_rec"],
+    [(PopRec, {"add_cold_items": True, "cold_weight": 0.5}), (NonPersRec, {"add_cold_items": True, "cold_weight": 1})],
+    ids=["pop_rec", "non_pers_rec"],
 )
-def test_nonpersonalized_client_valid_init(base_model, arguments):
+def test_nonpersonalized_client_valid_init_args(base_model, arguments):
     model = base_model(**arguments)
     for i, val in arguments.items():
         assert model._init_args[i] == val
@@ -560,7 +582,7 @@ def test_nonpersonalized_client_seed(base_model, datasets):
     model = base_model()
     with pytest.raises(AttributeError, match="does not have the 'seed' attribute"):
         model.seed
-    model._impl = _PopRecPandas()
+    model._impl = model._class_map["pandas"]()
     model._impl.seed = SEED
     assert model.seed == SEED
 
@@ -571,7 +593,7 @@ def test_nonpersonalized_client_seed(base_model, datasets):
     [(PopRec, {}, "polars"), (PopRec, {}, "pandas"), (PopRec, {}, "spark")],
     ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
 )
-def test_nonpersinolized_client_dataframes(base_model, arguments, type_of_impl, datasets):
+def test_nonpersonalized_client_dataframes(base_model, arguments, type_of_impl, datasets):
     model = base_model(**arguments)
     with pytest.raises(AttributeError, match="does not have the '_dataframes' attribute"):
         model._dataframes
@@ -611,24 +633,27 @@ def test_nonpersonalized_client_item_popularity(base_model, datasets, spark):
     assert isDataFrameEqual(model_spark.item_popularity, spark.createDataFrame(pd.DataFrame([1, 2, 3])))
 
 
-"""
 @pytest.mark.spark
 @pytest.mark.parametrize(
-    "base_model, arguments, type_of_impl",
-    [(PopRec, {}, "polars"), (PopRec, {}, "pandas"), (PopRec, {}, "spark")],
+    "base_model, arguments, type_of_impl, items",
+    [
+        (PopRec, {}, "polars", pl.DataFrame({"item_idx": [1, 2]})),
+        (PopRec, {}, "pandas", pd.DataFrame({"item_idx": [1, 2]})),
+        (PopRec, {}, "spark", convert2spark(pd.DataFrame({"item_idx": [1, 2]}))),
+    ],
     ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
 )
-def test_nonpersinolized_client_get_items_pd(base_model, arguments, type_of_impl, datasets):
+def test_nonpersonalized_client_get_items_pd(base_model, arguments, type_of_impl, items, datasets):
     model = base_model(**arguments)
     with pytest.raises(AttributeError, match="does not have the 'get_items_pd' function"):
-        model.get_items_pd
+        model.get_items_pd(items)
+
     model.fit(datasets[type_of_impl])
     if type_of_impl == "pandas":
         with pytest.raises(AttributeError, match="does not have the 'get_items_pd' function"):
-            model.get_items_pd is not None
+            model.get_items_pd(items) is not None
     else:
-        assert isinstance(model.get_items_pd, pd.DataFrame)
-"""
+        assert isinstance(model.get_items_pd(items), pd.DataFrame)
 
 
 @pytest.mark.spark

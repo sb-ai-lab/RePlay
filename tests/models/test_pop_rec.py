@@ -46,3 +46,34 @@ def test_clear_cache(log, model):
     dataset = create_dataset(log)
     model.fit(dataset)
     model._clear_cache()
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, type_of_impl",
+    [(PopRec, "polars"), (PopRec, "pandas"), (PopRec, "spark")],
+    ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
+)
+def test_use_rating_invalid(base_model, type_of_impl, datasets):
+    model = base_model()
+    assert not model.is_fitted
+    assert model.use_rating is False
+    with pytest.raises(ValueError, match="incorrect type of argument 'value'"):
+        model.use_rating = 2
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, type_of_impl",
+    [(PopRec, "polars"), (PopRec, "pandas"), (PopRec, "spark")],
+    ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
+)
+def test_use_rating_valid(base_model, type_of_impl, datasets):
+    model = base_model()
+    assert not model.is_fitted
+    assert model.use_rating is False
+    model.use_rating = True
+    assert model._init_when_first_impl_arrived_args["use_rating"] is True
+    model.fit(datasets[type_of_impl])
+    assert model.is_fitted
+    assert model.use_rating is True

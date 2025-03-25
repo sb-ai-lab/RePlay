@@ -109,21 +109,21 @@ class PopRec(NonPersonolizedRecommenderClient):
 
     @property
     def use_rating(self):
-        if self._impl is not None and hasattr(self._impl, "use_rating"):
+        if self.is_fitted:
             return self._impl.use_rating
         else:
-            msg = f"Class '{self._impl.__class__}' does not have the 'use_rating' attribute"
-            raise AttributeError(msg)
+            return self._use_rating
 
     @use_rating.setter
     def use_rating(self, value: bool):
         if not isinstance(value, bool):
             msg = f"incorrect type of argument 'value' ({type(value)}). Use bool"
             raise ValueError(msg)
-
         self._use_rating = value
-        if self._impl is not None:
+        if self.is_fitted:
             self._impl.use_rating = self._use_rating
+        else:
+            self._init_when_first_impl_arrived_args.update({"use_rating": value})
 
     @property
     def _init_args(self):

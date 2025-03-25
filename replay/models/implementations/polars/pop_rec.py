@@ -7,8 +7,6 @@ import polars as pl
 from replay.data.dataset import Dataset
 from replay.utils import PandasDataFrame, PolarsDataFrame
 from replay.utils.pandas_utils import load_pickled_from_parquet, save_picklable_to_parquet
-
-# In this code PandasDataFrame is replaced by pl.DataFrame.
 from replay.utils.polars_utils import (
     filter_cold,
     get_top_k,
@@ -83,9 +81,6 @@ class _PopRecPolars:
 
     def _get_fit_counts(self, entity: str) -> int:
         num_entities = "_num_queries" if entity == "query" else "_num_items"
-        fit_entities = self.fit_queries if entity == "query" else self.fit_items
-        if not hasattr(self, num_entities):
-            setattr(self, num_entities, fit_entities.height)
         return getattr(self, num_entities)
 
     def get_features(
@@ -146,7 +141,6 @@ class _PopRecPolars:
                 [dataset.interactions.select(self.query_column), dataset.query_features.select(self.query_column)]
             ).unique()
 
-        # For items
         if dataset.item_features is None:
             self.fit_items = dataset.interactions.select(self.item_column).unique()
         else:
@@ -196,7 +190,7 @@ class _PopRecPolars:
             pl.col(self.item_column).count().alias("seen_count")
         )
         max_seen = num_seen["seen_count"].max() if not num_seen.is_empty() else 0
-        # Ranking per query; "ordinal" in 'rank' replicates pandas' method="first"
+        # Ranking per query: "ordinal" in 'rank' replicates pandas method="first"
         recs = recs.with_columns(
             pl.col(self.rating_column).rank("ordinal", descending=True).over(self.query_column).alias("temp_rank")
         )
@@ -302,7 +296,6 @@ class _PopRecPolars:
 
     def get_items_pd(self, items: pl.DataFrame) -> PandasDataFrame:
         selected_item_popularity = self._get_selected_item_popularity(items)
-        # Replace row-wise apply with an expression
         selected_item_popularity = selected_item_popularity.with_columns(
             pl.when(pl.col(self.rating_column) == 0.0)
             .then(0.1**6)
@@ -326,7 +319,6 @@ class _PopRecPolars:
         selected_item_popularity = self._get_selected_item_popularity(items)
         if not selected_item_popularity.is_empty():
             selected_item_popularity = selected_item_popularity.sort(self.item_column, descending=True)
-            # Sort by rating and item in descending order and add a row count as rank
             sorted_df = selected_item_popularity.sort(
                 by=[self.rating_column, self.item_column], descending=[True, True]
             )
@@ -355,9 +347,8 @@ class _PopRecPolars:
 
             max_seen = queries.select(pl.col("num_items").max()).item()
             selected_item_popularity = selected_item_popularity.filter(pl.col("rank") <= (k + max_seen))
-            # Cross join queries with the selected items
             joined = queries.join(selected_item_popularity, how="cross")
-            joined = joined.filter(pl.col("rank") <= (k + pl.col("num_items")))  # .drop("rank")
+            joined = joined.filter(pl.col("rank") <= (k + pl.col("num_items")))
             return joined
         joined = queries.join(selected_item_popularity, how="cross")
         return joined.filter(pl.col("rank") <= k).drop("rank")
@@ -430,9 +421,6 @@ class _PopRecPolars:
                 query_features=query_features,
                 item_features=item_features,
             )
-        if self.item_popularity is None:
-            msg = "Model not fitted. Please call fit() first."
-            raise ValueError(msg)
         pred = pairs.join(self.item_popularity, on=self.item_column, how="left" if self.add_cold_items else "inner")
         fill_value = self._calc_fill(self.item_popularity, self.cold_weight, self.rating_column)
         pred = pred.with_columns(pl.col(self.rating_column).fill_null(fill_value))
@@ -441,7 +429,7 @@ class _PopRecPolars:
             pred = get_top_k(pred, self.query_column, [(self.rating_column, False), (self.item_column, True)], k)
 
         if recs_file_path is not None:
-            pred.write_parquet(recs_file_path)  # it's overwrite operation
+            pred.write_parquet(recs_file_path)  # it's overwrite operation - as expected
             return None
         return pred
 
@@ -451,7 +439,7 @@ class _PopRecPolars:
         # TODO: Implement it in NonPersonolizedRecommender, if you need this function in other models
         raise NotImplementedError()
 
-    def _save_model(
+    def _save_model(  # pragma: no cover
         self, path: str, additional_params=None
     ):  # TODO: Think how to save models like on spark(utils.save)
         saved_params = {
@@ -465,7 +453,7 @@ class _PopRecPolars:
             save_picklable_to_parquet(saved_params, join(path, "params.dump"))
         return saved_params
 
-    def _load_model(self, path: str):  # TODO: Think how to load models like on spark(utils.save)
+    def _load_model(self, path: str):  # pragma: no cover # TODO: Think how to load models like on spark(utils.save)
         loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
         for param, value in loaded_params.items():
             setattr(self, param, value)
