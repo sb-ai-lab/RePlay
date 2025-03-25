@@ -4,6 +4,7 @@ import polars as pl
 import pytest
 
 from replay.data import FeatureHint, FeatureType
+from replay.models.nn.sequential.sasrec_with_llm import SasRecLLMTrainingDataset
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
@@ -383,3 +384,28 @@ def val_sasrec_loader(item_user_sequential_dataset):
 def pred_sasrec_loader(item_user_sequential_dataset):
     pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     return torch.utils.data.DataLoader(pred)
+
+
+@pytest.fixture(scope="module")
+def user_profile_embeddings():
+    """Provides a static profile embedding for tests."""
+    return torch.zeros((100, 1024), dtype=torch.float32)
+
+
+@pytest.fixture(scope="module")
+def profile_binary_mask_getter():
+    def _get_profile_binary_mask(dataset, user_profile_embeddings):
+        existing_profile_binary_mask = torch.BoolTensor([True] * len(dataset))
+        existing_profile_binary_mask[:len(dataset) - len(user_profile_embeddings)] = False
+        return existing_profile_binary_mask
+    return _get_profile_binary_mask
+
+
+@pytest.fixture(scope="module")
+def train_sasrec_llm_loader(item_user_sequential_dataset, user_profile_embeddings, profile_binary_mask_getter):
+    train = SasRecLLMTrainingDataset(sequential=item_user_sequential_dataset,
+                                     max_sequence_length=5,
+                                     user_profile_embeddings=user_profile_embeddings,
+                                     existing_profile_binary_mask=profile_binary_mask_getter(item_user_sequential_dataset,
+                                                                                          user_profile_embeddings))
+    return torch.utils.data.DataLoader(train)
