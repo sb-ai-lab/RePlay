@@ -3,5 +3,4 @@ from .dataset import (
     SasRecLLMTrainingDataset,
 )
 from .lightning import SasRecLLM
-
 from .model import SasRecLLMModel

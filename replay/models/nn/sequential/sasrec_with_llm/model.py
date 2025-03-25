@@ -5,11 +5,13 @@ import torch
 from torch import nn
 
 from replay.data.nn import TensorMap, TensorSchema
-
 from replay.models.nn.sequential.sasrec import SasRecModel
 from replay.models.nn.sequential.sasrec.model import SasRecLayers, TiSasRecLayers
-from replay.models.nn.sequential.sasrec_with_llm.utils import mean_weightening, exponential_weightening, \
-    SimpleAttentionAggregator
+from replay.models.nn.sequential.sasrec_with_llm.utils import (
+    SimpleAttentionAggregator,
+    exponential_weightening,
+    mean_weightening,
+)
 
 
 class SasRecLLMModel(SasRecModel):
@@ -29,12 +31,12 @@ class SasRecLLMModel(SasRecModel):
         ti_modification: bool = False,
         time_span: int = 256,
         reconstruction_layer: int = -1,
-        weighting_scheme='mean',
+        weighting_scheme="mean",
         use_down_scale=True,
         use_upscale=False,
         weight_scale=None,
         multi_profile=False,
-        multi_profile_aggr_scheme='mean'
+        multi_profile_aggr_scheme="mean",
     ) -> None:
         """
         :param schema: Tensor schema of features.
@@ -67,14 +69,16 @@ class SasRecLLMModel(SasRecModel):
         :param multi_profile_aggr_scheme: Multi-profile aggregation scheme.
             Default: ``'mean'``.
         """
-        super().__init__(schema=schema,
-                         num_blocks=num_blocks,
-                         num_heads=num_heads,
-                         hidden_size=hidden_size,
-                         max_len=max_len,
-                         dropout=dropout,
-                         ti_modification=ti_modification,
-                         time_span=time_span)
+        super().__init__(
+            schema=schema,
+            num_blocks=num_blocks,
+            num_heads=num_heads,
+            hidden_size=hidden_size,
+            max_len=max_len,
+            dropout=dropout,
+            ti_modification=ti_modification,
+            time_span=time_span,
+        )
 
         # override SASRec layers to return hidden states
         del self.sasrec_layers
@@ -95,27 +99,30 @@ class SasRecLLMModel(SasRecModel):
                 dropout=self.dropout,
             )
 
-        if weighting_scheme == 'mean':
+        if weighting_scheme == "mean":
             self.weighting_fn = mean_weightening
             self.weighting_kwargs = {}
-        elif weighting_scheme == 'exponential':
+        elif weighting_scheme == "exponential":
             self.weighting_fn = exponential_weightening
-            self.weighting_kwargs = {'weight_scale': weight_scale}
-        elif weighting_scheme == 'attention':
+            self.weighting_kwargs = {"weight_scale": weight_scale}
+        elif weighting_scheme == "attention":
             self.weighting_fn = SimpleAttentionAggregator(self.hidden_size)
             self.weighting_kwargs = {}
         else:
-            raise NotImplementedError(f'No such weighting_scheme {weighting_scheme} exists')
+            msg = f"No such weighting_scheme {weighting_scheme} exists"
+            raise NotImplementedError(msg)
 
-        if multi_profile_aggr_scheme == 'mean':
+        if multi_profile_aggr_scheme == "mean":
             self.profile_aggregator = mean_weightening
             self.multi_profile_weighting_kwargs = {}
-        elif multi_profile_aggr_scheme == 'attention':
-            self.profile_aggregator = SimpleAttentionAggregator(profile_emb_dim if not use_down_scale
-                                                                else self.hidden_size)
+        elif multi_profile_aggr_scheme == "attention":
+            self.profile_aggregator = SimpleAttentionAggregator(
+                profile_emb_dim if not use_down_scale else self.hidden_size
+            )
             self.multi_profile_weighting_kwargs = {}
         else:
-            raise NotImplementedError(f'No such multi_profile_aggr_scheme {multi_profile_aggr_scheme} exists')
+            msg = f"No such multi_profile_aggr_scheme {multi_profile_aggr_scheme} exists"
+            raise NotImplementedError(msg)
 
         self.use_down_scale = use_down_scale
         self.use_upscale = use_upscale
@@ -192,23 +199,20 @@ class SasRecLLMModel(SasRecModel):
         if user_profile_emb is None:
             return None
 
-        # single-profile [batch_size, emb_dim]
-        if user_profile_emb.dim() == 2:
+        if user_profile_emb.dim() == 2:  # single-profile [batch_size, emb_dim]
             if self.use_down_scale:
                 return self.profile_transform(user_profile_emb)
             else:
                 return user_profile_emb.detach().clone()
 
-        # multi-profile [batch_size, K, emb_dim]
-        bsz, K, edim = user_profile_emb.shape
+        bsz, num_profiles, edim = user_profile_emb.shape  # multi-profile [batch_size, num_profiles, emb_dim]
 
         if self.use_down_scale:
-            user_profile_emb = user_profile_emb.view(bsz * K, edim)
+            user_profile_emb = user_profile_emb.view(bsz * num_profiles, edim)
             user_profile_emb = self.profile_transform(user_profile_emb)
-            user_profile_emb = user_profile_emb.view(bsz, K, self.hidden_size)
+            user_profile_emb = user_profile_emb.view(bsz, num_profiles, self.hidden_size)
 
-        aggregated = self.profile_aggregator(user_profile_emb,
-                                             *self.multi_profile_weighting_kwargs)
+        aggregated = self.profile_aggregator(user_profile_emb, *self.multi_profile_weighting_kwargs)
         return aggregated
 
 
@@ -234,10 +238,7 @@ class SasRecWithHiddenLayers(SasRecLayers):
         :param num_blocks: Number of Transformer blocks.
         :param dropout: Dropout rate.
         """
-        super().__init__(hidden_size=hidden_size,
-                         num_heads=num_heads,
-                         num_blocks=num_blocks,
-                         dropout=dropout)
+        super().__init__(hidden_size=hidden_size, num_heads=num_heads, num_blocks=num_blocks, dropout=dropout)
 
     def forward(
         self,
@@ -256,8 +257,7 @@ class SasRecWithHiddenLayers(SasRecLayers):
         num_blocks = len(self.attention_layers)
         for i in range(num_blocks):
             query = self.attention_layernorms[i](seqs)
-            attent_emb, _ = self.attention_layers[i](
-                query, seqs, seqs, attn_mask=attention_mask, need_weights=False)
+            attent_emb, _ = self.attention_layers[i](query, seqs, seqs, attn_mask=attention_mask, need_weights=False)
             seqs = query + attent_emb
 
             seqs = self.forward_layernorms[i](seqs)
@@ -290,10 +290,7 @@ class TiSasRecWithHiddenLayers(TiSasRecLayers):
         :param num_blocks: Number of Transformer blocks.
         :param dropout: Dropout rate.
         """
-        super().__init__(hidden_size=hidden_size,
-                         num_heads=num_heads,
-                         num_blocks=num_blocks,
-                         dropout=dropout)
+        super().__init__(hidden_size=hidden_size, num_heads=num_heads, num_blocks=num_blocks, dropout=dropout)
 
     def forward(
         self,
@@ -302,7 +299,6 @@ class TiSasRecWithHiddenLayers(TiSasRecLayers):
         padding_mask: torch.BoolTensor,
         ti_embeddings: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
         device: torch.device,
-        return_hidden_states: bool = False,
     ) -> Tuple[torch.Tensor, list]:
         """
         :param seqs: Item embeddings.

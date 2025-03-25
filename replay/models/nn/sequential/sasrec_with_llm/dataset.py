@@ -7,8 +7,7 @@ from replay.data.nn import (
     SequentialDataset,
     TensorMap,
 )
-
-from ..sasrec import SasRecTrainingDataset
+from replay.models.nn.sequential.sasrec import SasRecTrainingDataset
 
 
 class SasRecLLMTrainingBatch(NamedTuple):
@@ -57,16 +56,17 @@ class SasRecLLMTrainingDataset(SasRecTrainingDataset):
             If ``None`` set an item_id_feature name from sequential dataset.
             Default: ``None``.
         """
-        super().__init__(sequential=sequential,
-                         max_sequence_length=max_sequence_length,
-                         sequence_shift=sequence_shift,
-                         sliding_window_step=sliding_window_step,
-                         padding_value=padding_value,
-                         label_feature_name=label_feature_name)
+        super().__init__(
+            sequential=sequential,
+            max_sequence_length=max_sequence_length,
+            sequence_shift=sequence_shift,
+            sliding_window_step=sliding_window_step,
+            padding_value=padding_value,
+            label_feature_name=label_feature_name,
+        )
 
         self.user_profile_embeddings = user_profile_embeddings
         self.existing_profile_binary_mask = existing_profile_binary_mask
-
 
     def __getitem__(self, index: int) -> SasRecLLMTrainingBatch:
         query_id, padding_mask, features = self._inner[index]
