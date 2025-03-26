@@ -4,7 +4,6 @@ import polars as pl
 import pytest
 
 from replay.data import FeatureHint, FeatureType
-from replay.models.nn.sequential.sasrec_with_llm import SasRecLLMTrainingDataset
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
@@ -21,6 +20,7 @@ if TORCH_AVAILABLE:
         SasRecTrainingDataset,
         SasRecValidationDataset,
     )
+    from replay.models.nn.sequential.sasrec_with_llm import SasRecLLMTrainingDataset
 
 
 @pytest.fixture(scope="module")
