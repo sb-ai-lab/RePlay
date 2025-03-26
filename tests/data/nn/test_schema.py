@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 import pytest
 
 from replay.data import FeatureHint, FeatureSource, FeatureType
@@ -175,6 +177,8 @@ def test_tensor_scheme_inits():
         feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "rating")],
     )
 
+    feature_dict = OrderedDict([("feature_key1", feature), ("feature_key2", feature)])
+
     schema = TensorSchema(
         [
             TensorFeatureInfo(
@@ -202,5 +206,7 @@ def test_tensor_scheme_inits():
 
     assert TensorSchema(features_list) is not None
     assert TensorSchema(feature) is not None
+    assert TensorSchema(feature_dict) is not None
     assert TensorSchema([*features_list, feature]).names == schema.names
     assert (TensorSchema(features_list) + TensorSchema(feature)).names == schema.names
+    assert TensorSchema(feature_dict)._tensor_schema == {feature.name: feature, feature.name: feature}
