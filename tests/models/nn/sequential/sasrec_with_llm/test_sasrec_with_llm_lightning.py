@@ -11,7 +11,6 @@ torch = pytest.importorskip("torch")
 L = pytest.importorskip("lightning")
 
 
-
 @pytest.mark.torch
 @pytest.mark.parametrize(
     "loss_type, loss_sample_count",
@@ -45,11 +44,13 @@ def test_training_sasrec_with_different_losses(
 @pytest.mark.torch
 def test_init_sasrec_with_invalid_loss_type(item_user_sequential_dataset):
     with pytest.raises(NotImplementedError) as exc:
-        SasRecLLM(tensor_schema=item_user_sequential_dataset._tensor_schema,
-                  profile_emb_dim=1024,
-                  max_seq_len=5,
-                  hidden_size=64,
-                  loss_type="")
+        SasRecLLM(
+            tensor_schema=item_user_sequential_dataset._tensor_schema,
+            profile_emb_dim=1024,
+            max_seq_len=5,
+            hidden_size=64,
+            loss_type="",
+        )
 
     assert str(exc.value) == "Not supported loss_type"
 
@@ -58,11 +59,12 @@ def test_init_sasrec_with_invalid_loss_type(item_user_sequential_dataset):
 def test_train_sasrec_with_invalid_loss_type(item_user_sequential_dataset, train_sasrec_llm_loader):
     with pytest.raises(ValueError):
         trainer = L.Trainer(max_epochs=1)
-        model = SasRecLLM(tensor_schema=item_user_sequential_dataset._tensor_schema,
-                          profile_emb_dim=train_sasrec_llm_loader.dataset.user_profile_embeddings.shape[0],
-                          max_seq_len=5,
-                          hidden_size=64
-                          )
+        model = SasRecLLM(
+            tensor_schema=item_user_sequential_dataset._tensor_schema,
+            profile_emb_dim=train_sasrec_llm_loader.dataset.user_profile_embeddings.shape[0],
+            max_seq_len=5,
+            hidden_size=64,
+        )
         model._loss_type = ""
         trainer.fit(model, train_dataloaders=train_sasrec_llm_loader)
 
@@ -72,10 +74,12 @@ def test_prediction_sasrec(item_user_sequential_dataset, train_sasrec_llm_loader
     pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_sasrec_loader = torch.utils.data.DataLoader(pred)
     trainer = L.Trainer(max_epochs=1)
-    model = SasRecLLM(tensor_schema=item_user_sequential_dataset._tensor_schema,
-                      profile_emb_dim=train_sasrec_llm_loader.dataset.user_profile_embeddings.shape[0],
-                      max_seq_len=5,
-                      hidden_size=64)
+    model = SasRecLLM(
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        profile_emb_dim=train_sasrec_llm_loader.dataset.user_profile_embeddings.shape[0],
+        max_seq_len=5,
+        hidden_size=64,
+    )
     trainer.fit(model, train_sasrec_llm_loader)
     predicted = trainer.predict(model, pred_sasrec_loader)
 
@@ -92,10 +96,12 @@ def test_prediction_sasrec_with_candidates(item_user_sequential_dataset, train_s
     pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_sasrec_loader = torch.utils.data.DataLoader(pred, batch_size=1)
     trainer = L.Trainer(max_epochs=1)
-    model = SasRecLLM(tensor_schema=item_user_sequential_dataset._tensor_schema,
-                      profile_emb_dim=train_sasrec_llm_loader.dataset.user_profile_embeddings.shape[0],
-                      max_seq_len=5,
-                      hidden_size=64)
+    model = SasRecLLM(
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        profile_emb_dim=train_sasrec_llm_loader.dataset.user_profile_embeddings.shape[0],
+        max_seq_len=5,
+        hidden_size=64,
+    )
     trainer.fit(model, train_sasrec_llm_loader)
 
     # test online inference with candidates
@@ -127,10 +133,12 @@ def test_predictions_sasrec_equal_with_permuted_candidates(item_user_sequential_
     pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_sasrec_loader = torch.utils.data.DataLoader(pred)
     trainer = L.Trainer(max_epochs=1)
-    model = SasRecLLM(tensor_schema=item_user_sequential_dataset._tensor_schema,
-                      profile_emb_dim=train_sasrec_llm_loader.dataset.user_profile_embeddings.shape[0],
-                      max_seq_len=5,
-                      hidden_size=64)
+    model = SasRecLLM(
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        profile_emb_dim=train_sasrec_llm_loader.dataset.user_profile_embeddings.shape[0],
+        max_seq_len=5,
+        hidden_size=64,
+    )
     trainer.fit(model, train_sasrec_llm_loader)
 
     sorted_candidates = torch.LongTensor([0, 1, 2, 3])
@@ -155,11 +163,12 @@ def test_prediction_optimized_sasrec_invalid_candidates_to_score(
     item_user_sequential_dataset, train_sasrec_llm_loader, candidates
 ):
     trainer = L.Trainer(max_epochs=1)
-    model = SasRecLLM(tensor_schema=item_user_sequential_dataset._tensor_schema,
-                      profile_emb_dim=train_sasrec_llm_loader.dataset.user_profile_embeddings.shape[0],
-                      max_seq_len=5,
-                      hidden_size=64
-                      )
+    model = SasRecLLM(
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        profile_emb_dim=train_sasrec_llm_loader.dataset.user_profile_embeddings.shape[0],
+        max_seq_len=5,
+        hidden_size=64,
+    )
     trainer.fit(model, train_sasrec_llm_loader)
 
     with pytest.raises(ValueError):
@@ -430,10 +439,9 @@ def test_predict_step_with_big_seq_len(item_user_sequential_dataset, simple_mask
 @pytest.mark.torch
 def test_sasrec_get_set_optim_factory(item_user_sequential_dataset):
     optim_factory = FatOptimizerFactory()
-    model = SasRecLLM(tensor_schema=item_user_sequential_dataset._tensor_schema,
-                      profile_emb_dim=1024,
-                      optimizer_factory=optim_factory
-                      )
+    model = SasRecLLM(
+        tensor_schema=item_user_sequential_dataset._tensor_schema, profile_emb_dim=1024, optimizer_factory=optim_factory
+    )
 
     assert model.optimizer_factory is optim_factory
     new_factory = FatOptimizerFactory(learning_rate=0.1)

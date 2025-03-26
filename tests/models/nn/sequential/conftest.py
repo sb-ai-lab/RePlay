@@ -396,16 +396,18 @@ def user_profile_embeddings():
 def profile_binary_mask_getter():
     def _get_profile_binary_mask(dataset, user_profile_embeddings):
         existing_profile_binary_mask = torch.BoolTensor([True] * len(dataset))
-        existing_profile_binary_mask[:len(dataset) - len(user_profile_embeddings)] = False
+        existing_profile_binary_mask[: len(dataset) - len(user_profile_embeddings)] = False
         return existing_profile_binary_mask
+
     return _get_profile_binary_mask
 
 
 @pytest.fixture(scope="module")
 def train_sasrec_llm_loader(item_user_sequential_dataset, user_profile_embeddings, profile_binary_mask_getter):
-    train = SasRecLLMTrainingDataset(sequential=item_user_sequential_dataset,
-                                     max_sequence_length=5,
-                                     user_profile_embeddings=user_profile_embeddings,
-                                     existing_profile_binary_mask=profile_binary_mask_getter(item_user_sequential_dataset,
-                                                                                          user_profile_embeddings))
+    train = SasRecLLMTrainingDataset(
+        sequential=item_user_sequential_dataset,
+        max_sequence_length=5,
+        user_profile_embeddings=user_profile_embeddings,
+        existing_profile_binary_mask=profile_binary_mask_getter(item_user_sequential_dataset, user_profile_embeddings),
+    )
     return torch.utils.data.DataLoader(train)

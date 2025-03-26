@@ -67,11 +67,12 @@ def fitted_sasrec(feature_schema_for_sasrec):
     model = SasRecLLM(tensor_schema, profile_emb_dim=profile_emb_dim, max_seq_len=5)
     trainer = L.Trainer(max_epochs=1)
     train_loader = torch.utils.data.DataLoader(
-        SasRecLLMTrainingDataset(sequential=sequential_train_dataset,
-                                 max_sequence_length=5,
-                                 user_profile_embeddings=user_profile_embeddings,
-                                 existing_profile_binary_mask=existing_profile_binary_mask
-                                 )
+        SasRecLLMTrainingDataset(
+            sequential=sequential_train_dataset,
+            max_sequence_length=5,
+            user_profile_embeddings=user_profile_embeddings,
+            existing_profile_binary_mask=existing_profile_binary_mask,
+        )
     )
 
     trainer.fit(model, train_dataloaders=train_loader)
