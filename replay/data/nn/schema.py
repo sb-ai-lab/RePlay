@@ -7,6 +7,7 @@ from typing import (
     List,
     Mapping,
     Optional,
+    OrderedDict,
     Sequence,
     Set,
     Union,
@@ -262,6 +263,8 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
         """
         :param features_list: list of tensor feature infos.
         """
+        if isinstance(features_list, OrderedDict):
+            features_list = list(features_list.values())
         features_list = [features_list] if not isinstance(features_list, Sequence) else features_list
         self._tensor_schema = {feature.name: feature for feature in features_list}
 
@@ -501,7 +504,6 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
                     filtered_features,
                 )
             )
-
         return TensorSchema(filtered_features)
 
     @staticmethod
