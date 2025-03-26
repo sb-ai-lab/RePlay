@@ -341,8 +341,8 @@ class LabelEncodingRule(BaseLabelEncodingRule):
                 raise ValueError(msg)
             else:
                 if default_value != -1:
-                    joined_df[self._target_col] = joined_df[self._target_col].astype("int")
                     joined_df[self._target_col] = joined_df[self._target_col].replace({-1: default_value})
+            joined_df[self._target_col] = joined_df[self._target_col].astype("int")
 
         result_df = joined_df.drop(self._col, axis=1).rename(columns={self._target_col: self._col})
         return result_df
