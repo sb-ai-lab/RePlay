@@ -149,13 +149,13 @@ class SasRecLLM(SasRec):
         :return: Criterion for reconstruction
         """
         if criterion_name == "MSE":
-            return lambda x, y: nn.MSELoss()(x, y)
+            return lambda x,y: nn.MSELoss()(x,y)
         if criterion_name == "RMSE":
-            return lambda x, y: torch.sqrt(nn.MSELoss()(x, y))
+            return lambda x,y: torch.sqrt(nn.MSELoss()(x,y))
         if criterion_name == "CosSim":
-            return lambda x, y: 1 - torch.mean(nn.CosineSimilarity(dim=1, eps=1e-6)(x, y))
-        msg = f"Not existing reconstruction loss: {criterion_name}"
-        raise ValueError(msg)
+            return lambda x,y: 1 - torch.mean(nn.CosineSimilarity(dim=1, eps=1e-6)(x,y))
+        error_msg = f"Not existing reconstruction loss {criterion_name}"
+        raise NotImplementedError(error_msg)
 
     def _compute_loss(self, batch: SasRecLLMTrainingBatch) -> torch.Tensor:
         if self._loss_type == "BCE":

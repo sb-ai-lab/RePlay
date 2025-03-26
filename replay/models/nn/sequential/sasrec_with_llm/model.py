@@ -109,8 +109,8 @@ class SasRecLLMModel(SasRecModel):
             self.weighting_fn = SimpleAttentionAggregator(self.hidden_size)
             self.weighting_kwargs = {}
         else:
-            msg = f"No such weighting_scheme {weighting_scheme} exists"
-            raise NotImplementedError(msg)
+            error_msg = f"No such weighting_scheme {weighting_scheme} exists"
+            raise NotImplementedError(error_msg)
 
         if multi_profile_aggr_scheme == "mean":
             self.profile_aggregator = mean_weightening
@@ -121,8 +121,8 @@ class SasRecLLMModel(SasRecModel):
             )
             self.multi_profile_weighting_kwargs = {}
         else:
-            msg = f"No such multi_profile_aggr_scheme {multi_profile_aggr_scheme} exists"
-            raise NotImplementedError(msg)
+            error_msg = f"No such multi_profile_aggr_scheme {multi_profile_aggr_scheme} exists"
+            raise NotImplementedError(error_msg)
 
         self.use_down_scale = use_down_scale
         self.use_upscale = use_upscale

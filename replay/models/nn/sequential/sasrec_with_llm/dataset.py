@@ -2,11 +2,7 @@ from typing import NamedTuple, Optional, cast
 
 import torch
 
-from replay.data.nn import (
-    MutableTensorMap,
-    SequentialDataset,
-    TensorMap,
-)
+from replay.data.nn import MutableTensorMap, SequentialDataset, TensorMap
 from replay.models.nn.sequential.sasrec import SasRecTrainingDataset
 
 
