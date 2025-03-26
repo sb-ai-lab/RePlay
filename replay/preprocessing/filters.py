@@ -1042,13 +1042,13 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
     ) -> None:
         """
         :param keep: whether to keep first or last occurrence,
-            default: `first`.
+            Default: ``first``.
         :param query_column: query column,
-            default: `query_id`.
+            Default: ``query_id``.
         :param item_column: item column,
-            default: `item_id`.
+            Default: ``item_id``.
         :param timestamp_column: timestamp column,
-            default: `timestamp`.
+            Default: ``timestamp``.
         """
         super().__init__()
         self.query_column = query_column
