@@ -264,7 +264,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
         :param features_list: list of tensor feature infos.
         """
         if isinstance(features_list, OrderedDict):
-            _, features_list = next(iter(features_list.items()))
+            features_list = list(features_list.values())
         features_list = [features_list] if not isinstance(features_list, Sequence) else features_list
         self._tensor_schema = {feature.name: feature for feature in features_list}
 
