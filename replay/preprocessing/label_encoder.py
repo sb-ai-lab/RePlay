@@ -335,6 +335,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
                         "with `handle_unknown_strategy=drop` leads to empty dataframe",
                         LabelEncoderTransformWarning,
                     )
+                joined_df[self._target_col] = joined_df[self._target_col].astype("int")
             elif self._handle_unknown == "error":
                 unknown_unique_labels = joined_df[self._col][unknown_mask].unique().tolist()
                 msg = f"Found unknown labels {unknown_unique_labels} in column {self._col} during transform"
