@@ -6,7 +6,8 @@ import polars as pl
 
 from replay.data.dataset import Dataset
 from replay.utils import PandasDataFrame, PolarsDataFrame
-from replay.utils.pandas_utils import load_pickled_from_parquet, save_picklable_to_parquet
+#from replay.utils.pandas_utils import load_pickled_from_parquet, save_picklable_to_parquet
+from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
 from replay.utils.polars_utils import (
     filter_cold,
     get_top_k,

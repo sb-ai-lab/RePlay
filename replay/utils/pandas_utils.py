@@ -142,7 +142,6 @@ def save_picklable_to_parquet(obj: any, path: str) -> None:
 
     # Create a DataFrame with a single row containing the pickled binary.
     df = pd.DataFrame({"data": [pickled_instance]})
-
     # Write the DataFrame to parquet.
     df.to_parquet(path, index=False)
 
@@ -154,11 +153,6 @@ def load_pickled_from_parquet(path: str) -> any:
     :param path: File path from where to read the parquet file.
     :return: The unpickled Python object.
     """
-    # Read the parquet file into a DataFrame.
     df = pd.read_parquet(path)
-
-    # Get the pickled data from the first row.
     pickled_instance = df["data"].iloc[0]
-
-    # Unpickle and return the object.
     return pickle.loads(pickled_instance)

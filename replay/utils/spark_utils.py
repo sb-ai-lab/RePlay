@@ -777,7 +777,6 @@ def save_picklable_to_parquet(obj: Any, path: str) -> None:
     instance_df = rdd.map(lambda rec: Record(bytearray(rec.data))).toDF()
     instance_df.write.mode("overwrite").parquet(path)
 
-
 def load_pickled_from_parquet(path: str) -> Any:
     """
     Function loads object from disk or hdfs,

@@ -7,6 +7,7 @@ from replay.metrics import NDCG
 from replay.models import UCB, ClusterRec, ItemKNN, PopRec, RandomRec, Wilson, client_model_list
 from replay.models.base_rec_client import DataModelMissmatchError, NotFittedModelError
 from replay.utils.common import convert2polars, convert2spark
+from replay.utils.model_handler import load, save
 from replay.utils.types import DataFrameLike
 from tests.models.conftest import cols
 from tests.utils import SparkDataFrame, get_dataset_any_type, isDataFrameEqual
@@ -1364,17 +1365,12 @@ def test_compare_fit_predict_client_and_implementation(base_model, arguments, ty
     res_impl = model_impl._impl.fit_predict(dataset, k=2)
     assert isDataFrameEqual(res_client, res_impl)
 
-
 """
-@pytest.mark.spark # TODO: Save.load not working on pandas and polars. Check replay.utils.save 'todo' for context
-@pytest.mark.parametrize(
-    "recommender, type_of_impl",
-    [(PopRec, "spark"), (PopRec, "pandas"), (PopRec, "polars")],
-    ids=["pop_rec_spark", "pop_rec_pd", "pop_rec_pl"]
-)
-def test_equal_preds_after_save_load_model(recommender, type_of_impl, tmp_path, request):
-    path = (tmp_path / "test").resolve()
-    log = request.getfixturevalue("long_log_with_features" + ("_"+ type_of_impl) if type_of_impl != "spark" else "")
+@pytest.mark.spark
+@pytest.mark.parametrize("recommender", [PopRec], ids=["pop_rec_spark"])
+def test_equal_preds_after_save_load_model_spark(recommender, tmp_path, request):
+    path = (tmp_path / "test_spark").resolve()
+    log = request.getfixturevalue("long_log_with_features")
     dataset = get_dataset_any_type(log)
     model = recommender()
     model.fit(dataset)
@@ -1383,4 +1379,73 @@ def test_equal_preds_after_save_load_model(recommender, type_of_impl, tmp_path, 
     loaded_model = load(path)
     new_pred = loaded_model.predict(dataset, 5)
     assert isDataFrameEqual(new_pred, base_pred)
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize("recommender", [PopRec], ids=["pop_rec_spark"])
+def test_equal_preds_after_save_load_model_pandas(recommender, tmp_path, request):
+    path = (tmp_path / "test_pandas").resolve()
+    log = request.getfixturevalue(("long_log_with_features_pandas"))
+    dataset = get_dataset_any_type(log)
+    model = recommender()
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(dataset, 5)
+    assert isDataFrameEqual(new_pred, base_pred)
+
+
+@pytest.mark.spark  # TODO: Save.load not working on pandas and polars. Check replay.utils.save 'todo' for context
+@pytest.mark.parametrize("recommender", [PopRec], ids=["pop_rec_spark"])
+def test_equal_preds_after_save_load_model_polars(recommender, tmp_path, request):
+    path = (tmp_path / "test_polars").resolve()
+    log = request.getfixturevalue(("long_log_with_features_polars"))
+    dataset = get_dataset_any_type(log)
+    model = recommender()
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(dataset, 5)
+    assert isDataFrameEqual(new_pred, base_pred)
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "recommender, type_of_impl",
+    [(PopRec, "spark"), (PopRec, "pandas"), (PopRec, "polars")],
+    ids=["pop_rec_spark", "pop_rec_pandas", "pop_rec_polars"],
+)
+def test_equal_attributes_after_save_load_model(recommender, type_of_impl, tmp_path, request):
+    from itertools import chain
+
+    path = (tmp_path / "test_attributes").resolve()
+    log = request.getfixturevalue(
+        "long_log_with_features" if type_of_impl == "spark" else "long_log_with_features_" + type_of_impl
+    )
+    dataset = get_dataset_any_type(log)
+    model = recommender()
+    model.fit(dataset)
+    save(model, path)
+    loaded_model = load(path)
+    all_attributes = chain(
+        model.attributes_after_fit,
+        [
+            "_init_when_first_impl_arrived_args",
+            "is_fitted",
+            "is_spark",
+            "is_polars",
+            "is_pandas",
+            "items_count",
+            "queries_count",
+        ],
+    )
+    for attr in all_attributes:
+        if not isinstance(getattr(model, attr), tuple(DataFrameLike.__args__)) and not isinstance(
+            getattr(model, attr), pd.Series
+        ):
+            assert getattr(model, attr) == getattr(loaded_model, attr)
+        else:
+            assert isDataFrameEqual(getattr(model, attr), getattr(loaded_model, attr))
 """

@@ -6,13 +6,14 @@ import pandas as pd
 
 from replay.data.dataset import Dataset
 from replay.utils import PandasDataFrame
+from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
 from replay.utils.pandas_utils import (
     filter_cold,
     get_top_k,
     get_unique_entities,
-    load_pickled_from_parquet,
+    #load_pickled_from_parquet,
     return_recs,
-    save_picklable_to_parquet,
+    #save_picklable_to_parquet,
 )
 
 
@@ -166,8 +167,8 @@ class _PopRecPandas:
 
         self._num_queries = self.fit_queries.shape[0]
         self._num_items = self.fit_items.shape[0]
-        self._query_dim_size = self.fit_queries.max() + 1
-        self._item_dim_size = self.fit_items.max() + 1
+        self._query_dim_size = int(self.fit_queries.max().iloc[0]) + 1
+        self._item_dim_size = int(self.fit_items.max().iloc[0]) + 1
         interactions_df = dataset.interactions
         if self.use_rating:
             item_popularity = interactions_df.groupby(self.item_column, as_index=False)[self.rating_column].sum()
