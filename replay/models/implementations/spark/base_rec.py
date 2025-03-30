@@ -366,10 +366,20 @@ class _BaseRecommenderSparkImpl(_RecommenderCommonsSparkImpl, IsSavable, ABC):
             )
         self.fit_queries = sf.broadcast(queries)
         self.fit_items = sf.broadcast(items)
+        print("\nFITTED QUERIES Pandas:")
+        print(self.fit_queries.toPandas())
         self._num_queries = self.fit_queries.count()
         self._num_items = self.fit_items.count()
-        self._query_dim_size = self.fit_queries.agg({self.query_column: "max"}).first()[0] + 1
-        self._item_dim_size = self.fit_items.agg({self.item_column: "max"}).first()[0] + 1
+        _query_dim = self.fit_queries.agg({self.query_column: "max"}).first()[0]
+        if _query_dim is None:
+            self._query_dim_size = 1
+        else:
+            self._query_dim_size = _query_dim + 1
+        _item_dim = self.fit_items.agg({self.item_column: "max"}).first()[0]
+        if _item_dim is None:
+            self._item_dim_size = 1
+        else:
+            self._item_dim_size = _item_dim + 1
         self._fit(dataset)
 
     @abstractmethod
@@ -517,11 +527,21 @@ class _BaseRecommenderSparkImpl(_RecommenderCommonsSparkImpl, IsSavable, ABC):
             items,
             filter_seen_items,
         )
+        print("Spark recs (without sampling)")
+        print(recs.toPandas())
         if filter_seen_items and dataset is not None:
             recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
+        print("Spark recs 2")
+        print(recs.toPandas())
         recs = get_top_k(
             recs, self.query_column, [sf.col(self.rating_column).desc(), sf.col(self.item_column).asc()], k
-        ).select(self.query_column, self.item_column, self.rating_column)
+        ).select(
+            sf.round(sf.col(self.query_column)).cast("long").alias(self.query_column), 
+           sf.round(sf.col(self.item_column)).cast("long").alias(self.item_column), 
+           sf.col(self.rating_column).alias(self.rating_column)
+        )
+        print("Spark recs final")
+        print(recs.toPandas())
         output = return_recs(recs, recs_file_path)
         self._clear_model_temp_view("filter_seen_queries_interactions")
 
@@ -1444,6 +1464,8 @@ class _NonPersonalizedRecommenderSparkImpl(_RecommenderSparkImpl, ABC):
             "rank",
             sf.row_number().over(Window.orderBy(sf.col(self.rating_column).desc(), sf.col(self.item_column).desc())),
         )
+        print("spark selected_item_popularity2")
+        print(selected_item_popularity.toPandas())
         if filter_seen_items and dataset is not None:
             query_to_num_items = (
                 dataset.interactions.join(queries, on=self.query_column)

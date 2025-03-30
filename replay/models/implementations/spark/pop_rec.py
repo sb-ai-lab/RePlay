@@ -130,6 +130,9 @@ class _PopRecSpark(_NonPersonalizedRecommenderSparkImpl):
             .agg(agg_func)
             .withColumn(self.rating_column, sf.round(sf.col(self.rating_column) / sf.lit(self.queries_count), 10))
         )
+        print("FIT POPPULARITY Spark")
+        print(f"{self.queries_count=}")
+        print(self.item_popularity.toPandas())
         self.item_popularity.cache().count()
 
         self.fill = self._calc_fill(self.item_popularity, self.cold_weight, self.rating_column)

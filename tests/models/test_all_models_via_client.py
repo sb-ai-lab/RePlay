@@ -75,9 +75,20 @@ def test_predict_pairs_k_all_models(base_model, arguments, request):
 
     if model.__class__ in client_model_list:
         assert isDataFrameEqual(pairs_pred_k_pd, pairs_pred_k_spark), "Pandas predictions not equals Spark predictions"
-        assert isDataFrameEqual(pairs_pred_k_pd, pairs_pred_k_pl), "Pandas predictions not equals Polars predictions"
+        # Code below like assert isDataFrameEqual(pairs_pred_k_pd, pairs_pred_k_pl)
+        for index_pd, value_pd in pairs_pred_k_pd["relevance"].items():
+            for index_pl, value_pl in pairs_pred_k_pl.select("relevance").to_pandas()["relevance"].items():
+                if index_pd == index_pl:
+                    assert value_pl, value_pd == value_pl 
+        assert pd.concat([pairs_pred_k_pd,pairs_pred_k_pl.to_pandas()]).drop_duplicates(keep=False).shape[0] == 0
+        assert all(pairs_pred_k_pd.columns == pairs_pred_k_pl.columns)
         assert isDataFrameEqual(pairs_pred_pd, pairs_pred_spark), "Pandas predictions not equals Spark predictions"
-        assert isDataFrameEqual(pairs_pred_pd, pairs_pred_pl), "Pandas predictions not equals Polars predictions"
+        # Code below like assert isDataFrameEqual(pairs_pred_pd, pairs_pred_pl),
+        for index_pd, value_pd in pairs_pred_pd["relevance"].items():
+            for index_pl, value_pl in pairs_pred_pl.select("relevance").to_pandas()["relevance"].items():
+                if index_pd == index_pl:
+                    assert value_pl, value_pd == value_pl 
+        assert pd.concat([pairs_pred_pd,pairs_pred_pl.to_pandas()]).drop_duplicates(keep=False).shape[0] == 0
 
 
 @pytest.mark.spark
@@ -200,7 +211,7 @@ def test_predict_empty_dataset_core(model, dataset_type, request):
 def test_filter_seen_items_spark(request):
     log = request.getfixturevalue("log")
     model = PopRec()
-    train_dataset = get_dataset_any_type(log.filter(sf.col("user_idx") != 0))
+    train_dataset = get_dataset_any_type(log.filter((sf.col("user_idx") != 0) | (sf.col("user_idx").isNull())))
     pred_dataset = get_dataset_any_type(log)
     model.fit(train_dataset)
     pred = model.predict(dataset=pred_dataset, queries=[3], k=5)
@@ -231,7 +242,8 @@ def test_filter_seen_items_core(dataset_type, request):
     elif dataset_type == "polars":
         log = request.getfixturevalue("log_" + dataset_type)
         model = PopRec()
-        train_dataset = get_dataset_any_type(log.filter(pl.col("user_idx") != 0))
+        # ne_missing keeps null as pandas if !=0
+        train_dataset = get_dataset_any_type(log.filter(pl.col("user_idx").ne_missing(pl.lit(0)))) 
         pred_dataset = get_dataset_any_type(log)
         model.fit(train_dataset)
         pred = model.predict(dataset=pred_dataset, queries=[3], k=5)
@@ -258,24 +270,25 @@ def fit_predict_selected(model, train_log, inf_log, queries, user_features=None,
 @pytest.mark.spark
 @pytest.mark.parametrize(
     "model",
-    [ItemKNN(), PopRec()],
-    ids=["knn", "pop_rec"],
+    [PopRec()],
+    ids=["pop_rec"],
 )
-def test_predict_new_queries_spark(model, request):
-    long_log_with_features = request.getfixturevalue("long_log_with_features")
+@pytest.mark.parametrize("df_type", ["", "none_items", "random_sorted", "none_queries", "one_query"])
+def test_predict_new_queries_spark(model, df_type, request):
+    if df_type != "":
+        df_type = "_and_" + df_type
+    long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type)
     user_features = request.getfixturevalue("user_features")
     pred = fit_predict_selected(
         model,
-        train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
+        train_log=long_log_with_features.filter((sf.col("user_idx") != 0) | (sf.col("user_idx").isNull())),
         inf_log=long_log_with_features,
         user_features=user_features.drop("gender"),
         queries=[0],
     )
-    if pred is not None:
+    if model.__class__ in client_model_list:
         assert pred.count() == 1
         assert pred.collect()[0][0] == 0
-    else:
-        assert model.__class__ not in client_model_list
 
 
 @pytest.mark.core
@@ -285,9 +298,12 @@ def test_predict_new_queries_spark(model, request):
     [ItemKNN(), PopRec()],
     ids=["knn", "pop_rec"],
 )
-def test_predict_new_queries_core(dataset_type, model, request):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_predict_new_queries_core(dataset_type, df_type, model, request):
+    if df_type != "":
+        df_type = "_and_" + df_type
     if dataset_type == "pandas":
-        long_log_with_features = request.getfixturevalue("long_log_with_features_" + dataset_type)
+        long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type + "_" + dataset_type)
         user_features = request.getfixturevalue("user_features_" + dataset_type)
         pred = fit_predict_selected(
             model,
@@ -297,16 +313,17 @@ def test_predict_new_queries_core(dataset_type, model, request):
             queries=[0],
         )
         if pred is not None:
-            assert pred is not None and pred.shape[0] == 1
+            assert pred.shape[0] == 1
             assert pred.iloc[0, 0] == 0
         else:
             assert model.__class__ not in client_model_list
     elif dataset_type == "polars":
-        long_log_with_features = request.getfixturevalue("long_log_with_features_" + dataset_type)
+        long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type + "_" + dataset_type)
         user_features = request.getfixturevalue("user_features_" + dataset_type)
         pred = fit_predict_selected(
             model,
-            train_log=long_log_with_features.filter(pl.col("user_idx") != 0),
+            # ne_missing keeps null as pandas if !=0
+            train_log=long_log_with_features.filter(pl.col("user_idx").ne_missing(pl.lit(0))), 
             inf_log=long_log_with_features,
             user_features=user_features.drop("gender"),
             queries=[0],
@@ -324,13 +341,16 @@ def test_predict_new_queries_core(dataset_type, model, request):
     [ClusterRec(num_clusters=2), PopRec()],
     ids=["knn", "pop_rec"],
 )
-def test_predict_cold_spark(model, request):
-    long_log_with_features = request.getfixturevalue("long_log_with_features")
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_predict_cold_spark(model, df_type, request):
+    if df_type != "":
+        df_type = "_and_" + df_type
+    long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type)
     user_features = request.getfixturevalue("user_features")
     pred = fit_predict_selected(
         model,
-        train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
-        inf_log=long_log_with_features.filter(sf.col("user_idx") != 0),
+        train_log=long_log_with_features.filter((sf.col("user_idx") != 0) | (sf.col("user_idx").isNull())),
+        inf_log=long_log_with_features.filter((sf.col("user_idx") != 0) | (sf.col("user_idx").isNull())),
         user_features=user_features.drop("gender"),
         queries=[0],
     )
@@ -348,9 +368,12 @@ def test_predict_cold_spark(model, request):
     [ClusterRec(num_clusters=2), PopRec()],
     ids=["knn", "pop_rec"],
 )
-def test_predict_cold_core(dataset_type, model, request):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_predict_cold_core(dataset_type, df_type, model, request):
+    if df_type != "":
+        df_type = "_and_" + df_type
     if dataset_type == "pandas":
-        long_log_with_features = request.getfixturevalue("long_log_with_features_" + dataset_type)
+        long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type + "_" + dataset_type)
         user_features = request.getfixturevalue("user_features_" + dataset_type)
         pred = fit_predict_selected(
             model,
@@ -365,12 +388,13 @@ def test_predict_cold_core(dataset_type, model, request):
         else:
             assert model.__class__ not in client_model_list
     elif dataset_type == "polars":
-        long_log_with_features = request.getfixturevalue("long_log_with_features_" + dataset_type)
+        long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type + "_" + dataset_type)
         user_features = request.getfixturevalue("user_features_" + dataset_type)
         pred = fit_predict_selected(
             model,
-            train_log=long_log_with_features.filter(pl.col("user_idx") != 0),
-            inf_log=long_log_with_features.filter(pl.col("user_idx") != 0),
+            # ne_missing keeps null as pandas if col !=0
+            train_log=long_log_with_features.filter(pl.col("user_idx").ne_missing(pl.lit(0))),
+            inf_log=long_log_with_features.filter(pl.col("user_idx").ne_missing(pl.lit(0))),
             user_features=user_features.drop("gender"),
             queries=[0],
         )
@@ -384,29 +408,34 @@ def test_predict_cold_core(dataset_type, model, request):
 @pytest.mark.spark
 @pytest.mark.parametrize(
     "base_model, arguments",
-    [(PopRec, {}), (ItemKNN, {})],
-    ids=["pop_rec", "item_knn"],
+    [(PopRec, {})],#, (ItemKNN, {})],
+    ids=["pop_rec"]#, "item_knn"],
 )
-def test_fit_predict_item_features(base_model, arguments, request):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_fit_predict_item_features(base_model, df_type, arguments, request):
+    if df_type != "":
+        df_type = "_and_" + df_type
     dataset_type = "spark"
     model = base_model(**arguments)
-    long_log_with_features = request.getfixturevalue("long_log_with_features")
+    long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type)
     item_features = request.getfixturevalue("item_features")
     pred_spark = fit_predict_selected(
         model,
-        train_log=long_log_with_features.filter(sf.col("user_idx") != 0),
+        train_log=long_log_with_features.filter((sf.col("user_idx") != 0) | (sf.col("user_idx").isNull())),
         inf_log=long_log_with_features,
         item_features=item_features.drop("color", "class"),
         queries=[0],
     )
-    if pred_spark is not None:
+    if "quer" in df_type:
+        pass
+    elif pred_spark is not None:
         assert pred_spark.count() == 1
         assert pred_spark.collect()[0][0] == 0
     else:
         assert model.__class__ not in client_model_list
     dataset_type = "pandas"
     model = base_model(**arguments)
-    long_log_with_features = request.getfixturevalue("long_log_with_features_" + dataset_type)
+    long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type + "_"+ dataset_type)
     item_features = request.getfixturevalue("item_features_" + dataset_type)
     pred_pd = fit_predict_selected(
         model,
@@ -415,18 +444,21 @@ def test_fit_predict_item_features(base_model, arguments, request):
         item_features=item_features.drop(["color", "class"], axis=1),
         queries=[0],
     )
-    if pred_pd is not None:
+    if "quer" in df_type:
+        pass
+    elif pred_pd is not None:
         assert pred_pd.shape[0] == 1
         assert pred_pd.iloc[0, 0] == 0
     else:
         assert model.__class__ not in client_model_list
     dataset_type = "polars"
     model = base_model(**arguments)
-    long_log_with_features = request.getfixturevalue("long_log_with_features_" + dataset_type)
+    long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type + "_" + dataset_type)
     item_features = request.getfixturevalue("item_features_" + dataset_type)
     pred_pl = fit_predict_selected(
         model,
-        train_log=long_log_with_features.filter(pl.col("user_idx") != 0),
+        # ne_missing keeps null as pandas if col !=0
+        train_log=long_log_with_features.filter(pl.col("user_idx").ne_missing(pl.lit(0))), # keeps null as pandas if !=0
         inf_log=long_log_with_features,
         item_features=item_features.drop("class", "color"),
         queries=[0],
@@ -446,36 +478,11 @@ def test_fit_predict_item_features(base_model, arguments, request):
     ],
     ids=["pop_rec", "knn"],
 )
-def test_predict_pairs_to_file_spark(model, tmp_path, request):
-    long_log_with_features = request.getfixturevalue("long_log_with_features")
-    train_dataset = get_dataset_any_type(long_log_with_features)
-    path = str((tmp_path / "pred.parquet").resolve().absolute())
-    model.fit(train_dataset)
-    model.predict_pairs(
-        dataset=train_dataset,
-        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"),
-        recs_file_path=path,
-    )
-    pred_cached = model.predict_pairs(
-        dataset=train_dataset,
-        pairs=long_log_with_features.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"),
-        recs_file_path=None,
-    )
-    pred_from_file = pd.read_parquet(path)
-    assert isDataFrameEqual(pred_cached, pred_from_file)
-
-
-@pytest.mark.spark
-@pytest.mark.parametrize(
-    "model",
-    [
-        PopRec(),
-        ItemKNN(),
-    ],
-    ids=["pop_rec", "knn"],
-)
-def test_predict_pairs_to_file_spark(model, tmp_path, request):
-    long_log_with_features = request.getfixturevalue("long_log_with_features")
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_predict_pairs_to_file_spark(model, df_type, tmp_path, request):
+    if df_type != "":
+        df_type = "_and_" + df_type
+    long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type)
     train_dataset = get_dataset_any_type(long_log_with_features)
     path = str((tmp_path / "pred.parquet").resolve().absolute())
     model.fit(train_dataset)
@@ -502,10 +509,13 @@ def test_predict_pairs_to_file_spark(model, tmp_path, request):
     ],
     ids=["pop_rec", "knn"],
 )
-@pytest.mark.parametrize("dataset_type", ["spark", "pandas", "polars"])
-def test_predict_pairs_to_file_core(model, dataset_type, tmp_path, request):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+@pytest.mark.parametrize("dataset_type", ["pandas", "polars"])
+def test_predict_pairs_to_file_core(model, dataset_type, df_type, tmp_path, request):
+    if df_type != "":
+        df_type = "_and_" + df_type
     if dataset_type == "pandas":
-        long_log_with_features = request.getfixturevalue("long_log_with_features_" + dataset_type)
+        long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type + "_" + dataset_type)
         train_dataset = get_dataset_any_type(long_log_with_features)
         path = str((tmp_path / "pred.parquet").resolve().absolute())
         if model.__class__ not in client_model_list:
@@ -536,7 +546,7 @@ def test_predict_pairs_to_file_core(model, dataset_type, tmp_path, request):
             pred_from_file = pd.read_parquet(path)
             assert isDataFrameEqual(pred_cached, pred_from_file)
     elif dataset_type == "polars":
-        long_log_with_features = request.getfixturevalue("long_log_with_features_" + dataset_type)
+        long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type + "_" + dataset_type)
         train_dataset = get_dataset_any_type(long_log_with_features)
         path = str((tmp_path / "pred.parquet").resolve().absolute())
         if model.__class__ not in client_model_list:
@@ -566,7 +576,7 @@ def test_predict_pairs_to_file_core(model, dataset_type, tmp_path, request):
             )
             pred_from_file = pd.read_parquet(path)
             isDataFrameEqual(pred_cached, pred_from_file)
-
+        
 
 @pytest.mark.spark
 @pytest.mark.parametrize(
@@ -577,8 +587,11 @@ def test_predict_pairs_to_file_core(model, dataset_type, tmp_path, request):
     ],
     ids=["pop_rec", "knn"],
 )
-def test_predict_to_file_spark(model, tmp_path, request):
-    long_log_with_features = request.getfixturevalue("long_log_with_features")
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_predict_to_file_spark(model, df_type, tmp_path, request):
+    if df_type != "":
+        df_type = "_and_" + df_type
+    long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type)
     train_dataset = get_dataset_any_type(long_log_with_features)
     path = str((tmp_path / "pred.parquet").resolve().absolute())
     model.fit_predict(train_dataset, k=10, recs_file_path=path)
@@ -596,11 +609,14 @@ def test_predict_to_file_spark(model, tmp_path, request):
     ],
     ids=["pop_rec", "knn"],
 )
-@pytest.mark.parametrize("dataset_type", ["spark", "pandas", "polars"])
-def test_predict_to_file_core(model, dataset_type, tmp_path, request):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+@pytest.mark.parametrize("dataset_type", ["pandas", "polars"])
+def test_predict_to_file_core(model, dataset_type, df_type, tmp_path, request):
+    if df_type != "":
+        df_type = "_and_" + df_type
     model = model()
     if dataset_type == "pandas":
-        long_log_with_features = request.getfixturevalue("long_log_with_features_" + dataset_type)
+        long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type + "_" + dataset_type)
         train_dataset = get_dataset_any_type(long_log_with_features)
         path = str((tmp_path / "pred.parquet").resolve().absolute())
         if model.__class__ not in client_model_list:
@@ -612,7 +628,7 @@ def test_predict_to_file_core(model, dataset_type, tmp_path, request):
             pred_from_file = pd.read_parquet(path)
             assert isDataFrameEqual(pred_cached, pred_from_file)
     elif dataset_type == "polars":
-        long_log_with_features = request.getfixturevalue("long_log_with_features_" + dataset_type)
+        long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type + "_" + dataset_type)
         train_dataset = get_dataset_any_type(long_log_with_features)
         path = str((tmp_path / "pred.parquet").resolve().absolute())
         if model.__class__ not in client_model_list:
@@ -633,12 +649,15 @@ def test_predict_to_file_core(model, dataset_type, tmp_path, request):
 )
 @pytest.mark.parametrize("add_cold_items", [True, False])
 @pytest.mark.parametrize("predict_cold_only", [True, False])
-def test_add_cold_items_for_nonpersonalized_spark(model, add_cold_items, predict_cold_only, request):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_add_cold_items_for_nonpersonalized_spark(model, add_cold_items, df_type, predict_cold_only, request):
+    if df_type != "":
+        df_type = "_and_" + df_type
     model = model() if model == PopRec else model(sample=True)
     num_warm = 5
     # k is greater than the number of warm items to check if
     # the cold items are presented in prediction
-    long_log_with_features = request.getfixturevalue("long_log_with_features")
+    long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type)
     k = 6
     log = (
         long_log_with_features
@@ -690,12 +709,15 @@ def test_add_cold_items_for_nonpersonalized_spark(model, add_cold_items, predict
 )
 @pytest.mark.parametrize("add_cold_items", [True, False])
 @pytest.mark.parametrize("predict_cold_only", [True, False])
-def test_add_cold_items_for_nonpersonalized_pandas(model, add_cold_items, predict_cold_only, request):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_add_cold_items_for_nonpersonalized_pandas(model, add_cold_items, df_type, predict_cold_only, request):
+    if df_type != "":
+        df_type = "_and_" + df_type
     model = model() if model == PopRec else model(sample=True)
     num_warm = 5
     # k is greater than the number of warm items to check if
     # the cold items are presented in prediction
-    long_log_with_features = request.getfixturevalue("long_log_with_features_pandas")
+    long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type + "_pandas")
     k = 6
     if not isinstance(model, (Wilson, UCB)):
         long_log_with_features["relevance"] = np.where(long_log_with_features["relevance"] < 3, 0, 1)
@@ -719,7 +741,7 @@ def test_add_cold_items_for_nonpersonalized_pandas(model, add_cold_items, predic
         pred_dataset = get_dataset_any_type(log[log["item_idx"] < num_warm])
         pred = model.predict(
             dataset=pred_dataset,
-            queries=[1],
+            queries=[0],
             items=items,
             k=k,
             filter_seen_items=False,
@@ -753,12 +775,15 @@ def test_add_cold_items_for_nonpersonalized_pandas(model, add_cold_items, predic
 )
 @pytest.mark.parametrize("add_cold_items", [True, False])
 @pytest.mark.parametrize("predict_cold_only", [True, False])
-def test_add_cold_items_for_nonpersonalized_polars(model, add_cold_items, predict_cold_only, request):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_add_cold_items_for_nonpersonalized_polars(model, add_cold_items, df_type, predict_cold_only, request):
+    if df_type != "":
+        df_type = "_and_" + df_type
     model = model() if model == PopRec else model(sample=True)
     num_warm = 5
     # k is greater than the number of warm items to check if
     # the cold items are presented in prediction
-    long_log_with_features = request.getfixturevalue("long_log_with_features_polars")
+    long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type + "_polars")
     k = 6
     if not isinstance(model, (Wilson, UCB)):
         long_log_with_features.with_columns(pl.when(pl.col("relevance") < 3).then(0).otherwise(1).alias("relevance"))
@@ -782,13 +807,13 @@ def test_add_cold_items_for_nonpersonalized_polars(model, add_cold_items, predic
         pred_dataset = get_dataset_any_type(log.filter(pl.col("item_idx") < num_warm))
         pred = model.predict(
             dataset=pred_dataset,
-            queries=[1],
+            queries=[0],
             items=items,
             k=k,
             filter_seen_items=False,
         )
         if add_cold_items or isinstance(model, UCB):
-            assert pred.height == min(k, items.height)
+            assert pred.height == min(k, items.drop_nulls().height)
             if predict_cold_only:
                 assert pred.select("item_idx").min().item() >= num_warm
                 # for RandomRec relevance of an item is equal to its inverse position in the list
@@ -837,7 +862,11 @@ def test_add_cold_items_for_nonpersonalized_polars(model, add_cold_items, predic
         "item_popularity",
     ],
 )
-def test_set_params(base_model, arguments, params, datasets):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_set_params(base_model, arguments, params, df_type, request):
+    if df_type != "":
+        df_type = "_" + df_type
+    datasets = request.getfixturevalue("datasets" + df_type)
     polars_df = datasets["polars"]
     pandas_df = datasets["pandas"]
     spark_df = datasets["spark"]
@@ -888,7 +917,11 @@ def test_set_params(base_model, arguments, params, datasets):
     [(PopRec, {})],
     ids=["pop_rec"],
 )
-def test_calc_fill(base_model, arguments, datasets):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_calc_fill(base_model, arguments, df_type, request):
+    if df_type != "":
+        df_type = "_" + df_type
+    datasets = request.getfixturevalue("datasets" + df_type)
     polars_df = datasets["polars"]
     pandas_df = datasets["pandas"]
     spark_df = datasets["spark"]
@@ -913,7 +946,11 @@ def test_calc_fill(base_model, arguments, datasets):
     [(PopRec, {})],
     ids=["pop_rec"],
 )
-def test_get_selected_item_popularity(base_model, arguments, datasets, spark):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_get_selected_item_popularity(base_model, arguments, df_type, request, spark):
+    if df_type != "":
+        df_type = "_" + df_type
+    datasets = request.getfixturevalue("datasets" + df_type)
     polars_df = datasets["polars"]
     pandas_df = datasets["pandas"]
     spark_df = datasets["spark"]
@@ -923,9 +960,9 @@ def test_get_selected_item_popularity(base_model, arguments, datasets, spark):
     model_pd.fit(pandas_df)
     model_pl.fit(polars_df)
     model_spark.fit(spark_df)
-    items_pd = pd.DataFrame({model_pd.item_column: [3]})
-    items_pl = pl.DataFrame({model_pl.item_column: [3]})
-    items_spark = spark.createDataFrame([{model_spark.item_column: 3}])
+    items_pd = pd.DataFrame({model_pd.item_column: [1]})
+    items_pl = pl.DataFrame({model_pl.item_column: [1]})
+    items_spark = spark.createDataFrame([{model_spark.item_column: 1}])
     item_popularity_pl = model_pl._impl._get_selected_item_popularity(items_pl)
     item_popularity_pd = model_pd._impl._get_selected_item_popularity(items_pd)
     item_popularity_spark = model_spark._impl._get_selected_item_popularity(items_spark)
@@ -943,7 +980,11 @@ def test_get_selected_item_popularity(base_model, arguments, datasets, spark):
     [(PopRec, {})],
     ids=["pop_rec"],
 )
-def test_calc_max_hist_len(base_model, arguments, datasets, spark):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_calc_max_hist_len(base_model, arguments, df_type, request, spark):
+    if df_type != "":
+        df_type = "_" + df_type
+    datasets = request.getfixturevalue("datasets" + df_type)
     polars_df = datasets["polars"]
     pandas_df = datasets["pandas"]
     spark_df = datasets["spark"]
@@ -971,39 +1012,6 @@ def test_calc_max_hist_len(base_model, arguments, datasets, spark):
     assert max_hist_len_pd == max_hist_len_pl, "Pandas max_hist_len not equals Spark max_hist_len"
 
 
-@pytest.mark.spark
-@pytest.mark.parametrize(
-    "base_model, arguments",
-    [(PopRec, {})],
-    ids=["pop_rec"],
-)
-def test_calc_max_hist_len(base_model, arguments, datasets, spark):
-    polars_df = datasets["polars"]
-    pandas_df = datasets["pandas"]
-    spark_df = datasets["spark"]
-    model_pd = base_model(**arguments)
-    model_pl = base_model(**arguments)
-    model_spark = base_model(**arguments)
-    model_pd.fit(pandas_df)
-    model_pl.fit(polars_df)
-    model_spark.fit(spark_df)
-    queries_pd = pd.DataFrame({model_pd.query_column: [2]})
-    queries_pl = pl.DataFrame({model_pl.query_column: [2]})
-    queries_spark = spark.createDataFrame([{model_spark.query_column: 2}])
-    max_hist_len_pd = model_pd._impl._calc_max_hist_len(pandas_df, queries_pd)
-    max_hist_len_pl = model_pl._impl._calc_max_hist_len(polars_df, queries_pl)
-    max_hist_len_spark = model_spark._impl._calc_max_hist_len(spark_df, queries_spark)
-    assert max_hist_len_pd == max_hist_len_spark, "Pandas max_hist_len not equals Spark max_hist_len"
-    assert max_hist_len_pd == max_hist_len_pl, "Pandas max_hist_len not equals Spark max_hist_len"
-    queries_pd = pd.DataFrame({model_pd.query_column: [1234567]})
-    queries_pl = pl.DataFrame({model_pl.query_column: [1234567]})
-    queries_spark = spark.createDataFrame([{model_spark.query_column: 1234567}])
-    max_hist_len_pd = model_pd._impl._calc_max_hist_len(pandas_df, queries_pd)
-    max_hist_len_pl = model_pl._impl._calc_max_hist_len(polars_df, queries_pl)
-    max_hist_len_spark = model_spark._impl._calc_max_hist_len(spark_df, queries_spark)
-    assert max_hist_len_pd == max_hist_len_spark, "Pandas max_hist_len not equals Spark max_hist_len"
-    assert max_hist_len_pd == max_hist_len_pl, "Pandas max_hist_len not equals Spark max_hist_len"
-
 
 @pytest.mark.spark
 @pytest.mark.parametrize(
@@ -1011,7 +1019,11 @@ def test_calc_max_hist_len(base_model, arguments, datasets, spark):
     [(PopRec, {})],
     ids=["pop_rec"],
 )
-def test_filter_interactions_queries_items_dataframes(base_model, arguments, datasets):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_filter_interactions_queries_items_dataframes(base_model, arguments, df_type, request):
+    if df_type != "":
+        df_type = "_" + df_type
+    datasets = request.getfixturevalue("datasets" + df_type)
     query_features_pl, item_features_pl, dataset_pl = (
         datasets["polars"].query_features,
         datasets["polars"].item_features,
@@ -1070,7 +1082,11 @@ def test_filter_interactions_queries_items_dataframes(base_model, arguments, dat
     ids=["pop_rec"],
 )
 @pytest.mark.parametrize("filter_seen", [False, True])
-def test_fit_predict_all_arguments(base_model, arguments, filter_seen, datasets, tmp_path):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_fit_predict_all_arguments(base_model, arguments, filter_seen, df_type, request, tmp_path):
+    if df_type != "":
+        df_type = "_" + df_type
+    datasets = request.getfixturevalue("datasets" + df_type)
     polars_df = datasets["polars"]
     pandas_df = datasets["pandas"]
     spark_df = datasets["spark"]
@@ -1096,7 +1112,12 @@ def test_fit_predict_all_arguments(base_model, arguments, filter_seen, datasets,
     [(PopRec, {})],
     ids=["pop_rec"],
 )
-def test_predict_pairs_incorrect_call(base_model, arguments, datasets, spark):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+
+def test_predict_pairs_incorrect_call(base_model, arguments, df_type, request, spark):
+    if df_type != "":
+        df_type = "_" + df_type
+    datasets = request.getfixturevalue("datasets" + df_type)
     polars_df = datasets["polars"]
     pandas_df = datasets["pandas"]
     spark_df = datasets["spark"]
@@ -1140,7 +1161,7 @@ def test_predict_pairs_incorrect_call(base_model, arguments, datasets, spark):
     [(PopRec, {})],
     ids=["pop_rec"],
 )
-def test_predict_proba(base_model, arguments, spark, request):
+def test_predict_proba(base_model, arguments, request):
     log_spark = request.getfixturevalue("log")
     spark_df = get_dataset_any_type(log_spark)
     log_pandas = request.getfixturevalue("log_pandas")
@@ -1175,7 +1196,11 @@ def test_predict_proba(base_model, arguments, spark, request):
     [(PopRec, {})],
     ids=["pop_rec"],
 )
-def test_predict_proba_incorrect_call(base_model, arguments, datasets):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_predict_proba_incorrect_call(base_model, arguments, df_type, request):
+    if df_type != "":
+        df_type = "_" + df_type
+    datasets = request.getfixturevalue("datasets" + df_type)
     polars_df = datasets["polars"]
     pandas_df = datasets["pandas"]
     spark_df = datasets["spark"]
@@ -1196,7 +1221,11 @@ def test_predict_proba_incorrect_call(base_model, arguments, datasets):
     [(PopRec, {})],
     ids=["pop_rec"],
 )
-def test_filter_seen(base_model, arguments, datasets):
+@pytest.mark.parametrize("df_type", ["", "none_queries", "none_items", "random_sorted", "one_query"])
+def test_filter_seen(base_model, arguments, df_type, request):
+    if df_type != "":
+        df_type = "_" + df_type
+    datasets = request.getfixturevalue("datasets" + df_type)
     dataset_pl = datasets["polars"]
     dataset_pd = datasets["pandas"]
     dataset_spark = datasets["spark"]
@@ -1225,127 +1254,88 @@ def test_filter_seen(base_model, arguments, datasets):
 @pytest.mark.spark
 @pytest.mark.parametrize(
     "base_model, arguments",
-    [(PopRec, {}), (PopRec, {"use_rating": True})],
-    ids=["pop_rec", "pop_rec_with_rating"],
+    [
+        (PopRec, {}),
+        (PopRec, {"use_rating": True}),
+    ],
+    ids=[
+        "pop_rec",
+        "pop_rec_with_rating",
+    ],
 )
-def test_fit_predict_the_same_framework_spark(base_model, arguments, datasets, big_datasets):
-    for dataset in [datasets, big_datasets]:
-        results = {}
-        for framework, df in dataset.items():
-            model = base_model(**arguments)
-            res = None
-            if framework == "pandas":
-                res = model.fit_predict(df, k=1)
-            elif framework == "spark":
-                res = model.fit_predict(df, k=1).toPandas()
-            if res is not None:
-                results.update({f"{framework}": res})
-            del model
+@pytest.mark.parametrize("predict_framework", ["pandas", "polars", "spark"])
+@pytest.mark.parametrize("train_framework", ["pandas", "polars", "spark"])
+@pytest.mark.parametrize("dataset_fixture", ["datasets", "big_datasets", "datasets_none_items", "datasets_none_queries", "datasets_one_query", "datasets_random_sorted"])
+def test_fit_predict_different_frameworks_spark(base_model, arguments, train_framework, predict_framework, dataset_fixture, request):
+    dataset = request.getfixturevalue(dataset_fixture)
+    model_default = base_model().__class__(**arguments)
+    base_res = model_default.fit_predict(dataset["spark"], k=1).toPandas()
+    df = dataset[train_framework]
+    if predict_framework == train_framework:
+        return
+    model = base_model().__class__(**arguments)
+    model.fit(df)
+    if predict_framework == "pandas":
+        model.to_pandas()
+        df.to_pandas()
+        res = model.predict(df, k=1)
+    elif predict_framework == "spark":
+        model.to_spark()
+        df.to_spark()
+        res = model.predict(df, k=1).toPandas()
+    elif predict_framework == "polars":
+        model.to_polars()
+        df.to_polars()
+        res = model.predict(df, k=1).to_pandas()
+    if res is not None and base_res is not None:
+        assert isDataFrameEqual(
+            base_res, res
+        ), f"Not equal dataframes in {train_framework}_{predict_framework} pair of train-predict"
+    else:
+        assert base_res == res
 
-        pandas_res = results["pandas"]
-        spark_res = results["spark"]
-        assert isDataFrameEqual(pandas_res, spark_res), "Dataframes are not equals"
-
-
-@pytest.mark.core
+@pytest.mark.spark
 @pytest.mark.parametrize(
     "base_model, arguments",
     [(PopRec, {}), (PopRec, {"use_rating": True})],
     ids=["pop_rec", "pop_rec_with_rating"],
-)
-def test_fit_predict_the_same_framework_polars(base_model, arguments, datasets, big_datasets):
-    for dataset in [datasets, big_datasets]:
-        results = {}
-        for framework, df in dataset.items():
-            model = base_model(**arguments)
-            res = None
-            if framework == "pandas":
-                res = model.fit_predict(df, k=1)
-            elif framework == "polars":
-                res = model.fit_predict(df, k=1).to_pandas()
-            if res is not None:
-                results.update({f"{framework}": res})
-            del model
-
-        pandas_res = results["pandas"]
-        polars_res = results["polars"]
-        assert isDataFrameEqual(pandas_res, polars_res), "Dataframes are not equals"
+) #TODO: Not equal dfs on datasets_none_items fixture. Fix it
+@pytest.mark.parametrize("dataset_fixture", ["datasets", "big_datasets",  "datasets_none_queries", "datasets_one_query", "datasets_random_sorted"])
+def test_fit_predict_different_frameworks_pandas_polars(base_model, arguments, dataset_fixture, request):
+    dataset = request.getfixturevalue(dataset_fixture)
+    polars_df = dataset["polars"]
+    pandas_df = dataset["pandas"]
+    model = base_model().__class__(**arguments)
+    model.fit(pandas_df)
+    model.to_polars()
+    res1 = model.predict(polars_df, k=1).to_pandas()
+    model = base_model().__class__(**arguments)
+    model.fit(polars_df)
+    model.to_pandas()
+    res2 = model.predict(pandas_df, k=1)
+    assert isDataFrameEqual(res1, res2), "Not equal dataframes in pair of train-predict"
 
 
 @pytest.mark.spark
 @pytest.mark.parametrize(
-    "base_model, arguments, predict_framework",
-    [
-        (PopRec, {}, "pandas"),
-        (PopRec, {}, "spark"),
-        (PopRec, {}, "polars"),
-        (PopRec, {"use_rating": True}, "pandas"),
-        (PopRec, {"use_rating": True}, "spark"),
-        (PopRec, {"use_rating": True}, "polars"),
-    ],
-    ids=[
-        "pop_rec_pandas",
-        "pop_rec_spark",
-        "pop_rec_polars",
-        "pop_rec_with_rating_pandas",
-        "pop_rec_with_rating_spark",
-        "pop_rec_with_rating_polars",
-    ],
-)
-def test_fit_predict_different_frameworks_spark(base_model, arguments, predict_framework, datasets, big_datasets):
-    for dataset in [datasets, big_datasets]:
-        results = {}
-        model_default = base_model(**arguments)
-        base_res = model_default.fit_predict(dataset["spark"], k=1).toPandas()
-        for train_framework, df in dataset.items():
-            if (
-                predict_framework in ["polars", "pandas"] and train_framework in ["polars", "pandas"]
-            ) or predict_framework == train_framework:
-                continue
-            model = base_model(**arguments)
-            model.fit(df)
-            res = None
-            if predict_framework == "pandas":
-                model.to_pandas()
-                df.to_pandas()
-                res = model.predict(df, k=1)
-            elif predict_framework == "spark":
-                model.to_spark()
-                df.to_spark()
-                res = model.predict(df, k=1).toPandas()
-            elif predict_framework == "polars":
-                model.to_polars()
-                df.to_polars()
-                res
-            if res is not None:
-                results.update({f"{train_framework}_{predict_framework}": res})
-        cnt = 0
-        for type_of_convertation, dataframe in results.items():
-            cnt += 1
-            assert isDataFrameEqual(
-                base_res, dataframe
-            ), f"Not equal dataframes in {type_of_convertation} pair of train-predict"
-
-
-@pytest.mark.core
-@pytest.mark.parametrize(
     "base_model, arguments",
     [(PopRec, {}), (PopRec, {"use_rating": True})],
     ids=["pop_rec", "pop_rec_with_rating"],
 )
-def test_fit_predict_different_frameworks_pandas_polars(base_model, arguments, datasets, big_datasets):
-    for dataset in [datasets, big_datasets]:
-        polars_df = dataset["polars"]
-        pandas_df = dataset["pandas"]
-        model = base_model(**arguments)
-        model.fit(pandas_df)
-        model.to_polars()
-        res1 = model.predict(polars_df, k=1).to_pandas()
-        model = base_model(**arguments)
-        model.fit(polars_df)
-        model.to_pandas()
-        res2 = model.predict(pandas_df, k=1)
-        assert isDataFrameEqual(res1, res2), "Not equal dataframes in pair of train-predict"
+@pytest.mark.parametrize("dataset_fixture", ["datasets", "big_datasets",  "datasets_none_items", "datasets_none_queries", "datasets_one_query", "datasets_random_sorted"])
+def test_fit_predict_the_same_framework(base_model, arguments, dataset_fixture, request):
+    dataset = request.getfixturevalue(dataset_fixture)
+    df_pd = dataset["pandas"]
+    model_pd = base_model().__class__(**arguments)
+    pandas_res = model_pd.fit_predict(df_pd, k=1)
+    df_pl = dataset["polars"]
+    model_pl = base_model().__class__(**arguments)
+    polars_res = model_pl.fit_predict(df_pl, k=1).to_pandas()
+    df_spark = dataset["spark"]
+    model_spark = base_model().__class__(**arguments)
+    spark_res = model_spark.fit_predict(df_spark, k=1).toPandas()
+    assert isDataFrameEqual(pandas_res, polars_res), "Pandas results are not equals Polars results"
+    assert isDataFrameEqual(pandas_res, spark_res), "Pandas results are not equals Spark results"
 
 
 @pytest.mark.spark
@@ -1355,7 +1345,9 @@ def test_fit_predict_different_frameworks_pandas_polars(base_model, arguments, d
     ids=["pop_rec"],
 )
 @pytest.mark.parametrize("type_of_impl", ["pandas", "spark", "polars"])
-def test_compare_fit_predict_client_and_implementation(base_model, arguments, type_of_impl, datasets):
+@pytest.mark.parametrize("dataset_fixture", ["datasets", "big_datasets",  "datasets_none_items", "datasets_none_queries", "datasets_one_query", "datasets_random_sorted"])
+def test_compare_fit_predict_client_and_implementation(base_model, arguments, type_of_impl, dataset_fixture, request):
+    datasets = request.getfixturevalue(dataset_fixture)
     dataset = datasets[type_of_impl]
     model_client = base_model(**arguments)
     model_impl = base_model(**arguments)

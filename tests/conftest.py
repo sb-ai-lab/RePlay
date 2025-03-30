@@ -111,6 +111,136 @@ def long_log_with_features_polars(long_log_with_features):
 
 
 @pytest.fixture(scope="session")
+def long_log_with_features_and_none_queries(spark):
+    date = datetime(2019, 1, 1)
+    return spark.createDataFrame(
+        data=[
+            [None, 0, date, 1.0],
+            [0, 3, datetime(2019, 1, 5), 3.0],
+            [0, 1, date, 2.0],
+            [0, 4, date, 4.0],
+            [1, 0, datetime(2020, 1, 5), 4.0],
+            [None, 2, datetime(2018, 1, 1), 2.0],
+            [1, 6, datetime(2019, 1, 1), 4.0],
+            [1, 7, datetime(2020, 1, 1), 4.0],
+            [2, 8, date, 3.0],
+            [None, 1, date, 2.0],
+            [2, 5, datetime(2020, 3, 1), 1.0],
+            [2, 6, date, 5.0],
+        ],
+        schema=["user_idx", "item_idx", "timestamp", "relevance"],
+    )
+
+
+@pytest.fixture(scope="session")
+def long_log_with_features_and_none_queries_pandas(long_log_with_features_and_none_queries):
+    return long_log_with_features_and_none_queries.toPandas()
+
+
+@pytest.fixture(scope="session")
+def long_log_with_features_and_none_queries_polars(long_log_with_features_and_none_queries):
+    res = pl.from_pandas(long_log_with_features_and_none_queries.toPandas())
+    res = res.with_columns(pl.col("user_idx").cast(pl.Int64).alias("user_idx"))
+    return res
+
+
+@pytest.fixture(scope="session")
+def long_log_with_features_and_none_items(spark):
+    date = datetime(2019, 1, 1)
+    return spark.createDataFrame(
+        data=[
+            [0, None, date, 1.0],
+            [0, 2, datetime(2019, 1, 5), 3.0],
+            [0, 1, date, 2.0],
+            [0, 4, date, 4.0],
+            [1, 0, datetime(2020, 1, 5), 4.0],
+            [1, None, datetime(2018, 1, 1), 2.0],
+            [1, 6, datetime(2019, 1, 1), 4.0],
+            [1, 7, datetime(2020, 1, 1), 4.0],
+            [2, 8, date, 3.0],
+            [2, 1, date, 2.0],
+            [2, None, datetime(2020, 3, 1), 1.0],
+            [2, 6, date, 5.0],
+        ],
+        schema=["user_idx", "item_idx", "timestamp", "relevance"],
+    )
+
+
+@pytest.fixture(scope="session")
+def long_log_with_features_and_none_items_pandas(long_log_with_features_and_none_items):
+    return long_log_with_features_and_none_items.toPandas()
+
+
+@pytest.fixture(scope="session")
+def long_log_with_features_and_none_items_polars(long_log_with_features_and_none_items):
+    return pl.from_pandas(long_log_with_features_and_none_items.toPandas())
+
+
+@pytest.fixture(scope="session")
+def long_log_with_features_and_random_sorted(spark):
+    date = datetime(2019, 1, 1)
+    return spark.createDataFrame(
+        data=[
+            [2, 8, date, 3.0],
+            [0, 0, date, 1.0],
+            [0, 4, date, 4.0],
+            [1, 6, datetime(2019, 1, 1), 4.0],
+            [0, 3, datetime(2019, 1, 5), 3.0],
+            [1, 0, datetime(2020, 1, 5), 4.0],
+            [2, 5, datetime(2020, 3, 1), 1.0],
+            [1, 2, datetime(2018, 1, 1), 2.0],
+            [0, 1, date, 2.0],
+            [1, 7, datetime(2020, 1, 1), 4.0],
+            [2, 1, date, 2.0],
+            [2, 6, date, 5.0],
+        ],
+        schema=["user_idx", "item_idx", "timestamp", "relevance"],
+    )
+
+
+@pytest.fixture(scope="session")
+def long_log_with_features_and_random_sorted_pandas(long_log_with_features_and_random_sorted):
+    return long_log_with_features_and_random_sorted.toPandas()
+
+
+@pytest.fixture(scope="session")
+def long_log_with_features_and_random_sorted_polars(long_log_with_features_and_random_sorted):
+    return pl.from_pandas(long_log_with_features_and_random_sorted.toPandas())
+
+
+@pytest.fixture(scope="session")
+def long_log_with_features_and_one_query(spark):
+    date = datetime(2019, 1, 1)
+    return spark.createDataFrame(
+        data=[
+            [1, 0, date, 1.0],
+            [1, 3, datetime(2019, 1, 5), 3.0],
+            [1, 1, date, 2.0],
+            [1, 4, date, 4.0],
+            [1, 0, datetime(2020, 1, 5), 4.0],
+            [1, 2, datetime(2018, 1, 1), 2.0],
+            [1, 6, datetime(2019, 1, 1), 4.0],
+            [1, 7, datetime(2020, 1, 1), 4.0],
+            [1, 8, date, 3.0],
+            [1, 1, date, 2.0],
+            [1, 5, datetime(2020, 3, 1), 1.0],
+            [1, 6, date, 5.0],
+        ],
+        schema=["user_idx", "item_idx", "timestamp", "relevance"],
+    )
+
+
+@pytest.fixture(scope="session")
+def long_log_with_features_and_one_query_pandas(long_log_with_features_and_one_query):
+    return long_log_with_features_and_one_query.toPandas()
+
+
+@pytest.fixture(scope="session")
+def long_log_with_features_and_one_query_polars(long_log_with_features_and_one_query):
+    return pl.from_pandas(long_log_with_features_and_one_query.toPandas())
+
+
+@pytest.fixture(scope="session")
 def short_log_with_features(spark):
     date = datetime(2021, 1, 1)
     return spark.createDataFrame(
