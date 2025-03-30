@@ -17,27 +17,34 @@ from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_t
 
 
 class _PopRecPandas:
-    model: int
-    items_count: Optional[int] = None
+    """
+    Implementation of PopRec Client. Recommend objects using their popularity.
+
+    Popularity of an item is a probability that random user rated this item.
+
+    .. math::
+        Popularity(i) = \\dfrac{N_i}{N}
+
+    :math:`N_i` - number of users who rated item :math:`i`
+
+    :math:`N` - total number of users
+    """
+
+    model: Any
+    sample: bool = False
 
     def __init__(
         self,
         use_rating: bool = False,
         add_cold_items: bool = True,
         cold_weight: float = 0.5,
-        sample=False,
-        fill=0.0,
-        seed=42,
-        **kwargs,
     ):
         self.use_rating = use_rating
-        self.sample = sample
-        self.fill = fill
-        self.seed = seed
         self.add_cold_items = add_cold_items
+        self.cold_weight = cold_weight
+        self.seed = None
         self.can_predict_cold_queries = True
         self.can_predict_cold_items = True
-        self.cold_weight = cold_weight
         self.item_popularity = None
         self.fit_items = None
         self.fit_queries = None
@@ -46,7 +53,6 @@ class _PopRecPandas:
         self._objective = None
         self.study = None
         self.criterion = None
-        self.other_params = kwargs
 
     def set_params(self, **params: Dict[str, Any]) -> None:
         """
@@ -100,6 +106,13 @@ class _PopRecPandas:
     def get_features(
         self, ids: PandasDataFrame, features: Optional[PandasDataFrame] = None
     ) -> Optional[Tuple[PandasDataFrame, int]]:
+        """
+        Get embeddings from model
+
+        :param ids: id ids to get embeddings for Spark DataFrame containing user_idx or item_idx
+        :param features: query or item features
+        :return: SparkDataFrame with biases and embeddings, and vector size
+        """
         if self.query_column not in ids.columns and self.item_column not in ids.columns:
             msg = f"{self.query_column} or {self.item_column} missing"
             raise ValueError(msg)
@@ -110,14 +123,6 @@ class _PopRecPandas:
     def _get_features(
         self, ids: PandasDataFrame, features: Optional[PandasDataFrame]  # noqa: ARG002
     ) -> Tuple[Optional[PandasDataFrame], Optional[int]]:
-        """
-        Get embeddings from model
-
-        :param ids: id ids to get embeddings for Spark DataFrame containing user_idx or item_idx
-        :param features: query or item features
-        :return: SparkDataFrame with biases and embeddings, and vector size
-        """
-
         self.logger.info(
             "get_features method is not defined for the model %s. Features will not be returned.",
             str(self),
@@ -131,14 +136,20 @@ class _PopRecPandas:
     @property
     def queries_count(self) -> int:
         """
-        :returns: number of queries the model was trained on
+        Return counts of queries, that model has seen.
+        Return value only if the model has been fitted or the ``fit_queries`` property has been manually assigned
+
+        :return: number of queries the model was trained on
         """
         return self._get_fit_counts("query")
 
     @property
     def items_count(self) -> int:
         """
-        :returns: number of items the model was trained on
+        Return counts of quueries, that model has seen.
+        Return value only if the model has been fitted or the ``fit_items`` property has been manually assigned
+
+        :return: number of items the model was trained on
         """
         return self._get_fit_counts("item")
 
@@ -147,6 +158,13 @@ class _PopRecPandas:
         return {"item_popularity": self.item_popularity}
 
     def fit(self, dataset: PandasDataFrame):
+        """
+        Fit a recommendation model. Wraps the linked implementation method ``fit()``
+
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
+        :return:
+        """
         self.query_column = dataset.feature_schema.query_id_column
         self.item_column = dataset.feature_schema.item_id_column
         self.rating_column = dataset.feature_schema.interactions_rating_column
@@ -443,6 +461,25 @@ class _PopRecPandas:
         filter_seen_items=True,
         recs_file_path: Optional[str] = None,
     ) -> PandasDataFrame:
+        """
+        Fit model and get recommendations
+
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
+        :param k: number of recommendations for each query
+        :param queries: queries to create recommendations for
+            dataframe containing ``[user_idx]`` or ``array-like``;
+            if ``None``, recommend to all queries from ``interactions``
+        :param items: candidate items for recommendations
+            dataframe containing ``[item_idx]`` or ``array-like``;
+            if ``None``, take all items from ``interactions``.
+            If it contains new items, ``rating`` for them will be ``0``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
+        :param recs_file_path: save recommendations at the given absolute path as parquet file.
+            If None, cached and materialized recommendations dataframe  will be returned
+        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
+            or None if `file_path` is provided
+        """
         self.fit(dataset)
         return self.predict(dataset, k, queries, items, filter_seen_items, recs_file_path)
 
@@ -453,6 +490,20 @@ class _PopRecPandas:
         recs_file_path: Optional[str] = None,
         k: Optional[int] = None,
     ) -> Optional[PandasDataFrame]:
+        """
+        Get recommendations for specific query-item ``pairs``.
+        If a model can't produce recommendation
+        for specific pair it is removed from the resulting dataframe.
+
+        :param pairs: dataframe with pairs to calculate rating for, ``[user_idx, item_idx]``.
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
+        :param recs_file_path: save recommendations at the given absolute path as parquet file.
+            If None, cached and materialized recommendations dataframe  will be returned
+        :param k: top-k items for each query from pairs.
+        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
+            or None if `file_path` is provided
+        """
         if dataset is not None:
             interactions, query_features, item_features = (
                 dataset.interactions,
@@ -491,6 +542,10 @@ class _PopRecPandas:
     def _save_model(  # pragma: no cover
         self, path: str, additional_params=None
     ):  # TODO: Think how to save models like on spark(utils.save)
+        """
+        Method for dump model attributes to disk
+        :return:
+        """
         saved_params = {
             "query_column": self.query_column,
             "item_column": self.item_column,
@@ -503,6 +558,9 @@ class _PopRecPandas:
         return saved_params
 
     def _load_model(self, path: str):  # pragma: no cover # TODO: Think how to load models like on spark(utils.save)
+        """
+        Method for loading model attributes from disk
+        """
         loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
         for param, value in loaded_params.items():
             setattr(self, param, value)

@@ -16,27 +16,34 @@ from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_t
 
 
 class _PopRecPolars:
-    model: int
-    items_count: Optional[int] = None
+    """
+    Implementation of PopRec Client. Recommend objects using their popularity.
+
+    Popularity of an item is a probability that random user rated this item.
+
+    .. math::
+        Popularity(i) = \\dfrac{N_i}{N}
+
+    :math:`N_i` - number of users who rated item :math:`i`
+
+    :math:`N` - total number of users
+    """
+
+    model: Any
+    sample: bool = False
 
     def __init__(
         self,
         use_rating: bool = False,
         add_cold_items: bool = True,
         cold_weight: float = 0.5,
-        sample=False,
-        fill=0.0,
-        seed=42,
-        **kwargs,
-    ):
+    ) -> None:
         self.use_rating = use_rating
-        self.sample = sample
-        self.fill = fill
-        self.seed = seed
         self.add_cold_items = add_cold_items
+        self.cold_weight = cold_weight
+        self.seed = None
         self.can_predict_cold_queries = True
         self.can_predict_cold_items = True
-        self.cold_weight = cold_weight
         self.item_popularity = None
         self.fit_items = None
         self.fit_queries = None
@@ -45,14 +52,22 @@ class _PopRecPolars:
         self._objective = None
         self.study = None
         self.criterion = None
-        self.other_params = kwargs
 
     def set_params(self, **params: Dict[str, Any]) -> None:
+        """
+        Set model parameters
+
+        :param params: dictionary param name - param value
+        :return:
+        """
         for param, value in params.items():
             setattr(self, param, value)
 
     @property
     def logger(self) -> logging.Logger:
+        """
+        :returns: get library logger
+        """
         if self._logger is None:
             self._logger = logging.getLogger("replay")
         return self._logger
@@ -67,12 +82,20 @@ class _PopRecPolars:
 
     @staticmethod
     def _calc_fill(item_popularity: PolarsDataFrame, weight: float, rating_column: str) -> float:
+        """
+        Calculating a fill value a the minimal rating
+        calculated during model training multiplied by weight.
+        """
         return item_popularity.select(pl.min(rating_column)).item() * weight
 
     def __str__(self):
         return type(self).__name__
 
     def _get_selected_item_popularity(self, items: pl.DataFrame) -> pl.DataFrame:
+        """
+        Choose only required item from `item_popularity` dataframe
+        for further recommendations generation.
+        """
         if (
             self.item_popularity.select(self.item_column).null_count().item() == 0
             and not self.item_popularity.is_empty()
@@ -96,6 +119,13 @@ class _PopRecPolars:
     def get_features(
         self, ids: PolarsDataFrame, features: Optional[PolarsDataFrame] = None
     ) -> Optional[Tuple[PolarsDataFrame, int]]:
+        """
+        Get embeddings from model
+
+        :param ids: id ids to get embeddings for Spark DataFrame containing user_idx or item_idx
+        :param features: query or item features
+        :return: SparkDataFrame with biases and embeddings, and vector size
+        """
         if self.query_column not in ids.columns and self.item_column not in ids.columns:
             msg = f"{self.query_column} or {self.item_column} missing"
             raise ValueError(msg)
@@ -107,13 +137,12 @@ class _PopRecPolars:
         self, ids: PolarsDataFrame, features: Optional[PolarsDataFrame]  # noqa: ARG002
     ) -> Tuple[Optional[PolarsDataFrame], Optional[int]]:
         """
-        Get embeddings from model
+        Fit a recommendation model. Wraps the linked implementation method ``fit()``
 
-        :param ids: id ids to get embeddings for Spark DataFrame containing user_idx or item_idx
-        :param features: query or item features
-        :return: SparkDataFrame with biases and embeddings, and vector size
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
+        :return:
         """
-
         self.logger.info(
             "get_features method is not defined for the model %s. Features will not be returned.",
             str(self),
@@ -199,6 +228,10 @@ class _PopRecPolars:
     def _filter_seen(
         self, recs: PolarsDataFrame, interactions: PolarsDataFrame, k: int, queries: pl.DataFrame
     ) -> pl.DataFrame:
+        """
+        Filter seen items (present in interactions) out of the queries' recommendations.
+        For each query return from 'k' to 'k + number of seen by query' recommendations.
+        """
         if not queries.is_empty() and not interactions.is_empty():
             queries = queries.with_columns(pl.col(self.query_column).round().cast(pl.Int64).alias(self.query_column))
             interactions = interactions.with_columns(
@@ -252,6 +285,11 @@ class _PopRecPolars:
         interactions_df: Optional[pl.DataFrame],
         entity: str,
     ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+        """
+        Filter out cold entities (queries/items) from the `main_df` and `interactions_df`
+        if the model does not predict cold.
+        Warn if cold entities are present in the `main_df`.
+        """
         can_predict_cold = self.can_predict_cold_queries if entity == "query" else self.can_predict_cold_items
         fit_entities = self.fit_queries if entity == "query" else self.fit_items
         column = self.query_column if entity == "query" else self.item_column
@@ -271,6 +309,25 @@ class _PopRecPolars:
         queries: Optional[Union[PolarsDataFrame, Iterable]] = None,
         items: Optional[Union[PolarsDataFrame, Iterable]] = None,
     ):
+        """
+        Returns triplet of filtered `dataset`, `queries`, and `items`.
+        Filters out cold entities (queries/items) from the `queries`/`items` and `dataset`
+        if the model does not predict cold.
+        Filters out duplicates from `queries` and `items` dataframes,
+        and excludes all columns except `user_idx` and `item_idx`.
+
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
+        :param k: number of recommendations for each user
+        :param queries: queries to create recommendations for
+            dataframe containing ``[user_idx]`` or ``array-like``;
+            if ``None``, recommend to all queries from ``dataset``
+        :param items: candidate items for recommendations
+            dataframe containing ``[item_idx]`` or ``array-like``;
+            if ``None``, take all items from ``dataset``.
+            If it contains new items, ``rating`` for them will be ``0``.
+        :return: triplet of filtered `dataset`, `queries`, and `items`.
+        """
         self.logger.debug("Starting predict %s", type(self).__name__)
         if dataset is not None:
             query_data = next(
@@ -355,6 +412,10 @@ class _PopRecPolars:
         items: PolarsDataFrame,
         filter_seen_items: bool = True,
     ) -> pl.DataFrame:
+        """
+        Regular prediction for popularity-based models,
+        top-k most relevant items from `items` are chosen for each query
+        """
         selected_item_popularity = self._get_selected_item_popularity(items)
         if not selected_item_popularity.is_empty():
             selected_item_popularity = selected_item_popularity.sort(self.item_column, descending=True, nulls_last=True)
@@ -414,14 +475,36 @@ class _PopRecPolars:
         filter_seen_items: bool = True,
         recs_file_path: Optional[str] = None,
     ) -> Optional[pl.DataFrame]:
+        """
+        Predict wrapper to allow for fewer parameters in models
 
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
+        :param k: number of recommendations for each user
+        :param queries: queries to create recommendations for
+            dataframe containing ``[user_idx]`` or ``array-like``;
+            if ``None``, recommend to all queries from ``interactions``
+        :param items: candidate items for recommendations
+            dataframe containing ``[item_idx]`` or ``array-like``;
+            if ``None``, take all items from ``interactions``.
+            If it contains new items, ``rating`` for them will be ``0``.
+        :param user_features: user features
+            ``[user_idx , timestamp]`` + feature columns
+        :param item_features: item features
+            ``[item_idx , timestamp]`` + feature columns
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
+        :param recs_file_path: save recommendations at the given absolute path as parquet file.
+            If None, cached and materialized recommendations dataframe  will be returned
+        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
+            or None if `file_path` is provided
+        """
         dataset, queries, items = self._filter_interactions_queries_items_dataframes(dataset, k, queries, items)
         recs = self._predict_without_sampling(dataset, k, queries, items, filter_seen_items)
         if filter_seen_items and dataset is not None:
             recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
         if not recs.is_empty():
             recs = get_top_k(recs, self.query_column, [(self.rating_column, False), (self.item_column, True)], k)
-        if not recs.is_empty:
+        if not recs.is_empty():
             recs = recs.with_columns(pl.col(self.query_column).round().cast(pl.Int64).alias(self.query_column))
             recs = recs.with_columns(pl.col(self.item_column).round().cast(pl.Int64).alias(self.item_column))
         recs = recs.select(self.query_column, self.item_column, self.rating_column).drop_nulls()  # is it okey?
@@ -437,6 +520,25 @@ class _PopRecPolars:
         filter_seen_items=True,
         recs_file_path: Optional[str] = None,
     ) -> Optional[pl.DataFrame]:
+        """
+        Fit model and get recommendations
+
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
+        :param k: number of recommendations for each query
+        :param queries: queries to create recommendations for
+            dataframe containing ``[user_idx]`` or ``array-like``;
+            if ``None``, recommend to all queries from ``interactions``
+        :param items: candidate items for recommendations
+            dataframe containing ``[item_idx]`` or ``array-like``;
+            if ``None``, take all items from ``interactions``.
+            If it contains new items, ``rating`` for them will be ``0``.
+        :param filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
+        :param recs_file_path: save recommendations at the given absolute path as parquet file.
+            If None, cached and materialized recommendations dataframe  will be returned
+        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
+            or None if `file_path` is provided
+        """
         self.fit(dataset)
         return self.predict(dataset, k, queries, items, filter_seen_items, recs_file_path)
 
@@ -447,6 +549,20 @@ class _PopRecPolars:
         recs_file_path: Optional[str] = None,
         k: Optional[int] = None,
     ) -> Optional[pl.DataFrame]:
+        """
+        Get recommendations for specific query-item ``pairs``.
+        If a model can't produce recommendation
+        for specific pair it is removed from the resulting dataframe.
+
+        :param pairs: dataframe with pairs to calculate rating for, ``[user_idx, item_idx]``.
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
+        :param recs_file_path: save recommendations at the given absolute path as parquet file.
+            If None, cached and materialized recommendations dataframe  will be returned
+        :param k: top-k items for each query from pairs.
+        :return: cached recommendation dataframe with columns ``[user_idx, item_idx, rating]``
+            or None if `file_path` is provided
+        """
         if dataset is not None:
             interactions, query_features, item_features = (
                 dataset.interactions,

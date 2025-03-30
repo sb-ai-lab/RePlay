@@ -77,3 +77,5 @@ def test_use_rating_valid(base_model, type_of_impl, datasets):
     model.fit(datasets[type_of_impl])
     assert model.is_fitted
     assert model.use_rating is True
+    model.use_rating = False
+    assert model._use_rating is False

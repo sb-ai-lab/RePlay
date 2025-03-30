@@ -112,22 +112,11 @@ def test_cached_dfs_invalid(base_model, arguments, type_of_impl):
 @pytest.mark.parametrize("type_of_impl", ["pandas", "spark", "polars"])
 def test_logger(base_model, arguments, type_of_impl):
     model = base_model(**arguments)
+    assert model.logger is not None
     model._impl = model._class_map[type_of_impl]()
-    assert model._impl._logger is None  # In implementations _logger is None after __init__
+    assert model._impl._logger is None  # In implementations _logger is default logger after __init__
     assert model.logger is not None  # but after first time logger called, it is not None
     model.logger.debug("Logger works")
-
-
-@pytest.mark.spark
-@pytest.mark.parametrize(
-    "base_model, arguments",
-    [(PopRec, {})],
-    ids=["pop_rec"],
-)
-def test_logger_invalid(base_model, arguments):
-    model = base_model(**arguments)
-    with pytest.raises(AttributeError, match="does not have the 'logger' attribute"):
-        model.logger.debug("This call is not working")
 
 
 @pytest.mark.spark
@@ -254,8 +243,13 @@ def test_invalid_attributes_after_fit(base_model, arguments, type_of_impl, attri
 
     model = base_model(**arguments)
     model.fit(datasets[type_of_impl])
+    # We don't forbid to set values to implementation
     setattr(model._impl, attribute_name, Attribute())
     assert getattr(model, attribute_name).value == 123
+    # But forbid to set values to model
+    if attribute_name in PopRec.attributes_after_fit_with_setter:
+        with pytest.raises(AttributeError, match="Can't set to"):
+            setattr(model, attribute_name, Attribute())
 
 
 @pytest.mark.spark
@@ -471,8 +465,7 @@ def test_nonpersonalized_client_invalid_cold_weight(base_model, invalid_weight):
 )
 def test_nonpersonalized_client_invalid_cold_weight_setter(base_model, invalid_weight):
     model = base_model()
-    with pytest.raises(AttributeError, match="does not have the 'cold_weight' attribute"):
-        model.cold_weight
+    assert model.cold_weight
     with pytest.raises(ValueError, match=r"'cold_weight' value should be float in interval \(0, 1]"):
         model.cold_weight = invalid_weight
 
@@ -509,10 +502,9 @@ def test_nonpersonalized_client_add_cold_items(base_model, datasets):
     value = True
     dataset = datasets["spark"]
     model = base_model()
-    with pytest.raises(AttributeError, match="does not have the 'add_cold_items' attribute"):
-        model.add_cold_items
+    assert model.add_cold_items == model._add_cold_items
     model.add_cold_items = value
-    assert model._add_cold_items == value
+    assert model.add_cold_items == model._add_cold_items == value
     model.fit(dataset)
     assert model.add_cold_items
 
@@ -565,8 +557,7 @@ def test_nonpersonalized_client_sample(base_model, datasets):
     model = base_model(add_cold_items=True)
     dataset = datasets["spark"]
     model = base_model()
-    with pytest.raises(AttributeError, match="does not have the 'sample' attribute"):
-        model.sample
+    assert model.sample is False
     model.fit(dataset)
     assert model.sample is not None
 
@@ -577,11 +568,9 @@ def test_nonpersonalized_client_sample(base_model, datasets):
     [PopRec],
     ids=["pop_rec"],
 )
-def test_nonpersonalized_client_seed(base_model, datasets):
+def test_nonpersonalized_client_seed(base_model):
     model = base_model()
-    model = base_model()
-    with pytest.raises(AttributeError, match="does not have the 'seed' attribute"):
-        model.seed
+    assert model.seed is None
     model._impl = model._class_map["pandas"]()
     model._impl.seed = SEED
     assert model.seed == SEED
