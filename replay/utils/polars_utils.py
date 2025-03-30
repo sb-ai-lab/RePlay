@@ -95,34 +95,6 @@ def get_top_k(
     return top_k_df
 
 
-def get_top_k_recs(
-    recs: PolarsDataFrame,
-    k: int,
-    query_column: str = "user_idx",
-    rating_column: str = "relevance",
-) -> pl.DataFrame:
-    """
-    Get top k recommendations by `rating`.
-
-    For each unique query (user) in the recommendations DataFrame, the rows are ordered
-    in descending order by the rating, and the top k rows are returned.
-
-    :param recs: recommendations DataFrame with columns [query_column, item_idx, rating].
-    :param k: length of a recommendation list.
-    :param query_column: name of the column containing query (user) ids.
-    :param rating_column: name of the column used for ordering (ratings).
-    :return: top k recommendations DataFrame with columns [query_column, item_idx, rating].
-    """
-    return get_top_k(
-        dataframe=recs,
-        partition_by_col=query_column,
-        order_by_col=[
-            (rating_column, False),
-        ],
-        k=k,
-    )
-
-
 def return_recs(recs: PolarsDataFrame, recs_file_path: Optional[str] = None) -> Optional[pl.DataFrame]:
     """
     Save DataFrame `recs` to `recs_file_path` if provided otherwise cache

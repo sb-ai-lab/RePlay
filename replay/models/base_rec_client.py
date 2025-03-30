@@ -110,6 +110,13 @@ class BaseRecommenderClient(ABC):
         # _make_property is the object, __func__ is needed to call as a function
         locals()[attr] = _make_property.__func__(attr, attributes_after_fit_with_setter)
 
+    _can_predict_cold_queries = False
+    _can_predict_cold_items = False
+    __search_space = None
+    __objective = MainObjective
+    _criterion = None
+    _study = None
+
     def __init__(self) -> None:
         self.__impl = None
         self.is_pandas = False
@@ -118,12 +125,12 @@ class BaseRecommenderClient(ABC):
         self._logger = logging.getLogger("replay")
         # This dict needed, because a few properties can set before model is fitted (fitted means, self.__impl is None)
         self._init_when_first_impl_arrived_args = {
-            "can_predict_cold_queries": False,
-            "can_predict_cold_items": False,
-            "_search_space": None,
-            "_objective": MainObjective,
-            "criterion": None,
-            "study": None,
+            "can_predict_cold_queries": self._can_predict_cold_queries,
+            "can_predict_cold_items": self._can_predict_cold_items,
+            "_search_space": self.__search_space,
+            "_objective": self.__objective,
+            "criterion": self._criterion,
+            "study": self._study,
         }
 
     @property
@@ -262,16 +269,14 @@ class BaseRecommenderClient(ABC):
         if hasattr(self._impl, "can_predict_cold_queries"):
             return self._impl.can_predict_cold_queries
         else:
-            msg = f"Class '{self._impl.__class__}' does not have the 'can_predict_cold_queries' attribute"
-            raise AttributeError(msg)
+            return self._can_predict_cold_queries
 
     @property
     def can_predict_cold_items(self) -> bool:
         if hasattr(self._impl, "can_predict_cold_items"):
             return self._impl.can_predict_cold_items
         else:
-            msg = f"Class '{self._impl.__class__}' does not have the 'can_predict_cold_items' attribute"
-            raise AttributeError(msg)
+            return self._can_predict_cold_items
 
     @property
     def _search_space(self):
@@ -279,8 +284,7 @@ class BaseRecommenderClient(ABC):
         if hasattr(self._impl, "_search_space"):
             return self._impl._search_space
         else:
-            msg = f"Class '{self._impl.__class__}' does not have the '_search_space' attribute"
-            raise AttributeError(msg)
+            return self.__search_space
 
     @property
     def _objective(self):
@@ -288,8 +292,38 @@ class BaseRecommenderClient(ABC):
         if hasattr(self._impl, "_objective"):
             return self._impl._objective
         else:
-            msg = f"Class '{self._impl.__class__}' does not have the '_objective' attribute"
-            raise AttributeError(msg)
+            return self.__objective
+
+    @property
+    def study(self):
+        if hasattr(self._impl, "study"):
+            return self._impl.study
+        else:
+            return self._study
+
+    @study.setter
+    def study(self, value) -> None:
+        if self.is_fitted:
+            self._impl.study = value
+        else:
+            self._init_when_first_impl_arrived_args.update({"study": value})
+            self._study = value
+
+    @property
+    def criterion(self):
+        """Metric to use for optimization"""
+        if hasattr(self._impl, "criterion"):
+            return self._impl.criterion
+        else:
+            return self._criterion
+
+    @criterion.setter
+    def criterion(self, value) -> None:
+        if self.is_fitted:
+            self._impl.criterion = value
+        else:
+            self._init_when_first_impl_arrived_args.update({"criterion": value})
+            self._criterion = value
 
     @property
     def items_count(self) -> int:
@@ -332,37 +366,6 @@ class BaseRecommenderClient(ABC):
         else:
             msg = f"Class '{self._impl.__class__}' does not have the 'queries_count' attribute"
             raise AttributeError(msg)
-
-    @property
-    def study(self):
-        if hasattr(self._impl, "study"):
-            return self._impl.study
-        else:
-            msg = f"Class '{self._impl.__class__}' does not have the 'study' attribute"
-            raise AttributeError(msg)
-
-    @study.setter
-    def study(self, value) -> None:
-        if self.is_fitted:
-            self._impl.study = value
-        else:
-            self._init_when_first_impl_arrived_args.update({"study": value})
-
-    @property
-    def criterion(self):
-        """Metric to use for optimization"""
-        if hasattr(self._impl, "criterion"):
-            return self._impl.criterion
-        else:
-            msg = f"Class '{self._impl.__class__}' does not have the 'criterion' attribute"
-            raise AttributeError(msg)
-
-    @criterion.setter
-    def criterion(self, value) -> None:
-        if self.is_fitted:
-            self._impl.criterion = value
-        else:
-            self._init_when_first_impl_arrived_args.update({"criterion": value})
 
     def __str__(self):
         return type(self).__name__
@@ -575,7 +578,7 @@ class BaseRecommenderClient(ABC):
         if not self.is_fitted:
             raise NotFittedModelError()
         if dataset is None:
-            self.logger.warn("There is empty dataset at input of predict")
+            self.logger.warning("There is empty dataset at input of predict")
             return None
         self._check_input_for_predict_is_correct(dataset, queries, items)
         recs = self._impl.predict(dataset, k, queries, items, filter_seen_items, recs_file_path)
@@ -829,6 +832,8 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
     """Base class for non-personalized recommenders with popularity statistics."""
 
     _sample: bool = False
+    _can_predict_cold_queries = True
+    _can_predict_cold_items = True
 
     def __init__(self, add_cold_items: bool, cold_weight: float) -> None:
         """
@@ -846,9 +851,7 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
             `Cold_weight` value should be in interval (0, 1].
         """
         super().__init__()
-        self._init_when_first_impl_arrived_args.update(
-            {"can_predict_cold_items": True, "can_predict_cold_queries": True, "seed": None}
-        )
+        self._init_when_first_impl_arrived_args.update({"seed": None})
         self._add_cold_items = add_cold_items
         if 0 < cold_weight <= 1:
             self._cold_weight = cold_weight

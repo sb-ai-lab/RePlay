@@ -1,6 +1,5 @@
 import collections
-import pickle
-from typing import Any, Iterable, List, Optional, Tuple, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
 
@@ -88,32 +87,6 @@ def get_top_k(
     return top_k_df.reset_index(drop=True)
 
 
-def get_top_k_recs(
-    recs: PandasDataFrame,
-    k: int,
-    query_column: str = "user_idx",
-    rating_column: str = "relevance",
-) -> pd.DataFrame:
-    """
-    Get top k recommendations by `rating`.
-
-    For each unique query (user) in the recommendations DataFrame, the rows are ordered
-    in descending order by the rating, and the top k rows are returned.
-
-    :param recs: recommendations DataFrame with columns [query_column, item_idx, rating].
-    :param k: length of a recommendation list.
-    :param query_column: name of the column containing query (user) ids.
-    :param rating_column: name of the column used for ordering (ratings).
-    :return: top k recommendations DataFrame with columns [query_column, item_idx, rating].
-    """
-    return get_top_k(
-        dataframe=recs,
-        partition_by_col=query_column,
-        order_by_col=[(rating_column, False)],
-        k=k,
-    )
-
-
 def return_recs(recs: PandasDataFrame, recs_file_path: Optional[str] = None) -> pd.DataFrame:
     """
     Save dataframe `recs` to `recs_file_path` if presents otherwise cache
@@ -128,31 +101,3 @@ def return_recs(recs: PandasDataFrame, recs_file_path: Optional[str] = None) -> 
 
     recs.to_parquet(recs_file_path, index=False)
     return None
-
-
-def save_picklable_to_parquet(obj: any, path: str) -> None:
-    """
-    Dump any Python object to a parquet file.
-
-    :param obj: Object to be saved (e.g., ML model, scaler, configuration, etc.)
-    :param path: File path to write the parquet file.
-    """
-    # Serialize the object using pickle.
-    pickled_instance = pickle.dumps(obj)
-
-    # Create a DataFrame with a single row containing the pickled binary.
-    df = pd.DataFrame({"data": [pickled_instance]})
-    # Write the DataFrame to parquet.
-    df.to_parquet(path, index=False)
-
-
-def load_pickled_from_parquet(path: str) -> Any:
-    """
-    Load and unpickle an object that was saved in parquet format.
-
-    :param path: File path from where to read the parquet file.
-    :return: The unpickled Python object.
-    """
-    df = pd.read_parquet(path)
-    pickled_instance = df["data"].iloc[0]
-    return pickle.loads(pickled_instance)

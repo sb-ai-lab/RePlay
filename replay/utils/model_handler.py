@@ -132,7 +132,8 @@ def load(path: str, model_type=None) -> _BaseRecommenderSparkImpl:
     del args["_model_name"]
     convertation_map = {"spark": convert2spark, "pandas": convert2pandas, "polars": convert2polars}
     model_class = model_type if model_type is not None else globals()[name]
-    if name in [i.__name__ for i in implementations_list]:
+    is_many_framework_model = name in [i.__name__ for i in implementations_list]
+    if is_many_framework_model:
         client_params = spark.read.json(join(path, "client_params.json")).first().asDict(recursive=True)
         model = globals()[client_params["model_class"]](**args)
         impl_class = globals()[client_params["impl_class"]](**args)
@@ -151,7 +152,9 @@ def load(path: str, model_type=None) -> _BaseRecommenderSparkImpl:
 
     dataframes_paths = get_list_of_paths(spark, join(path, "dataframes"))
     for dataframe_path in dataframes_paths:
-        df = convertation_map[realization](spark.read.parquet(dataframe_path))
+        df = spark.read.parquet(dataframe_path)
+        if is_many_framework_model:
+            df = convertation_map[realization](df)
         attr_name = dataframe_path.split("/")[-1]
         setattr(model, attr_name, df)
 

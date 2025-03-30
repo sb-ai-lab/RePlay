@@ -174,8 +174,13 @@ def test_setters_of_attributes_not_fitted(base_model, arguments, attribute_name)
     setattr(model, attribute_name, Attribute())
     attrs_dict = model._init_when_first_impl_arrived_args
     assert attrs_dict[attribute_name].value == 123
-    with pytest.raises(AttributeError, match=f"does not have the '{attribute_name}' attribute"):
+
+    if attribute_name == "model":
+        with pytest.raises(AttributeError, match=f"does not have the '{attribute_name}' attribute"):
+            assert getattr(model, attribute_name).value == 123
+    else:
         assert getattr(model, attribute_name).value == 123
+        assert getattr(model, "_" + attribute_name).value == 123
 
 
 @pytest.mark.spark
@@ -224,10 +229,13 @@ def test_setters_of_attributes_after_fit(base_model, arguments, attribute_name, 
 @pytest.mark.parametrize(
     "attribute_name", ["model", "can_predict_cold_queries", "can_predict_cold_items", "_search_space", "_objective"]
 )
-def test_attrubutes_invalid(base_model, arguments, attribute_name):
+def test_attrubutes_not_fitted(base_model, arguments, attribute_name):
     model = base_model(**arguments)
-    with pytest.raises(AttributeError, match=f"does not have the '{attribute_name}' attribute"):
-        getattr(model, attribute_name)
+    if attribute_name != "model":
+        assert getattr(model, attribute_name) == model._init_when_first_impl_arrived_args[attribute_name]
+    else:
+        with pytest.raises(AttributeError, match="does not have the 'model' attribute"):
+            getattr(model, attribute_name)
 
 
 @pytest.mark.spark
