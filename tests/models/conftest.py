@@ -90,7 +90,7 @@ feature_long_log = FeatureSchema(
             column="relevance",
             feature_type=FeatureType.NUMERICAL,
             feature_hint=FeatureHint.RATING,
-        )
+        ),
     ]
 )
 
@@ -191,33 +191,52 @@ def big_datasets(pandas_big_df, polars_big_df, spark_big_df):
 
 
 @pytest.fixture(scope="function")
-def datasets_random_sorted(long_log_with_features_and_random_sorted, long_log_with_features_and_random_sorted_pandas, long_log_with_features_and_random_sorted_polars):
+def datasets_random_sorted(
+    long_log_with_features_and_random_sorted,
+    long_log_with_features_and_random_sorted_pandas,
+    long_log_with_features_and_random_sorted_polars,
+):
     return {
         "pandas": Dataset(feature_long_log, long_log_with_features_and_random_sorted_pandas),
         "polars": Dataset(feature_long_log, long_log_with_features_and_random_sorted_polars),
-        "spark": Dataset(feature_long_log, long_log_with_features_and_random_sorted)
+        "spark": Dataset(feature_long_log, long_log_with_features_and_random_sorted),
     }
 
+
 @pytest.fixture(scope="function")
-def datasets_none_queries(long_log_with_features_and_none_queries, long_log_with_features_and_none_queries_pandas, long_log_with_features_and_none_queries_polars):
+def datasets_none_queries(
+    long_log_with_features_and_none_queries,
+    long_log_with_features_and_none_queries_pandas,
+    long_log_with_features_and_none_queries_polars,
+):
     return {
         "pandas": Dataset(feature_long_log, long_log_with_features_and_none_queries_pandas),
         "polars": Dataset(feature_long_log, long_log_with_features_and_none_queries_polars),
-        "spark": Dataset(feature_long_log, long_log_with_features_and_none_queries)
+        "spark": Dataset(feature_long_log, long_log_with_features_and_none_queries),
     }
 
+
 @pytest.fixture(scope="function")
-def datasets_none_items(long_log_with_features_and_none_items, long_log_with_features_and_none_items_pandas, long_log_with_features_and_none_items_polars):
+def datasets_none_items(
+    long_log_with_features_and_none_items,
+    long_log_with_features_and_none_items_pandas,
+    long_log_with_features_and_none_items_polars,
+):
     return {
         "pandas": Dataset(feature_long_log, long_log_with_features_and_none_items_pandas),
         "polars": Dataset(feature_long_log, long_log_with_features_and_none_items_polars),
-        "spark": Dataset(feature_long_log, long_log_with_features_and_none_items)
+        "spark": Dataset(feature_long_log, long_log_with_features_and_none_items),
     }
 
+
 @pytest.fixture(scope="function")
-def datasets_one_query(long_log_with_features_and_one_query, long_log_with_features_and_one_query_pandas, long_log_with_features_and_one_query_polars):
+def datasets_one_query(
+    long_log_with_features_and_one_query,
+    long_log_with_features_and_one_query_pandas,
+    long_log_with_features_and_one_query_polars,
+):
     return {
         "pandas": Dataset(feature_long_log, long_log_with_features_and_one_query_pandas),
         "polars": Dataset(feature_long_log, long_log_with_features_and_one_query_polars),
-        "spark": Dataset(feature_long_log, long_log_with_features_and_one_query)
+        "spark": Dataset(feature_long_log, long_log_with_features_and_one_query),
     }

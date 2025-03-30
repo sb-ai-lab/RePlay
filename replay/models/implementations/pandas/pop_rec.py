@@ -6,15 +6,14 @@ import pandas as pd
 
 from replay.data.dataset import Dataset
 from replay.utils import PandasDataFrame
-from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
 from replay.utils.pandas_utils import (
     filter_cold,
     get_top_k,
     get_unique_entities,
-    #load_pickled_from_parquet,
+    # load_pickled_from_parquet,
     return_recs,
-    #save_picklable_to_parquet,
 )
+from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
 
 
 class _PopRecPandas:
@@ -92,8 +91,6 @@ class _PopRecPandas:
         Choose only required item from `item_popularity` dataframe
         for further recommendations generation.
         """
-        print("get_select pandas")
-        print(self.item_popularity)
         if self.item_popularity[self.item_column].notna().all():
             self.item_popularity[self.item_column] = self.item_popularity[self.item_column].astype("int")
         df = self.item_popularity.merge(items, on=self.item_column, how="right" if self.add_cold_items else "inner")
@@ -168,8 +165,6 @@ class _PopRecPandas:
             self.fit_items = pd.concat(
                 [dataset.interactions[[self.item_column]], dataset.item_features[[self.item_column]]], ignore_index=True
             ).drop_duplicates()
-        print("\nFITTED QUERIES Pandas:")
-        print(self.fit_queries)
         self._num_queries = self.fit_queries.shape[0]
         self._num_items = self.fit_items.shape[0]
         self._query_dim_size = int(self.fit_queries.max().iloc[0]) + 1
@@ -178,15 +173,14 @@ class _PopRecPandas:
         if self.use_rating:
             item_popularity = interactions_df.groupby(self.item_column, as_index=False)[self.rating_column].sum()
         else:
-            item_popularity = interactions_df.groupby(self.item_column, as_index=False)[self.query_column].nunique(dropna=True)
+            item_popularity = interactions_df.groupby(self.item_column, as_index=False)[self.query_column].nunique(
+                dropna=True
+            )
             item_popularity.rename(columns={self.query_column: self.rating_column}, inplace=True)
-        print("FIT POPPULARITY  before Pandas")
-        print(item_popularity)
         item_popularity[self.rating_column] = round(item_popularity[self.rating_column] / self.queries_count, 10)
-        item_popularity = item_popularity.sort_values([self.item_column, self.rating_column],)
-        print("FIT POPPULARITY Pandas")
-        print(f"{self.queries_count=}")
-        print(item_popularity)
+        item_popularity = item_popularity.sort_values(
+            [self.item_column, self.rating_column],
+        )
         self.item_popularity = item_popularity
         self.fill = self._calc_fill(self.item_popularity, self.cold_weight, self.rating_column)
         return self
@@ -229,8 +223,6 @@ class _PopRecPandas:
         queries_interactions = queries_interactions.rename(
             columns={self.item_column: "item", self.query_column: "query"}
         )
-        print("RECS PANDAS")
-        print(recs)
         recs = recs.merge(
             queries_interactions[["query", "item"]],
             left_on=[self.query_column, self.item_column],
@@ -364,29 +356,13 @@ class _PopRecPandas:
         selected_item_popularity = self._get_selected_item_popularity(items).sort_values(
             self.item_column, ascending=False
         )
-        print("pandas selected_item_popularity")
-        print(selected_item_popularity)
-        sorted_without_nulls = (
-            selected_item_popularity.loc[
-                selected_item_popularity[self.item_column].notna()
-            ].sort_values(
-           by=[self.rating_column, self.item_column], ascending=[False, False]
-            )
-        )
-        print("pandas without nulls")
-        print(sorted_without_nulls)
-        sorted_with_nulls = selected_item_popularity.loc[
-                selected_item_popularity[self.item_column].isna()
-            ]
-        print("pandas without nulls")
-        print(sorted_with_nulls)
+        sorted_without_nulls = selected_item_popularity.loc[
+            selected_item_popularity[self.item_column].notna()
+        ].sort_values(by=[self.rating_column, self.item_column], ascending=[False, False])
+        sorted_with_nulls = selected_item_popularity.loc[selected_item_popularity[self.item_column].isna()]
         selected_item_popularity = pd.concat([sorted_without_nulls, sorted_with_nulls], ignore_index=True)
-        print("pandas selected_item_popularity - 1.5")
-        print(selected_item_popularity)
         selected_item_popularity = selected_item_popularity.reset_index(drop=True)
         selected_item_popularity["rank"] = range(1, len(selected_item_popularity) + 1)
-        print("pandas selected_item_popularity2")
-        print(selected_item_popularity)
         if filter_seen_items and dataset is not None:
             queries = PandasDataFrame(queries)
             query_to_num_items = (
@@ -447,23 +423,14 @@ class _PopRecPandas:
             or None if `file_path` is provided
         """
         dataset, queries, items = self._filter_interactions_queries_items_dataframes(dataset, k, queries, items)
-        print(dataset.interactions)
         recs = self._predict_without_sampling(dataset, k, queries, items, filter_seen_items)
-        print("Pandas recs (without sampling)")
-        print(recs)
         if filter_seen_items and dataset is not None:
             recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
-        print("Pandas recs2 ( before topk)")
-        print(recs)
         recs = get_top_k(recs, self.query_column, [(self.rating_column, False), (self.item_column, True)], k)[
             [self.query_column, self.item_column, self.rating_column]
         ].reset_index(drop=True)
-        print("Pandas recs3")
-        print(recs)
         recs[self.query_column] = recs[self.query_column].round().astype("int")
         recs[self.item_column] = recs[self.item_column].round().astype("int")
-        print("Pandas recs3.5")
-        print(recs)
         recs = return_recs(recs, recs_file_path)
         return recs
 

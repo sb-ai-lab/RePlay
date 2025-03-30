@@ -48,9 +48,8 @@ def unify_dataframe(data_frame: DataFrameLike):
             }:
                 columns_to_sort_by.append(column)
     res = pandas_df[sorted(pandas_df.columns)].sort_values(by=sorted(columns_to_sort_by)).reset_index(drop=True)
-    print("\n+++++++++++  RESULT +++++++++++")
-    print(res)
     return res
+
 
 def sparkDataFrameEqual(df1: SparkDataFrame, df2: SparkDataFrame):
     return pd.testing.assert_frame_equal(unify_dataframe(df1), unify_dataframe(df2), check_like=True)

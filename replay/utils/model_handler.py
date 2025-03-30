@@ -5,9 +5,6 @@ from os.path import join
 from pathlib import Path
 from typing import Union
 
-import pandas as pd
-import polars as pl
-
 from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.models import (
     KLUCB,  # noqa: F401
@@ -31,10 +28,6 @@ from replay.models import (
 from replay.models.base_rec_client import BaseRecommenderClient
 from replay.models.implementations import *
 from replay.splitters import *
-from replay.utils.common import convert2spark, convert2pandas, convert2polars
-from replay.utils.pandas_utils import (
-    save_picklable_to_parquet as save_picklable_to_parquet_core,
-)
 from replay.utils.warnings import deprecation_warning  # noqa: F401
 
 from .session_handler import State
@@ -160,7 +153,6 @@ def load(path: str, model_type=None) -> _BaseRecommenderSparkImpl:
     return model
 
 
-
 def save_encoder(encoder: DatasetLabelEncoder, path: Union[str, Path]) -> None:
     """
     Save fitted DatasetLabelEncoder to disk as a folder
@@ -223,6 +215,7 @@ def load_splitter(path: str) -> Splitter:
     del args["_splitter_name"]
     splitter = globals()[name]
     return splitter(**args)
+
 
 '''
 def save(
@@ -465,7 +458,10 @@ def _load_spark(path: str, model_type=None) -> _BaseRecommenderSparkImpl:
         client_params = spark.read.json(join(path, "spark_client_params.json")).first().asDict(recursive=True)
         model = globals()[client_params["model_class"]](**args)
         impl_class = globals()[client_params["impl_class"]](**args)
-        realization = "spark" if "Spark" in str(impl_class) else "pandas" if "Pandas" in str(impl_class) else "polars" if "Polars" in str(impl_class) else None
+        realization = (
+            "spark" if "Spark" in str(impl_class) else "pandas" if "Pandas" in str(impl_class) else
+              "polars" if "Polars" in str(impl_class) else None
+              )
         model._impl = impl_class
         model._assign_implementation_type(realization)
         for attr in model.attributes_after_fit:

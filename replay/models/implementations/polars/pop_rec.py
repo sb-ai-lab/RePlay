@@ -6,14 +6,13 @@ import polars as pl
 
 from replay.data.dataset import Dataset
 from replay.utils import PandasDataFrame, PolarsDataFrame
-#from replay.utils.pandas_utils import load_pickled_from_parquet, save_picklable_to_parquet
-from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
 from replay.utils.polars_utils import (
     filter_cold,
     get_top_k,
     get_unique_entities,
     return_recs,
 )
+from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
 
 
 class _PopRecPolars:
@@ -74,9 +73,11 @@ class _PopRecPolars:
         return type(self).__name__
 
     def _get_selected_item_popularity(self, items: pl.DataFrame) -> pl.DataFrame:
-        print("get_select pandas")
-        print(self.item_popularity)
-        if self.item_popularity.select(self.item_column).null_count().item() == 0 and not self.item_popularity.is_empty() and not items.is_empty():
+        if (
+            self.item_popularity.select(self.item_column).null_count().item() == 0
+            and not self.item_popularity.is_empty()
+            and not items.is_empty()
+        ):
             self.item_popularity = self.item_popularity.with_columns(pl.col(self.item_column).round().cast(pl.Int64))
             items = items.with_columns(pl.col(self.item_column).round().cast(pl.Int64))
         else:
@@ -149,21 +150,19 @@ class _PopRecPolars:
             self.fit_queries = pl.concat(
                 [dataset.interactions.select(self.query_column), dataset.query_features.select(self.query_column)]
             ).unique()
-        print("Polars two dataframes:")
-        print(dataset.interactions.select(self.query_column))
-        print("Polars two dataframes with casting")
-        print(dataset.interactions.select(pl.col(self.query_column)).unique().height)
-        print(dataset.interactions.select(pl.col(self.query_column)).unique())
         if dataset.item_features is None:
             self.fit_items = dataset.interactions.select(self.item_column).unique()
         else:
-            self.fit_items = pl.concat(
-                [dataset.interactions.select(pl.col(self.item_column).cast(pl.Float64).alias(self.item_column)), 
-                 dataset.item_features.select(pl.col(self.item_column).cast(pl.Float64).alias(self.item_column))
-                 ]
-            ).select(pl.col(self.item_column).cast(pl.Int64).alias(self.item_column)).unique()
-        print("\nFITTED QUERIES POLARS:")
-        print(self.fit_queries)
+            self.fit_items = (
+                pl.concat(
+                    [
+                        dataset.interactions.select(pl.col(self.item_column).cast(pl.Float64).alias(self.item_column)),
+                        dataset.item_features.select(pl.col(self.item_column).cast(pl.Float64).alias(self.item_column)),
+                    ]
+                )
+                .select(pl.col(self.item_column).cast(pl.Int64).alias(self.item_column))
+                .unique()
+            )
         self._num_queries = self.fit_queries.height
         self._num_items = self.fit_items.height
         self._query_dim_size = self.fit_queries.select(pl.col(self.query_column)).max().item() + 1
@@ -177,9 +176,6 @@ class _PopRecPolars:
             item_popularity = interactions_df.group_by(self.item_column).agg(
                 pl.col(self.query_column).drop_nulls().n_unique().alias(self.rating_column)
             )
-        print("FIT POPPULARITY  before Polars")
-        print(f"{self.queries_count=}")
-        print(item_popularity)
         item_popularity = item_popularity.with_columns(
             (pl.col(self.rating_column) / self.queries_count).round(10).alias(self.rating_column)
         )
@@ -205,11 +201,15 @@ class _PopRecPolars:
     ) -> pl.DataFrame:
         if not queries.is_empty() and not interactions.is_empty():
             queries = queries.with_columns(pl.col(self.query_column).round().cast(pl.Int64).alias(self.query_column))
-            interactions = interactions.with_columns(pl.col(self.query_column).round().cast(pl.Int64).alias(self.query_column))
+            interactions = interactions.with_columns(
+                pl.col(self.query_column).round().cast(pl.Int64).alias(self.query_column)
+            )
             recs = recs.with_columns(pl.col(self.query_column).round().cast(pl.Int64).alias(self.query_column))
         else:
             queries = queries.with_columns(pl.col(self.query_column).cast(pl.Float64).alias(self.query_column))
-            interactions = interactions.with_columns(pl.col(self.query_column).cast(pl.Float64).alias(self.query_column))
+            interactions = interactions.with_columns(
+                pl.col(self.query_column).cast(pl.Float64).alias(self.query_column)
+            )
             recs = recs.with_columns(pl.col(self.query_column).cast(pl.Float64).alias(self.query_column))
 
         queries_interactions = interactions.join(queries, on=self.query_column, how="inner")
@@ -224,18 +224,18 @@ class _PopRecPolars:
         recs = recs.filter(pl.col("temp_rank") <= (max_seen + k))
         recs = recs.join(num_seen, on=self.query_column, how="left").with_columns(pl.col("seen_count").fill_null(0))
         recs = recs.filter(pl.col("temp_rank") <= (pl.col("seen_count") + k)).drop(["temp_rank", "seen_count"])
-        print("RECS POLARS")
-        print(recs)
         queries_interactions = queries_interactions.rename({self.item_column: "item", self.query_column: "query"})
         if recs.is_empty():
             recs = recs.with_columns(pl.lit(None).alias(self.item_column)).limit(0)
         if not queries_interactions.is_empty() and not recs.is_empty():
-            queries_interactions = queries_interactions.with_columns(pl.col("item").round().cast(pl.Int64).alias("item"))
+            queries_interactions = queries_interactions.with_columns(
+                pl.col("item").round().cast(pl.Int64).alias("item")
+            )
             recs = recs.with_columns(pl.col(self.item_column).round().cast(pl.Int64).alias(self.item_column))
         else:
             queries_interactions = queries_interactions.with_columns(pl.col("item").cast(pl.Float64).alias("item"))
             recs = recs.with_columns(pl.col(self.item_column).cast(pl.Float64).alias(self.item_column))
-            
+
         recs = recs.join(
             queries_interactions.select(["query", "item"]),
             left_on=[self.query_column, self.item_column],
@@ -243,7 +243,7 @@ class _PopRecPolars:
             how="anti",
         )
         recs = recs.with_columns(pl.col(self.item_column).round().cast(pl.Int64).alias(self.item_column))
-            
+
         return recs
 
     def _filter_cold_for_predict(
@@ -286,7 +286,9 @@ class _PopRecPolars:
             )
             interactions = dataset.interactions
             if not interactions.is_empty():
-                interactions = interactions.with_columns(pl.col(self.query_column).round().cast(pl.Int64).alias(self.query_column))
+                interactions = interactions.with_columns(
+                    pl.col(self.query_column).round().cast(pl.Int64).alias(self.query_column)
+                )
         else:
             query_data = next(
                 (
@@ -354,13 +356,10 @@ class _PopRecPolars:
         filter_seen_items: bool = True,
     ) -> pl.DataFrame:
         selected_item_popularity = self._get_selected_item_popularity(items)
-        print("polars selected_item_popularity")
-        print(selected_item_popularity)
         if not selected_item_popularity.is_empty():
             selected_item_popularity = selected_item_popularity.sort(self.item_column, descending=True, nulls_last=True)
             sorted_df = selected_item_popularity.sort(
-                by=[self.rating_column, self.item_column], descending=[True, True],
-                nulls_last=True
+                by=[self.rating_column, self.item_column], descending=[True, True], nulls_last=True
             )
             selected_item_popularity = sorted_df.with_row_count("rank", offset=1)
         else:
@@ -371,13 +370,13 @@ class _PopRecPolars:
                 .with_row_count("rank", offset=1)
                 .limit(0)
             )
-        print("polars selected_item_popularity2")
-        print(selected_item_popularity)
         if filter_seen_items and dataset is not None:
             queries = queries if queries is not None else self.fit_queries
             if not queries.is_empty():
                 dtype_query = dataset.interactions.select(self.query_column).dtypes[0]
-                queries = queries.with_columns(pl.col(self.query_column).round().cast(dtype_query).alias(self.query_column))
+                queries = queries.with_columns(
+                    pl.col(self.query_column).round().cast(dtype_query).alias(self.query_column)
+                )
 
             query_to_num_items = (
                 dataset.interactions.join(queries, on=self.query_column, how="inner")
@@ -418,28 +417,14 @@ class _PopRecPolars:
 
         dataset, queries, items = self._filter_interactions_queries_items_dataframes(dataset, k, queries, items)
         recs = self._predict_without_sampling(dataset, k, queries, items, filter_seen_items)
-        print("polars_recs")
-        print(recs)
         if filter_seen_items and dataset is not None:
             recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
-        print("polars_recs2")
-        print(recs)
         if not recs.is_empty():
-            recs = get_top_k(
-                recs, self.query_column, [(self.rating_column, False), (self.item_column, True)], k
-            )
-        print("polars_recs3")
-        print(recs)
+            recs = get_top_k(recs, self.query_column, [(self.rating_column, False), (self.item_column, True)], k)
         if not recs.is_empty:
             recs = recs.with_columns(pl.col(self.query_column).round().cast(pl.Int64).alias(self.query_column))
             recs = recs.with_columns(pl.col(self.item_column).round().cast(pl.Int64).alias(self.item_column))
-        recs = recs.select(
-            self.query_column, 
-            self.item_column, 
-            self.rating_column
-        ).drop_nulls() # is it okey?
-        print("polars_recs3.5")
-        print(recs)
+        recs = recs.select(self.query_column, self.item_column, self.rating_column).drop_nulls()  # is it okey?
         recs = return_recs(recs, recs_file_path)
         return recs
 
@@ -486,7 +471,7 @@ class _PopRecPolars:
         pred = pred.select([self.query_column, self.item_column, self.rating_column])
         if k:
             pred = get_top_k(pred, self.query_column, [(self.rating_column, False), (self.item_column, True)], k)
-        
+
         if recs_file_path is not None:
             pred.write_parquet(recs_file_path)  # it's overwrite operation - as expected
             return None
