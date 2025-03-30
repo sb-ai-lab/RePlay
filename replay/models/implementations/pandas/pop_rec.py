@@ -5,6 +5,7 @@ from typing import Any, Dict, Iterable, Optional, Tuple, Union
 import pandas as pd
 
 from replay.data.dataset import Dataset
+from replay.models.implementations.commons import IsSavable
 from replay.utils import PandasDataFrame
 from replay.utils.pandas_utils import (
     filter_cold,
@@ -16,7 +17,7 @@ from replay.utils.pandas_utils import (
 from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
 
 
-class _PopRecPandas:
+class _PopRecPandas(IsSavable):
     """
     Implementation of PopRec Client. Recommend objects using their popularity.
 
@@ -539,9 +540,7 @@ class _PopRecPandas:
         # TODO: Implement it in NonPersonolizedRecommender, if you need this function in other models
         raise NotImplementedError()
 
-    def _save_model(  # pragma: no cover
-        self, path: str, additional_params=None
-    ):  # TODO: Think how to save models like on spark(utils.save)
+    def _save_model(self, path: str, additional_params: Optional[Dict[str, Any]] = None):
         """
         Method for dump model attributes to disk
         :return:
@@ -552,12 +551,13 @@ class _PopRecPandas:
             "rating_column": self.rating_column,
             "timestamp_column": self.timestamp_column,
         }
+        additional_params = {"fill": self.fill}
         if additional_params is not None:
             saved_params.update(additional_params)
         save_picklable_to_parquet(saved_params, join(path, "params.dump"))
         return saved_params
 
-    def _load_model(self, path: str):  # pragma: no cover # TODO: Think how to load models like on spark(utils.save)
+    def _load_model(self, path: str):
         """
         Method for loading model attributes from disk
         """

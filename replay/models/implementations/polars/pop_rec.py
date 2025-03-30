@@ -5,6 +5,7 @@ from typing import Any, Dict, Iterable, Optional, Tuple, Union
 import polars as pl
 
 from replay.data.dataset import Dataset
+from replay.models.implementations.commons import IsSavable
 from replay.utils import PandasDataFrame, PolarsDataFrame
 from replay.utils.polars_utils import (
     filter_cold,
@@ -15,7 +16,7 @@ from replay.utils.polars_utils import (
 from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
 
 
-class _PopRecPolars:
+class _PopRecPolars(IsSavable):
     """
     Implementation of PopRec Client. Recommend objects using their popularity.
 
@@ -599,21 +600,20 @@ class _PopRecPolars:
         # TODO: Implement it in NonPersonolizedRecommender, if you need this function in other models
         raise NotImplementedError()
 
-    def _save_model(  # pragma: no cover
-        self, path: str, additional_params=None
-    ):  # TODO: Think how to save models like on spark(utils.save)
+    def _save_model(self, path: str, additional_params=None):
         saved_params = {
             "query_column": self.query_column,
             "item_column": self.item_column,
             "rating_column": self.rating_column,
             "timestamp_column": self.timestamp_column,
         }
+        additional_params = {"fill": self.fill}
         if additional_params is not None:
             saved_params.update(additional_params)
-            save_picklable_to_parquet(saved_params, join(path, "params.dump"))
+        save_picklable_to_parquet(saved_params, join(path, "params.dump"))
         return saved_params
 
-    def _load_model(self, path: str):  # pragma: no cover # TODO: Think how to load models like on spark(utils.save)
+    def _load_model(self, path: str):
         loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
         for param, value in loaded_params.items():
             setattr(self, param, value)

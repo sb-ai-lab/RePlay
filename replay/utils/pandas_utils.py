@@ -1,6 +1,6 @@
 import collections
 import pickle
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Any, Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
 
@@ -146,7 +146,7 @@ def save_picklable_to_parquet(obj: any, path: str) -> None:
     df.to_parquet(path, index=False)
 
 
-def load_pickled_from_parquet(path: str) -> any:
+def load_pickled_from_parquet(path: str) -> Any:
     """
     Load and unpickle an object that was saved in parquet format.
 

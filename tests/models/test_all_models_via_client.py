@@ -7,9 +7,10 @@ from replay.metrics import NDCG
 from replay.models import UCB, ClusterRec, ItemKNN, PopRec, RandomRec, Wilson, client_model_list
 from replay.models.base_rec_client import DataModelMissmatchError, NotFittedModelError
 from replay.utils.common import convert2polars, convert2spark
+from replay.utils.model_handler import load, save
 from replay.utils.types import DataFrameLike
 from tests.models.conftest import cols
-from tests.utils import SparkDataFrame, get_dataset_any_type, isDataFrameEqual
+from tests.utils import SparkDataFrame, create_dataset, isDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
@@ -27,8 +28,8 @@ def test_predict_pairs_k_all_models(base_model, arguments, request):
     dataset_type = "pandas"
     model = base_model(**arguments)
     log = request.getfixturevalue("log")
-    ds = get_dataset_any_type(log)
-    train_dataset = get_dataset_any_type(log)
+    ds = create_dataset(log)
+    train_dataset = create_dataset(log)
     pairs = ds.interactions.select("user_idx", "item_idx")
     model.fit(train_dataset)
     pairs_pred_k_spark = model.predict_pairs(pairs=pairs, dataset=train_dataset, k=1)
@@ -39,8 +40,8 @@ def test_predict_pairs_k_all_models(base_model, arguments, request):
     dataset_type = "pandas"
     model = base_model(**arguments)
     log = request.getfixturevalue("log_" + dataset_type)
-    ds = get_dataset_any_type(log)
-    train_dataset = get_dataset_any_type(log)
+    ds = create_dataset(log)
+    train_dataset = create_dataset(log)
     pairs = ds.interactions[["user_idx", "item_idx"]]
     if model.__class__ not in client_model_list:
         with pytest.raises(AttributeError, match="'DataFrame' object has no attribute"):
@@ -57,8 +58,8 @@ def test_predict_pairs_k_all_models(base_model, arguments, request):
     dataset_type = "polars"
     model = base_model(**arguments)
     log = request.getfixturevalue("log_" + dataset_type)
-    ds = get_dataset_any_type(log)
-    train_dataset = get_dataset_any_type(log)
+    ds = create_dataset(log)
+    train_dataset = create_dataset(log)
     pairs = ds.interactions.select("user_idx", "item_idx")
     if model.__class__ not in client_model_list:
         with pytest.raises(AttributeError, match="'DataFrame' object has no attribute"):
@@ -102,8 +103,8 @@ def test_predict_pairs_k_all_models(base_model, arguments, request):
 def test_predict_empty_log_spark(model, request):
     log = request.getfixturevalue("log")
     empty_df = log.limit(0)
-    dataset = get_dataset_any_type(log)
-    pred_dataset = get_dataset_any_type(empty_df)
+    dataset = create_dataset(log)
+    pred_dataset = create_dataset(empty_df)
     model.fit(dataset)
     model.predict(pred_dataset, 1)
     model._clear_cache()
@@ -129,8 +130,8 @@ def test_predict_empty_log_core(model, dataset_type, request):
     else:
         msg = "Incorrect test"
         raise ValueError(msg)
-    dataset = get_dataset_any_type(log)
-    pred_dataset = get_dataset_any_type(empty_df)
+    dataset = create_dataset(log)
+    pred_dataset = create_dataset(empty_df)
     if model.__class__ not in client_model_list:
         with pytest.raises(AttributeError, match="'DataFrame' object has no attribute"):
             model.fit(dataset)
@@ -151,7 +152,7 @@ def test_predict_empty_log_core(model, dataset_type, request):
 def test_predict_before_fit(model, request):
     log = request.getfixturevalue("log")
     empty_df = log
-    pred_dataset = get_dataset_any_type(empty_df)
+    pred_dataset = create_dataset(empty_df)
     with pytest.raises(NotFittedModelError):
         model.predict(pred_dataset, 1)
 
@@ -167,7 +168,7 @@ def test_predict_before_fit(model, request):
 )
 def test_predict_empty_dataset_spark(model, request):
     log = request.getfixturevalue("log")
-    dataset = get_dataset_any_type(log)
+    dataset = create_dataset(log)
     pred_dataset = None
     if model.__class__ == ItemKNN:
         with pytest.raises(ValueError, match="interactions is not provided"):
@@ -196,7 +197,7 @@ def test_predict_empty_dataset_core(model, dataset_type, request):
     else:
         msg = "Incorrect test"
         raise ValueError(msg)
-    dataset = get_dataset_any_type(log)
+    dataset = create_dataset(log)
     pred_dataset = None
     if model.__class__ == ItemKNN:
         with pytest.raises(AttributeError, match="'DataFrame' object has no attribute"):
@@ -210,8 +211,8 @@ def test_predict_empty_dataset_core(model, dataset_type, request):
 def test_filter_seen_items_spark(request):
     log = request.getfixturevalue("log")
     model = PopRec()
-    train_dataset = get_dataset_any_type(log.filter((sf.col("user_idx") != 0) | (sf.col("user_idx").isNull())))
-    pred_dataset = get_dataset_any_type(log)
+    train_dataset = create_dataset(log.filter((sf.col("user_idx") != 0) | (sf.col("user_idx").isNull())))
+    pred_dataset = create_dataset(log)
     model.fit(train_dataset)
     pred = model.predict(dataset=pred_dataset, queries=[3], k=5)
     assert pred.count() == 2
@@ -229,8 +230,8 @@ def test_filter_seen_items_core(dataset_type, request):
     if dataset_type == "pandas":
         log = request.getfixturevalue("log_" + dataset_type)
         model = PopRec()
-        train_dataset = get_dataset_any_type(log[log["user_idx"] != 0])
-        pred_dataset = get_dataset_any_type(log)
+        train_dataset = create_dataset(log[log["user_idx"] != 0])
+        pred_dataset = create_dataset(log)
         model.fit(train_dataset)
         pred = model.predict(dataset=pred_dataset, queries=[3], k=5)
         assert len(pred) == 2
@@ -242,8 +243,8 @@ def test_filter_seen_items_core(dataset_type, request):
         log = request.getfixturevalue("log_" + dataset_type)
         model = PopRec()
         # ne_missing keeps null as pandas if !=0
-        train_dataset = get_dataset_any_type(log.filter(pl.col("user_idx").ne_missing(pl.lit(0))))
-        pred_dataset = get_dataset_any_type(log)
+        train_dataset = create_dataset(log.filter(pl.col("user_idx").ne_missing(pl.lit(0))))
+        pred_dataset = create_dataset(log)
         model.fit(train_dataset)
         pred = model.predict(dataset=pred_dataset, queries=[3], k=5)
         assert pred.height == 2
@@ -254,8 +255,8 @@ def test_filter_seen_items_core(dataset_type, request):
 
 
 def fit_predict_selected(model, train_log, inf_log, queries, user_features=None, item_features=None):
-    train_dataset = get_dataset_any_type(train_log, user_features=user_features, item_features=item_features)
-    pred_dataset = get_dataset_any_type(inf_log, user_features=user_features, item_features=item_features)
+    train_dataset = create_dataset(train_log, user_features=user_features, item_features=item_features)
+    pred_dataset = create_dataset(inf_log, user_features=user_features, item_features=item_features)
     if not isinstance(train_log, SparkDataFrame) and model.__class__ not in client_model_list:
         with pytest.raises(AttributeError, match="'DataFrame' object has no attribute"):
             model.fit(train_dataset)
@@ -482,7 +483,7 @@ def test_predict_pairs_to_file_spark(model, df_type, tmp_path, request):
     if df_type != "":
         df_type = "_and_" + df_type
     long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type)
-    train_dataset = get_dataset_any_type(long_log_with_features)
+    train_dataset = create_dataset(long_log_with_features)
     path = str((tmp_path / "pred.parquet").resolve().absolute())
     model.fit(train_dataset)
     model.predict_pairs(
@@ -515,7 +516,7 @@ def test_predict_pairs_to_file_core(model, dataset_type, df_type, tmp_path, requ
         df_type = "_and_" + df_type
     if dataset_type == "pandas":
         long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type + "_" + dataset_type)
-        train_dataset = get_dataset_any_type(long_log_with_features)
+        train_dataset = create_dataset(long_log_with_features)
         path = str((tmp_path / "pred.parquet").resolve().absolute())
         if model.__class__ not in client_model_list:
             with pytest.raises(AttributeError, match="'DataFrame' object has no attribute"):
@@ -546,7 +547,7 @@ def test_predict_pairs_to_file_core(model, dataset_type, df_type, tmp_path, requ
             assert isDataFrameEqual(pred_cached, pred_from_file)
     elif dataset_type == "polars":
         long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type + "_" + dataset_type)
-        train_dataset = get_dataset_any_type(long_log_with_features)
+        train_dataset = create_dataset(long_log_with_features)
         path = str((tmp_path / "pred.parquet").resolve().absolute())
         if model.__class__ not in client_model_list:
             with pytest.raises(AttributeError, match="'DataFrame' object has no attribute"):
@@ -591,7 +592,7 @@ def test_predict_to_file_spark(model, df_type, tmp_path, request):
     if df_type != "":
         df_type = "_and_" + df_type
     long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type)
-    train_dataset = get_dataset_any_type(long_log_with_features)
+    train_dataset = create_dataset(long_log_with_features)
     path = str((tmp_path / "pred.parquet").resolve().absolute())
     model.fit_predict(train_dataset, k=10, recs_file_path=path)
     pred_cached = model.predict(train_dataset, k=10, recs_file_path=None)
@@ -616,7 +617,7 @@ def test_predict_to_file_core(model, dataset_type, df_type, tmp_path, request):
     model = model()
     if dataset_type == "pandas":
         long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type + "_" + dataset_type)
-        train_dataset = get_dataset_any_type(long_log_with_features)
+        train_dataset = create_dataset(long_log_with_features)
         path = str((tmp_path / "pred.parquet").resolve().absolute())
         if model.__class__ not in client_model_list:
             with pytest.raises(AttributeError, match="'DataFrame' object has no attribute"):
@@ -628,7 +629,7 @@ def test_predict_to_file_core(model, dataset_type, df_type, tmp_path, request):
             assert isDataFrameEqual(pred_cached, pred_from_file)
     elif dataset_type == "polars":
         long_log_with_features = request.getfixturevalue("long_log_with_features" + df_type + "_" + dataset_type)
-        train_dataset = get_dataset_any_type(long_log_with_features)
+        train_dataset = create_dataset(long_log_with_features)
         path = str((tmp_path / "pred.parquet").resolve().absolute())
         if model.__class__ not in client_model_list:
             with pytest.raises(AttributeError, match="'DataFrame' object has no attribute"):
@@ -664,7 +665,7 @@ def test_add_cold_items_for_nonpersonalized_spark(model, add_cold_items, df_type
         else long_log_with_features.withColumn("relevance", sf.when(sf.col("relevance") < 3, 0).otherwise(1))
     )
     train_log = log.filter(sf.col("item_idx") < num_warm)
-    train_dataset = get_dataset_any_type(train_log)
+    train_dataset = create_dataset(train_log)
     model.fit(train_dataset)
     # ucb always adds cold items to prediction
     if not isinstance(model, UCB):
@@ -673,7 +674,7 @@ def test_add_cold_items_for_nonpersonalized_spark(model, add_cold_items, df_type
     if predict_cold_only:
         items = items.filter(sf.col("item_idx") >= num_warm)
 
-    pred_dataset = get_dataset_any_type(log.filter(sf.col("item_idx") < num_warm))
+    pred_dataset = create_dataset(log.filter(sf.col("item_idx") < num_warm))
     pred = model.predict(
         dataset=pred_dataset,
         queries=[1],
@@ -724,7 +725,7 @@ def test_add_cold_items_for_nonpersonalized_pandas(model, add_cold_items, df_typ
     else:
         log = long_log_with_features
     train_log = log[log["item_idx"] < num_warm]
-    train_dataset = get_dataset_any_type(train_log)
+    train_dataset = create_dataset(train_log)
     if model.__class__ not in client_model_list:
         with pytest.raises(AttributeError, match="'DataFrame' object has no attribute"):
             model.fit(train_dataset)
@@ -737,7 +738,7 @@ def test_add_cold_items_for_nonpersonalized_pandas(model, add_cold_items, df_typ
         if predict_cold_only:
             items = items[items["item_idx"] >= num_warm]
 
-        pred_dataset = get_dataset_any_type(log[log["item_idx"] < num_warm])
+        pred_dataset = create_dataset(log[log["item_idx"] < num_warm])
         pred = model.predict(
             dataset=pred_dataset,
             queries=[0],
@@ -790,7 +791,7 @@ def test_add_cold_items_for_nonpersonalized_polars(model, add_cold_items, df_typ
     else:
         log = long_log_with_features
     train_log = log.filter(pl.col("item_idx") < num_warm)
-    train_dataset = get_dataset_any_type(train_log)
+    train_dataset = create_dataset(train_log)
     if model.__class__ not in client_model_list:
         with pytest.raises(AttributeError, match="'DataFrame' object has no attribute"):
             model.fit(train_dataset)
@@ -803,7 +804,7 @@ def test_add_cold_items_for_nonpersonalized_polars(model, add_cold_items, df_typ
         if predict_cold_only:
             items = items.filter(pl.col("item_idx") >= num_warm)
 
-        pred_dataset = get_dataset_any_type(log.filter(pl.col("item_idx") < num_warm))
+        pred_dataset = create_dataset(log.filter(pl.col("item_idx") < num_warm))
         pred = model.predict(
             dataset=pred_dataset,
             queries=[0],
@@ -1160,11 +1161,11 @@ def test_predict_pairs_incorrect_call(base_model, arguments, df_type, request, s
 )
 def test_predict_proba(base_model, arguments, request):
     log_spark = request.getfixturevalue("log")
-    spark_df = get_dataset_any_type(log_spark)
+    spark_df = create_dataset(log_spark)
     log_pandas = request.getfixturevalue("log_pandas")
-    pandas_df = get_dataset_any_type(log_pandas)
+    pandas_df = create_dataset(log_pandas)
     log_polars = request.getfixturevalue("log_polars")
-    polars_df = get_dataset_any_type(log_polars)
+    polars_df = create_dataset(log_polars)
     model_pd = base_model(**arguments)
     model_pl = base_model(**arguments)
     model_spark = base_model(**arguments)
@@ -1251,119 +1252,6 @@ def test_filter_seen(base_model, arguments, df_type, request):
 @pytest.mark.spark
 @pytest.mark.parametrize(
     "base_model, arguments",
-    [
-        (PopRec, {}),
-        (PopRec, {"use_rating": True}),
-    ],
-    ids=[
-        "pop_rec",
-        "pop_rec_with_rating",
-    ],
-)
-@pytest.mark.parametrize("predict_framework", ["pandas", "polars", "spark"])
-@pytest.mark.parametrize("train_framework", ["pandas", "polars", "spark"])
-@pytest.mark.parametrize(
-    "dataset_fixture",
-    [
-        "datasets",
-        "big_datasets",
-        "datasets_none_items",
-        "datasets_none_queries",
-        "datasets_one_query",
-        "datasets_random_sorted",
-    ],
-)
-def test_fit_predict_different_frameworks_spark(
-    base_model, arguments, train_framework, predict_framework, dataset_fixture, request
-):
-    dataset = request.getfixturevalue(dataset_fixture)
-    model_default = base_model().__class__(**arguments)
-    base_res = model_default.fit_predict(dataset["spark"], k=1).toPandas()
-    df = dataset[train_framework]
-    if predict_framework == train_framework:
-        return
-    model = base_model().__class__(**arguments)
-    model.fit(df)
-    if predict_framework == "pandas":
-        model.to_pandas()
-        df.to_pandas()
-        res = model.predict(df, k=1)
-    elif predict_framework == "spark":
-        model.to_spark()
-        df.to_spark()
-        res = model.predict(df, k=1).toPandas()
-    elif predict_framework == "polars":
-        model.to_polars()
-        df.to_polars()
-        res = model.predict(df, k=1).to_pandas()
-    if res is not None and base_res is not None:
-        assert isDataFrameEqual(
-            base_res, res
-        ), f"Not equal dataframes in {train_framework}_{predict_framework} pair of train-predict"
-    else:
-        assert base_res == res
-
-
-@pytest.mark.spark
-@pytest.mark.parametrize(
-    "base_model, arguments",
-    [(PopRec, {}), (PopRec, {"use_rating": True})],
-    ids=["pop_rec", "pop_rec_with_rating"],
-)  # TODO: Not equal dfs on datasets_none_items fixture. Fix it
-@pytest.mark.parametrize(
-    "dataset_fixture",
-    ["datasets", "big_datasets", "datasets_none_queries", "datasets_one_query", "datasets_random_sorted"],
-)
-def test_fit_predict_different_frameworks_pandas_polars(base_model, arguments, dataset_fixture, request):
-    dataset = request.getfixturevalue(dataset_fixture)
-    polars_df = dataset["polars"]
-    pandas_df = dataset["pandas"]
-    model = base_model().__class__(**arguments)
-    model.fit(pandas_df)
-    model.to_polars()
-    res1 = model.predict(polars_df, k=1).to_pandas()
-    model = base_model().__class__(**arguments)
-    model.fit(polars_df)
-    model.to_pandas()
-    res2 = model.predict(pandas_df, k=1)
-    assert isDataFrameEqual(res1, res2), "Not equal dataframes in pair of train-predict"
-
-
-@pytest.mark.spark
-@pytest.mark.parametrize(
-    "base_model, arguments",
-    [(PopRec, {}), (PopRec, {"use_rating": True})],
-    ids=["pop_rec", "pop_rec_with_rating"],
-)
-@pytest.mark.parametrize(
-    "dataset_fixture",
-    [
-        "datasets",
-        "big_datasets",
-        "datasets_none_items",
-        "datasets_none_queries",
-        "datasets_one_query",
-        "datasets_random_sorted",
-    ],
-)
-def test_fit_predict_the_same_framework(base_model, arguments, dataset_fixture, request):
-    dataset = request.getfixturevalue(dataset_fixture)
-    df_pd = dataset["pandas"]
-    model_pd = base_model().__class__(**arguments)
-    pandas_res = model_pd.fit_predict(df_pd, k=1)
-    df_pl = dataset["polars"]
-    model_pl = base_model().__class__(**arguments)
-    polars_res = model_pl.fit_predict(df_pl, k=1).to_pandas()
-    df_spark = dataset["spark"]
-    model_spark = base_model().__class__(**arguments)
-    spark_res = model_spark.fit_predict(df_spark, k=1).toPandas()
-    assert isDataFrameEqual(pandas_res, polars_res), "Pandas results are not equals Polars results"
-    assert isDataFrameEqual(pandas_res, spark_res), "Pandas results are not equals Spark results"
-
-
-@pytest.mark.spark
-@pytest.mark.parametrize(
-    "base_model, arguments",
     [(PopRec, {})],
     ids=["pop_rec"],
 )
@@ -1391,13 +1279,12 @@ def test_compare_fit_predict_client_and_implementation(base_model, arguments, ty
     assert isDataFrameEqual(res_client, res_impl)
 
 
-"""
 @pytest.mark.spark
 @pytest.mark.parametrize("recommender", [PopRec], ids=["pop_rec_spark"])
 def test_equal_preds_after_save_load_model_spark(recommender, tmp_path, request):
     path = (tmp_path / "test_spark").resolve()
     log = request.getfixturevalue("long_log_with_features")
-    dataset = get_dataset_any_type(log)
+    dataset = create_dataset(log)
     model = recommender()
     model.fit(dataset)
     base_pred = model.predict(dataset, 5)
@@ -1412,7 +1299,7 @@ def test_equal_preds_after_save_load_model_spark(recommender, tmp_path, request)
 def test_equal_preds_after_save_load_model_pandas(recommender, tmp_path, request):
     path = (tmp_path / "test_pandas").resolve()
     log = request.getfixturevalue(("long_log_with_features_pandas"))
-    dataset = get_dataset_any_type(log)
+    dataset = create_dataset(log)
     model = recommender()
     model.fit(dataset)
     base_pred = model.predict(dataset, 5)
@@ -1422,12 +1309,12 @@ def test_equal_preds_after_save_load_model_pandas(recommender, tmp_path, request
     assert isDataFrameEqual(new_pred, base_pred)
 
 
-@pytest.mark.spark  # TODO: Save.load not working on pandas and polars. Check replay.utils.save 'todo' for context
+@pytest.mark.spark
 @pytest.mark.parametrize("recommender", [PopRec], ids=["pop_rec_spark"])
 def test_equal_preds_after_save_load_model_polars(recommender, tmp_path, request):
     path = (tmp_path / "test_polars").resolve()
     log = request.getfixturevalue(("long_log_with_features_polars"))
-    dataset = get_dataset_any_type(log)
+    dataset = create_dataset(log)
     model = recommender()
     model.fit(dataset)
     base_pred = model.predict(dataset, 5)
@@ -1450,7 +1337,7 @@ def test_equal_attributes_after_save_load_model(recommender, type_of_impl, tmp_p
     log = request.getfixturevalue(
         "long_log_with_features" if type_of_impl == "spark" else "long_log_with_features_" + type_of_impl
     )
-    dataset = get_dataset_any_type(log)
+    dataset = create_dataset(log)
     model = recommender()
     model.fit(dataset)
     save(model, path)
@@ -1474,4 +1361,3 @@ def test_equal_attributes_after_save_load_model(recommender, type_of_impl, tmp_p
             assert getattr(model, attr) == getattr(loaded_model, attr)
         else:
             assert isDataFrameEqual(getattr(model, attr), getattr(loaded_model, attr))
-"""

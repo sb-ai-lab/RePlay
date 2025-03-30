@@ -53,7 +53,7 @@ class BaseRecommenderClient(ABC):
     )
 
     @staticmethod
-    def _make_property(attribute_name, has_setter=None):
+    def _make_property(attribute_name, has_setter=None) -> property:
         """
         Dynamicly creates a property that controls access to an attribute of the implementation object.
 
@@ -65,7 +65,7 @@ class BaseRecommenderClient(ABC):
         :rtype: property
         """
 
-        def getter(self):
+        def getter(self) -> Any:
             """
             Retrieves the value of the specified attribute from the implementation object.
 
@@ -80,7 +80,7 @@ class BaseRecommenderClient(ABC):
                 )
                 raise AttributeError(msg)
 
-        def setter(self, value):
+        def setter(self, value) -> None:
             """
             Sets the value of the specified attribute on the underlying implementation object.
 
@@ -110,7 +110,7 @@ class BaseRecommenderClient(ABC):
         # _make_property is the object, __func__ is needed to call as a function
         locals()[attr] = _make_property.__func__(attr, attributes_after_fit_with_setter)
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.__impl = None
         self.is_pandas = False
         self.is_spark = False
@@ -136,7 +136,7 @@ class BaseRecommenderClient(ABC):
         return self.__impl
 
     @_impl.setter
-    def _impl(self, value):
+    def _impl(self, value) -> None:
         """
         Setter of the linked implementation object.
 
@@ -915,8 +915,12 @@ class NonPersonolizedRecommenderClient(BaseRecommenderClient, ABC):
     def item_popularity(self, value: DataFrameLike) -> None:
         value_type = (
             "spark"
-            if type(value) == SparkDataFrame
-            else "pandas" if type(value) == PandasDataFrame else "polars" if type(value) == PolarsDataFrame else None
+            if isinstance(value, SparkDataFrame)
+            else (
+                "pandas"
+                if isinstance(value, PandasDataFrame)
+                else "polars" if isinstance(value, PolarsDataFrame) else None
+            )
         )
         if not self._get_implementation_type() == value_type or value_type is None:
             raise DataModelMissmatchError

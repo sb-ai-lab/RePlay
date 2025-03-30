@@ -5,7 +5,7 @@ import pytest
 from replay.models import NonPersonolizedRecommenderClient, PopRec
 from replay.models.base_rec_client import DataModelMissmatchError, NotFittedModelError
 from replay.models.implementations import _PopRecPandas, _PopRecPolars, _PopRecSpark
-from replay.utils.common import convert2spark
+from replay.utils.common import convert2pandas, convert2polars, convert2spark
 from tests.utils import isDataFrameEqual
 
 pyspark = pytest.importorskip("pyspark")
@@ -365,12 +365,13 @@ def test_convertation_in_same_type(base_model, arguments, type_of_impl, datasets
     ids=["pop_rec_polars", "pop_rec_pandas", "pop_rec_spark"],
 )
 def test_get_fit_counts(base_model, arguments, type_of_impl, datasets, fake_fit_items, fake_fit_queries):
+    function_map = {"pandas": convert2pandas, "polars": convert2polars, "spark": convert2spark}
     dataset = datasets[type_of_impl]
     model = base_model(**arguments)
     assert not hasattr(model, "_num_items")
     assert not hasattr(model, "_num_queries")
-    model.fit_items = fake_fit_items
-    model.fit_queries = fake_fit_queries
+    model.fit_items = function_map[type_of_impl](fake_fit_items)
+    model.fit_queries = function_map[type_of_impl](fake_fit_queries)
     assert model.items_count == 7
     assert model.queries_count == 6
     assert not hasattr(model, "_num_items")
@@ -435,13 +436,17 @@ class NonPersRec(NonPersonolizedRecommenderClient):
     [(PopRec, {"add_cold_items": True, "cold_weight": 0.5}), (NonPersRec, {"add_cold_items": True, "cold_weight": 1})],
     ids=["pop_rec", "non_pers_rec"],
 )
-def test_nonpersonalized_client_valid_init_args(base_model, arguments):
+@pytest.mark.parametrize("type_of_impl", ["spark", "pandas", "polars"])
+def test_nonpersonalized_client_valid_init_args(base_model, arguments, type_of_impl, datasets):
     model = base_model(**arguments)
     for i, val in arguments.items():
         assert model._init_args[i] == val
     assert model._init_when_first_impl_arrived_args["can_predict_cold_items"] is True
     assert model._init_when_first_impl_arrived_args["can_predict_cold_queries"] is True
     assert model._init_when_first_impl_arrived_args["seed"] is None
+    model.fit(datasets[type_of_impl])
+    for i, val in arguments.items():
+        assert model._init_args[i] == val
 
 
 @pytest.mark.spark
@@ -656,3 +661,123 @@ def test_wrong_implementation(base_model, wrong_implementation):
     model = base_model()
     with pytest.raises(ValueError, match="Model can be one of these classes:"):
         model._impl = wrong_implementation
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, arguments",
+    [
+        (PopRec, {}),
+        (PopRec, {"use_rating": True}),
+    ],
+    ids=[
+        "pop_rec",
+        "pop_rec_with_rating",
+    ],
+)
+@pytest.mark.parametrize("predict_framework", ["pandas", "polars", "spark"])
+@pytest.mark.parametrize("train_framework", ["pandas", "polars", "spark"])
+@pytest.mark.parametrize(
+    "dataset_fixture",
+    [
+        "datasets",
+        "big_datasets",
+        "datasets_none_items",
+        "datasets_none_queries",
+        "datasets_one_query",
+        "datasets_random_sorted",
+    ],
+)
+def test_fit_predict_different_frameworks_spark(
+    base_model, arguments, train_framework, predict_framework, dataset_fixture, request
+):
+    dataset = request.getfixturevalue(dataset_fixture)
+    model_default = base_model().__class__(**arguments)
+    base_res = model_default.fit_predict(dataset["spark"], k=1).toPandas()
+    df = dataset[train_framework]
+    if predict_framework == train_framework:
+        return
+    model = base_model().__class__(**arguments)
+    model.fit(df)
+    if predict_framework == "pandas":
+        model.to_pandas()
+        df.to_pandas()
+        res = model.predict(df, k=1)
+    elif predict_framework == "spark":
+        model.to_spark()
+        df.to_spark()
+        res = model.predict(df, k=1).toPandas()
+    elif predict_framework == "polars":
+        model.to_polars()
+        df.to_polars()
+        res = model.predict(df, k=1).to_pandas()
+    if res is not None and base_res is not None:
+        assert isDataFrameEqual(
+            base_res, res
+        ), f"Not equal dataframes in {train_framework}_{predict_framework} pair of train-predict"
+    else:
+        assert base_res == res
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, arguments",
+    [(PopRec, {}), (PopRec, {"use_rating": True})],
+    ids=["pop_rec", "pop_rec_with_rating"],
+)
+@pytest.mark.parametrize(
+    "dataset_fixture",
+    [
+        "datasets",
+        "big_datasets",
+        "datasets_none_queries",
+        "datasets_one_query",
+        "datasets_random_sorted",
+        "datasets_none_items",
+    ],
+)
+def test_fit_predict_different_frameworks_core(base_model, arguments, dataset_fixture, request):
+    dataset = request.getfixturevalue(dataset_fixture)
+    polars_df = dataset["polars"]
+    pandas_df = dataset["pandas"]
+    model = base_model().__class__(**arguments)
+    model.fit(pandas_df)
+    model.to_polars()
+    res1 = model.predict(polars_df, k=1).to_pandas()
+    model = base_model().__class__(**arguments)
+    model.fit(polars_df)
+    model.to_pandas()
+    res2 = model.predict(pandas_df, k=1)
+    assert isDataFrameEqual(res1, res2), "Not equal dataframes in pair of train-predict"
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "base_model, arguments",
+    [(PopRec, {}), (PopRec, {"use_rating": True})],
+    ids=["pop_rec", "pop_rec_with_rating"],
+)
+@pytest.mark.parametrize(
+    "dataset_fixture",
+    [
+        "datasets",
+        "big_datasets",
+        "datasets_none_items",
+        "datasets_none_queries",
+        "datasets_one_query",
+        "datasets_random_sorted",
+    ],
+)
+def test_fit_predict_the_same_framework(base_model, arguments, dataset_fixture, request):
+    dataset = request.getfixturevalue(dataset_fixture)
+    df_pd = dataset["pandas"]
+    model_pd = base_model().__class__(**arguments)
+    pandas_res = model_pd.fit_predict(df_pd, k=1)
+    df_pl = dataset["polars"]
+    model_pl = base_model().__class__(**arguments)
+    polars_res = model_pl.fit_predict(df_pl, k=1).to_pandas()
+    df_spark = dataset["spark"]
+    model_spark = base_model().__class__(**arguments)
+    spark_res = model_spark.fit_predict(df_spark, k=1).toPandas()
+    assert isDataFrameEqual(pandas_res, polars_res), "Pandas results are not equals Polars results"
+    assert isDataFrameEqual(pandas_res, spark_res), "Pandas results are not equals Spark results"
