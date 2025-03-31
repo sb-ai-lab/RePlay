@@ -119,7 +119,7 @@ def save(
         save_picklable_to_parquet(model.study, join(path, "study"))
 
 
-def load(path: str, model_type=None) -> _BaseRecommenderSparkImpl:
+def load(path: str, model_type=None) -> Union[_BaseRecommenderSparkImpl, BaseRecommenderClient]:
     """
     Load saved model from disk
 

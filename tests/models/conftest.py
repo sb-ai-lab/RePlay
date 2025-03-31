@@ -16,7 +16,6 @@ data = [
         2,
         1.0,
     ],
-    # TODO: Use a lot dfs - empty, not sorted, one user/item_id, one None item / user, check conftest
     [2, 2, 0.1],
     [2, 3, 0.8],
     [3, 3, 0.7],

@@ -132,7 +132,7 @@ def get_top_k(
     :param k: number of first rows for each entity in ``partition_by_col`` to return
     :return: filtered spark dataframe
     """
-    a = (
+    return (
         dataframe.withColumn(
             "temp_rank",
             sf.row_number().over(Window.partitionBy(partition_by_col).orderBy(*order_by_col)),
@@ -140,7 +140,6 @@ def get_top_k(
         .filter(sf.col("temp_rank") <= k)
         .drop("temp_rank")
     )
-    return a
 
 
 def get_top_k_recs(
