@@ -72,6 +72,14 @@ class Bert4Rec(lightning.LightningModule):
             Default: ``FatOptimizerFactory``.
         :param lr_scheduler_factory: Learning rate schedule factory.
             Default: ``None``.
+        :param sce_n_buckets: Number of buckets for SCE loss.
+            Default: ``None``.
+        :param sce_bucket_size_x: Number of item hidden representations that will be in each bucket for SCE loss.
+            Default: ``None``.
+        :param sce_bucket_size_y: Number of item embeddings that will be in each bucket for SCE loss.
+            Default: ``None``.
+        :param sce_mix_x: Mixture option for SCE loss.
+            Default: ``False``.
         """
         super().__init__()
         self.save_hyperparameters()
