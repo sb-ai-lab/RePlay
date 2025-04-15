@@ -39,6 +39,54 @@ def test_training_sasrec_with_different_losses(
 
 
 @pytest.mark.torch
+@pytest.mark.parametrize(
+    "sce_n_buckets, sce_bucket_size_x, sce_bucket_size_y, sce_mix_x",
+    [
+        (1, 1, 1, True),
+        (1, 1, 1, False),
+        (2, 2, 1, True),
+        (2, 1, 2, False),
+        (50, 5, 5, True),
+        (50, 5, 5, False),
+        (1, None, 1, False),
+        (None, None, None, False),
+    ],
+)
+def test_training_sasrec_SCE_loss(
+    item_user_sequential_dataset,
+    train_sasrec_loader,
+    val_sasrec_loader,
+    sce_n_buckets,
+    sce_bucket_size_x,
+    sce_bucket_size_y,
+    sce_mix_x,
+):
+    trainer = L.Trainer(max_epochs=1)
+    if sce_n_buckets is None or sce_bucket_size_x is None or sce_bucket_size_y is None:
+        with pytest.raises(AssertionError):
+            model = SasRec(
+                tensor_schema=item_user_sequential_dataset._tensor_schema,
+                loss_type="SCE",
+                sce_n_buckets=sce_n_buckets,
+                sce_bucket_size_x=sce_bucket_size_x,
+                sce_bucket_size_y=sce_bucket_size_y,
+            )
+        return
+
+    model = SasRec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        max_seq_len=5,
+        hidden_size=64,
+        loss_type="SCE",
+        sce_n_buckets=sce_n_buckets,
+        sce_bucket_size_x=sce_bucket_size_x,
+        sce_bucket_size_y=sce_bucket_size_y,
+        sce_mix_x=sce_mix_x,
+    )
+    trainer.fit(model, train_sasrec_loader, val_sasrec_loader)
+
+
+@pytest.mark.torch
 def test_init_sasrec_with_invalid_loss_type(item_user_sequential_dataset):
     with pytest.raises(NotImplementedError) as exc:
         SasRec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_type="")
