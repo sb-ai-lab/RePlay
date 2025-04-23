@@ -346,8 +346,8 @@ class SasRec(lightning.LightningModule):
         tokens_mask: torch.BoolTensor,  # noqa: ARG002
     ) -> torch.Tensor:
         emb = self._model.forward_step(feature_tensors, padding_mask)
-        w = self.get_all_embeddings()["item_embedding"]
-        return self._loss(emb, positive_labels, w, padding_mask)
+        all_embeddings = self.get_all_embeddings()["item_embedding"]
+        return self._loss(emb, positive_labels, all_embeddings, padding_mask)
 
     def _get_sampled_logits(
         self,
