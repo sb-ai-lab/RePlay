@@ -98,6 +98,10 @@ class SasRec(lightning.LightningModule):
         self._negatives_sharing = negatives_sharing
         self._optimizer_factory = optimizer_factory
         self._lr_scheduler_factory = lr_scheduler_factory
+        self._n_buckets = sce_n_buckets
+        self._bucket_size_x = sce_bucket_size_x
+        self._bucket_size_y = sce_bucket_size_y
+        self._mix_x = sce_mix_x
         self._loss = self._create_loss()
         self._schema = tensor_schema
         assert negative_sampling_strategy in {"global_uniform", "inbatch"}
@@ -106,10 +110,6 @@ class SasRec(lightning.LightningModule):
                 "You should define ``sce_n_buckets``, ``sce_bucket_size_x`` and ``sce_bucket_size_y``"
                 "when using SCE loss function."
             )
-        self._n_buckets = sce_n_buckets
-        self._bucket_size_x = sce_bucket_size_x
-        self._bucket_size_y = sce_bucket_size_y
-        self._mix_x = sce_mix_x
 
         item_count = tensor_schema.item_id_features.item().cardinality
         assert item_count
@@ -346,69 +346,8 @@ class SasRec(lightning.LightningModule):
         tokens_mask: torch.BoolTensor,  # noqa: ARG002
     ) -> torch.Tensor:
         emb = self._model.forward_step(feature_tensors, padding_mask)
-        hd = torch.tensor(emb.shape[-1])
-
-        x = emb.view(-1, hd)
-        y = positive_labels.view(-1)
         w = self.get_all_embeddings()["item_embedding"]
-
-        correct_class_logits_ = (x * torch.index_select(w, dim=0, index=y)).sum(dim=1)  # (bs,)
-
-        with torch.no_grad():
-            if self._mix_x:
-                omega = 1 / torch.sqrt(torch.sqrt(hd)) * torch.randn(x.shape[0], self._n_buckets, device=x.device)
-                buckets = omega.T @ x
-                del omega
-            else:
-                buckets = (
-                    1 / torch.sqrt(torch.sqrt(hd)) * torch.randn(self._n_buckets, hd, device=x.device)
-                )  # (n_b, hd)
-
-        with torch.no_grad():
-            x_bucket = buckets @ x.T  # (n_b, hd) x (hd, b) -> (n_b, b)
-            x_bucket[:, ~padding_mask.view(-1)] = float("-inf")
-            _, top_x_bucket = torch.topk(x_bucket, dim=1, k=self._bucket_size_x)  # (n_b, bs_x)
-            del x_bucket
-
-            y_bucket = buckets @ w.T  # (n_b, hd) x (hd, n_cl) -> (n_b, n_cl)
-
-            _, top_y_bucket = torch.topk(y_bucket, dim=1, k=self._bucket_size_y)  # (n_b, bs_y)
-            del y_bucket
-
-        x_bucket = torch.gather(x, 0, top_x_bucket.view(-1, 1).expand(-1, hd)).view(
-            self._n_buckets, self._bucket_size_x, hd
-        )  # (n_b, bs_x, hd)
-        y_bucket = torch.gather(w, 0, top_y_bucket.view(-1, 1).expand(-1, hd)).view(
-            self._n_buckets, self._bucket_size_y, hd
-        )  # (n_b, bs_y, hd)
-
-        wrong_class_logits = x_bucket @ y_bucket.transpose(-1, -2)  # (n_b, bs_x, bs_y)
-        mask = (
-            torch.index_select(y, dim=0, index=top_x_bucket.view(-1)).view(self._n_buckets, self._bucket_size_x)[
-                :, :, None
-            ]
-            == top_y_bucket[:, None, :]
-        )  # (n_b, bs_x, bs_y)
-        wrong_class_logits = wrong_class_logits.masked_fill(mask, float("-inf"))  # (n_b, bs_x, bs_y)
-        correct_class_logits = torch.index_select(correct_class_logits_, dim=0, index=top_x_bucket.view(-1)).view(
-            self._n_buckets, self._bucket_size_x
-        )[
-            :, :, None
-        ]  # (n_b, bs_x, 1)
-        logits = torch.cat((wrong_class_logits, correct_class_logits), dim=2)  # (n_b, bs_x, bs_y + 1)
-
-        loss_ = torch.nn.functional.cross_entropy(
-            logits.view(-1, logits.shape[-1]),
-            (logits.shape[-1] - 1)
-            * torch.ones(logits.shape[0] * logits.shape[1], dtype=torch.int64, device=logits.device),
-            reduction="none",
-        )  # (n_b * bs_x,)
-        loss = torch.zeros(x.shape[0], device=x.device, dtype=x.dtype)
-        loss.scatter_reduce_(0, top_x_bucket.view(-1), loss_, reduce="amax", include_self=False)
-        loss = loss[(loss != 0) & (padding_mask).view(-1)]
-        loss = torch.mean(loss)
-
-        return loss
+        return self._loss(emb, positive_labels, w, padding_mask)
 
     def _get_sampled_logits(
         self,
@@ -494,8 +433,13 @@ class SasRec(lightning.LightningModule):
         if self._loss_type == "BCE":
             return torch.nn.BCEWithLogitsLoss(reduction="sum")
 
-        if self._loss_type == "CE" or self._loss_type == "SCE":
+        if self._loss_type == "CE":
             return torch.nn.CrossEntropyLoss()
+
+        if self._loss_type == "SCE":
+            from replay.losses import SCE
+
+            return SCE(self._n_buckets, self._bucket_size_x, self._bucket_size_y, self._mix_x)
 
         msg = "Not supported loss_type"
         raise NotImplementedError(msg)
