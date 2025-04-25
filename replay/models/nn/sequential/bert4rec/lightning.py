@@ -5,6 +5,7 @@ import lightning
 import torch
 
 from replay.data.nn import TensorMap, TensorSchema
+from replay.models.nn.loss import SCE, SCEParams
 from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
 
 from .dataset import Bert4RecPredictionBatch, Bert4RecTrainingBatch, Bert4RecValidationBatch, _shift_features
@@ -33,10 +34,7 @@ class Bert4Rec(lightning.LightningModule):
         negatives_sharing: bool = False,
         optimizer_factory: OptimizerFactory = FatOptimizerFactory(),
         lr_scheduler_factory: Optional[LRSchedulerFactory] = None,
-        sce_n_buckets: Optional[int] = None,
-        sce_bucket_size_x: Optional[int] = None,
-        sce_bucket_size_y: Optional[int] = None,
-        sce_mix_x: bool = False,
+        sce_params: Optional[SCEParams] = None,
     ):
         """
         :param tensor_schema (TensorSchema): Tensor schema of features.
@@ -72,14 +70,8 @@ class Bert4Rec(lightning.LightningModule):
             Default: ``FatOptimizerFactory``.
         :param lr_scheduler_factory: Learning rate schedule factory.
             Default: ``None``.
-        :param sce_n_buckets: Number of buckets for SCE loss.
+        :param sce_params: Dataclass with SCE parameters. Need to be defined if ``loss_type`` is ``SCE``.
             Default: ``None``.
-        :param sce_bucket_size_x: Number of item hidden representations that will be in each bucket for SCE loss.
-            Default: ``None``.
-        :param sce_bucket_size_y: Number of item embeddings that will be in each bucket for SCE loss.
-            Default: ``None``.
-        :param sce_mix_x: Mixture option for SCE loss.
-            Default: ``False``.
         """
         super().__init__()
         self.save_hyperparameters()
@@ -100,19 +92,13 @@ class Bert4Rec(lightning.LightningModule):
         self._negatives_sharing = negatives_sharing
         self._optimizer_factory = optimizer_factory
         self._lr_scheduler_factory = lr_scheduler_factory
-        self._n_buckets = sce_n_buckets
-        self._bucket_size_x = sce_bucket_size_x
-        self._bucket_size_y = sce_bucket_size_y
-        self._mix_x = sce_mix_x
+        self._sce_params = sce_params
         self._loss = self._create_loss()
         self._schema = tensor_schema
         assert negative_sampling_strategy in {"global_uniform", "inbatch"}
 
         if self._loss_type == "SCE":
-            assert all(param is not None for param in [sce_n_buckets, sce_bucket_size_x, sce_bucket_size_y]), (
-                "You should define ``sce_n_buckets``, ``sce_bucket_size_x`` and ``sce_bucket_size_y``"
-                "when using SCE loss function."
-            )
+            assert sce_params is not None, "You should define ``sce_params`` when using SCE loss function."
 
         item_count = tensor_schema.item_id_features.item().cardinality
         assert item_count
@@ -442,9 +428,7 @@ class Bert4Rec(lightning.LightningModule):
             return torch.nn.CrossEntropyLoss()
 
         if self._loss_type == "SCE":
-            from replay.losses import SCE
-
-            return SCE(self._n_buckets, self._bucket_size_x, self._bucket_size_y, self._mix_x)
+            return SCE(self._sce_params)
 
         msg = "Not supported loss_type"
         raise NotImplementedError(msg)

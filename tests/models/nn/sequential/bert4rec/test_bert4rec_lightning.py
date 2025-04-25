@@ -5,6 +5,7 @@ from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
     from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
+    from replay.models.nn.loss import SCEParams
     from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
     from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionBatch, Bert4RecPredictionDataset
 
@@ -60,14 +61,18 @@ def test_training_bert_SCE_loss(
     sce_mix_x,
 ):
     trainer = L.Trainer(max_epochs=1)
+    sce_params = SCEParams(
+        n_buckets=sce_n_buckets,
+        bucket_size_x=sce_bucket_size_x,
+        bucket_size_y=sce_bucket_size_y,
+        mix_x=sce_mix_x,
+    )
     if sce_n_buckets is None or sce_bucket_size_x is None or sce_bucket_size_y is None:
         with pytest.raises(AssertionError):
             model = Bert4Rec(
                 tensor_schema=item_user_sequential_dataset._tensor_schema,
                 loss_type="SCE",
-                sce_n_buckets=sce_n_buckets,
-                sce_bucket_size_x=sce_bucket_size_x,
-                sce_bucket_size_y=sce_bucket_size_y,
+                sce_params=sce_params,
             )
         return
 
@@ -76,10 +81,7 @@ def test_training_bert_SCE_loss(
         max_seq_len=5,
         hidden_size=64,
         loss_type="SCE",
-        sce_n_buckets=sce_n_buckets,
-        sce_bucket_size_x=sce_bucket_size_x,
-        sce_bucket_size_y=sce_bucket_size_y,
-        sce_mix_x=sce_mix_x,
+        sce_params=sce_params,
     )
     trainer.fit(model, train_bert_loader, val_bert_loader)
 

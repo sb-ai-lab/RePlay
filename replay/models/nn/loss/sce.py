@@ -1,14 +1,51 @@
+from dataclasses import dataclass
 from typing import Optional
 
 import torch
 
 
+@dataclass(frozen=True)
+class SCEParams:
+    """Set of parameters for SCE loss.
+
+    Constructor arguments:
+    :param n_buckets: Number of buckets into which samples will be distributed.
+    :param bucket_size_x: Number of item hidden representations that will be in each bucket.
+    :param bucket_size_y: Number of item embeddings that will be in each bucket.
+    :param mix_x: Whether a randomly generated matrix will be multiplied by the model output matrix or not.
+        Default: ``False``.
+    """
+
+    n_buckets: int
+    bucket_size_x: int
+    bucket_size_y: int
+    mix_x: bool = False
+
+    def _get_not_none_params(self):
+        return [self.n_buckets, self.bucket_size_x, self.bucket_size_y]
+
+
 class SCE:
-    def __init__(self, n_buckets, bucket_size_x, bucket_size_y, mix_x):
-        self._n_buckets = n_buckets
-        self._bucket_size_x = bucket_size_x
-        self._bucket_size_y = bucket_size_y
-        self._mix_x = mix_x
+    def __init__(self, sce_params: dataclass):
+        """
+        Scalable Cross Entropy loss for Sequential Recommendations with Large Item Catalogs.
+        Reference article may be found at https://arxiv.org/pdf/2409.18721.
+
+        :param SCEParams: Dataclass with SCE parameters.
+            Dataclass contains following values:
+                :param n_buckets: Number of buckets into which samples will be distributed.
+                :param bucket_size_x: Number of item hidden representations that will be in each bucket.
+                :param bucket_size_y: Number of item embeddings that will be in each bucket.
+                :param mix_x: Whether a randomly generated matrix will be multiplied by the model output matrix or not.
+                    Default: ``False``.
+        """
+        assert all(
+            param is not None for param in sce_params._get_not_none_params()
+        ), "You should define ``n_buckets``, ``bucket_size_x``, ``bucket_size_y`` when using SCE loss function."
+        self._n_buckets = sce_params.n_buckets
+        self._bucket_size_x = sce_params.bucket_size_x
+        self._bucket_size_y = sce_params.bucket_size_y
+        self._mix_x = sce_params.mix_x
 
     def __call__(
         self,
@@ -18,6 +55,16 @@ class SCE:
         padding_mask: torch.BoolTensor,
         tokens_mask: Optional[torch.BoolTensor] = None,
     ) -> torch.Tensor:
+        """
+        SCE computation.
+
+        :param embeddings: Matrix of the last transformer block outputs.
+        :param positive_labels: Positive labels.
+        :param all_embeddings: Matrix of all item embeddings.
+        :param padding_mask: Padding mask.
+        :param tokens_mask: Tokens mask (need only for Bert4Rec).
+            Default: ``None``.
+        """
         masked_tokens = padding_mask if tokens_mask is None else ~(~padding_mask + tokens_mask)
 
         hd = torch.tensor(embeddings.shape[-1])
