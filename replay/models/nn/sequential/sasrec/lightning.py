@@ -5,7 +5,7 @@ import lightning
 import torch
 
 from replay.data.nn import TensorMap, TensorSchema
-from replay.models.nn.loss import SCE, SCEParams
+from replay.models.nn.loss import ScalableCrossEntropyLoss, SCEParams
 from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
 
 from .dataset import SasRecPredictionBatch, SasRecTrainingBatch, SasRecValidationBatch
@@ -423,7 +423,7 @@ class SasRec(lightning.LightningModule):
             return torch.nn.CrossEntropyLoss()
 
         if self._loss_type == "SCE":
-            return SCE(self._sce_params)
+            return ScalableCrossEntropyLoss(self._sce_params)
 
         msg = "Not supported loss_type"
         raise NotImplementedError(msg)

@@ -6,7 +6,7 @@ import torch
 
 @dataclass(frozen=True)
 class SCEParams:
-    """Set of parameters for SCE loss.
+    """Set of parameters for ScalableCrossEntropyLoss.
 
     Constructor arguments:
     :param n_buckets: Number of buckets into which samples will be distributed.
@@ -25,13 +25,13 @@ class SCEParams:
         return [self.n_buckets, self.bucket_size_x, self.bucket_size_y]
 
 
-class SCE:
+class ScalableCrossEntropyLoss:
     def __init__(self, sce_params: dataclass):
         """
-        Scalable Cross Entropy loss for Sequential Recommendations with Large Item Catalogs.
+        ScalableCrossEntropyLoss for Sequential Recommendations with Large Item Catalogs.
         Reference article may be found at https://arxiv.org/pdf/2409.18721.
 
-        :param SCEParams: Dataclass with SCE parameters.
+        :param SCEParams: Dataclass with ScalableCrossEntropyLoss parameters.
             Dataclass contains following values:
                 :param n_buckets: Number of buckets into which samples will be distributed.
                 :param bucket_size_x: Number of item hidden representations that will be in each bucket.
@@ -56,7 +56,7 @@ class SCE:
         tokens_mask: Optional[torch.BoolTensor] = None,
     ) -> torch.Tensor:
         """
-        SCE computation.
+        ScalableCrossEntropyLoss computation.
 
         :param embeddings: Matrix of the last transformer block outputs.
         :param positive_labels: Positive labels.

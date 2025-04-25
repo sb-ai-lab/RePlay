@@ -1,1 +1,1 @@
-from .sce import SCE, SCEParams
+from .sce import ScalableCrossEntropyLoss, SCEParams
