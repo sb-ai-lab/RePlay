@@ -175,7 +175,7 @@ class Surprisal(Metric):
 
         weights = self._get_recommendation_weights(recommendations, train)
         return self._dict_call(
-            list(train),
+            list(recommendations),
             pred_item_id=recommendations,
             pred_weight=weights,
         )
