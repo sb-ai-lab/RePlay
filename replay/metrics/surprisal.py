@@ -129,7 +129,9 @@ class Surprisal(Metric):
         item_weights = train.group_by(self.item_column).agg(
             (np.log2(n_users / pl.col(self.query_column).n_unique()) / np.log2(n_users)).alias("weight")
         )
-        recommendations = recommendations.join(item_weights, on=self.item_column, how="left").fill_nan(1.0)
+        recommendations = recommendations.join(item_weights, on=self.item_column, how="left").with_columns(
+            pl.col("weight").fill_null(1.0)
+        )
 
         sorted_by_score_recommendations = self._get_items_list_per_user(recommendations, "weight")
         return self._rearrange_columns(sorted_by_score_recommendations)
