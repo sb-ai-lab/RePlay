@@ -63,6 +63,24 @@ base_recs_data = [
     (3, 2, 0.3),
 ]
 
+# Represents recommendations where some users from ground truth (or training subset) are missing
+recs_with_missing_users_data = [
+    (1, 7, 0.5),
+    (1, 5, 1.0),
+    (3, 2, 0.4),
+    (3, 6, 0.6),
+]
+
+# Represents recommendations that include previously unseen (cold) items
+recs_with_cold_items_data = [
+    (1, 42, 0.5),
+    (1, 5, 1.0),
+    (2, 221, 0.2),
+    (2, 7, 0.3),
+    (3, 2, 0.4),
+    (3, 934, 0.6),
+]
+
 
 @pytest.fixture(scope="module")
 def predict_spark(spark):
@@ -164,6 +182,36 @@ def base_recs_dict():
         items = sorted(items, key=lambda x: x[1], reverse=True)
         converted_dict[user] = items
     return converted_dict
+
+
+@pytest.fixture(scope="module")
+def recs_with_cold_items_spark(spark):
+    return spark.createDataFrame(recs_with_cold_items_data, schema=["uid", "iid", "scores"])
+
+
+@pytest.fixture(scope="module")
+def recs_with_cold_items_pandas():
+    return pd.DataFrame(recs_with_cold_items_data, columns=["uid", "iid", "scores"])
+
+
+@pytest.fixture(scope="module")
+def recs_with_cold_items_polars():
+    return pl.DataFrame(recs_with_cold_items_data, schema=["uid", "iid", "scores"])
+
+
+@pytest.fixture(scope="module")
+def recs_with_missing_users_spark(spark):
+    return spark.createDataFrame(recs_with_missing_users_data, schema=["uid", "iid", "scores"])
+
+
+@pytest.fixture(scope="module")
+def recs_with_missing_users_pandas():
+    return pd.DataFrame(recs_with_missing_users_data, columns=["uid", "iid", "scores"])
+
+
+@pytest.fixture(scope="module")
+def recs_with_missing_users_polars():
+    return pl.DataFrame(recs_with_missing_users_data, schema=["uid", "iid", "scores"])
 
 
 def encode_data(data: PandasDataFrame) -> PandasDataFrame:
