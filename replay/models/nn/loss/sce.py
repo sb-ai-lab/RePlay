@@ -26,7 +26,7 @@ class SCEParams:
 
 
 class ScalableCrossEntropyLoss:
-    def __init__(self, sce_params: dataclass):
+    def __init__(self, sce_params: SCEParams):
         """
         ScalableCrossEntropyLoss for Sequential Recommendations with Large Item Catalogs.
         Reference article may be found at https://arxiv.org/pdf/2409.18721.

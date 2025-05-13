@@ -4842,4 +4842,4 @@ torch-openvino = ["lightning", "onnx", "openvino", "pytorch-ranger", "torch"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1, <3.12"
-content-hash = "0e8ed8a305f62e7d66eba15a439b0c17aa29b2ed6c25a8629801918730f6bc7f"
+content-hash = "0b66e5cb3d7e501591a0b02ac5227b3508094bfa76077c2201211695227e92ec"
