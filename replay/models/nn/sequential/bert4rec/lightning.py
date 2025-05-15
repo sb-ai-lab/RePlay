@@ -197,6 +197,8 @@ class Bert4Rec(lightning.LightningModule):
             loss_func = self._compute_loss_bce if self._loss_sample_count is None else self._compute_loss_bce_sampled
         elif self._loss_type == "CE":
             loss_func = self._compute_loss_ce if self._loss_sample_count is None else self._compute_loss_ce_sampled
+        elif self._loss_type == "CE_restricted":
+            loss_func = self._compute_loss_ce_restricted
         else:
             msg = f"Not supported loss type: {self._loss_type}"
             raise ValueError(msg)
@@ -316,6 +318,20 @@ class Bert4Rec(lightning.LightningModule):
         loss = self._loss(logits, labels_flat)
         return loss
 
+    def _compute_loss_ce_restricted(
+        self,
+        feature_tensors: TensorMap,
+        positive_labels: torch.LongTensor,
+        padding_mask: torch.BoolTensor,
+        tokens_mask: torch.BoolTensor,
+    ) -> torch.Tensor:
+        (logits, labels) = self._get_restricted_logits_for_ce_loss(
+            feature_tensors, positive_labels, padding_mask, tokens_mask
+        )
+
+        loss = self._loss(logits, labels)
+        return loss
+
     def _get_sampled_logits(
         self,
         feature_tensors: TensorMap,
@@ -398,11 +414,27 @@ class Bert4Rec(lightning.LightningModule):
             vocab_size,
         )
 
+    def _get_restricted_logits_for_ce_loss(
+        self,
+        feature_tensors: TensorMap,
+        positive_labels: torch.LongTensor,
+        padding_mask: torch.BoolTensor,
+        tokens_mask: torch.BoolTensor,
+    ):
+        labels_mask = (~padding_mask) + tokens_mask
+        masked_tokens = ~labels_mask
+        positive_labels = cast(
+            torch.LongTensor, torch.masked_select(positive_labels, masked_tokens)
+        )  # (masked_batch_seq_size,)
+        output_emb = self._model.forward_step(feature_tensors, padding_mask, tokens_mask)[masked_tokens]
+        logits = self._model.get_logits_for_restricted_loss(output_emb)
+        return (logits, positive_labels)
+
     def _create_loss(self) -> Union[torch.nn.BCEWithLogitsLoss, torch.nn.CrossEntropyLoss]:
         if self._loss_type == "BCE":
             return torch.nn.BCEWithLogitsLoss(reduction="sum")
 
-        if self._loss_type == "CE":
+        if self._loss_type == "CE" or self._loss_type == "CE_restricted":
             return torch.nn.CrossEntropyLoss()
 
         msg = "Not supported loss_type"

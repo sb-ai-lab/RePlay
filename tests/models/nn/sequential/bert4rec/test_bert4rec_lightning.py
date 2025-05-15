@@ -18,8 +18,10 @@ L = pytest.importorskip("lightning")
     [
         ("BCE", 6),
         ("CE", 6),
+        ("CE_restricted", 6),
         ("BCE", None),
         ("CE", None),
+        ("CE_restricted", None),
     ],
 )
 def test_training_bert4rec_with_different_losses(
