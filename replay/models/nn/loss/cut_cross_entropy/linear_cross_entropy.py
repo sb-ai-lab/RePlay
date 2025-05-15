@@ -53,25 +53,22 @@ def linear_cross_entropy(
     if isinstance(shift, int) and (shift < 0 or shift >= targets.size(-1)):
         raise ValueError(f"Shift must be in the range [0, {targets.size(-1)}). Got {shift}.")
 
-    match impl:
-        case "cce" | "cce_exact":
-            if platform.system() == "Darwin":
-                raise RuntimeError(
-                    "CCE does not support MacOS. Please use torch_compile when running on MacOS instead."
-                )
+    if impl in ["cce", "cce_exact"]:
+        if platform.system() == "Darwin":
+            raise RuntimeError("CCE does not support MacOS. Please use torch_compile when running on MacOS instead.")
 
-            if impl == "cce_exact":
-                filter_eps = None
-                use_kahan = True
+        if impl == "cce_exact":
+            filter_eps = None
+            use_kahan = True
 
-            assert cce_linear_cross_entropy is not None
-            return cce_linear_cross_entropy(
-                e, c, targets, bias, ignore_index, softcap, reduction, shift, filter_eps, use_kahan
-            )
-        case "torch_compile":
-            return torch_compile_linear_cross_entropy(e, c, targets, bias, ignore_index, softcap, reduction, shift)
-        case _:
-            raise NotImplementedError(f"{impl} is not implemented.")
+        assert cce_linear_cross_entropy is not None
+        return cce_linear_cross_entropy(
+            e, c, targets, bias, ignore_index, softcap, reduction, shift, filter_eps, use_kahan
+        )
+    elif impl == "torch_compile":
+        return torch_compile_linear_cross_entropy(e, c, targets, bias, ignore_index, softcap, reduction, shift)
+    else:
+        raise NotImplementedError(f"{impl} is not implemented.")
 
 
 class LinearCrossEntropy(nn.Module):
