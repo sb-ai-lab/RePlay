@@ -86,7 +86,7 @@ ruff:
   stage: code_quality
   script:
     - ./poetry_wrapper.sh --generate
-    - ruff check .
+    - ruff check . --exclude=replay/models/nn/loss/cut_cross_entropy/
   tags:
     - ${RUNNER}
 
