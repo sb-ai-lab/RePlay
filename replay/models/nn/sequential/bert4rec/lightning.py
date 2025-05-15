@@ -10,6 +10,19 @@ from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFac
 from .dataset import Bert4RecPredictionBatch, Bert4RecTrainingBatch, Bert4RecValidationBatch, _shift_features
 from .model import Bert4RecModel, CatFeatureEmbedding
 
+try:
+    from replay.models.nn.loss.cut_cross_entropy import LigerFusedLinearCrossEntropyFunction
+
+except ModuleNotFoundError as exception:
+    raise exception
+
+
+try:
+    from replay.models.nn.loss.cut_cross_entropy.cce import CCEParams, LinearCrossEntropyFunction
+    from replay.models.nn.loss.cut_cross_entropy.utils import _build_flat_valids, _handle_eps
+except ModuleNotFoundError as exception:
+    raise exception
+
 
 class Bert4Rec(lightning.LightningModule):
     """
@@ -197,6 +210,8 @@ class Bert4Rec(lightning.LightningModule):
             loss_func = self._compute_loss_bce if self._loss_sample_count is None else self._compute_loss_bce_sampled
         elif self._loss_type == "CE":
             loss_func = self._compute_loss_ce if self._loss_sample_count is None else self._compute_loss_ce_sampled
+        elif self._loss_type == "CCE":
+            loss_func = self._compute_loss_cce
         else:
             msg = f"Not supported loss type: {self._loss_type}"
             raise ValueError(msg)
@@ -316,6 +331,105 @@ class Bert4Rec(lightning.LightningModule):
         loss = self._loss(logits, labels_flat)
         return loss
 
+    def _compute_loss_cce(
+        self,
+        feature_tensors: TensorMap,
+        positive_labels: torch.LongTensor,
+        padding_mask: torch.BoolTensor,
+        tokens_mask: torch.BoolTensor,
+    ) -> torch.Tensor:
+        """
+        Cut Cross-Entropy (CCE) and Cut Cross-Entropy with Negative Sampling (CCE-),
+        methods that computes the cross-entropy loss,
+        without materializing the logits for all tokens into global memory.
+        The method is implemented in custom Triton kernels.
+
+
+        Cut Cross Entropy for LLM is presented in
+        https://arxiv.org/abs/2411.09009
+        https://github.com/apple/ml-cross-entropy
+        """
+
+        bias = None
+        ignore_index = -100
+        softcap = None
+        reduction = "mean"
+        shift = False
+        filter_eps = "auto"
+        use_kahan = False
+        item_inds = None
+
+        labels_mask = (~padding_mask) + tokens_mask
+        masked_tokens = ~labels_mask
+
+        e = self._model.forward_step(feature_tensors, padding_mask, tokens_mask)[masked_tokens]
+        e = e.to(torch.float16)
+        targets = cast(torch.LongTensor, torch.masked_select(positive_labels, masked_tokens))
+        c = self._model._head.get_item_embeddings()
+
+        e = e.contiguous()
+        padding_mask = padding_mask.contiguous()
+
+        assert e.size()[0:-1] == targets.size()
+        assert e.size(-1) == c.size(1)
+        if not torch.cuda.is_bf16_supported():
+            raise RuntimeError(
+                "Cut Cross Entropy requires an ampere GPU or newer. "
+                "Consider using torch_compile_linear_cross_entropy for scenarios where one is not available."
+            )
+
+        batch_shape = targets.size()
+
+        shift = int(shift)
+        valids = _build_flat_valids(targets, ignore_index, shift)
+
+        e = e.flatten(0, -2)
+        targets = targets.flatten()
+
+        if (targets.data_ptr() % 16) != 0:
+            targets = torch.nn.functional.pad(targets, (0, 1))[:-1]
+
+        assert (targets.data_ptr() % 16) == 0
+
+        if self._loss_sample_count is not None:
+            filter_eps = None
+            n_negative_samples = self._loss_sample_count
+            vocab_size = self._vocab_size
+            device = padding_mask.device
+
+            masked_batch_seq_size = targets.size(0)
+
+            if self._negative_sampling_strategy == "global_uniform":
+                negative_labels = torch.randint(
+                    low=0,
+                    high=vocab_size,
+                    size=(masked_batch_seq_size, n_negative_samples),
+                    dtype=torch.long,
+                    device=device,
+                )
+
+            reject_labels_mask = targets.view(-1, 1) == negative_labels
+            negative_labels[reject_labels_mask] = vocab_size
+
+            item_inds = torch.hstack([targets.view(-1, 1), negative_labels])
+
+        params = CCEParams(
+            targets,
+            valids,
+            softcap,
+            reduction,
+            _handle_eps(filter_eps, e.dtype),
+            shift,
+            batch_shape,
+            use_kahan,
+            item_inds,
+        )
+
+        loss = self._loss.apply(e, c.to(e.dtype), bias, params)
+        assert isinstance(loss, torch.Tensor)
+
+        return loss
+
     def _get_sampled_logits(
         self,
         feature_tensors: TensorMap,
@@ -404,6 +518,9 @@ class Bert4Rec(lightning.LightningModule):
 
         if self._loss_type == "CE":
             return torch.nn.CrossEntropyLoss()
+
+        if self._loss_type == "CCE":
+            return LinearCrossEntropyFunction()
 
         msg = "Not supported loss_type"
         raise NotImplementedError(msg)

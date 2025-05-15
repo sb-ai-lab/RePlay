@@ -34,6 +34,11 @@ variables:
     - *setup_experimental_env
     - ./poetry_wrapper.sh --experimental install --all-extras
 
+.install_replay_with_torch_2_5_1: &install_replay_with_torch_2_5_1
+  before_script:
+    - *setup_experimental_env
+    - ./poetry_wrapper.sh --experimental install --all-extras
+
 cache: &global_cache
   key: ${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHORT_SHA}
   paths:
@@ -46,6 +51,7 @@ stages:
   - code_quality
   - test_core
   - test_torch
+  - test_torch_CCE
   - test_spark
   - test_spark_torch
   - test_models
@@ -149,12 +155,25 @@ pytest-core:
       - .coverage_core_${image:(-4)}
     expire_in: 1 day
 
+pytest-torch-CCE:
+  <<: *pytest_template
+  stage: test_torch_CCE
+  script:
+    - pip install -q --upgrade torch==2.5.1
+    - ./poetry_wrapper.sh install -E torch-openvino
+    - pytest -m "not spark and not experimental" tests/ --ignore=tests/experimental
+    - mv .coverage .coverage_torch_CCE_${image:(-4)}
+  artifacts:
+    paths:
+      - .coverage_torch_CCE_${image:(-4)}
+    expire_in: 1 day
+
 pytest-torch:
   <<: *pytest_template
   stage: test_torch
   script:
     - ./poetry_wrapper.sh install -E torch-openvino
-    - pytest -m "not spark and not experimental" tests/ --ignore=tests/experimental
+    - pytest -m "not spark and not experimental and not torch_CCE" tests/ --ignore=tests/experimental
     - mv .coverage .coverage_torch_${image:(-4)}
   artifacts:
     paths:
@@ -166,7 +185,7 @@ pytest-spark:
   stage: test_spark
   script:
     - ./poetry_wrapper.sh install -E spark
-    - pytest -m "not torch and not experimental" tests/ --ignore=tests/experimental --ignore=tests/models
+    - pytest -m "not torch and not torch_CCE and not experimental" tests/ --ignore=tests/experimental --ignore=tests/models
     - mv .coverage .coverage_spark_${image:(-4)}
   artifacts:
     paths:
@@ -178,7 +197,7 @@ pytest-spark-and-torch:
   stage: test_spark_torch
   script:
     - ./poetry_wrapper.sh install --all-extras
-    - pytest -m "not experimental" --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
+    - pytest -m "not experimental and not torch_CCE" --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
     - mv .coverage .coverage_spark_and_torch_${image:(-4)}
   artifacts:
     paths:
@@ -190,7 +209,7 @@ pytest-models:
   stage: test_models
   script:
     - ./poetry_wrapper.sh install --all-extras
-    - pytest -m "not experimental" tests/models --ignore=replay/experimental --ignore=tests/experimental
+    - pytest -m "not experimental and not torch_CCE" tests/models --ignore=replay/experimental --ignore=tests/experimental
     - mv .coverage .coverage_models_${image:(-4)}
   artifacts:
     paths:
@@ -215,10 +234,10 @@ merge-coverage:
     - *setup_env
     - ./poetry_wrapper.sh install --only dev
   script:
-    - coverage combine .coverage_core_${image:(-4)} .coverage_spark_${image:(-4)} .coverage_torch_${image:(-4)} .coverage_spark_and_torch_${image:(-4)} .coverage_models_${image:(-4)} .coverage_experimental_${image:(-4)}
+    - coverage combine .coverage_core_${image:(-4)} .coverage_spark_${image:(-4)} .coverage_torch_${image:(-4)} .coverage_torch_CCE${image:(-4)} .coverage_spark_and_torch_${image:(-4)} .coverage_models_${image:(-4)} .coverage_experimental_${image:(-4)}
     - coverage report --fail-under=100
     - coverage xml
-  needs: ["pytest-core", "pytest-torch", "pytest-spark", "pytest-spark-and-torch", "pytest-models", "pytest-experimental"]
+  needs: ["pytest-core", "pytest-torch", "pytest-torch-CCE", "pytest-spark", "pytest-spark-and-torch", "pytest-models", "pytest-experimental"]
   tags:
     - ${RUNNER}
   parallel:

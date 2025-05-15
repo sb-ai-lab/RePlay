@@ -36,6 +36,28 @@ def test_training_bert4rec_with_different_losses(
     trainer.fit(model, train_bert_loader, val_bert_loader)
 
 
+@pytest.mark.torch_CCE
+@pytest.mark.parametrize(
+    "loss_type, loss_sample_count",
+    [
+        ("CCE", 6),
+        ("CCE", None),
+    ],
+)
+def test_training_bert4rec_with_different_losses(
+    item_user_sequential_dataset, train_bert_loader, val_bert_loader, loss_type, loss_sample_count
+):
+    trainer = L.Trainer(max_epochs=1)
+    model = Bert4Rec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        max_seq_len=5,
+        hidden_size=64,
+        loss_type=loss_type,
+        loss_sample_count=loss_sample_count,
+    )
+    trainer.fit(model, train_bert_loader, val_bert_loader)
+
+
 @pytest.mark.torch
 def test_init_bert4rec_with_invalid_loss_type(item_user_sequential_dataset):
     with pytest.raises(NotImplementedError) as exc:
