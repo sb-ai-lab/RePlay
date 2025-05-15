@@ -81,11 +81,20 @@ def test_prediction_bert4rec(item_user_sequential_dataset, train_bert_loader):
     "candidates",
     [torch.LongTensor([1]), torch.LongTensor([1, 2, 3, 4]), torch.LongTensor([0, 1, 2, 3, 4, 5]), None],
 )
-def test_prediction_bert_with_candidates(item_user_sequential_dataset, train_bert_loader, candidates):
+@pytest.mark.parametrize(
+    "tying_head",
+    [True, False],
+)
+def test_prediction_bert_with_candidates(item_user_sequential_dataset, train_bert_loader, candidates, tying_head):
     pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_bert_loader = torch.utils.data.DataLoader(pred, batch_size=1)
     trainer = L.Trainer(max_epochs=1)
-    model = Bert4Rec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64)
+    model = Bert4Rec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        enable_embedding_tying=tying_head,
+        max_seq_len=5,
+        hidden_size=64,
+    )
     trainer.fit(model, train_bert_loader)
 
     # test online inference with candidates

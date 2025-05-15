@@ -480,7 +480,7 @@ class ClassificationHead(BaseHead):
     def forward(
         self,
         out_embeddings: torch.Tensor,
-        item_ids: Optional[torch.LongTensor] = None,  # noqa: ARG002
+        item_ids: Optional[torch.LongTensor] = None,
     ) -> torch.Tensor:
         """
         :param out_embeddings: Embeddings after `forward step`.
@@ -489,7 +489,13 @@ class ClassificationHead(BaseHead):
 
         :returns: Calculated logits.
         """
-        logits = torch.nn.functional.linear(out_embeddings, self.linear.weight, self.linear.bias)
+        item_embeddings = self.get_item_embeddings()
+        bias = self.get_bias()
+        if item_ids is not None:
+            item_embeddings = item_embeddings[item_ids]
+            bias = bias[item_ids]
+
+        logits = torch.nn.functional.linear(out_embeddings, item_embeddings, bias)
         return logits
 
 
