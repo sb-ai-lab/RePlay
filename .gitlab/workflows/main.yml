@@ -159,9 +159,9 @@ pytest-torch-CCE:
   <<: *pytest_template
   stage: test_torch_CCE
   script:
-    - pip install -q --upgrade torch==2.5.1
     - ./poetry_wrapper.sh install -E torch-openvino
-    - pytest -m "not spark and not experimental" tests/ --ignore=tests/experimental
+    - pip install -q --upgrade torch==2.5.1
+    - pytest -m "torch_CCE" tests/ --ignore=tests/experimental
     - mv .coverage .coverage_torch_CCE_${image:(-4)}
   artifacts:
     paths:
