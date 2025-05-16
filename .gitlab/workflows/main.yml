@@ -163,6 +163,7 @@ pytest-torch-CCE:
     - when: always
   stage: test_torch_CCE
   script:
+    - echo "CI_JOB_IMAGE is ${CI_JOB_IMAGE}"
     - ./poetry_wrapper.sh install -E torch-openvino
     - pip install -q --upgrade torch==2.5.1
     - pytest -m "torch_CCE" tests/ --ignore=tests/experimental
