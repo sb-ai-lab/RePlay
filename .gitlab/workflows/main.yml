@@ -157,6 +157,10 @@ pytest-core:
 
 pytest-torch-CCE:
   <<: *pytest_template
+  rules:
+    - if: $CI_JOB_IMAGE == "${CI_REGISTRY_IMAGE}:${VERSION}_py38"
+      when: never
+    - when: always
   stage: test_torch_CCE
   script:
     - ./poetry_wrapper.sh install -E torch-openvino
