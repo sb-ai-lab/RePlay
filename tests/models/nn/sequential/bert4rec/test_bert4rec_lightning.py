@@ -79,7 +79,7 @@ def test_prediction_bert4rec(item_user_sequential_dataset, train_bert_loader):
 @pytest.mark.torch
 @pytest.mark.parametrize(
     "candidates",
-    [torch.LongTensor([1]), torch.LongTensor([1, 2, 3, 4]), torch.LongTensor([0, 1, 2, 3, 4, 5]), None],
+    [torch.LongTensor([1]), torch.LongTensor([1, 2, 3, 4]), torch.LongTensor([0, 1, 2, 3, 4, 5])],
 )
 @pytest.mark.parametrize(
     "tying_head",

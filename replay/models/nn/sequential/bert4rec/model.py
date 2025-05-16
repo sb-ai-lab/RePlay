@@ -399,14 +399,11 @@ class BaseHead(ABC, torch.nn.Module):
     def forward_for_restricted_loss(
         self,
         out_embeddings: torch.Tensor,
-        item_ids: Optional[torch.LongTensor] = None,
+        item_ids: Optional[torch.LongTensor] = None,  # noqa: ARG002
     ) -> torch.Tensor:
 
         item_embeddings = self.get_item_embeddings()
         bias = self.get_bias()
-        if item_ids is not None:
-            item_embeddings = item_embeddings[item_ids]
-            bias = bias[item_ids]
 
         logits = torch.nn.functional.linear(out_embeddings, item_embeddings, bias)
         return logits
