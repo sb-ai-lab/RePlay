@@ -10,18 +10,13 @@ from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFac
 from .dataset import Bert4RecPredictionBatch, Bert4RecTrainingBatch, Bert4RecValidationBatch, _shift_features
 from .model import Bert4RecModel, CatFeatureEmbedding
 
-try:
-    from replay.models.nn.loss.cut_cross_entropy import LigerFusedLinearCrossEntropyFunction
-
-except ModuleNotFoundError as exception:
-    raise exception
-
-
-try:
-    from replay.models.nn.loss.cut_cross_entropy.cce import CCEParams, LinearCrossEntropyFunction
-    from replay.models.nn.loss.cut_cross_entropy.utils import _build_flat_valids, _handle_eps
-except ModuleNotFoundError as exception:
-    raise exception
+if torch.__version__ > "2.5.0":
+    try:
+        from replay.models.nn.loss.cut_cross_entropy.cce import CCEParams, LinearCrossEntropyFunction
+        from replay.models.nn.loss.cut_cross_entropy.utils import _build_flat_valids, _handle_eps
+    except ModuleNotFoundError:
+        msg = "Cannot import CCE"
+        raise ModuleNotFoundError(msg)
 
 
 class Bert4Rec(lightning.LightningModule):
@@ -373,10 +368,11 @@ class Bert4Rec(lightning.LightningModule):
         assert e.size()[0:-1] == targets.size()
         assert e.size(-1) == c.size(1)
         if not torch.cuda.is_bf16_supported():
-            raise RuntimeError(
+            msg = (
                 "Cut Cross Entropy requires an ampere GPU or newer. "
                 "Consider using torch_compile_linear_cross_entropy for scenarios where one is not available."
             )
+            raise RuntimeError(msg)
 
         batch_shape = targets.size()
 
