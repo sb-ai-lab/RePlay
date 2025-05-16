@@ -117,7 +117,7 @@ format-jinja = """0.18.2{{ env['PACKAGE_SUFFIX'] }}"""
 vcs = "git"
 
 [tool.ruff]
-exclude = [".git", ".venv", "__pycache__", "env", "venv", "docs", "projects", "examples"]
+exclude = [".git", ".venv", "__pycache__", "env", "venv", "docs", "projects", "examples", "replay/models/nn/loss/cut_cross_entropy"]
 extend-select = ["C90", "T10", "T20", "UP004"]
 line-length = 120
 select = ["ARG", "C4", "E", "EM", "ERA", "F", "FLY", "I", "INP", "ISC", "N", "PERF", "PGH", "PIE", "PYI", "Q", "RUF", "SIM", "TID", "W"]
