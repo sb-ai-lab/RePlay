@@ -20,7 +20,7 @@ class LinearCrossEntropyImpl(enum.IntEnum):
 PLATFORM_SYSTEM = platform.system()
 
 if TYPE_CHECKING or PLATFORM_SYSTEM != "Darwin":
-    from cut_cross_entropy.cce import cce_linear_cross_entropy
+    from .cce import cce_linear_cross_entropy
 
     LCE_IMPL_DEFAULT = LinearCrossEntropyImpl.CCE
 else:
