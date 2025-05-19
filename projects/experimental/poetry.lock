@@ -5375,7 +5375,7 @@ files = [
 ]
 
 [package.dependencies]
-greenlet = {version = ">=1", markers = "python_version < \"3.14\" and (platform_machine == \"win32\" or platform_machine == \"WIN32\" or platform_machine == \"AMD64\" or platform_machine == \"amd64\" or platform_machine == \"x86_64\" or platform_machine == \"ppc64le\" or platform_machine == \"aarch64\")"}
+greenlet = {version = ">=1", markers = "python_version < \"3.14\" and (platform_machine == \"aarch64\" or platform_machine == \"ppc64le\" or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"AMD64\" or platform_machine == \"win32\" or platform_machine == \"WIN32\")"}
 typing-extensions = ">=4.6.0"
 
 [package.extras]
@@ -6170,12 +6170,12 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 type = ["pytest-mypy"]
 
 [extras]
-all = ["lightning", "onnx", "openvino", "pyspark", "pyspark", "pytorch-ranger", "torch"]
+all = ["lightning", "onnx", "openvino", "pyspark", "pyspark", "pytorch-ranger", "torch", "torch"]
 spark = ["pyspark", "pyspark"]
-torch = ["lightning", "pytorch-ranger", "torch"]
-torch-openvino = ["lightning", "onnx", "openvino", "pytorch-ranger", "torch"]
+torch = ["lightning", "pytorch-ranger", "torch", "torch"]
+torch-openvino = ["lightning", "onnx", "openvino", "pytorch-ranger", "torch", "torch"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1, <3.12"
-content-hash = "2e08fba8e042ef1d35d3a898e09bff56663f3ad8c7544e2dc83ed91db7bb290e"
+content-hash = "99dca9e57cbd56c46867078159b6a6957cea51f40690e55a52c69ff9ca39f342"
