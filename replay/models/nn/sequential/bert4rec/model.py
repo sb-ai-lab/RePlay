@@ -392,7 +392,7 @@ class BaseHead(ABC, torch.nn.Module):
             item_embeddings = item_embeddings[item_ids]
             bias = bias[item_ids]
 
-        logits = torch.matmul(out_embeddings, item_embeddings.t()) + bias # torch matmul вместо squeeze (squeeze медленный на валидации в lighting в режиме FP16)
+        logits = torch.nn.functional.linear(out_embeddings, item_embeddings, bias) # torch.nn.functional.linear вместо squeeze (squeeze медленный на валидации в lighting в режиме FP16)
         return logits
         
     def forward_for_restricted_loss(
