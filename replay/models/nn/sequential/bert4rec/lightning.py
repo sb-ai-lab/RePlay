@@ -316,18 +316,6 @@ class Bert4Rec(lightning.LightningModule):
         loss = self._loss(logits, labels_flat)
         return loss
 
-    def _compute_loss_scalable_ce(
-        self,
-        feature_tensors: TensorMap,
-        positive_labels: torch.LongTensor,
-        padding_mask: torch.BoolTensor,
-        tokens_mask: torch.BoolTensor,
-    ) -> torch.Tensor:
-        emb = self._model.forward_step(feature_tensors, padding_mask, tokens_mask)
-        all_embeddings = self.get_all_embeddings()["item_embedding"]
-
-        return self._loss(emb, positive_labels, all_embeddings, padding_mask, tokens_mask)
-
     def _get_sampled_logits(
         self,
         feature_tensors: TensorMap,
