@@ -5,6 +5,7 @@ import lightning
 import torch
 
 from replay.data.nn import TensorMap, TensorSchema
+from replay.models.nn.loss import ScalableCrossEntropyLoss, SCEParams
 from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
 
 from .dataset import SasRecPredictionBatch, SasRecTrainingBatch, SasRecValidationBatch
@@ -35,6 +36,7 @@ class SasRec(lightning.LightningModule):
         negatives_sharing: bool = False,
         optimizer_factory: OptimizerFactory = FatOptimizerFactory(),
         lr_scheduler_factory: Optional[LRSchedulerFactory] = None,
+        sce_params: Optional[SCEParams] = None,
     ):
         """
         :param tensor_schema: Tensor schema of features.
@@ -52,9 +54,10 @@ class SasRec(lightning.LightningModule):
             Default: ``False``.
         :param time_span: Time span value.
             Default: ``256``.
-        :param loss_type: Loss type. Possible values: ``"CE"``, ``"BCE"``.
+        :param loss_type: Loss type. Possible values: ``"CE"``, ``"BCE"``, ``"SCE"``.
             Default: ``CE``.
         :param loss_sample_count (Optional[int]): Sample count to calculate loss.
+            Suitable for ``"CE"`` and ``"BCE"`` loss functions.
             Default: ``None``.
         :param negative_sampling_strategy: Negative sampling strategy to calculate loss on sampled negatives.
             Is used when large count of items in dataset.
@@ -65,6 +68,8 @@ class SasRec(lightning.LightningModule):
         :param optimizer_factory: Optimizer factory.
             Default: ``FatOptimizerFactory``.
         :param lr_scheduler_factory: Learning rate schedule factory.
+            Default: ``None``.
+        :param sce_params: Dataclass with SCE parameters. Need to be defined if ``loss_type`` is ``SCE``.
             Default: ``None``.
         """
         super().__init__()
@@ -85,9 +90,12 @@ class SasRec(lightning.LightningModule):
         self._negatives_sharing = negatives_sharing
         self._optimizer_factory = optimizer_factory
         self._lr_scheduler_factory = lr_scheduler_factory
+        self._sce_params = sce_params
         self._loss = self._create_loss()
         self._schema = tensor_schema
         assert negative_sampling_strategy in {"global_uniform", "inbatch"}
+        if self._loss_type == "SCE":
+            assert sce_params is not None, "You should define ``sce_params`` when using SCE loss function."
 
         item_count = tensor_schema.item_id_features.item().cardinality
         assert item_count
@@ -197,6 +205,8 @@ class SasRec(lightning.LightningModule):
             loss_func = self._compute_loss_bce if self._loss_sample_count is None else self._compute_loss_bce_sampled
         elif self._loss_type == "CE":
             loss_func = self._compute_loss_ce if self._loss_sample_count is None else self._compute_loss_ce_sampled
+        elif self._loss_type == "SCE":
+            loss_func = self._compute_loss_scalable_ce
         else:
             msg = f"Not supported loss type: {self._loss_type}"
             raise ValueError(msg)
@@ -314,6 +324,17 @@ class SasRec(lightning.LightningModule):
         loss = self._loss(logits, labels_flat)
         return loss
 
+    def _compute_loss_scalable_ce(
+        self,
+        feature_tensors: TensorMap,
+        positive_labels: torch.LongTensor,
+        padding_mask: torch.BoolTensor,
+        tokens_mask: torch.BoolTensor,  # noqa: ARG002
+    ) -> torch.Tensor:
+        emb = self._model.forward_step(feature_tensors, padding_mask)
+        all_embeddings = self.get_all_embeddings()["item_embedding"]
+        return self._loss(emb, positive_labels, all_embeddings, padding_mask)
+
     def _get_sampled_logits(
         self,
         feature_tensors: TensorMap,
@@ -400,6 +421,9 @@ class SasRec(lightning.LightningModule):
 
         if self._loss_type == "CE":
             return torch.nn.CrossEntropyLoss()
+
+        if self._loss_type == "SCE":
+            return ScalableCrossEntropyLoss(self._sce_params)
 
         msg = "Not supported loss_type"
         raise NotImplementedError(msg)
