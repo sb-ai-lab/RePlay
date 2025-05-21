@@ -64,7 +64,7 @@ pyspark = [
 ]
 torch = [
     {version = ">=1.8, <3.0.0", python = ">=3.9", optional = true},
-    {version = ">=1.8, <2.4.1", python = ">=3.8,<3.9", optional = true},
+    {version = ">=1.8, <=2.4.1", python = ">=3.8,<3.9", optional = true},
 ]
 lightning = {version = ">=2.0.2, <=2.4.0", optional = true}
 pytorch-ranger = {version = "^0.1.1", optional = true}
@@ -78,7 +78,7 @@ pyspark = [
 ]
 torch = [
     {version = ">=1.8, <3.0.0", python = ">=3.9", optional = true},
-    {version = ">=1.8, <2.4.1", python = ">=3.8,<3.9", optional = true},
+    {version = ">=1.8, <=2.4.1", python = ">=3.8,<3.9", optional = true},
 ]
 lightning = ">=2.0.2, <=2.4.0"
 pytorch-ranger = "^0.1.1"
