@@ -475,23 +475,6 @@ class ClassificationHead(BaseHead):
         :returns: Bias tensor.
         """
         return self.linear.bias
-    
-    # fused bias в линейном слое
-    def forward(
-        self,
-        out_embeddings: torch.Tensor,
-        item_ids: Optional[torch.LongTensor] = None,
-    ) -> torch.Tensor:
-        """
-        :param out_embeddings: Embeddings after `forward step`.
-        :param item_ids: Item ids to calculate scores.
-            Default: ``None``.
-
-        :returns: Calculated logits.
-        """
-        logits = torch.nn.functional.linear(out_embeddings, self.linear.weight, self.linear.bias)
-        return logits
-
 
 class TransformerBlock(torch.nn.Module):
     """
