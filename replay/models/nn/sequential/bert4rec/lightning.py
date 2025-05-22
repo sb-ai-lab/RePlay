@@ -195,10 +195,8 @@ class Bert4Rec(lightning.LightningModule):
     def _compute_loss(self, batch: Bert4RecTrainingBatch) -> torch.Tensor:
         if self._loss_type == "BCE":
             loss_func = self._compute_loss_bce if self._loss_sample_count is None else self._compute_loss_bce_sampled
-        elif self._loss_type == "CE":
+        elif self._loss_type == "CE" or self._loss_type == "CE_restricted":
             loss_func = self._compute_loss_ce if self._loss_sample_count is None else self._compute_loss_ce_sampled
-        elif self._loss_type == "CE_restricted":
-            loss_func = self._compute_loss_ce_restricted
         else:
             msg = f"Not supported loss type: {self._loss_type}"
             raise ValueError(msg)
@@ -427,7 +425,7 @@ class Bert4Rec(lightning.LightningModule):
             torch.LongTensor, torch.masked_select(positive_labels, masked_tokens)
         )  # (masked_batch_seq_size,)
         output_emb = self._model.forward_step(feature_tensors, padding_mask, tokens_mask)[masked_tokens]
-        logits = self._model.get_logits_for_restricted_loss(output_emb)
+        logits = self._model.get_logits(output_emb)
         return (logits, positive_labels)
 
     def _create_loss(self) -> Union[torch.nn.BCEWithLogitsLoss, torch.nn.CrossEntropyLoss]:

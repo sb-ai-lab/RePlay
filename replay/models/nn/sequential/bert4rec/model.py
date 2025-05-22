@@ -155,20 +155,6 @@ class Bert4RecModel(torch.nn.Module):
         """
         return self._head(out_embeddings, item_ids)
 
-    def get_logits_for_restricted_loss(
-        self, out_embeddings: torch.Tensor, item_ids: Optional[torch.LongTensor] = None
-    ) -> torch.Tensor:
-        """
-        Apply head to output embeddings of `forward_step`.
-
-        :param out_embeddings: Embeddings after `forward step`.
-        :param item_ids: Item ids to calculate scores.
-            Default: ``None``.
-
-        :returns: Logits for each element in `item_ids`.
-        """
-        return self._head.forward_for_restricted_loss(out_embeddings, item_ids)
-
     def get_query_embeddings(self, inputs: TensorMap, pad_mask: torch.BoolTensor, token_mask: torch.BoolTensor):
         """
         :param inputs: Batch of features.
@@ -393,18 +379,6 @@ class BaseHead(ABC, torch.nn.Module):
             item_embeddings = item_embeddings[item_ids]
             bias = bias[item_ids]
 
-        logits = torch.matmul(out_embeddings, item_embeddings.t()) + bias
-        return logits
-
-    def forward_for_restricted_loss(
-        self,
-        out_embeddings: torch.Tensor,
-        item_ids: Optional[torch.LongTensor] = None,  # noqa: ARG002
-    ) -> torch.Tensor:
-
-        item_embeddings = self.get_item_embeddings()
-        bias = self.get_bias()
-
         logits = torch.nn.functional.linear(out_embeddings, item_embeddings, bias)
         return logits
 
@@ -473,27 +447,6 @@ class ClassificationHead(BaseHead):
         :returns: Bias tensor.
         """
         return self.linear.bias
-
-    def forward(
-        self,
-        out_embeddings: torch.Tensor,
-        item_ids: Optional[torch.LongTensor] = None,
-    ) -> torch.Tensor:
-        """
-        :param out_embeddings: Embeddings after `forward step`.
-        :param item_ids: Item ids to calculate scores.
-            Default: ``None``.
-
-        :returns: Calculated logits.
-        """
-        item_embeddings = self.get_item_embeddings()
-        bias = self.get_bias()
-        if item_ids is not None:
-            item_embeddings = item_embeddings[item_ids]
-            bias = bias[item_ids]
-
-        logits = torch.nn.functional.linear(out_embeddings, item_embeddings, bias)
-        return logits
 
 
 class TransformerBlock(torch.nn.Module):
