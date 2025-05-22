@@ -195,8 +195,10 @@ class Bert4Rec(lightning.LightningModule):
     def _compute_loss(self, batch: Bert4RecTrainingBatch) -> torch.Tensor:
         if self._loss_type == "BCE":
             loss_func = self._compute_loss_bce if self._loss_sample_count is None else self._compute_loss_bce_sampled
-        elif self._loss_type == "CE" or self._loss_type == "CE_restricted":
+        elif self._loss_type == "CE":
             loss_func = self._compute_loss_ce if self._loss_sample_count is None else self._compute_loss_ce_sampled
+        elif self._loss_type == "CE_restricted":
+            loss_func = self._compute_loss_ce_restricted:
         else:
             msg = f"Not supported loss type: {self._loss_type}"
             raise ValueError(msg)
