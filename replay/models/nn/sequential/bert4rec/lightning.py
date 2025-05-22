@@ -27,7 +27,7 @@ class Bert4Rec(lightning.LightningModule):
         pass_per_transformer_block_count: int = 1,
         enable_positional_embedding: bool = True,
         enable_embedding_tying: bool = False,
-        loss_type: Literal["BCE", "CE", "CE_restricted", "SCE"] = "CE",
+        loss_type: Literal["BCE", "CE", "CE_restricted"] = "CE",
         loss_sample_count: Optional[int] = None,
         negative_sampling_strategy: str = "global_uniform",
         negatives_sharing: bool = False,
@@ -54,7 +54,7 @@ class Bert4Rec(lightning.LightningModule):
             If `True` - result scores are calculated by dot product of input and output embeddings,
             if `False` - default linear layer is applied to calculate logits for each item.
             Default: ``False``.
-        :param loss_type: Loss type. Possible values: ``"CE"``, ``"BCE"``, ``"CE_restricted"``, ``"SCE"``.
+        :param loss_type: Loss type. Possible values: ``"CE"``, ``"BCE"``, ``"CE_restricted"``.
             Default: ``CE``.
         :param loss_sample_count (Optional[int]): Sample count to calculate loss.
             Default: ``None``.
