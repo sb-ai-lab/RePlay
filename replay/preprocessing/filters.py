@@ -4,7 +4,8 @@ Select or remove data by some criteria
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Callable, Optional, Tuple, Union
+from typing import Callable, Literal, Optional, Tuple, Union
+from uuid import uuid4
 
 import numpy as np
 import pandas as pd
@@ -989,3 +990,103 @@ class QuantileItemsFilter(_BaseFilter):
         )
         short_tail = short_tail.filter(sf.col("index") > sf.col("num_items_to_delete"))
         return long_tail.select(df.columns).union(short_tail.select(df.columns))
+
+
+class ConsecutiveDuplicatesFilter(_BaseFilter):
+    """Removes consecutive duplicate items from sequential dataset.
+
+    >>> import datetime as dt
+    >>> import pandas as pd
+    >>> from replay.utils.spark_utils import convert2spark
+    >>> interactions = pd.DataFrame({
+    ...     "user_id": ["u0", "u1", "u1", "u0", "u0", "u0", "u1", "u0"],
+    ...     "item_id": ["i0", "i1", "i1", "i2", "i0", "i1", "i2", "i1"],
+    ...     "timestamp": [dt.datetime(2024, 1, 1) + dt.timedelta(days=i) for i in range(8)]
+    ... })
+    >>> interactions = convert2spark(interactions)
+    >>> interactions.show()
+    +-------+-------+-------------------+
+    |user_id|item_id|          timestamp|
+    +-------+-------+-------------------+
+    |     u0|     i0|2024-01-01 00:00:00|
+    |     u1|     i1|2024-01-02 00:00:00|
+    |     u1|     i1|2024-01-03 00:00:00|
+    |     u0|     i2|2024-01-04 00:00:00|
+    |     u0|     i0|2024-01-05 00:00:00|
+    |     u0|     i1|2024-01-06 00:00:00|
+    |     u1|     i2|2024-01-07 00:00:00|
+    |     u0|     i1|2024-01-08 00:00:00|
+    +-------+-------+-------------------+
+    <BLANKLINE>
+
+    >>> ConsecutiveDuplicatesFilter(query_column="user_id").transform(interactions).show()
+    +-------+-------+-------------------+
+    |user_id|item_id|          timestamp|
+    +-------+-------+-------------------+
+    |     u0|     i0|2024-01-01 00:00:00|
+    |     u0|     i2|2024-01-04 00:00:00|
+    |     u0|     i0|2024-01-05 00:00:00|
+    |     u0|     i1|2024-01-06 00:00:00|
+    |     u1|     i1|2024-01-02 00:00:00|
+    |     u1|     i2|2024-01-07 00:00:00|
+    +-------+-------+-------------------+
+    <BLANKLINE>
+    """
+
+    def __init__(
+        self,
+        keep: Literal["first", "last"] = "first",
+        query_column: str = "query_id",
+        item_column: str = "item_id",
+        timestamp_column: str = "timestamp",
+    ) -> None:
+        """
+        :param keep: whether to keep first or last occurrence,
+            Default: ``first``.
+        :param query_column: query column,
+            Default: ``query_id``.
+        :param item_column: item column,
+            Default: ``item_id``.
+        :param timestamp_column: timestamp column,
+            Default: ``timestamp``.
+        """
+        super().__init__()
+        self.query_column = query_column
+        self.item_column = item_column
+        self.timestamp_column = timestamp_column
+
+        if keep not in ("first", "last"):
+            msg = "`keep` must be either 'first' or 'last'"
+            raise ValueError(msg)
+
+        self.bias = 1 if keep == "first" else -1
+        self.temporary_column = f"__shifted_{uuid4().hex[:8]}"
+
+    def _filter_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
+        interactions = interactions.sort_values(self.timestamp_column)
+        interactions[self.temporary_column] = interactions.groupby(self.query_column)[self.item_column].shift(
+            periods=self.bias
+        )
+        return (
+            interactions[interactions[self.item_column] != interactions[self.temporary_column]]
+            .drop(self.temporary_column, axis=1)
+            .reset_index(drop=True)
+        )
+
+    def _filter_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+        return (
+            interactions.sort(self.timestamp_column)
+            .with_columns(
+                pl.col(self.item_column).shift(n=self.bias).over(self.query_column).alias(self.temporary_column)
+            )
+            .filter((pl.col(self.item_column) != pl.col(self.temporary_column)).fill_null(True))
+            .drop(self.temporary_column)
+        )
+
+    def _filter_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
+        window = Window.partitionBy(self.query_column).orderBy(self.timestamp_column)
+        return (
+            interactions.withColumn(self.temporary_column, sf.lag(self.item_column, offset=self.bias).over(window))
+            .where((sf.col(self.item_column) != sf.col(self.temporary_column)) | sf.col(self.temporary_column).isNull())
+            .drop(self.temporary_column)
+        )

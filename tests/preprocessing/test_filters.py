@@ -6,6 +6,7 @@ import polars as pl
 import pytest
 
 from replay.preprocessing.filters import (
+    ConsecutiveDuplicatesFilter,
     EntityDaysFilter,
     GlobalDaysFilter,
     LowRatingFilter,
@@ -14,7 +15,7 @@ from replay.preprocessing.filters import (
     QuantileItemsFilter,
     TimePeriodFilter,
 )
-from replay.utils import PandasDataFrame, PolarsDataFrame, get_spark_session
+from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame, get_spark_session
 
 
 @pytest.fixture
@@ -296,6 +297,98 @@ def test_quantile_items_filter(dataset_type, request):
     assert items_distribution_init[11] == items_distribution_filtered[11] + 2
 
 
+@pytest.fixture(scope="module")
+def consecutive_duplicates_with_signle_item():
+    inputs = pd.DataFrame(
+        {"query_id": ["u1", "u2", "u1", "u2", "u2", "u3"], "item_id": ["i1"] * 6, "timestamp": list(range(6))}
+    )
+    target = pd.DataFrame({"query_id": ["u1", "u2", "u3"], "item_id": ["i1"] * 3, "timestamp": [0, 1, 5]})
+    return inputs, target, "first"
+
+
+@pytest.fixture(scope="module")
+def consecutive_duplicates_with_extra_column():
+    inputs = pd.DataFrame(
+        {
+            "query_id": ["u3", "u1", "u2", "u1", "u1", "u0"],
+            "item_id": ["i2", "i1", "i1", "i1", "i2", "i2"],
+            "rating": [2, 1, 3, 4, 1, 5],
+            "timestamp": list(range(6)),
+        }
+    )
+    target = pd.DataFrame(
+        {
+            "query_id": ["u0", "u1", "u1", "u2", "u3"],
+            "item_id": ["i2", "i1", "i2", "i1", "i2"],
+            "rating": [5, 1, 1, 3, 2],
+            "timestamp": [5, 1, 4, 2, 0],
+        }
+    )
+    return inputs, target, "first"
+
+
+@pytest.fixture(scope="module")
+def consecutive_duplicates_for_testing_keep_param():
+    target = pd.DataFrame(
+        {
+            "query_id": ["u0", "u1", "u2", "u3", "u4"],
+            "item_id": ["i0", "i1", "i1", "i2", "i0"],
+            "timestamp": pd.date_range("2024-01-01", "2024-01-05"),
+        }
+    )
+    duplicates = target.copy()
+    duplicates["timestamp"] += pd.Timedelta(days=-1)
+    inputs = pd.concat([target, duplicates])
+    return inputs, target, "last"
+
+
+def to_backend(dataframe, backend):
+    if backend == "polars":
+        return pl.from_pandas(dataframe)
+    elif backend == "spark":
+        return get_spark_session().createDataFrame(dataframe)
+    else:
+        return dataframe
+
+
+def to_pandas(dataframe):
+    if isinstance(dataframe, PolarsDataFrame):
+        return dataframe.to_pandas()
+    elif isinstance(dataframe, SparkDataFrame):
+        return dataframe.toPandas()
+    else:
+        return dataframe
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [
+        pytest.param("pandas", marks=pytest.mark.core),
+        pytest.param("polars", marks=pytest.mark.core),
+        pytest.param("spark", marks=pytest.mark.spark),
+    ],
+)
+@pytest.mark.parametrize(
+    "consecutive_duplicates",
+    [
+        "consecutive_duplicates_with_signle_item",
+        "consecutive_duplicates_with_extra_column",
+        "consecutive_duplicates_for_testing_keep_param",
+    ],
+)
+def test_consecutive_duplicates_filter(consecutive_duplicates, backend, request):
+    inputs, target, keep = request.getfixturevalue(consecutive_duplicates)
+    inputs = to_backend(inputs, backend)
+    filtered = to_pandas(ConsecutiveDuplicatesFilter(keep=keep).transform(inputs))
+    assert (filtered.sort_values("query_id").reset_index(drop=True) == target).all(axis=None)
+
+
+@pytest.mark.core
+def test_consecutive_duplicates_filter_invalid_param_keep_error():
+    with pytest.raises(ValueError, match="`keep` must be either 'first' or 'last'"):
+        ConsecutiveDuplicatesFilter(keep="42")
+
+
 @pytest.mark.core
 @pytest.mark.parametrize("quantile, items_proportion", [(2, 0.5), (0.5, -1)])
 def test_quantile_filter_error(quantile, items_proportion):
@@ -313,6 +406,7 @@ def test_quantile_filter_error(quantile, items_proportion):
         (EntityDaysFilter, {}),
         (GlobalDaysFilter, {}),
         (TimePeriodFilter, {}),
+        (ConsecutiveDuplicatesFilter, {}),
     ],
 )
 def test_filter_not_implemented(filter, kwargs, interactions_not_implemented):
