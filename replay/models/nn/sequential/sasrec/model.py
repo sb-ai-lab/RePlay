@@ -298,7 +298,7 @@ class EmbeddingTyingHead(torch.nn.Module):
         if len(item_embeddings.shape) > 2:  # global_uniform, negative sharing=False, train only
             logits = (item_embeddings * out_embeddings.unsqueeze(-2)).sum(dim=-1)
         else:
-            logits = item_embeddings.matmul(out_embeddings.unsqueeze(-1)).squeeze(-1)
+            logits = torch.matmul(out_embeddings, item_embeddings.t())
         return logits
 
 

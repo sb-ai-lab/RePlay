@@ -1,5 +1,5 @@
 import math
-from typing import Any, Dict, Optional, Tuple, Union, cast
+from typing import Any, Dict, Literal, Optional, Tuple, Union, cast
 
 import lightning
 import torch
@@ -30,7 +30,7 @@ class SasRec(lightning.LightningModule):
         dropout_rate: float = 0.2,
         ti_modification: bool = False,
         time_span: int = 256,
-        loss_type: str = "CE",
+        loss_type: Literal["BCE", "CE", "SCE"] = "CE",
         loss_sample_count: Optional[int] = None,
         negative_sampling_strategy: str = "global_uniform",
         negatives_sharing: bool = False,
