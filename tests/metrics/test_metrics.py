@@ -305,6 +305,12 @@ def test_novelty(topk, answer, recs, train, request):
             "gt_spark",
             marks=pytest.mark.spark,
         ),
+        pytest.param(5, [0.315876], "recs_with_cold_items_spark", "gt_spark", marks=pytest.mark.spark),
+        pytest.param(5, [0.315876], "recs_with_cold_items_pandas", "gt_pd", marks=pytest.mark.core),
+        pytest.param(5, [0.315876], "recs_with_cold_items_polars", "gt_pl", marks=pytest.mark.core),
+        pytest.param(5, [0.210721], "recs_with_missing_users_spark", "gt_spark", marks=pytest.mark.spark),
+        pytest.param(5, [0.210721], "recs_with_missing_users_pandas", "gt_pd", marks=pytest.mark.core),
+        pytest.param(5, [0.210721], "recs_with_missing_users_polars", "gt_pl", marks=pytest.mark.core),
     ],
 )
 def test_surprisal(topk, answer, recs, train, request):
