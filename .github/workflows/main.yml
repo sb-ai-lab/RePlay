@@ -14,7 +14,7 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   static_tests:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,7 +54,7 @@ jobs:
 
   pytest_core:
     needs: static_tests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -83,7 +83,7 @@ jobs:
 
   pytest_torch:
     needs: static_tests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -112,7 +112,7 @@ jobs:
 
   pytest_spark:
     needs: static_tests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -141,7 +141,7 @@ jobs:
 
   pytest_spark_torch:
     needs: static_tests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -170,7 +170,7 @@ jobs:
 
   pytest_experimental:
     needs: static_tests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -200,7 +200,7 @@ jobs:
 
   pytest_models:
     needs: static_tests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -229,7 +229,7 @@ jobs:
 
   merge_coverage:
     needs: [pytest_core, pytest_torch, pytest_spark, pytest_spark_torch, pytest_models, pytest_experimental]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -259,7 +259,7 @@ jobs:
 
   build_production:
     needs: merge_coverage
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -281,7 +281,7 @@ jobs:
 
   build_experimental:
     needs: merge_coverage
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4

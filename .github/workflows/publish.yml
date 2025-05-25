@@ -8,7 +8,7 @@ on:
 
 jobs:
   publish_experimental:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     permissions:
         id-token: write
     environment:
@@ -43,7 +43,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
 
   publish_production:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     permissions:
         id-token: write
     environment:

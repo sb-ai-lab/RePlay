@@ -6,7 +6,7 @@ on:
 jobs:
   
   publish_test:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     permissions:
         id-token: write
     environment:
