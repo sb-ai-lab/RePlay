@@ -26,7 +26,7 @@ from replay.utils import (
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import Window, functions as sf  # noqa: I001
-    from pyspark.sql.types import LongType, IntegerType, ArrayType
+    from pyspark.sql.types import LongType
 
 HandleUnknownStrategies = Literal["error", "use_default_value", "drop"]
 
@@ -629,11 +629,17 @@ class SequenceEncodingRule(LabelEncodingRule):
         return self
 
     def _transform_spark(self, df: SparkDataFrame, default_value: Optional[int]) -> SparkDataFrame:
-        def mapper_udf(x):
-            return [mapping.get(value) for value in x]  # pragma: no cover
-
+        from pyspark.sql import types as t
+        # Get mapping as a dictionary
         mapping = self.get_mapping()
-        call_mapper_udf = sf.udf(mapper_udf, ArrayType(IntegerType()))
+
+        # Function to map each item in iterable (one row)
+        def mapper_udf(x):
+            return [mapping[v] for v in x]
+        # Create udf and specify return type
+        call_mapper_udf = sf.udf(mapper_udf, t.ArrayType(t.IntegerType()))
+
+        # Apply udf and create new column with result
         encoded_df = df.withColumn(self._target_col, call_mapper_udf(sf.col(self.column)))
 
         if self._handle_unknown == "drop":
