@@ -56,7 +56,7 @@ class Coverage(RecOnlyMetric):
     ) -> Union[Dict[int, float], float]:
         if isinstance(k_list, int):
             return 0.0
-        return {i: 0.0 for i in k_list}
+        return dict.fromkeys(k_list, 0.0)
 
     def _median(
         self,
