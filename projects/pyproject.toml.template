@@ -70,7 +70,7 @@ lightning = {version = ">=2.0.2, <=2.4.0", optional = true}
 pytorch-ranger = {version = "^0.1.1", optional = true}
 {% endif %}
 fixed-install-nmslib = "2.1.2"
-hnswlib = "^0.8.0"
+hnswlib = ">=0.7.0"
 {% if project == "experimental" %}
 pyspark = [
     {version = ">=3.4,<3.5", python = ">=3.11,<3.12"},
