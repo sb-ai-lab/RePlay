@@ -86,6 +86,7 @@ sb-obp = "^0.5.8"
 d3rlpy = "^2.0.4"
 implicit = "~0.7.2"
 gym = "^0.26.0"
+numba = ">=0.50"
 {% endif %}
 
 [tool.poetry.extras]
