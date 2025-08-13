@@ -6207,12 +6207,12 @@ test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more_it
 type = ["pytest-mypy"]
 
 [extras]
-all = ["lightning", "onnx", "openvino", "pyspark", "pyspark", "pytorch-ranger", "torch", "torch"]
+all = ["lightning", "onnx", "openvino", "pyspark", "pyspark", "pytorch-ranger", "torch"]
 spark = ["pyspark", "pyspark"]
-torch = ["lightning", "pytorch-ranger", "torch", "torch"]
-torch-openvino = ["lightning", "onnx", "openvino", "pytorch-ranger", "torch", "torch"]
+torch = ["lightning", "pytorch-ranger", "torch"]
+torch-openvino = ["lightning", "onnx", "openvino", "pytorch-ranger", "torch"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9, <3.12"
-content-hash = "d0372f2aac77796cccfaf1176ab08dc2672fa88785d5337698262eb0ab261f35"
+content-hash = "02fc5ecc5ddf807c44ac62f3e96ae6c26abaeb9992357b91ca3ff91f0845157f"
