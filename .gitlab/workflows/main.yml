@@ -132,7 +132,6 @@ sphinx-job:
   parallel:
     matrix:
       - image:
-        - "${CI_REGISTRY_IMAGE}:${VERSION}_py38"
         - "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
         - "${CI_REGISTRY_IMAGE}:${VERSION}_py310"
         - "${CI_REGISTRY_IMAGE}:${VERSION}_py311"
@@ -224,7 +223,6 @@ merge-coverage:
   parallel:
     matrix:
       - image:
-        - "${CI_REGISTRY_IMAGE}:${VERSION}_py38"
         - "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
         - "${CI_REGISTRY_IMAGE}:${VERSION}_py310"
         - "${CI_REGISTRY_IMAGE}:${VERSION}_py311"
