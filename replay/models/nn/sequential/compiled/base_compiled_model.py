@@ -201,7 +201,7 @@ class BaseCompiledModel:
 
         if onnx_path is None:
             is_saveble = False
-            onnx_file = tempfile.NamedTemporaryFile(suffix=".onnx")  # noqa: SIM115
+            onnx_file = tempfile.NamedTemporaryFile(suffix=".onnx")
             onnx_path = onnx_file.name
         else:
             is_saveble = True
