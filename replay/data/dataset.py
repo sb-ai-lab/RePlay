@@ -610,9 +610,9 @@ class Dataset:
             if self.is_pandas:
                 try:
                     data[column] = data[column].astype(int)
-                except Exception:
+                except Exception as exc:
                     msg = f"IDs in {source.name}.{column} are not encoded. They are not int."
-                    raise ValueError(msg)
+                    raise ValueError(msg) from exc
 
         if self.is_pandas:
             is_int = np.issubdtype(dict(data.dtypes)[column], int)
@@ -775,10 +775,10 @@ def check_dataframes_types_equal(dataframe: DataFrameLike, other: DataFrameLike)
 
     :returns: True if dataframes have same type.
     """
-    if isinstance(dataframe, PandasDataFrame) and isinstance(other, PandasDataFrame):
-        return True
-    if isinstance(dataframe, SparkDataFrame) and isinstance(other, SparkDataFrame):
-        return True
-    if isinstance(dataframe, PolarsDataFrame) and isinstance(other, PolarsDataFrame):
-        return True
-    return False
+    return any(
+        [
+            isinstance(dataframe, PandasDataFrame) and isinstance(other, PandasDataFrame),
+            isinstance(dataframe, SparkDataFrame) and isinstance(other, SparkDataFrame),
+            isinstance(dataframe, PolarsDataFrame) and isinstance(other, PolarsDataFrame),
+        ]
+    )

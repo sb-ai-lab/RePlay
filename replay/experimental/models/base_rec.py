@@ -605,10 +605,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         return nearest_items
 
     def _get_nearest_items(
-        self,
-        items: SparkDataFrame,  # noqa: ARG002
-        metric: Optional[str] = None,  # noqa: ARG002
-        candidates: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        self, items: SparkDataFrame, metric: Optional[str] = None, candidates: Optional[SparkDataFrame] = None
     ) -> Optional[SparkDataFrame]:
         msg = f"item-to-item prediction is not implemented for {self}"
         raise NotImplementedError(msg)

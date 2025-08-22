@@ -509,12 +509,12 @@ class NeuralTS(HybridRecommender):
         else:
             self.scaler_user = None
         if len(wide_cols_cat) != 0:
-            self.encoder_intersept_user = OneHotEncoder(sparse=False, handle_unknown="ignore")
+            self.encoder_intersept_user = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
             self.encoder_intersept_user.fit(train_users[wide_cols_cat])
         else:
             self.encoder_intersept_user = None
         if len(cat_embed_cols_not_wide) != 0:
-            self.encoder_diff_user = OneHotEncoder(sparse=False, handle_unknown="ignore")
+            self.encoder_diff_user = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
             self.encoder_diff_user.fit(train_users[cat_embed_cols_not_wide])
         else:
             self.encoder_diff_user = None
@@ -527,12 +527,12 @@ class NeuralTS(HybridRecommender):
         else:
             self.scaler_item = None
         if len(wide_cols_cat) != 0:
-            self.encoder_intersept_item = OneHotEncoder(sparse=False, handle_unknown="ignore")
+            self.encoder_intersept_item = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
             self.encoder_intersept_item.fit(train_items[wide_cols_cat])
         else:
             self.encoder_intersept_item = None
         if len(cat_embed_cols_not_wide) != 0:
-            self.encoder_diff_item = OneHotEncoder(sparse=False, handle_unknown="ignore")
+            self.encoder_diff_item = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
             self.encoder_diff_item.fit(train_items[cat_embed_cols_not_wide])
         else:
             self.encoder_diff_item = None
@@ -981,6 +981,6 @@ class NeuralTS(HybridRecommender):
         )
         self.model.load_state_dict(torch.load(os.path.join(dir_name, "model_weights.pth")))
 
-        checkpoint = torch.load(os.path.join(dir_name, "fit_info.pth"))
+        checkpoint = torch.load(os.path.join(dir_name, "fit_info.pth"), weights_only=False)
         self.fit_users = convert2spark(checkpoint["fit_users"])
         self.fit_items = convert2spark(checkpoint["fit_items"])

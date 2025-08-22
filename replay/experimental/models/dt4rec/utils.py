@@ -172,13 +172,12 @@ class WarmUpScheduler(_LRScheduler):
         dim_embed: int,
         warmup_steps: int,
         last_epoch: int = -1,
-        verbose: bool = False,
     ) -> None:
         self.dim_embed = dim_embed
         self.warmup_steps = warmup_steps
         self.num_param_groups = len(optimizer.param_groups)
 
-        super().__init__(optimizer, last_epoch, verbose)
+        super().__init__(optimizer, last_epoch)
 
     def get_lr(self) -> float:
         lr = calc_lr(self._step_count, self.dim_embed, self.warmup_steps)

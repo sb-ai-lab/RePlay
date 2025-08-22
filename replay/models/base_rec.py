@@ -418,7 +418,13 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :return:
         """
 
-    def _filter_seen(self, recs: SparkDataFrame, interactions: SparkDataFrame, k: int, queries: SparkDataFrame):
+    def _filter_seen(
+        self,
+        recs: SparkDataFrame,
+        interactions: SparkDataFrame,
+        k: int,
+        queries: SparkDataFrame,
+    ):
         """
         Filter seen items (presented in interactions) out of the queries' recommendations.
         For each query return from `k` to `k + number of seen by query` recommendations.
@@ -622,7 +628,12 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         """
 
     def _predict_proba(
-        self, dataset: Dataset, k: int, queries: SparkDataFrame, items: SparkDataFrame, filter_seen_items: bool = True
+        self,
+        dataset: Dataset,
+        k: int,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
+        filter_seen_items: bool = True,
     ) -> np.ndarray:
         """
         Inner method where model actually predicts probability estimates.
@@ -767,7 +778,13 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         """
         if dataset is not None:
             interactions, query_features, item_features, pairs = [
-                convert2spark(df) for df in [dataset.interactions, dataset.query_features, dataset.item_features, pairs]
+                convert2spark(df)
+                for df in [
+                    dataset.interactions,
+                    dataset.query_features,
+                    dataset.item_features,
+                    pairs,
+                ]
             ]
             if set(pairs.columns) != {self.item_column, self.query_column}:
                 msg = "pairs must be a dataframe with columns strictly [user_idx, item_idx]"
@@ -903,9 +920,9 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
     def _get_nearest_items(
         self,
-        items: SparkDataFrame,  # noqa: ARG002
-        metric: Optional[str] = None,  # noqa: ARG002
-        candidates: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        items: SparkDataFrame,
+        metric: Optional[str] = None,
+        candidates: Optional[SparkDataFrame] = None,
     ) -> Optional[SparkDataFrame]:
         msg = f"item-to-item prediction is not implemented for {self}"
         raise NotImplementedError(msg)
@@ -1496,7 +1513,11 @@ class NonPersonalizedRecommender(Recommender, ABC):
             # 'selected_item_popularity' truncation by k + max_seen
             max_seen = queries.select(sf.coalesce(sf.max("num_items"), sf.lit(0))).first()[0]
             selected_item_popularity = selected_item_popularity.filter(sf.col("rank") <= k + max_seen)
-            return queries.join(selected_item_popularity, on=(sf.col("rank") <= k + sf.col("num_items")), how="left")
+            return queries.join(
+                selected_item_popularity,
+                on=(sf.col("rank") <= k + sf.col("num_items")),
+                how="left",
+            )
 
         return queries.crossJoin(selected_item_popularity.filter(sf.col("rank") <= k)).drop("rank")
 
@@ -1555,7 +1576,9 @@ class NonPersonalizedRecommender(Recommender, ABC):
         rating_column = self.rating_column
         class_name = self.__class__.__name__
 
-        def grouped_map(pandas_df: PandasDataFrame) -> PandasDataFrame:  # pragma: no cover
+        def grouped_map(
+            pandas_df: PandasDataFrame,
+        ) -> PandasDataFrame:  # pragma: no cover
             query_idx = pandas_df[query_column][0]
             cnt = pandas_df["cnt"][0]
 
@@ -1640,7 +1663,12 @@ class NonPersonalizedRecommender(Recommender, ABC):
         )
 
     def _predict_proba(
-        self, dataset: Dataset, k: int, queries: SparkDataFrame, items: SparkDataFrame, filter_seen_items: bool = True
+        self,
+        dataset: Dataset,
+        k: int,
+        queries: SparkDataFrame,
+        items: SparkDataFrame,
+        filter_seen_items: bool = True,
     ) -> np.ndarray:
         """
         Inner method where model actually predicts probability estimates.
