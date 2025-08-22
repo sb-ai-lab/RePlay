@@ -7,7 +7,7 @@ import pandas as pd
 import scipy.sparse as sp
 import torch
 import tqdm
-from pytorch_ranger import Ranger
+from pytorch_optimizer import Ranger
 from torch import nn
 from torch.distributions.gamma import Gamma
 

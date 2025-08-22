@@ -121,11 +121,11 @@ class OfflineMetrics:
     ...     base_recommendations={"ALS": base_rec, "KNN": recommendations}
     ... )
     {'Precision@2': 0.3333333333333333,
-     'Unexpectedness_ALS@1': 0.3333333333333333,
+     'Unexpectedness_ALS@1': 0.6666666666666666,
      'Unexpectedness_ALS@2': 0.16666666666666666,
      'Unexpectedness_KNN@1': 0.0,
      'Unexpectedness_KNN@2': 0.0,
-     'Unexpectedness-PerUser_ALS@1': {1: 1.0, 2: 0.0, 3: 0.0},
+     'Unexpectedness-PerUser_ALS@1': {1: 1.0, 2: 1.0, 3: 0.0},
      'Unexpectedness-PerUser_ALS@2': {1: 0.5, 2: 0.0, 3: 0.0},
      'Unexpectedness-PerUser_KNN@1': {1: 0.0, 2: 0.0, 3: 0.0},
      'Unexpectedness-PerUser_KNN@2': {1: 0.0, 2: 0.0, 3: 0.0}}

@@ -402,7 +402,7 @@ def test_offline_metrics_subset_queries_works(predict_pd, gt_pd):
             Recall(5),
             Precision(5),
         ],
-        **INIT_DICT
+        **INIT_DICT,
     )(predict_pd, gt_pd[gt_pd["uid"] != 3])
 
 

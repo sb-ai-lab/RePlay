@@ -610,9 +610,9 @@ class Dataset:
             if self.is_pandas:
                 try:
                     data[column] = data[column].astype(int)
-                except Exception:
+                except Exception as exc:
                     msg = f"IDs in {source.name}.{column} are not encoded. They are not int."
-                    raise ValueError(msg)
+                    raise ValueError(msg) from exc
 
         if self.is_pandas:
             is_int = np.issubdtype(dict(data.dtypes)[column], int)

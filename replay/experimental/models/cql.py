@@ -18,8 +18,8 @@ from d3rlpy.base import LearnableConfigWithShape
 from d3rlpy.constants import IMPL_NOT_INITIALIZED_ERROR
 from d3rlpy.dataset import MDPDataset
 from d3rlpy.models.encoders import DefaultEncoderFactory, EncoderFactory
-from d3rlpy.models.optimizers import AdamFactory, OptimizerFactory
 from d3rlpy.models.q_functions import MeanQFunctionFactory, QFunctionFactory
+from d3rlpy.optimizers import AdamFactory, OptimizerFactory
 from d3rlpy.preprocessing import (
     ActionScaler,
     ObservationScaler,
@@ -186,7 +186,7 @@ class CQL(Recommender):
         observation_scaler: ObservationScaler = None,
         action_scaler: ActionScaler = None,
         reward_scaler: RewardScaler = None,
-        **params
+        **params,
     ):
         super().__init__()
         assert_omp_single_thread()
@@ -242,7 +242,7 @@ class CQL(Recommender):
             observation_scaler=observation_scaler,
             action_scaler=action_scaler,
             reward_scaler=reward_scaler,
-            **params
+            **params,
         ).create(device=use_gpu)
 
         # explicitly create the model's algorithm implementation at init stage
