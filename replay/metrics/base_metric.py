@@ -145,7 +145,7 @@ class Metric(ABC):
 
     def _convert_pandas_to_dict_with_score(self, data: PandasDataFrame) -> Dict:
         return (
-            data.sort_values(by=self.rating_column, ascending=False)
+            data.sort_values(by=[self.rating_column, self.item_column], ascending=False, kind="stable")
             .groupby(self.query_column)[self.item_column]
             .apply(list)
             .to_dict()

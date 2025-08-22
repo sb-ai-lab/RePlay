@@ -131,7 +131,9 @@ class BaseCompiledModel:
         self._output_name = compiled_model.output().names.pop()
 
     @staticmethod
-    def _validate_num_candidates_to_score(num_candidates: Union[int, None]) -> Union[int, None]:
+    def _validate_num_candidates_to_score(
+        num_candidates: Union[int, None],
+    ) -> Union[int, None]:
         """Check if num_candidates param is proper"""
 
         if num_candidates is None:

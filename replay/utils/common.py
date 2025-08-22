@@ -126,6 +126,7 @@ def convert2pandas(
     """
     if isinstance(data, PandasDataFrame):
         return data
+
     if isinstance(data, PolarsDataFrame):
         return data.to_pandas()
     if isinstance(data, SparkDataFrame):
@@ -144,10 +145,11 @@ def convert2polars(
     :param allow_collect_to_master: If set to False (default) raises a warning
         about collecting parallelized data to the master node.
     """
-    if isinstance(data, PandasDataFrame):
-        return pl_from_pandas(data)
     if isinstance(data, PolarsDataFrame):
         return data
+
+    if isinstance(data, PandasDataFrame):
+        return pl_from_pandas(data)
     if isinstance(data, SparkDataFrame):
         return pl_from_pandas(spark_to_pandas(data, allow_collect_to_master, from_constructor=False))
 

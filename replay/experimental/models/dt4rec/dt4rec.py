@@ -184,6 +184,6 @@ class DT4Rec(Recommender):
                 states, actions, rtgs, timesteps, users = self.trainer._move_batch(batch)
                 logits = self.model(states, actions, rtgs, timesteps, users)
                 items_relevances = logits[:, -1, :][:, items]
-                ans_df = ans_df.append(matrix2df(items_relevances, users.squeeze(), items))
+                ans_df = pd.concat([ans_df, matrix2df(items_relevances, users.squeeze(), items)])
 
         return ans_df

@@ -8,7 +8,7 @@ pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
 
 from pyspark.sql import functions as sf
-from pytorch_ranger import Ranger
+from pytorch_optimizer import Ranger
 
 from replay.data import get_schema
 from replay.experimental.models import DDPG

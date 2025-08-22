@@ -6,7 +6,7 @@ from pytest import approx
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
 
-from d3rlpy.models.optimizers import AdamFactory
+from d3rlpy.optimizers import AdamFactory
 from pyspark.sql import functions as sf
 
 from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
