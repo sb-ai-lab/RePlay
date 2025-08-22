@@ -380,7 +380,7 @@ def test_wrong_array_size(pad_columns, array_size, dataframe):
 
 
 @pytest.mark.experimental
-@pytest.mark.parametrize("pad_columns", [("smth")])
+@pytest.mark.parametrize("pad_columns", ["smth"])
 def test_unknown_column(pad_columns, dataframe):
     with pytest.raises(ValueError):
         padder = Padder(pad_columns=pad_columns)
@@ -388,7 +388,7 @@ def test_unknown_column(pad_columns, dataframe):
 
 
 @pytest.mark.experimental
-@pytest.mark.parametrize("pad_columns", [("user_id")])
+@pytest.mark.parametrize("pad_columns", ["user_id"])
 def test_not_array_column(pad_columns, dataframe):
     with pytest.raises(ValueError):
         padder = Padder(pad_columns=pad_columns)
@@ -396,7 +396,7 @@ def test_not_array_column(pad_columns, dataframe):
 
 
 @pytest.mark.experimental
-@pytest.mark.parametrize("pad_columns", [("user_id")])
+@pytest.mark.parametrize("pad_columns", ["user_id"])
 def test_invalid_column_dtype_pandas(pad_columns, dataframe_pandas):
     with pytest.raises(ValueError):
         Padder(pad_columns=pad_columns).transform(dataframe_pandas)

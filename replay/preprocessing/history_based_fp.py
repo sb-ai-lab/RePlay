@@ -264,7 +264,7 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
             )
             # TO DO std и date diff заменяем на inf, date features - будут ли работать корректно?
             # если не заменять, будет ли работать корректно?
-            .fillna({col_name: 0 for col_name in self.user_log_features.columns + self.item_log_features.columns})
+            .fillna(dict.fromkeys(self.user_log_features.columns + self.item_log_features.columns, 0))
         )
 
         joined = joined.withColumn(

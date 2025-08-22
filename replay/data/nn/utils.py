@@ -30,7 +30,7 @@ def groupby_sequences(events: DataFrameLike, groupby_col: str, sort_col: Optiona
             events = events.sort_values(event_cols_without_iterable)
 
         grouped_sequences = (
-            events.groupby(groupby_col).agg({col: list for col in event_cols_without_groupby}).reset_index()
+            events.groupby(groupby_col).agg(dict.fromkeys(event_cols_without_groupby, list)).reset_index()
         )
     elif isinstance(events, PolarsDataFrame):
         event_cols_without_groupby = events.columns

@@ -172,8 +172,7 @@ class GreedyDiscretizingRule(BaseDiscretizingRule):
                 if (
                     is_big_count_value[i]
                     or cur_cnt_inbin >= mean_bin_size
-                    or is_big_count_value[i + 1]
-                    and cur_cnt_inbin >= max(1.0, mean_bin_size * 0.5)
+                    or (is_big_count_value[i + 1] and cur_cnt_inbin >= max(1.0, mean_bin_size * 0.5))
                 ):
                     upper_bounds[bin_cnt] = distinct_values[i]
                     bin_cnt += 1
