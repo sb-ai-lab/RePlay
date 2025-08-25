@@ -40,7 +40,7 @@ class ColdUserRandomSplitter(Splitter):
         """
         :param test_size: The proportion of users to allocate to the test set.
             Must be a float between 0.0 and 1.0.
-        :param drop_cold_items: IDrop items from test DataFrame
+        :param drop_cold_items: Drop items from test DataFrame
             which are not in train DataFrame, default: False.
         :param seed: Seed for the random number generator to ensure
             reproducibility of the split, default: None.
