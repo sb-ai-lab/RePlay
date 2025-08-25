@@ -118,14 +118,12 @@ class LastNSplitter(Splitter):
         session_id_processing_strategy: str = "test",
     ):
         """
-        :param N: Array of interactions/timedelta to split.
+        :param N: Number of last interactions or size of the time window.
         :param divide_column: Name of column for dividing
             in dataframe, default: ``query_id``.
-        :param time_column_format: Format of time_column,
-            needs for convert time_column into unix_timestamp type.
-            If strategy is set to 'interactions', then you can omit this parameter.
-            If time_column has already transformed into unix_timestamp type,
-            then you can omit this parameter.
+        :param time_column_format: Format of the timestamp column, 
+            used for converting string dates to a numerical timestamp when strategy is 'timedelta'. 
+            If the column is already a datetime object or a numerical timestamp, this parameter is ignored.
             default: ``yyyy-MM-dd HH:mm:ss``
         :param strategy: Defines the type of data splitting.
             Must be ``interactions`` or ``timedelta``.
