@@ -121,3 +121,4 @@ class ColdUserRandomSplitter(Splitter):
 
         msg = f"{self} is not implemented for {type(interactions)}"
         raise NotImplementedError(msg)
+
