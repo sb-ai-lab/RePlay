@@ -223,7 +223,7 @@ class ActorDRR(nn.Module):
 
         assert scores.shape == items_mask.shape
 
-        scores *= items_mask
+        scores = scores * items_mask
 
         if return_scores:
             return scores, torch.argmax(scores, dim=1)
@@ -591,17 +591,17 @@ class DDPG(Recommender):
         next_memory = batch["next_memory"]
         done = batch["done"]
         sample_weight = batch["sample_weight"]
-
         state = self.model.state_repr(user, memory)
-        policy_loss = self.value_net(state, self.model(user, memory))
-        policy_loss = -policy_loss.mean()
 
-        next_state = self.model.state_repr(next_user, next_memory)
-        next_action = self.target_model(next_user, next_memory)
-        target_value = self.target_value_net(next_state, next_action.detach())
-        expected_value = reward + (1.0 - done) * self.gamma * target_value.squeeze(1)  # smth strange, check article
+        with torch.no_grad():
+            next_state = self.model.state_repr(next_user, next_memory)
+            next_action = self.target_model(next_user, next_memory)
+            target_value = self.target_value_net(next_state, next_action.detach())
+            expected_value = reward + (1.0 - done) * self.gamma * target_value.squeeze(1)  # smth strange, check article
+            expected_value = torch.clamp(expected_value, self.min_value, self.max_value)
 
-        expected_value = torch.clamp(expected_value, self.min_value, self.max_value)
+        proto_action = self.model.layers(state)
+        policy_loss = -self.value_net(state.detach(), proto_action).mean()
 
         value = self.value_net(state, action)
         value_loss = (((value - expected_value.detach())).pow(2) * sample_weight).squeeze(1).mean()
@@ -731,12 +731,12 @@ class DDPG(Recommender):
 
     def _run_train_step(self, batch: dict) -> None:
         policy_loss, value_loss = self._batch_pass(batch)
+        total_loss = policy_loss + value_loss
 
         self.policy_optimizer.zero_grad()
-        policy_loss.backward(retain_graph=True)
-        self.policy_optimizer.step()
         self.value_optimizer.zero_grad()
-        value_loss.backward()
+        total_loss.backward()
+        self.policy_optimizer.step()
         self.value_optimizer.step()
 
         self._target_update(self.target_value_net, self.value_net)
@@ -804,7 +804,6 @@ class DDPG(Recommender):
 
         self._target_update(self.target_value_net, self.value_net, soft_tau=1)
         self._target_update(self.target_model, self.model, soft_tau=1)
-
         self.policy_optimizer = Ranger(
             self.model.parameters(),
             lr=self.policy_lr,
@@ -815,6 +814,7 @@ class DDPG(Recommender):
             lr=self.value_lr,
             weight_decay=self.value_decay,
         )
+
 
     def _fit(
         self,
