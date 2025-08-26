@@ -63,9 +63,7 @@ class ColdUserRandomSplitter(Splitter):
     def _core_split_pandas(
         self, interactions: PandasDataFrame, threshold: float
     ) -> Tuple[PandasDataFrame, PandasDataFrame]:
-        users = PandasDataFrame(
-            interactions[self.query_column].unique(), columns=[self.query_column]
-        )
+        users = PandasDataFrame(interactions[self.query_column].unique(), columns=[self.query_column])
         train_users = users.sample(frac=(1 - threshold), random_state=self.seed)
         train_users["is_test"] = False
 
@@ -107,9 +105,7 @@ class ColdUserRandomSplitter(Splitter):
             .with_columns(pl.lit(False).alias("is_test"))
         )
 
-        interactions = interactions.join(
-            train_users, on=self.query_column, how="left"
-        ).fill_null(True)
+        interactions = interactions.join(train_users, on=self.query_column, how="left").fill_null(True)
 
         train = interactions.filter(~pl.col("is_test")).drop("is_test")
         test = interactions.filter(pl.col("is_test")).drop("is_test")

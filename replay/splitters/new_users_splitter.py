@@ -108,9 +108,7 @@ class NewUsersSplitter(Splitter):
         self, interactions: PandasDataFrame, threshold: float
     ) -> Tuple[PandasDataFrame, PandasDataFrame]:
         start_date_by_user = (
-            interactions.groupby(self.query_column)
-            .agg(_start_dt_by_user=(self.timestamp_column, "min"))
-            .reset_index()
+            interactions.groupby(self.query_column).agg(_start_dt_by_user=(self.timestamp_column, "min")).reset_index()
         )
         test_start_date = (
             start_date_by_user.groupby("_start_dt_by_user")
@@ -118,13 +116,10 @@ class NewUsersSplitter(Splitter):
             .reset_index()
             .sort_values(by="_start_dt_by_user", ascending=False)
         )
-        test_start_date["_cum_num_users_to_dt"] = test_start_date[
-            "_num_users_by_start_date"
-        ].cumsum()
+        test_start_date["_cum_num_users_to_dt"] = test_start_date["_num_users_by_start_date"].cumsum()
         test_start_date["total"] = sum(test_start_date["_num_users_by_start_date"])
         test_start_date = test_start_date[
-            test_start_date["_cum_num_users_to_dt"]
-            >= threshold * test_start_date["total"]
+            test_start_date["_cum_num_users_to_dt"] >= threshold * test_start_date["total"]
         ]
         test_start = test_start_date["_start_dt_by_user"].max()
 
@@ -159,9 +154,7 @@ class NewUsersSplitter(Splitter):
                 sf.sum("_num_users_by_start_date")
                 .over(Window.orderBy(sf.desc("_start_dt_by_user")))
                 .alias("_cum_num_users_to_dt"),
-                sf.sum("_num_users_by_start_date")
-                .over(Window.orderBy(sf.lit(1)))
-                .alias("total"),
+                sf.sum("_num_users_by_start_date").over(Window.orderBy(sf.lit(1))).alias("total"),
             )
             .filter(sf.col("_cum_num_users_to_dt") >= sf.col("total") * threshold)
             .agg(sf.max("_start_dt_by_user"))
@@ -177,9 +170,7 @@ class NewUsersSplitter(Splitter):
 
         if self.session_id_column:
             test = test.withColumn("is_test", sf.lit(True))
-            interactions = interactions.join(
-                test, on=interactions.schema.names, how="left"
-            ).na.fill({"is_test": False})
+            interactions = interactions.join(test, on=interactions.schema.names, how="left").na.fill({"is_test": False})
             interactions = self._recalculate_with_session_id_column(interactions)
             train = interactions.filter(~sf.col("is_test")).drop("is_test")
             test = interactions.filter(sf.col("is_test")).drop("is_test")
@@ -199,9 +190,7 @@ class NewUsersSplitter(Splitter):
             .with_columns(
                 pl.col("_num_users_by_start_date").cum_sum().alias("cum_sum_users"),
             )
-            .filter(
-                pl.col("cum_sum_users") >= pl.col("cum_sum_users").max() * threshold
-            )["_start_dt_by_user"]
+            .filter(pl.col("cum_sum_users") >= pl.col("cum_sum_users").max() * threshold)["_start_dt_by_user"]
             .max()
         )
 
@@ -214,10 +203,7 @@ class NewUsersSplitter(Splitter):
 
         if self.session_id_column:
             interactions = interactions.with_columns(
-                pl.when(pl.col(self.timestamp_column) < test_start_date)
-                .then(False)
-                .otherwise(True)
-                .alias("is_test")
+                pl.when(pl.col(self.timestamp_column) < test_start_date).then(False).otherwise(True).alias("is_test")
             )
             interactions = self._recalculate_with_session_id_column(interactions)
             train = interactions.filter(~pl.col("is_test")).drop("is_test")

@@ -132,11 +132,7 @@ class TwoStageSplitter(Splitter):
         :return: DataFrame with single column `first_divide_column`
         """
         if isinstance(interactions, SparkDataFrame):
-            all_values = (
-                interactions.select(self.first_divide_column)
-                .distinct()
-                .sort(self.first_divide_column)
-            )
+            all_values = interactions.select(self.first_divide_column).distinct().sort(self.first_divide_column)
             user_count = all_values.count()
         elif isinstance(interactions, PandasDataFrame):
             all_values = PandasDataFrame(
@@ -145,11 +141,7 @@ class TwoStageSplitter(Splitter):
             )
             user_count = len(all_values)
         else:
-            all_values = (
-                interactions.select(self.first_divide_column)
-                .unique()
-                .sort(self.first_divide_column)
-            )
+            all_values = interactions.select(self.first_divide_column).unique().sort(self.first_divide_column)
             user_count = len(all_values)
 
         value_error = False
@@ -171,31 +163,21 @@ class TwoStageSplitter(Splitter):
                 all_values.withColumn("_rand", sf.rand(self.seed))
                 .withColumn(
                     "_row_num",
-                    sf.row_number().over(
-                        Window.partitionBy(sf.lit(0)).orderBy("_rand")
-                    ),
+                    sf.row_number().over(Window.partitionBy(sf.lit(0)).orderBy("_rand")),
                 )
                 .filter(f"_row_num <= {test_user_count}")
                 .drop("_rand", "_row_num")
             )
         elif isinstance(interactions, PandasDataFrame):
-            test_users = all_values.sample(
-                n=int(test_user_count), random_state=self.seed
-            )
+            test_users = all_values.sample(n=int(test_user_count), random_state=self.seed)
         else:
-            test_users = all_values.sample(
-                n=int(test_user_count), shuffle=True, seed=self.seed
-            )
+            test_users = all_values.sample(n=int(test_user_count), shuffle=True, seed=self.seed)
 
         return test_users
 
-    def _split_proportion_spark(
-        self, interactions: SparkDataFrame
-    ) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    def _split_proportion_spark(self, interactions: SparkDataFrame) -> Tuple[SparkDataFrame, SparkDataFrame]:
         counts = interactions.groupBy(self.first_divide_column).count()
-        test_users = self._get_test_values(interactions).withColumn(
-            "is_test", sf.lit(True)
-        )
+        test_users = self._get_test_values(interactions).withColumn("is_test", sf.lit(True))
         if self.shuffle:
             res = self._add_random_partition_spark(
                 interactions.join(test_users, how="left", on=self.first_divide_column)
@@ -225,13 +207,9 @@ class TwoStageSplitter(Splitter):
 
         return train, test
 
-    def _split_proportion_pandas(
-        self, interactions: PandasDataFrame
-    ) -> Tuple[PandasDataFrame, PandasDataFrame]:
+    def _split_proportion_pandas(self, interactions: PandasDataFrame) -> Tuple[PandasDataFrame, PandasDataFrame]:
         counts = (
-            interactions.groupby(self.first_divide_column)
-            .agg(count=(self.first_divide_column, "count"))
-            .reset_index()
+            interactions.groupby(self.first_divide_column).agg(count=(self.first_divide_column, "count")).reset_index()
         )
         test_users = self._get_test_values(interactions)
         test_users["is_test"] = True
@@ -256,13 +234,9 @@ class TwoStageSplitter(Splitter):
 
         return train, test
 
-    def _split_proportion_polars(
-        self, interactions: PolarsDataFrame
-    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+    def _split_proportion_polars(self, interactions: PolarsDataFrame) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
         counts = interactions.group_by(self.first_divide_column).count()
-        test_users = self._get_test_values(interactions).with_columns(
-            pl.lit(True).alias("is_test")
-        )
+        test_users = self._get_test_values(interactions).with_columns(pl.lit(True).alias("is_test"))
         if self.shuffle:
             res = self._add_random_partition_polars(
                 interactions.join(test_users, how="left", on=self.first_divide_column)
@@ -277,12 +251,12 @@ class TwoStageSplitter(Splitter):
         res = res.with_columns((pl.col("_row_num") / pl.col("count")).alias("_frac"))
         res = res.fill_null(False)
 
-        train = res.filter(
-            (pl.col("_frac") > self.second_divide_size) | (~pl.col("is_test"))
-        ).drop("_row_num", "count", "_frac", "is_test")
-        test = res.filter(
-            (pl.col("_frac") <= self.second_divide_size) & pl.col("is_test")
-        ).drop("_row_num", "count", "_frac", "is_test")
+        train = res.filter((pl.col("_frac") > self.second_divide_size) | (~pl.col("is_test"))).drop(
+            "_row_num", "count", "_frac", "is_test"
+        )
+        test = res.filter((pl.col("_frac") <= self.second_divide_size) & pl.col("is_test")).drop(
+            "_row_num", "count", "_frac", "is_test"
+        )
 
         return train, test
 
@@ -304,9 +278,7 @@ class TwoStageSplitter(Splitter):
         raise NotImplementedError(msg)
 
     def _split_quantity_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
-        test_users = self._get_test_values(interactions).withColumn(
-            "is_test", sf.lit(True)
-        )
+        test_users = self._get_test_values(interactions).withColumn("is_test", sf.lit(True))
         if self.shuffle:
             res = self._add_random_partition_spark(
                 interactions.join(test_users, how="left", on=self.first_divide_column)
@@ -345,19 +317,17 @@ class TwoStageSplitter(Splitter):
                 query_column=self.query_column,
             )
         res["is_test"].fillna(False, inplace=True)
-        train = res[
-            (res["_row_num"] > self.second_divide_size) | (~res["is_test"])
-        ].drop(columns=["_row_num", "is_test"])
-        test = res[
-            (res["_row_num"] <= self.second_divide_size) & (res["is_test"])
-        ].drop(columns=["_row_num", "is_test"])
+        train = res[(res["_row_num"] > self.second_divide_size) | (~res["is_test"])].drop(
+            columns=["_row_num", "is_test"]
+        )
+        test = res[(res["_row_num"] <= self.second_divide_size) & (res["is_test"])].drop(
+            columns=["_row_num", "is_test"]
+        )
 
         return train, test
 
     def _split_quantity_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
-        test_users = self._get_test_values(interactions).with_columns(
-            pl.lit(True).alias("is_test")
-        )
+        test_users = self._get_test_values(interactions).with_columns(pl.lit(True).alias("is_test"))
         if self.shuffle:
             res = self._add_random_partition_polars(
                 interactions.join(test_users, how="left", on=self.first_divide_column)
@@ -369,12 +339,12 @@ class TwoStageSplitter(Splitter):
             )
 
         res = res.fill_null(False)
-        train = res.filter(
-            (pl.col("_row_num") > self.second_divide_size) | (~pl.col("is_test"))
-        ).drop("_row_num", "is_test")
-        test = res.filter(
-            (pl.col("_row_num") <= self.second_divide_size) & pl.col("is_test")
-        ).drop("_row_num", "is_test")
+        train = res.filter((pl.col("_row_num") > self.second_divide_size) | (~pl.col("is_test"))).drop(
+            "_row_num", "is_test"
+        )
+        test = res.filter((pl.col("_row_num") <= self.second_divide_size) & pl.col("is_test")).drop(
+            "_row_num", "is_test"
+        )
 
         return train, test
 
@@ -416,31 +386,19 @@ class TwoStageSplitter(Splitter):
         dataframe = dataframe.withColumn("_rand", sf.rand(self.seed))
         dataframe = dataframe.withColumn(
             "_row_num",
-            sf.row_number().over(
-                Window.partitionBy(self.first_divide_column).orderBy("_rand")
-            ),
+            sf.row_number().over(Window.partitionBy(self.first_divide_column).orderBy("_rand")),
         )
         return dataframe
 
-    def _add_random_partition_pandas(
-        self, dataframe: PandasDataFrame
-    ) -> PandasDataFrame:
-        res = dataframe.sample(frac=1, random_state=self.seed).sort_values(
-            self.first_divide_column
-        )
-        res["_row_num"] = (
-            res.groupby(self.first_divide_column, sort=False).cumcount() + 1
-        )
+    def _add_random_partition_pandas(self, dataframe: PandasDataFrame) -> PandasDataFrame:
+        res = dataframe.sample(frac=1, random_state=self.seed).sort_values(self.first_divide_column)
+        res["_row_num"] = res.groupby(self.first_divide_column, sort=False).cumcount() + 1
 
         return res
 
-    def _add_random_partition_polars(
-        self, dataframe: PolarsDataFrame
-    ) -> PolarsDataFrame:
+    def _add_random_partition_polars(self, dataframe: PolarsDataFrame) -> PolarsDataFrame:
         res = dataframe.sample(fraction=1, shuffle=True, seed=self.seed).with_columns(
-            pl.cum_count(self.first_divide_column)
-            .over(self.first_divide_column)
-            .alias("_row_num")
+            pl.cum_count(self.first_divide_column).over(self.first_divide_column).alias("_row_num")
         )
         return res
 
@@ -460,9 +418,7 @@ class TwoStageSplitter(Splitter):
         """
         res = dataframe.withColumn(
             "_row_num",
-            sf.row_number().over(
-                Window.partitionBy(query_column).orderBy(sf.col(date_column).desc())
-            ),
+            sf.row_number().over(Window.partitionBy(query_column).orderBy(sf.col(date_column).desc())),
         )
         return res
 
@@ -473,9 +429,7 @@ class TwoStageSplitter(Splitter):
         date_column: str = "timestamp",
     ) -> PandasDataFrame:
         res = dataframe.copy(deep=True)
-        res.sort_values(
-            [query_column, date_column], ascending=[True, False], inplace=True
-        )
+        res.sort_values([query_column, date_column], ascending=[True, False], inplace=True)
         res["_row_num"] = res.groupby(query_column, sort=False).cumcount() + 1
         return res
 

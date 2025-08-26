@@ -89,19 +89,14 @@ class KFolds(Splitter):
         """
         return self._core_split(interactions)
 
-    def _query_split_spark(
-        self, interactions: SparkDataFrame
-    ) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    def _query_split_spark(self, interactions: SparkDataFrame) -> Tuple[SparkDataFrame, SparkDataFrame]:
         dataframe = interactions.withColumn("_rand", sf.rand(self.seed))
         dataframe = dataframe.withColumn(
             "fold",
-            sf.row_number().over(Window.partitionBy(self.query_column).orderBy("_rand"))
-            % self.n_folds,
+            sf.row_number().over(Window.partitionBy(self.query_column).orderBy("_rand")) % self.n_folds,
         ).drop("_rand")
         for i in range(self.n_folds):
-            dataframe = dataframe.withColumn(
-                "is_test", sf.when(sf.col("fold") == i, True).otherwise(False)
-            )
+            dataframe = dataframe.withColumn("is_test", sf.when(sf.col("fold") == i, True).otherwise(False))
             if self.session_id_column:
                 dataframe = self._recalculate_with_session_id_column(dataframe)
 
@@ -111,15 +106,9 @@ class KFolds(Splitter):
             test = self._drop_cold_items_and_users(train, test)
             yield train, test
 
-    def _query_split_pandas(
-        self, interactions: PandasDataFrame
-    ) -> Tuple[PandasDataFrame, PandasDataFrame]:
-        dataframe = interactions.sample(frac=1, random_state=self.seed).sort_values(
-            self.query_column
-        )
-        dataframe["fold"] = (
-            dataframe.groupby(self.query_column, sort=False).cumcount() + 1
-        ) % self.n_folds
+    def _query_split_pandas(self, interactions: PandasDataFrame) -> Tuple[PandasDataFrame, PandasDataFrame]:
+        dataframe = interactions.sample(frac=1, random_state=self.seed).sort_values(self.query_column)
+        dataframe["fold"] = (dataframe.groupby(self.query_column, sort=False).cumcount() + 1) % self.n_folds
         for i in range(self.n_folds):
             dataframe["is_test"] = dataframe["fold"] == i
             if self.session_id_column:
@@ -132,23 +121,14 @@ class KFolds(Splitter):
             test = self._drop_cold_items_and_users(train, test)
             yield train, test
 
-    def _query_split_polars(
-        self, interactions: PolarsDataFrame
-    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
-        dataframe = interactions.sample(fraction=1, shuffle=True, seed=self.seed).sort(
-            self.query_column
-        )
+    def _query_split_polars(self, interactions: PolarsDataFrame) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+        dataframe = interactions.sample(fraction=1, shuffle=True, seed=self.seed).sort(self.query_column)
         dataframe = dataframe.with_columns(
-            (
-                pl.cum_count(self.query_column).over(self.query_column) % self.n_folds
-            ).alias("fold")
+            (pl.cum_count(self.query_column).over(self.query_column) % self.n_folds).alias("fold")
         )
         for i in range(self.n_folds):
             dataframe = dataframe.with_columns(
-                pl.when(pl.col("fold") == i)
-                .then(True)
-                .otherwise(False)
-                .alias("is_test")
+                pl.when(pl.col("fold") == i).then(True).otherwise(False).alias("is_test")
             )
             if self.session_id_column:
                 dataframe = self._recalculate_with_session_id_column(dataframe)
