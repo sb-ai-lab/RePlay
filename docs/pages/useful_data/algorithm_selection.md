@@ -78,8 +78,8 @@ The same goes for new items.
 |Alternating Least Squares    | + | - | - | + |
 |Conservative Q-Learning (Experimental) | + | + | - | + |
 |DDPG (Experimental)          | + | + | - | + |
-|BERT4Rec                     | + | - | - | + |
-|SASRec                       | + | - | - | + |
+|BERT4Rec                     | + | - | - | - |
+|SASRec                       | + | - | - | - |
 |Neural Matrix Factorization (Experimental) | + | - | - | + |
 |SLIM                         | + | - | - | + |
 |ADMM SLIM (Experimental)     | + | - | - | + |
