@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Literal, Optional, Tuple
 
 import polars as pl
 
@@ -10,53 +10,20 @@ if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
     from pyspark.sql import Window
 
+StrategyName = Literal["query"]
 
-class NewUsersSplitter(Splitter):
+
+class KFolds(Splitter):
     """
-    Only new users will be assigned to test set.
-    Splits interactions by timestamp so that test has `test_size` fraction of most recent users.
-
-
-    >>> from replay.splitters import NewUsersSplitter
-    >>> import pandas as pd
-    >>> data_frame = pd.DataFrame({"query_id": [1,1,2,2,3,4],
-    ...    "item_id": [1,2,3,1,2,3],
-    ...    "relevance": [1,2,3,4,5,6],
-    ...    "timestamp": [20,40,20,30,10,40]})
-    >>> data_frame
-       query_id   item_id  relevance  timestamp
-    0         1         1          1         20
-    1         1         2          2         40
-    2         2         3          3         20
-    3         2         1          4         30
-    4         3         2          5         10
-    5         4         3          6         40
-    >>> train, test = NewUsersSplitter(test_size=0.1).split(data_frame)
-    >>> train
-      query_id  item_id  relevance  timestamp
-    0        1        1          1         20
-    2        2        3          3         20
-    3        2        1          4         30
-    4        3        2          5         10
-    <BLANKLINE>
-    >>> test
-      query_id  item_id  relevance  timestamp
-    0        4        3          6         40
-    <BLANKLINE>
-
-    Train DataFrame can be drastically reduced even with moderate
-    `test_size` if the amount of new users is small.
-
-    >>> train, test = NewUsersSplitter(test_size=0.3).split(data_frame)
-    >>> train
-      query_id  item_id  relevance  timestamp
-    4        3        2          5         10
-    <BLANKLINE>
+    Splits interactions inside each query into folds at random.
     """
 
     _init_arg_names = [
-        "test_size",
+        "n_folds",
+        "strategy",
+        "drop_cold_users",
         "drop_cold_items",
+        "seed",
         "query_column",
         "item_column",
         "timestamp_column",
@@ -66,8 +33,11 @@ class NewUsersSplitter(Splitter):
 
     def __init__(
         self,
-        test_size: float,
+        n_folds: Optional[int] = 5,
+        strategy: Optional[StrategyName] = "query",
         drop_cold_items: bool = False,
+        drop_cold_users: bool = False,
+        seed: Optional[int] = None,
         query_column: str = "query_id",
         item_column: Optional[str] = "item_id",
         timestamp_column: Optional[str] = "timestamp",
@@ -75,8 +45,11 @@ class NewUsersSplitter(Splitter):
         session_id_processing_strategy: str = "test",
     ):
         """
-        :param test_size: test size 0 to 1
+        :param n_folds: number of folds.
+        :param strategy: splitting strategy. Only query variant is available atm.
         :param drop_cold_items: flag to drop cold items from test
+        :param drop_cold_users: flag to drop cold users from test
+        :param seed: random seed
         :param query_column: query id column name
         :param item_column: item id column name
         :param timestamp_column: timestamp column name
@@ -87,127 +60,87 @@ class NewUsersSplitter(Splitter):
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
+            drop_cold_users=drop_cold_users,
             query_column=query_column,
             item_column=item_column,
             timestamp_column=timestamp_column,
             session_id_column=session_id_column,
             session_id_processing_strategy=session_id_processing_strategy,
         )
-        if test_size < 0 or test_size > 1:
-            msg = "test_size must between 0 and 1"
+        self.n_folds = n_folds
+        if strategy not in {"query"}:
+            msg = f"Wrong splitter parameter: {strategy}"
             raise ValueError(msg)
-        self.test_size = test_size
+        self.strategy = strategy
+        self.seed = seed
 
-    def _core_split_pandas(
-        self, interactions: PandasDataFrame, threshold: float
-    ) -> Tuple[PandasDataFrame, PandasDataFrame]:
-        start_date_by_user = (
-            interactions.groupby(self.query_column).agg(_start_dt_by_user=(self.timestamp_column, "min")).reset_index()
+    def split(self, interactions: DataFrameLike) -> SplitterReturnType:
+        """
+        Splits input DataFrame into train and test
+
+        :param interactions: input DataFrame ``[timestamp, user_id, item_id, relevance]``
+        :returns: List of splitted DataFrames
+        """
+        return self._core_split(interactions)
+
+    def _query_split_spark(self, interactions: SparkDataFrame) -> Tuple[SparkDataFrame, SparkDataFrame]:
+        dataframe = interactions.withColumn("_rand", sf.rand(self.seed))
+        dataframe = dataframe.withColumn(
+            "fold",
+            sf.row_number().over(Window.partitionBy(self.query_column).orderBy("_rand")) % self.n_folds,
+        ).drop("_rand")
+        for i in range(self.n_folds):
+            dataframe = dataframe.withColumn("is_test", sf.when(sf.col("fold") == i, True).otherwise(False))
+            if self.session_id_column:
+                dataframe = self._recalculate_with_session_id_column(dataframe)
+
+            train = dataframe.filter(~sf.col("is_test")).drop("is_test", "fold")
+            test = dataframe.filter(sf.col("is_test")).drop("is_test", "fold")
+
+            test = self._drop_cold_items_and_users(train, test)
+            yield train, test
+
+    def _query_split_pandas(self, interactions: PandasDataFrame) -> Tuple[PandasDataFrame, PandasDataFrame]:
+        dataframe = interactions.sample(frac=1, random_state=self.seed).sort_values(self.query_column)
+        dataframe["fold"] = (dataframe.groupby(self.query_column, sort=False).cumcount() + 1) % self.n_folds
+        for i in range(self.n_folds):
+            dataframe["is_test"] = dataframe["fold"] == i
+            if self.session_id_column:
+                dataframe = self._recalculate_with_session_id_column(dataframe)
+
+            train = dataframe[~dataframe["is_test"]].drop(columns=["is_test", "fold"])
+            test = dataframe[dataframe["is_test"]].drop(columns=["is_test", "fold"])
+            dataframe.drop(columns=["is_test"])
+
+            test = self._drop_cold_items_and_users(train, test)
+            yield train, test
+
+    def _query_split_polars(self, interactions: PolarsDataFrame) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+        dataframe = interactions.sample(fraction=1, shuffle=True, seed=self.seed).sort(self.query_column)
+        dataframe = dataframe.with_columns(
+            (pl.cum_count(self.query_column).over(self.query_column) % self.n_folds).alias("fold")
         )
-        test_start_date = (
-            start_date_by_user.groupby("_start_dt_by_user")
-            .agg(_num_users_by_start_date=(self.query_column, "count"))
-            .reset_index()
-            .sort_values(by="_start_dt_by_user", ascending=False)
-        )
-        test_start_date["_cum_num_users_to_dt"] = test_start_date["_num_users_by_start_date"].cumsum()
-        test_start_date["total"] = sum(test_start_date["_num_users_by_start_date"])
-        test_start_date = test_start_date[
-            test_start_date["_cum_num_users_to_dt"] >= threshold * test_start_date["total"]
-        ]
-        test_start = test_start_date["_start_dt_by_user"].max()
-
-        train = interactions[interactions[self.timestamp_column] < test_start]
-        test = interactions.merge(
-            start_date_by_user[start_date_by_user["_start_dt_by_user"] >= test_start], how="inner", on=self.query_column
-        ).drop(columns=["_start_dt_by_user"])
-
-        if self.session_id_column:
-            interactions["is_test"] = False
-            interactions.loc[test.index, "is_test"] = True
-            interactions = self._recalculate_with_session_id_column(interactions)
-            train = interactions[~interactions["is_test"]].drop(columns=["is_test"])
-            test = interactions[interactions["is_test"]].drop(columns=["is_test"])
-            interactions = interactions.drop(columns=["is_test"])
-
-        return train, test
-
-    def _core_split_spark(
-        self, interactions: SparkDataFrame, threshold: float
-    ) -> Tuple[SparkDataFrame, SparkDataFrame]:
-        start_date_by_user = interactions.groupby(self.query_column).agg(
-            sf.min(self.timestamp_column).alias("_start_dt_by_user")
-        )
-        test_start_date = (
-            start_date_by_user.groupby("_start_dt_by_user")
-            .agg(sf.count(self.query_column).alias("_num_users_by_start_date"))
-            .select(
-                "_start_dt_by_user",
-                sf.sum("_num_users_by_start_date")
-                .over(Window.orderBy(sf.desc("_start_dt_by_user")))
-                .alias("_cum_num_users_to_dt"),
-                sf.sum("_num_users_by_start_date").over(Window.orderBy(sf.lit(1))).alias("total"),
+        for i in range(self.n_folds):
+            dataframe = dataframe.with_columns(
+                pl.when(pl.col("fold") == i).then(True).otherwise(False).alias("is_test")
             )
-            .filter(sf.col("_cum_num_users_to_dt") >= sf.col("total") * threshold)
-            .agg(sf.max("_start_dt_by_user"))
-            .head()[0]
-        )
+            if self.session_id_column:
+                dataframe = self._recalculate_with_session_id_column(dataframe)
 
-        train = interactions.filter(sf.col(self.timestamp_column) < test_start_date)
-        test = interactions.join(
-            start_date_by_user.filter(sf.col("_start_dt_by_user") >= test_start_date),
-            how="inner",
-            on=self.query_column,
-        ).drop("_start_dt_by_user")
+            train = dataframe.filter(~pl.col("is_test")).drop("is_test", "fold")
+            test = dataframe.filter(pl.col("is_test")).drop("is_test", "fold")
 
-        if self.session_id_column:
-            test = test.withColumn("is_test", sf.lit(True))
-            interactions = interactions.join(test, on=interactions.schema.names, how="left").na.fill({"is_test": False})
-            interactions = self._recalculate_with_session_id_column(interactions)
-            train = interactions.filter(~sf.col("is_test")).drop("is_test")
-            test = interactions.filter(sf.col("is_test")).drop("is_test")
-
-        return train, test
-
-    def _core_split_polars(
-        self, interactions: PolarsDataFrame, threshold: float
-    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
-        start_date_by_user = interactions.group_by(self.query_column).agg(
-            pl.col(self.timestamp_column).min().alias("_start_dt_by_user")
-        )
-        test_start_date = (
-            start_date_by_user.group_by("_start_dt_by_user")
-            .agg(pl.col(self.query_column).count().alias("_num_users_by_start_date"))
-            .sort("_start_dt_by_user", descending=True)
-            .with_columns(
-                pl.col("_num_users_by_start_date").cum_sum().alias("cum_sum_users"),
-            )
-            .filter(pl.col("cum_sum_users") >= pl.col("cum_sum_users").max() * threshold)["_start_dt_by_user"]
-            .max()
-        )
-
-        train = interactions.filter(pl.col(self.timestamp_column) < test_start_date)
-        test = interactions.join(
-            start_date_by_user.filter(pl.col("_start_dt_by_user") >= test_start_date), on=self.query_column, how="inner"
-        ).drop("_start_dt_by_user")
-
-        if self.session_id_column:
-            interactions = interactions.with_columns(
-                pl.when(pl.col(self.timestamp_column) < test_start_date).then(False).otherwise(True).alias("is_test")
-            )
-            interactions = self._recalculate_with_session_id_column(interactions)
-            train = interactions.filter(~pl.col("is_test")).drop("is_test")
-            test = interactions.filter(pl.col("is_test")).drop("is_test")
-
-        return train, test
+            test = self._drop_cold_items_and_users(train, test)
+            yield train, test
 
     def _core_split(self, interactions: DataFrameLike) -> SplitterReturnType:
-        if isinstance(interactions, SparkDataFrame):
-            return self._core_split_spark(interactions, self.test_size)
-        if isinstance(interactions, PandasDataFrame):
-            return self._core_split_pandas(interactions, self.test_size)
-        if isinstance(interactions, PolarsDataFrame):
-            return self._core_split_polars(interactions, self.test_size)
+        if self.strategy == "query":
+            if isinstance(interactions, SparkDataFrame):
+                return self._query_split_spark(interactions)
+            if isinstance(interactions, PandasDataFrame):
+                return self._query_split_pandas(interactions)
+            if isinstance(interactions, PolarsDataFrame):
+                return self._query_split_polars(interactions)
 
-        msg = f"{self} is not implemented for {type(interactions)}"
-        raise NotImplementedError(msg)
+            msg = f"{self} is not implemented for {type(interactions)}"
+            raise NotImplementedError(msg)
