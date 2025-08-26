@@ -189,8 +189,7 @@ class TimeSplitter(Splitter):
     ) -> Tuple[SparkDataFrame, SparkDataFrame]:
         if isinstance(threshold, float):
             dates = interactions.select(self.timestamp_column).withColumn(
-                "_row_number_by_ts",
-                sf.row_number().over(Window.orderBy(self.timestamp_column)),
+                "_row_number_by_ts", sf.row_number().over(Window.orderBy(self.timestamp_column))
             )
             test_start = int(dates.count() * (1 - threshold)) + 1
             test_start = (

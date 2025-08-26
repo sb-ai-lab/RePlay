@@ -7,13 +7,7 @@ from typing import Optional, Tuple
 import numpy as np
 import polars as pl
 
-from replay.utils import (
-    PYSPARK_AVAILABLE,
-    DataFrameLike,
-    PandasDataFrame,
-    PolarsDataFrame,
-    SparkDataFrame,
-)
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 from .base_splitter import Splitter, SplitterReturnType
 
@@ -136,8 +130,7 @@ class TwoStageSplitter(Splitter):
             user_count = all_values.count()
         elif isinstance(interactions, PandasDataFrame):
             all_values = PandasDataFrame(
-                np.sort(interactions[self.first_divide_column].unique()),
-                columns=[self.first_divide_column],
+                np.sort(interactions[self.first_divide_column].unique()), columns=[self.first_divide_column]
             )
             user_count = len(all_values)
         else:
@@ -161,10 +154,7 @@ class TwoStageSplitter(Splitter):
         if isinstance(interactions, SparkDataFrame):
             test_users = (
                 all_values.withColumn("_rand", sf.rand(self.seed))
-                .withColumn(
-                    "_row_num",
-                    sf.row_number().over(Window.partitionBy(sf.lit(0)).orderBy("_rand")),
-                )
+                .withColumn("_row_num", sf.row_number().over(Window.partitionBy(sf.lit(0)).orderBy("_rand")))
                 .filter(f"_row_num <= {test_user_count}")
                 .drop("_rand", "_row_num")
             )

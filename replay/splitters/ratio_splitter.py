@@ -2,13 +2,7 @@ from typing import List, Optional, Tuple
 
 import polars as pl
 
-from replay.utils import (
-    PYSPARK_AVAILABLE,
-    DataFrameLike,
-    PandasDataFrame,
-    PolarsDataFrame,
-    SparkDataFrame,
-)
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 from .base_splitter import Splitter
 
@@ -222,11 +216,7 @@ class RatioSplitter(Splitter):
         interactions["count"] = interactions.groupby(self.divide_column, sort=False)[self.divide_column].transform(len)
         interactions["frac"] = (interactions["row_num"] / interactions["count"]).round(self._precision)
         if self.min_interactions_per_group is not None:
-            interactions["frac"].where(
-                interactions["count"] >= self.min_interactions_per_group,
-                0,
-                inplace=True,
-            )
+            interactions["frac"].where(interactions["count"] >= self.min_interactions_per_group, 0, inplace=True)
 
         interactions["is_test"] = interactions["frac"] > train_size
         if self.session_id_column:
@@ -241,8 +231,7 @@ class RatioSplitter(Splitter):
         self, interactions: SparkDataFrame, train_size: float
     ) -> Tuple[SparkDataFrame, SparkDataFrame]:
         interactions = interactions.withColumn(
-            "count",
-            sf.count(self.timestamp_column).over(Window.partitionBy(self.divide_column)),
+            "count", sf.count(self.timestamp_column).over(Window.partitionBy(self.divide_column))
         )
         if self.min_interactions_per_group is not None:
             interactions = interactions.withColumn(
@@ -309,9 +298,7 @@ class RatioSplitter(Splitter):
         interactions["train_size"] = interactions["count"] - (interactions["count"] * ratio).astype(int)
         if self.min_interactions_per_group is not None:
             interactions["train_size"].where(
-                interactions["count"] >= self.min_interactions_per_group,
-                interactions["count"],
-                inplace=True,
+                interactions["count"] >= self.min_interactions_per_group, interactions["count"], inplace=True
             )
         else:
             interactions.loc[
@@ -334,8 +321,7 @@ class RatioSplitter(Splitter):
 
     def _partial_split_spark(self, interactions: SparkDataFrame, ratio: float) -> Tuple[SparkDataFrame, SparkDataFrame]:
         interactions = interactions.withColumn(
-            "count",
-            sf.count(self.timestamp_column).over(Window.partitionBy(self.divide_column)),
+            "count", sf.count(self.timestamp_column).over(Window.partitionBy(self.divide_column))
         )
         if self.min_interactions_per_group is not None:
             interactions = interactions.withColumn(
@@ -347,8 +333,7 @@ class RatioSplitter(Splitter):
             )
         else:
             interactions = interactions.withColumn(
-                "train_size",
-                sf.col("count") - (sf.col("count") * ratio).cast(IntegerType()),
+                "train_size", sf.col("count") - (sf.col("count") * ratio).cast(IntegerType())
             ).withColumn(
                 "train_size",
                 sf.when(
