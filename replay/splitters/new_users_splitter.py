@@ -2,13 +2,7 @@ from typing import Optional, Tuple
 
 import polars as pl
 
-from replay.utils import (
-    PYSPARK_AVAILABLE,
-    DataFrameLike,
-    PandasDataFrame,
-    PolarsDataFrame,
-    SparkDataFrame,
-)
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 from .base_splitter import Splitter, SplitterReturnType
 
@@ -125,9 +119,7 @@ class NewUsersSplitter(Splitter):
 
         train = interactions[interactions[self.timestamp_column] < test_start]
         test = interactions.merge(
-            start_date_by_user[start_date_by_user["_start_dt_by_user"] >= test_start],
-            how="inner",
-            on=self.query_column,
+            start_date_by_user[start_date_by_user["_start_dt_by_user"] >= test_start], how="inner", on=self.query_column
         ).drop(columns=["_start_dt_by_user"])
 
         if self.session_id_column:
@@ -196,9 +188,7 @@ class NewUsersSplitter(Splitter):
 
         train = interactions.filter(pl.col(self.timestamp_column) < test_start_date)
         test = interactions.join(
-            start_date_by_user.filter(pl.col("_start_dt_by_user") >= test_start_date),
-            on=self.query_column,
-            how="inner",
+            start_date_by_user.filter(pl.col("_start_dt_by_user") >= test_start_date), on=self.query_column, how="inner"
         ).drop("_start_dt_by_user")
 
         if self.session_id_column:
