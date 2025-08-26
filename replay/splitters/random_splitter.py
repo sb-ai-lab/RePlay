@@ -63,7 +63,9 @@ class RandomSplitter(Splitter):
         self, interactions: PolarsDataFrame, threshold: float
     ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
         train_size = int(len(interactions) * (1 - threshold)) + 1
-        shuffled_interactions = interactions.sample(fraction=1, shuffle=True, seed=self.seed)
+        shuffled_interactions = interactions.sample(
+            fraction=1, shuffle=True, seed=self.seed
+        )
         train = shuffled_interactions[:train_size]
         test = shuffled_interactions[train_size:]
         return train, test

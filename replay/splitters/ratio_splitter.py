@@ -2,7 +2,13 @@ from typing import List, Optional, Tuple
 
 import polars as pl
 
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
+from replay.utils import (
+    PYSPARK_AVAILABLE,
+    DataFrameLike,
+    PandasDataFrame,
+    PolarsDataFrame,
+    SparkDataFrame,
+)
 
 from .base_splitter import Splitter
 
@@ -176,22 +182,32 @@ class RatioSplitter(Splitter):
         msg = f"{self} is not implemented for {type(interactions)}"
         raise NotImplementedError(msg)
 
-    def _add_time_partition_to_pandas(self, interactions: PandasDataFrame) -> PandasDataFrame:
+    def _add_time_partition_to_pandas(
+        self, interactions: PandasDataFrame
+    ) -> PandasDataFrame:
         res = interactions.copy(deep=True)
         res.sort_values(by=[self.divide_column, self.timestamp_column], inplace=True)
         res["row_num"] = res.groupby(self.divide_column, sort=False).cumcount() + 1
 
         return res
 
-    def _add_time_partition_to_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
+    def _add_time_partition_to_spark(
+        self, interactions: SparkDataFrame
+    ) -> SparkDataFrame:
         res = interactions.withColumn(
             "row_num",
-            sf.row_number().over(Window.partitionBy(self.divide_column).orderBy(sf.col(self.timestamp_column))),
+            sf.row_number().over(
+                Window.partitionBy(self.divide_column).orderBy(
+                    sf.col(self.timestamp_column)
+                )
+            ),
         )
 
         return res
 
-    def _add_time_partition_to_polars(self, interactions: PolarsDataFrame) -> PolarsDataFrame:
+    def _add_time_partition_to_polars(
+        self, interactions: PolarsDataFrame
+    ) -> PolarsDataFrame:
         res = interactions.sort(self.timestamp_column).with_columns(
             pl.cum_count(self.divide_column).over(self.divide_column).alias("row_num")
         )
@@ -213,17 +229,29 @@ class RatioSplitter(Splitter):
     def _partial_split_fractions_pandas(
         self, interactions: PandasDataFrame, train_size: float
     ) -> Tuple[PandasDataFrame, PandasDataFrame]:
-        interactions["count"] = interactions.groupby(self.divide_column, sort=False)[self.divide_column].transform(len)
-        interactions["frac"] = (interactions["row_num"] / interactions["count"]).round(self._precision)
+        interactions["count"] = interactions.groupby(self.divide_column, sort=False)[
+            self.divide_column
+        ].transform(len)
+        interactions["frac"] = (interactions["row_num"] / interactions["count"]).round(
+            self._precision
+        )
         if self.min_interactions_per_group is not None:
-            interactions["frac"].where(interactions["count"] >= self.min_interactions_per_group, 0, inplace=True)
+            interactions["frac"].where(
+                interactions["count"] >= self.min_interactions_per_group,
+                0,
+                inplace=True,
+            )
 
         interactions["is_test"] = interactions["frac"] > train_size
         if self.session_id_column:
             interactions = self._recalculate_with_session_id_column(interactions)
 
-        train = interactions[~interactions["is_test"]].drop(columns=["row_num", "count", "frac", "is_test"])
-        test = interactions[interactions["is_test"]].drop(columns=["row_num", "count", "frac", "is_test"])
+        train = interactions[~interactions["is_test"]].drop(
+            columns=["row_num", "count", "frac", "is_test"]
+        )
+        test = interactions[interactions["is_test"]].drop(
+            columns=["row_num", "count", "frac", "is_test"]
+        )
 
         return train, test
 
@@ -231,7 +259,10 @@ class RatioSplitter(Splitter):
         self, interactions: SparkDataFrame, train_size: float
     ) -> Tuple[SparkDataFrame, SparkDataFrame]:
         interactions = interactions.withColumn(
-            "count", sf.count(self.timestamp_column).over(Window.partitionBy(self.divide_column))
+            "count",
+            sf.count(self.timestamp_column).over(
+                Window.partitionBy(self.divide_column)
+            ),
         )
         if self.min_interactions_per_group is not None:
             interactions = interactions.withColumn(
@@ -250,8 +281,12 @@ class RatioSplitter(Splitter):
         if self.session_id_column:
             interactions = self._recalculate_with_session_id_column(interactions)
 
-        train = interactions.filter("is_test == 0").drop("row_num", "count", "frac", "is_test")
-        test = interactions.filter("is_test").drop("row_num", "count", "frac", "is_test")
+        train = interactions.filter("is_test == 0").drop(
+            "row_num", "count", "frac", "is_test"
+        )
+        test = interactions.filter("is_test").drop(
+            "row_num", "count", "frac", "is_test"
+        )
 
         return train, test
 
@@ -259,7 +294,9 @@ class RatioSplitter(Splitter):
         self, interactions: PolarsDataFrame, train_size: float
     ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
         interactions = interactions.with_columns(
-            pl.count(self.timestamp_column).over(pl.col(self.divide_column)).alias("count")
+            pl.count(self.timestamp_column)
+            .over(pl.col(self.divide_column))
+            .alias("count")
         )
         if self.min_interactions_per_group is not None:
             interactions = interactions.with_columns(
@@ -270,19 +307,29 @@ class RatioSplitter(Splitter):
             )
         else:
             interactions = interactions.with_columns(
-                (pl.col("row_num") / pl.col("count")).round(self._precision).alias("frac")
+                (pl.col("row_num") / pl.col("count"))
+                .round(self._precision)
+                .alias("frac")
             )
 
-        interactions = interactions.with_columns((pl.col("frac") > train_size).alias("is_test"))
+        interactions = interactions.with_columns(
+            (pl.col("frac") > train_size).alias("is_test")
+        )
         if self.session_id_column:
             interactions = self._recalculate_with_session_id_column(interactions)
 
-        train = interactions.filter(~pl.col("is_test")).drop("row_num", "count", "frac", "is_test")
-        test = interactions.filter(pl.col("is_test")).drop("row_num", "count", "frac", "is_test")
+        train = interactions.filter(~pl.col("is_test")).drop(
+            "row_num", "count", "frac", "is_test"
+        )
+        test = interactions.filter(pl.col("is_test")).drop(
+            "row_num", "count", "frac", "is_test"
+        )
 
         return train, test
 
-    def _partial_split(self, interactions: DataFrameLike, ratio: float) -> Tuple[DataFrameLike, DataFrameLike]:
+    def _partial_split(
+        self, interactions: DataFrameLike, ratio: float
+    ) -> Tuple[DataFrameLike, DataFrameLike]:
         res = self._add_time_partition(interactions)
         if isinstance(res, SparkDataFrame):
             return self._partial_split_spark(res, ratio)
@@ -294,11 +341,17 @@ class RatioSplitter(Splitter):
     def _partial_split_pandas(
         self, interactions: PandasDataFrame, ratio: float
     ) -> Tuple[PandasDataFrame, PandasDataFrame]:
-        interactions["count"] = interactions.groupby(self.divide_column, sort=False)[self.divide_column].transform(len)
-        interactions["train_size"] = interactions["count"] - (interactions["count"] * ratio).astype(int)
+        interactions["count"] = interactions.groupby(self.divide_column, sort=False)[
+            self.divide_column
+        ].transform(len)
+        interactions["train_size"] = interactions["count"] - (
+            interactions["count"] * ratio
+        ).astype(int)
         if self.min_interactions_per_group is not None:
             interactions["train_size"].where(
-                interactions["count"] >= self.min_interactions_per_group, interactions["count"], inplace=True
+                interactions["count"] >= self.min_interactions_per_group,
+                interactions["count"],
+                inplace=True,
             )
         else:
             interactions.loc[
@@ -314,14 +367,23 @@ class RatioSplitter(Splitter):
         if self.session_id_column:
             interactions = self._recalculate_with_session_id_column(interactions)
 
-        train = interactions[~interactions["is_test"]].drop(columns=["row_num", "count", "train_size", "is_test"])
-        test = interactions[interactions["is_test"]].drop(columns=["row_num", "count", "train_size", "is_test"])
+        train = interactions[~interactions["is_test"]].drop(
+            columns=["row_num", "count", "train_size", "is_test"]
+        )
+        test = interactions[interactions["is_test"]].drop(
+            columns=["row_num", "count", "train_size", "is_test"]
+        )
 
         return train, test
 
-    def _partial_split_spark(self, interactions: SparkDataFrame, ratio: float) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    def _partial_split_spark(
+        self, interactions: SparkDataFrame, ratio: float
+    ) -> Tuple[SparkDataFrame, SparkDataFrame]:
         interactions = interactions.withColumn(
-            "count", sf.count(self.timestamp_column).over(Window.partitionBy(self.divide_column))
+            "count",
+            sf.count(self.timestamp_column).over(
+                Window.partitionBy(self.divide_column)
+            ),
         )
         if self.min_interactions_per_group is not None:
             interactions = interactions.withColumn(
@@ -333,20 +395,29 @@ class RatioSplitter(Splitter):
             )
         else:
             interactions = interactions.withColumn(
-                "train_size", sf.col("count") - (sf.col("count") * ratio).cast(IntegerType())
+                "train_size",
+                sf.col("count") - (sf.col("count") * ratio).cast(IntegerType()),
             ).withColumn(
                 "train_size",
                 sf.when(
-                    (sf.col("count") * ratio > 0) & (sf.col("count") * ratio < 1) & (sf.col("train_size") > 1),
+                    (sf.col("count") * ratio > 0)
+                    & (sf.col("count") * ratio < 1)
+                    & (sf.col("train_size") > 1),
                     sf.col("train_size") - 1,
                 ).otherwise(sf.col("train_size")),
             )
-        interactions = interactions.withColumn("is_test", sf.col("row_num") > sf.col("train_size"))
+        interactions = interactions.withColumn(
+            "is_test", sf.col("row_num") > sf.col("train_size")
+        )
         if self.session_id_column:
             interactions = self._recalculate_with_session_id_column(interactions)
 
-        train = interactions.filter("is_test == 0").drop("row_num", "count", "train_size", "is_test")
-        test = interactions.filter("is_test").drop("row_num", "count", "train_size", "is_test")
+        train = interactions.filter("is_test == 0").drop(
+            "row_num", "count", "train_size", "is_test"
+        )
+        test = interactions.filter("is_test").drop(
+            "row_num", "count", "train_size", "is_test"
+        )
 
         return train, test
 
@@ -359,29 +430,47 @@ class RatioSplitter(Splitter):
         if self.min_interactions_per_group is not None:
             interactions = interactions.with_columns(
                 pl.when(pl.col("count") >= self.min_interactions_per_group)
-                .then(pl.col("count") - (pl.col("count") * ratio).cast(interactions.get_column("count").dtype))
+                .then(
+                    pl.col("count")
+                    - (pl.col("count") * ratio).cast(
+                        interactions.get_column("count").dtype
+                    )
+                )
                 .otherwise(pl.col("count"))
                 .alias("train_size")
             )
         else:
             interactions = interactions.with_columns(
-                (pl.col("count") - (pl.col("count") * ratio).cast(interactions.get_column("count").dtype)).alias(
-                    "train_size"
-                )
+                (
+                    pl.col("count")
+                    - (pl.col("count") * ratio).cast(
+                        interactions.get_column("count").dtype
+                    )
+                ).alias("train_size")
             ).with_columns(
-                pl.when((pl.col("count") * ratio > 0) & (pl.col("count") * ratio < 1) & (pl.col("train_size") > 1))
+                pl.when(
+                    (pl.col("count") * ratio > 0)
+                    & (pl.col("count") * ratio < 1)
+                    & (pl.col("train_size") > 1)
+                )
                 .then(pl.col("train_size") - 1)
                 .otherwise(pl.col("train_size"))
                 .alias("train_size")
             )
 
-        interactions = interactions.with_columns((pl.col("row_num") > pl.col("train_size")).alias("is_test"))
+        interactions = interactions.with_columns(
+            (pl.col("row_num") > pl.col("train_size")).alias("is_test")
+        )
 
         if self.session_id_column:
             interactions = self._recalculate_with_session_id_column(interactions)
 
-        train = interactions.filter(~pl.col("is_test")).drop("row_num", "count", "train_size", "is_test")
-        test = interactions.filter(pl.col("is_test")).drop("row_num", "count", "train_size", "is_test")
+        train = interactions.filter(~pl.col("is_test")).drop(
+            "row_num", "count", "train_size", "is_test"
+        )
+        test = interactions.filter(pl.col("is_test")).drop(
+            "row_num", "count", "train_size", "is_test"
+        )
 
         return train, test
 

@@ -135,11 +135,15 @@ class Splitter(ABC):
     ) -> SparkDataFrame:
         if self.drop_cold_items:
             train_tmp = train.select(sf.col(self.item_column).alias("item")).distinct()
-            test = test.join(train_tmp, train_tmp["item"] == test[self.item_column]).drop("item")
+            test = test.join(
+                train_tmp, train_tmp["item"] == test[self.item_column]
+            ).drop("item")
 
         if self.drop_cold_users:
             train_tmp = train.select(sf.col(self.query_column).alias("user")).distinct()
-            test = test.join(train_tmp, train_tmp["user"] == test[self.query_column]).drop("user")
+            test = test.join(
+                train_tmp, train_tmp["user"] == test[self.query_column]
+            ).drop("user")
 
         return test
 
@@ -187,17 +191,25 @@ class Splitter(ABC):
         else:
             return self._recalculate_with_session_id_column_polars(data)
 
-    def _recalculate_with_session_id_column_pandas(self, data: PandasDataFrame) -> PandasDataFrame:
-        agg_function_name = "first" if self.session_id_processing_strategy == "train" else "last"
-        res = data.copy()
-        res["is_test"] = res.groupby([self.query_column, self.session_id_column])["is_test"].transform(
-            agg_function_name
+    def _recalculate_with_session_id_column_pandas(
+        self, data: PandasDataFrame
+    ) -> PandasDataFrame:
+        agg_function_name = (
+            "first" if self.session_id_processing_strategy == "train" else "last"
         )
+        res = data.copy()
+        res["is_test"] = res.groupby([self.query_column, self.session_id_column])[
+            "is_test"
+        ].transform(agg_function_name)
 
         return res
 
-    def _recalculate_with_session_id_column_spark(self, data: SparkDataFrame) -> SparkDataFrame:
-        agg_function = sf.first if self.session_id_processing_strategy == "train" else sf.last
+    def _recalculate_with_session_id_column_spark(
+        self, data: SparkDataFrame
+    ) -> SparkDataFrame:
+        agg_function = (
+            sf.first if self.session_id_processing_strategy == "train" else sf.last
+        )
         res = data.withColumn(
             "is_test",
             agg_function("is_test").over(
@@ -209,8 +221,14 @@ class Splitter(ABC):
 
         return res
 
-    def _recalculate_with_session_id_column_polars(self, data: PolarsDataFrame) -> PolarsDataFrame:
-        agg_function = pl.Expr.first if self.session_id_processing_strategy == "train" else pl.Expr.last
+    def _recalculate_with_session_id_column_polars(
+        self, data: PolarsDataFrame
+    ) -> PolarsDataFrame:
+        agg_function = (
+            pl.Expr.first
+            if self.session_id_processing_strategy == "train"
+            else pl.Expr.last
+        )
         res = data.with_columns(
             agg_function(pl.col("is_test").sort_by(self.timestamp_column)).over(
                 [self.query_column, self.session_id_column]

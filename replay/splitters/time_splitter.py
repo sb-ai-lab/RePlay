@@ -143,7 +143,9 @@ class TimeSplitter(Splitter):
         )
         self._precision = 3
         self.time_column_format = time_column_format
-        if isinstance(time_threshold, float) and (time_threshold < 0 or time_threshold > 1):
+        if isinstance(time_threshold, float) and (
+            time_threshold < 0 or time_threshold > 1
+        ):
             msg = "time_threshold must be between 0 and 1"
             raise ValueError(msg)
         self.time_threshold = time_threshold
@@ -189,15 +191,22 @@ class TimeSplitter(Splitter):
     ) -> Tuple[SparkDataFrame, SparkDataFrame]:
         if isinstance(threshold, float):
             dates = interactions.select(self.timestamp_column).withColumn(
-                "_row_number_by_ts", sf.row_number().over(Window.orderBy(self.timestamp_column))
+                "_row_number_by_ts",
+                sf.row_number().over(Window.orderBy(self.timestamp_column)),
             )
             test_start = int(dates.count() * (1 - threshold)) + 1
             test_start = (
-                dates.filter(sf.col("_row_number_by_ts") == test_start).select(self.timestamp_column).first()[0]
+                dates.filter(sf.col("_row_number_by_ts") == test_start)
+                .select(self.timestamp_column)
+                .first()[0]
             )
-            res = interactions.withColumn("is_test", sf.col(self.timestamp_column) >= test_start)
+            res = interactions.withColumn(
+                "is_test", sf.col(self.timestamp_column) >= test_start
+            )
         else:
-            res = interactions.withColumn("is_test", sf.col(self.timestamp_column) >= threshold)
+            res = interactions.withColumn(
+                "is_test", sf.col(self.timestamp_column) >= threshold
+            )
 
         if self.session_id_column:
             res = self._recalculate_with_session_id_column(res)
@@ -213,10 +222,14 @@ class TimeSplitter(Splitter):
             test_start = int(len(interactions) * (1 - threshold)) + 1
 
             res = interactions.sort(self.timestamp_column).with_columns(
-                (pl.col(self.timestamp_column).cum_count() >= test_start).alias("is_test")
+                (pl.col(self.timestamp_column).cum_count() >= test_start).alias(
+                    "is_test"
+                )
             )
         else:
-            res = interactions.with_columns((pl.col(self.timestamp_column) >= threshold).alias("is_test"))
+            res = interactions.with_columns(
+                (pl.col(self.timestamp_column) >= threshold).alias("is_test")
+            )
 
         if self.session_id_column:
             res = self._recalculate_with_session_id_column(res)
