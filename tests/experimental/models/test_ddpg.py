@@ -13,9 +13,7 @@ from replay.data import get_schema
 from replay.experimental.models import DDPG
 from replay.experimental.models.ddpg import ActorDRR, CriticDRR, OUNoise, ReplayBuffer, StateReprModule
 from replay.experimental.utils.model_handler import save, load
-from tests.utils import (
-    sparkDataFrameEqual,
-)
+from tests.utils import sparkDataFrameEqual
 
 SEED = 123
 INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
