@@ -18,6 +18,7 @@ from tests.utils import (
     find_file_by_pattern,
     sparkDataFrameEqual,
 )
+from replay.experimental.utils.model_handler import save, load
 
 SEED = 123
 INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
@@ -277,60 +278,15 @@ def test_predict(log, model):
 
 
 @pytest.mark.experimental
-def test_save_load(log, model, user_num=5, item_num=5):
-    spark_local_dir = "./logs/tmp/"
-    pattern = "model_final.pt"
-    del_files_by_pattern(spark_local_dir, pattern)
-
-    model.exact_embeddings_size = False
-    model.fit(log=log)
-    old_params = [param.detach().cpu().numpy() for param in model.model.parameters()]
-    old_policy_optimizer_params = model.policy_optimizer.state_dict()["param_groups"][0]
-    old_value_optimizer_params = model.value_optimizer.state_dict()["param_groups"][0]
-    path = find_file_by_pattern(spark_local_dir, pattern)
-    assert path is not None
-
-    new_model = DDPG(user_num=user_num, item_num=item_num)
-    new_model.model = ActorDRR(
-        user_num=user_num,
-        item_num=item_num,
-        embedding_dim=8,
-        hidden_dim=16,
-        memory_size=5,
-        env_gamma_alpha=1,
-        device=torch.device("cpu"),
-        min_trajectory_len=10,
-    )
-    new_model.value_net = CriticDRR(
-        state_repr_dim=24,
-        action_emb_dim=8,
-        hidden_dim=8,
-        heads_num=10,
-        heads_q=0.15,
-    )
-    assert len(old_params) == len(list(new_model.model.parameters()))
-
-    new_model.policy_optimizer = Ranger(new_model.model.parameters())
-    new_model.value_optimizer = Ranger(new_model.value_net.parameters())
-    new_model._load_model(path)
-    for i, parameter in enumerate(new_model.model.parameters()):
-        assert np.allclose(
-            parameter.detach().cpu().numpy(),
-            old_params[i],
-            atol=1.0e-3,
-        )
-    for param_name, parameter in new_model.policy_optimizer.state_dict()["param_groups"][0].items():
-        assert np.allclose(
-            parameter,
-            old_policy_optimizer_params[param_name],
-            atol=1.0e-3,
-        )
-    for param_name, parameter in new_model.value_optimizer.state_dict()["param_groups"][0].items():
-        assert np.allclose(
-            parameter,
-            old_value_optimizer_params[param_name],
-            atol=1.0e-3,
-        )
+def test_equal_preds(long_log_with_features, tmp_path):
+    path = (tmp_path / "test").resolve()
+    model = DDPG()
+    model.fit(long_log_with_features)
+    base_pred = model.predict(long_log_with_features, 5)
+    save(model, path)
+    loaded_model = load(path, DDPG)
+    new_pred = loaded_model.predict(long_log_with_features, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
 
 
 @pytest.mark.experimental
