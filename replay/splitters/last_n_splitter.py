@@ -124,7 +124,7 @@ class LastNSplitter(Splitter):
         session_id_processing_strategy: str = "test",
     ):
         """
-        :param N: Number of last interactions or size of the time window.
+        :param N: Number of last interactions or size of the time window in seconds
         :param divide_column: Name of column for dividing
             in dataframe, default: ``query_id``.
         :param time_column_format: Format of the timestamp column,
