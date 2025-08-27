@@ -8,17 +8,14 @@ pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
 
 from pyspark.sql import functions as sf
-from pytorch_ranger import Ranger
 
 from replay.data import get_schema
 from replay.experimental.models import DDPG
 from replay.experimental.models.ddpg import ActorDRR, CriticDRR, OUNoise, ReplayBuffer, StateReprModule
+from replay.experimental.utils.model_handler import save, load
 from tests.utils import (
-    del_files_by_pattern,
-    find_file_by_pattern,
     sparkDataFrameEqual,
 )
-from replay.experimental.utils.model_handler import save, load
 
 SEED = 123
 INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
