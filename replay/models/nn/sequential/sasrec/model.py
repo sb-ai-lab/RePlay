@@ -442,7 +442,7 @@ class SasRecLayers(torch.nn.Module):
 
 class SasRecNormalizer(torch.nn.Module):
     """
-    SasRec notmilization layers
+    SasRec normalization layers
 
     Link: https://arxiv.org/pdf/1808.09781.pdf
     """
