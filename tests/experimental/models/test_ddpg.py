@@ -5,8 +5,8 @@ import pandas as pd
 import pytest
 
 from replay.data import get_schema
-from replay.utils import PYSPARK_AVAILABLE, TORCH_AVAILABLE
 from replay.experimental.utils.model_handler import save, load
+from replay.utils import PYSPARK_AVAILABLE, TORCH_AVAILABLE
 from tests.utils import sparkDataFrameEqual
 
 if PYSPARK_AVAILABLE:
@@ -14,8 +14,15 @@ if PYSPARK_AVAILABLE:
 
 if TORCH_AVAILABLE:
     import torch
+
     from replay.experimental.models import DDPG
-    from replay.experimental.models.ddpg import ActorDRR, CriticDRR, OUNoise, ReplayBuffer, StateReprModule
+    from replay.experimental.models.ddpg import (
+        ActorDRR,
+        CriticDRR,
+        OUNoise,
+        ReplayBuffer,
+        StateReprModule
+    )
 
 SEED = 123
 INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
