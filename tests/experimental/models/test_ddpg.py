@@ -4,16 +4,18 @@ import numpy as np
 import pandas as pd
 import pytest
 
-pyspark = pytest.importorskip("pyspark")
-torch = pytest.importorskip("torch")
-
-from pyspark.sql import functions as sf
-
 from replay.data import get_schema
-from replay.experimental.models import DDPG
-from replay.experimental.models.ddpg import ActorDRR, CriticDRR, OUNoise, ReplayBuffer, StateReprModule
+from replay.utils import PYSPARK_AVAILABLE, TORCH_AVAILABLE
 from replay.experimental.utils.model_handler import save, load
 from tests.utils import sparkDataFrameEqual
+
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import functions as sf
+
+if TORCH_AVAILABLE:
+    import torch
+    from replay.experimental.models import DDPG
+    from replay.experimental.models.ddpg import ActorDRR, CriticDRR, OUNoise, ReplayBuffer, StateReprModule
 
 SEED = 123
 INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
