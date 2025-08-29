@@ -57,6 +57,13 @@ The same goes for new items.
 
 `*` - depends on base models. 
 
+Типы взаимодействий:
+- __binary ratings__ - модель использует как положительные, так и отрицательные взаимодействия.
+- __unary ratings__ - модель учитывает только факт положительного взаимодействия. Все взаимодействия считаются позитивными.
+- __implicit feedback__ - неявные оценки.
+- __unary ratings, explicit feedback__ - модель способна работать как с унарными оценками (факт взаимодействия), так и с явными оценками (например, рейтингами).
+- __depends on loss__ - зависит от функции потерь.
+
 ## Model requirements
 
 ### _Should recommendations be personalized?_ 
@@ -78,8 +85,8 @@ The same goes for new items.
 |Alternating Least Squares    | + | - | - | + |
 |Conservative Q-Learning (Experimental) | + | + | - | + |
 |DDPG (Experimental)          | + | + | - | + |
-|BERT4Rec                     | + | - | - | - |
-|SASRec                       | + | - | - | - |
+|BERT4Rec                     | + | - | - | + |
+|SASRec                       | + | - | - | + |
 |Neural Matrix Factorization (Experimental) | + | - | - | + |
 |SLIM                         | + | - | - | + |
 |ADMM SLIM (Experimental)     | + | - | - | + |
