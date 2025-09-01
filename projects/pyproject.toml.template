@@ -66,8 +66,8 @@ pyspark = [
 lightning = {version = "^2.5.2", optional = true}
 pytorch-optimizer = {version = "^3.8.0", optional = true}
 {% endif %}
-fixed-install-nmslib = "2.1.2"
-hnswlib = "<=0.8.0"
+fixed-install-nmslib = {version = "2.1.2", optional = true}
+hnswlib = {version = "<=0.8.0", optional = true}
 {% if project == "experimental" %}
 pyspark = [
     {version = ">=3.4,<3.5", python = ">=3.11,<3.12"},
@@ -85,9 +85,10 @@ implicit = "^0.7.2"
 
 [tool.poetry.extras]
 spark = ["pyspark"]
+ann = ["fixed-install-nmslib", "hnswlib"]
 torch = ["torch", "pytorch-optimizer", "lightning"]
 torch-openvino = ["torch", "pytorch-optimizer", "lightning", "openvino", "onnx"]
-all = ["pyspark", "torch", "pytorch-optimizer", "lightning", "openvino", "onnx"]
+all = ["pyspark", "torch", "fixed-install-nmslib", "hnswlib", "pytorch-optimizer", "lightning", "openvino", "onnx"]
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "~1.0.0"

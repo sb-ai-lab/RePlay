@@ -936,7 +936,7 @@ typing = ["typing-extensions (>=4.8)"]
 name = "fixed-install-nmslib"
 version = "2.1.2"
 description = "Non-Metric Space Library (NMSLIB)"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "fixed-install-nmslib-2.1.2.tar.gz", hash = "sha256:4584c8efdb247691de1f23afa29b8bf13713dbd9192b68f37f7b10a41dd18a0b"},
@@ -1202,7 +1202,7 @@ test = ["objgraph", "psutil", "setuptools"]
 name = "hnswlib"
 version = "0.8.0"
 description = "hnswlib"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "hnswlib-0.8.0.tar.gz", hash = "sha256:cb6d037eedebb34a7134e7dc78966441dfd04c9cf5ee93911be911ced951c44c"},
@@ -3342,7 +3342,7 @@ test = ["cffi", "hypothesis", "pandas", "pytest", "pytz"]
 name = "pybind11"
 version = "3.0.1"
 description = "Seamless operability between C++11 and Python"
-optional = false
+optional = true
 python-versions = ">=3.8"
 files = [
     {file = "pybind11-3.0.1-py3-none-any.whl", hash = "sha256:aa8f0aa6e0a94d3b64adfc38f560f33f15e589be2175e103c0a33c6bce55ee89"},
@@ -5254,7 +5254,8 @@ test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more_it
 type = ["pytest-mypy"]
 
 [extras]
-all = ["lightning", "onnx", "openvino", "pyspark", "pyspark", "pytorch-optimizer", "torch"]
+all = ["fixed-install-nmslib", "hnswlib", "lightning", "onnx", "openvino", "pyspark", "pyspark", "pytorch-optimizer", "torch"]
+ann = ["fixed-install-nmslib", "hnswlib"]
 spark = ["pyspark", "pyspark"]
 torch = ["lightning", "pytorch-optimizer", "torch"]
 torch-openvino = ["lightning", "onnx", "openvino", "pytorch-optimizer", "torch"]
