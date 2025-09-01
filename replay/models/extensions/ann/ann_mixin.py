@@ -1,7 +1,7 @@
 import importlib
 import logging
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
+from typing import Any, Iterable, Optional, Union, TYPE_CHECKING
 
 from replay.data import Dataset
 from replay.models.base_rec import BaseRecommender
