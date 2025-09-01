@@ -8,7 +8,6 @@ pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
 
 from pyspark.sql import functions as sf
-from pytorch_optimizer import Ranger
 
 from replay.data import get_schema
 from replay.experimental.models import DDPG
@@ -244,7 +243,6 @@ def test_fit_df(df):
     model._fit_df(df)
 
 
-@pytest.mark.skip(reason="DDPG temporarily broken")
 @pytest.mark.experimental
 def test_fit(log, model):
     model.fit(log)
@@ -265,7 +263,6 @@ def test_fit(log, model):
         assert param_shapes[i] == tuple(parameter.shape)
 
 
-@pytest.mark.skip(reason="DDPG temporarily broken")
 @pytest.mark.experimental
 def test_predict(log, model):
     model.noise_type = "gauss"
@@ -278,7 +275,6 @@ def test_predict(log, model):
         pytest.fail()
 
 
-@pytest.mark.skip(reason="DDPG temporarily broken")
 @pytest.mark.experimental
 def test_equal_preds(long_log_with_features, tmp_path):
     path = (tmp_path / "test").resolve()
@@ -291,7 +287,6 @@ def test_equal_preds(long_log_with_features, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
-@pytest.mark.skip(reason="DDPG temporarily broken")
 @pytest.mark.experimental
 def test_env_step(log, model, user=[0, 1, 2]):
     replay_buffer = ReplayBuffer(
