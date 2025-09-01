@@ -1,10 +1,9 @@
 from typing import Generator, NamedTuple, Optional, Sequence, Tuple, Union, cast
+import warnings
 
 import numpy as np
 import torch
 from torch.utils.data import Dataset as TorchDataset
-
-from replay.utils.model_handler import deprecation_warning
 
 from .schema import TensorFeatureInfo, TensorMap, TensorSchema
 from .sequential_dataset import SequentialDataset
@@ -27,16 +26,12 @@ class TorchSequentialDataset(TorchDataset):
     Torch dataset for sequential recommender models
     """
 
-    @deprecation_warning(
-        "`padding_value` parameter will be removed in future versions. "
-        "Instead, you should specify `padding_value` for each column in TensorSchema"
-    )
     def __init__(
         self,
         sequential: SequentialDataset,
         max_sequence_length: int,
         sliding_window_step: Optional[int] = None,
-        padding_value: int = 0,
+        padding_value: Optional[int] = None,
     ) -> None:
         """
         :param sequential: sequential dataset
@@ -47,6 +42,16 @@ class TorchSequentialDataset(TorchDataset):
             Default: `None`
         :param padding_value: value to pad sequences to desired length
         """
+        if padding_value is not None:
+            warnings.warn(
+                "`padding_value` parameter will be removed in future versions. "
+                "Instead, you should specify `padding_value` for each column in TensorSchema",
+                DeprecationWarning, 
+                stacklevel=2
+            )
+        else:
+            padding_value = 0
+
         super().__init__()
         self._sequential = sequential
         self._max_sequence_length = max_sequence_length
@@ -175,17 +180,13 @@ class TorchSequentialValidationDataset(TorchDataset):
     Torch dataset for sequential recommender models that additionally stores ground truth
     """
 
-    @deprecation_warning(
-        "`padding_value` parameter will be removed in future versions. "
-        "Instead, you should specify `padding_value` for each column in TensorSchema"
-    )
     def __init__(
         self,
         sequential: SequentialDataset,
         ground_truth: SequentialDataset,
         train: SequentialDataset,
         max_sequence_length: int,
-        padding_value: int = 0,
+        padding_value: Optional[int] = None,
         sliding_window_step: Optional[int] = None,
         label_feature_name: Optional[str] = None,
     ):

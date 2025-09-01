@@ -24,6 +24,10 @@ SequenceDataFrameLike = Union[PandasDataFrame, PolarsDataFrame]
 _T = TypeVar("_T")
 
 
+class CardinalityOverrideWarning(Warning):
+    """Raised when a Dataset's Cardinality conflicts with an individual feature's."""
+
+
 class SequenceTokenizer:
     """
     Data tokenizer for transformers;
@@ -390,7 +394,8 @@ class SequenceTokenizer:
             if tensor_feature.cardinality is not None:
                 warnings.warn(
                     f"The specified cardinality of {tensor_feature.name} "
-                    f"will be replaced by {dataset_feature.column} from Dataset"
+                    f"will be replaced by {dataset_feature.column} from Dataset",
+                    CardinalityOverrideWarning
                 )
             if dataset_feature.feature_type not in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]:
                 error_msg = (
@@ -401,7 +406,6 @@ class SequenceTokenizer:
             tensor_feature._set_cardinality(dataset_feature.cardinality)
 
     @classmethod
-    @deprecation_warning("with `use_pickle` equals to `True` will be deprecated in future versions")
     def load(cls, path: str, use_pickle: bool = False, **kwargs) -> "SequenceTokenizer":
         """
         Load tokenizer object from the given path.
@@ -443,6 +447,11 @@ class SequenceTokenizer:
             tokenizer._encoder._features_columns = encoder_features_columns
             tokenizer._encoder._encoding_rules = tokenizer_dict["encoder"]["encoding_rules"]
         else:
+            warnings.warn(
+                "with `use_pickle` equals to `True` will be deprecated in future versions",
+                DeprecationWarning, 
+                stacklevel=2
+            )
             with open(path, "rb") as file:
                 tokenizer = pickle.load(file)
 

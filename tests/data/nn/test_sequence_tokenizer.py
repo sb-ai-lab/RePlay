@@ -6,6 +6,8 @@ import pandas as pd
 import polars as pl
 import pytest
 
+from replay.data.nn.sequence_tokenizer import CardinalityOverrideWarning
+
 torch = pytest.importorskip("torch")
 
 from replay.data import FeatureHint, FeatureSource, FeatureType
@@ -185,7 +187,8 @@ def test_item_ids_are_grouped_to_sequences_with_subset(
     dataset, item_id_and_item_features_schema: TensorSchema, request
 ):
     data = request.getfixturevalue(dataset)
-    tokenizer = SequenceTokenizer(item_id_and_item_features_schema).fit(data)
+    with pytest.warns(CardinalityOverrideWarning):
+        tokenizer = SequenceTokenizer(item_id_and_item_features_schema).fit(data)
     sequential_dataset = tokenizer.transform(data, tensor_features_to_keep=["item_id"])
 
     answers = {
@@ -205,7 +208,7 @@ def test_item_ids_are_grouped_to_sequences_with_subset(
     for tensor_feature_name in sequential_dataset.schema.keys():
         assert tensor_feature_name in {"item_id"}
 
-    with pytest.raises((KeyError, pl.ColumnNotFoundError)):
+    with pytest.raises((KeyError, pl.exceptions.ColumnNotFoundError)):
         sequential_dataset.get_sequence(0, "some_item_feature")
 
 
@@ -261,7 +264,8 @@ def test_interactions_features_are_grouped_to_sequences(dataset, request):
     )
 
     tokenizer = SequenceTokenizer(schema)
-    sequential_dataset = tokenizer.fit_transform(data)
+    with pytest.warns(CardinalityOverrideWarning):
+        sequential_dataset = tokenizer.fit_transform(data)
 
     answers = {
         1: [0, 1],
@@ -305,7 +309,8 @@ def test_mismatch_of_features_type_raises_error(dataset, request):
 def test_item_features_are_grouped_to_sequences(dataset, item_id_and_item_features_schema: TensorSchema, request):
     data = request.getfixturevalue(dataset)
     tokenizer = SequenceTokenizer(item_id_and_item_features_schema)
-    sequential_dataset = tokenizer.fit_transform(data)
+    with pytest.warns(CardinalityOverrideWarning):
+        sequential_dataset = tokenizer.fit_transform(data)
 
     _compare_sequence(
         sequential_dataset,
@@ -387,7 +392,8 @@ def test_user_features_are_grouped_to_sequences(dataset, request):
     )
 
     tokenizer = SequenceTokenizer(schema)
-    sequential_dataset = tokenizer.fit_transform(data)
+    with pytest.warns(CardinalityOverrideWarning):
+        sequential_dataset = tokenizer.fit_transform(data)
 
     answers = {
         1: [1, 1],
@@ -428,7 +434,8 @@ def test_user_features_handled_as_scalars(dataset, request):
         ]
     )
     tokenizer = SequenceTokenizer(schema)
-    sequential_dataset = tokenizer.fit_transform(data)
+    with pytest.warns(CardinalityOverrideWarning):
+        sequential_dataset = tokenizer.fit_transform(data)
     answers = {
         1: [1],
         2: [2],
@@ -502,7 +509,8 @@ def test_process_numerical_features(dataset, request):
         ]
     )
     tokenizer = SequenceTokenizer(schema)
-    sequential_dataset = tokenizer.fit_transform(data)
+    with pytest.warns(CardinalityOverrideWarning):
+        sequential_dataset = tokenizer.fit_transform(data)
 
     answers = {
         1: [1.1, 1.2],
@@ -560,7 +568,8 @@ def test_process_categorical_features(dataset, request):
         ]
     )
     tokenizer = SequenceTokenizer(schema)
-    sequential_dataset = tokenizer.fit_transform(data)
+    with pytest.warns(CardinalityOverrideWarning):
+        sequential_dataset = tokenizer.fit_transform(data)
 
     answers = {
         1: [[-1, 0], [1, 2]],
@@ -581,7 +590,8 @@ def test_process_categorical_features(dataset, request):
 @pytest.mark.parametrize("dataset", ["small_dataset", "small_dataset_polars"])
 def test_tokenizer_properties(item_id_and_item_features_schema, dataset, request):
     data = request.getfixturevalue(dataset)
-    tokenizer = SequenceTokenizer(item_id_and_item_features_schema).fit(data)
+    with pytest.warns(CardinalityOverrideWarning):
+        tokenizer = SequenceTokenizer(item_id_and_item_features_schema).fit(data)
     assert isinstance(tokenizer.tensor_schema, TensorSchema)
     assert isinstance(tokenizer.query_id_encoder, LabelEncoder)
     assert isinstance(tokenizer.item_id_encoder, LabelEncoder)

@@ -10,7 +10,6 @@ from replay.data.nn import (
     TorchSequentialDataset,
     TorchSequentialValidationDataset,
 )
-from replay.utils.model_handler import deprecation_warning
 
 
 class SasRecTrainingBatch(NamedTuple):
@@ -31,17 +30,13 @@ class SasRecTrainingDataset(TorchDataset):
     Dataset that generates samples to train SasRec-like model
     """
 
-    @deprecation_warning(
-        "`padding_value` parameter will be removed in future versions. "
-        "Instead, you should specify `padding_value` for each column in TensorSchema"
-    )
     def __init__(
         self,
         sequential: SequentialDataset,
         max_sequence_length: int,
         sequence_shift: int = 1,
         sliding_window_step: Optional[None] = None,
-        padding_value: int = 0,
+        padding_value: Optional[int] = None,
         label_feature_name: Optional[str] = None,
     ) -> None:
         """
@@ -127,15 +122,11 @@ class SasRecPredictionDataset(TorchDataset):
     Dataset that generates samples to infer SasRec-like model
     """
 
-    @deprecation_warning(
-        "`padding_value` parameter will be removed in future versions. "
-        "Instead, you should specify `padding_value` for each column in TensorSchema"
-    )
     def __init__(
         self,
         sequential: SequentialDataset,
         max_sequence_length: int,
-        padding_value: int = 0,
+        padding_value: Optional[int] = None,
     ) -> None:
         """
         :param sequential: Sequential dataset with data to make predictions at.
@@ -179,17 +170,13 @@ class SasRecValidationDataset(TorchDataset):
     Dataset that generates samples to infer and validate SasRec-like model
     """
 
-    @deprecation_warning(
-        "`padding_value` parameter will be removed in future versions. "
-        "Instead, you should specify `padding_value` for each column in TensorSchema"
-    )
     def __init__(
         self,
         sequential: SequentialDataset,
         ground_truth: SequentialDataset,
         train: SequentialDataset,
         max_sequence_length: int,
-        padding_value: int = 0,
+        padding_value: Optional[int] = None,
         label_feature_name: Optional[str] = None,
     ):
         """

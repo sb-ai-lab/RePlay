@@ -1,6 +1,7 @@
 import pytest
 
 from replay.data import FeatureHint
+from replay.data.nn.sequence_tokenizer import CardinalityOverrideWarning
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
