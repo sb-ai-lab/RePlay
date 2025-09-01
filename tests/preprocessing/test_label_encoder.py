@@ -3,6 +3,7 @@ import pandas as pd
 import pytest
 
 from replay.preprocessing import LabelEncoder, LabelEncoderPartialFitWarning, LabelEncodingRule, SequenceEncodingRule
+from replay.preprocessing.label_encoder import LabelEncoderTransformWarning
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame
 from tests.utils import sparkDataFrameEqual
 
@@ -730,7 +731,9 @@ def test_label_encoder_drop_strategy_empty_dataset(request, df_for_labelencoder,
 
     encoder = LabelEncoder([LabelEncodingRule("item1", handle_unknown="drop")])
     encoder.fit(df)
-    transformed = encoder.transform(df_new)
+
+    with pytest.warns(LabelEncoderTransformWarning):
+        transformed = encoder.transform(df_new)
 
     if isinstance(transformed, PandasDataFrame):
         assert transformed.empty
@@ -760,7 +763,9 @@ def test_grouped_label_encoder_drop_strategy_empty_dataset(request, df_for_label
 
     encoder = LabelEncoder([SequenceEncodingRule("item1", handle_unknown="drop")])
     encoder.fit(df)
-    transformed = encoder.transform(df_new)
+
+    with pytest.warns(LabelEncoderTransformWarning):
+        transformed = encoder.transform(df_new)
 
     if isinstance(transformed, PandasDataFrame):
         assert transformed["item1"].apply(len).max() == 0

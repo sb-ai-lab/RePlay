@@ -595,13 +595,13 @@ class EntityDaysFilter(_BaseFilter):
         if self.first:
             filtered_interactions["min_date"] = filtered_interactions.groupby(self.entity_column)[
                 self.timestamp_column
-            ].transform(min)
+            ].transform("min")
             return filtered_interactions[
                 (filtered_interactions[self.timestamp_column] - filtered_interactions["min_date"]).dt.days < self.days
             ].drop(columns=["min_date"])
         filtered_interactions["max_date"] = filtered_interactions.groupby(self.entity_column)[
             self.timestamp_column
-        ].transform(max)
+        ].transform("max")
         return filtered_interactions[
             (filtered_interactions["max_date"] - filtered_interactions[self.timestamp_column]).dt.days < self.days
         ].drop(columns=["max_date"])

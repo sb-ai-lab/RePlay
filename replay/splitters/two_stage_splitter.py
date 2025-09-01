@@ -5,6 +5,7 @@ This splitter split data by two columns.
 from typing import Optional, Tuple
 
 import numpy as np
+import pandas as pd
 import polars as pl
 
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
@@ -212,7 +213,10 @@ class TwoStageSplitter(Splitter):
                 interactions.merge(test_users, how="left", on=self.first_divide_column),
                 query_column=self.query_column,
             )
-        res["is_test"].fillna(False, inplace=True)
+
+        with pd.option_context("future.no_silent_downcasting", True):
+            res["is_test"] = res["is_test"].fillna(False).infer_objects(copy=False)
+
         res = res.merge(counts, on=self.first_divide_column, how="left")
         res["_frac"] = res["_row_num"] / res["count"]
         train = res[(res["_frac"] > self.second_divide_size) | (~res["is_test"])].drop(
@@ -225,7 +229,7 @@ class TwoStageSplitter(Splitter):
         return train, test
 
     def _split_proportion_polars(self, interactions: PolarsDataFrame) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
-        counts = interactions.group_by(self.first_divide_column).count()
+        counts = interactions.group_by(self.first_divide_column).len(name="count")
         test_users = self._get_test_values(interactions).with_columns(pl.lit(True).alias("is_test"))
         if self.shuffle:
             res = self._add_random_partition_polars(
@@ -306,7 +310,10 @@ class TwoStageSplitter(Splitter):
                 interactions.merge(test_users, how="left", on=self.first_divide_column),
                 query_column=self.query_column,
             )
-        res["is_test"].fillna(False, inplace=True)
+
+        with pd.option_context("future.no_silent_downcasting", True):
+            res["is_test"] = res["is_test"].fillna(False).infer_objects(copy=False)
+
         train = res[(res["_row_num"] > self.second_divide_size) | (~res["is_test"])].drop(
             columns=["_row_num", "is_test"]
         )

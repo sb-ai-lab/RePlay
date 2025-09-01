@@ -234,7 +234,7 @@ class Sessionizer:
         if self.max_sessions_per_user:
             interactions = interactions[interactions["nunique"] <= self.max_sessions_per_user]
 
-        interactions.drop(columns=["count", "nunique"], inplace=True)
+        interactions = interactions.drop(columns=["count", "nunique"])
 
         return interactions
 

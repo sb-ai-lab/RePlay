@@ -308,7 +308,7 @@ class LastNSplitter(Splitter):
     ) -> Tuple[PandasDataFrame, PandasDataFrame]:
         res = interactions.copy(deep=True)
         res["diff_timestamp"] = (
-            res.groupby(self.divide_column)[self.timestamp_column].transform(max) - res[self.timestamp_column]
+            res.groupby(self.divide_column)[self.timestamp_column].transform("max") - res[self.timestamp_column]
         )
         res["is_test"] = res["diff_timestamp"] < timedelta
         if self.session_id_column:

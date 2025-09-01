@@ -216,7 +216,7 @@ class RatioSplitter(Splitter):
         interactions["count"] = interactions.groupby(self.divide_column, sort=False)[self.divide_column].transform(len)
         interactions["frac"] = (interactions["row_num"] / interactions["count"]).round(self._precision)
         if self.min_interactions_per_group is not None:
-            interactions["frac"].where(interactions["count"] >= self.min_interactions_per_group, 0, inplace=True)
+            interactions["frac"] = interactions["frac"].where(interactions["count"] >= self.min_interactions_per_group, 0)
 
         interactions["is_test"] = interactions["frac"] > train_size
         if self.session_id_column:
@@ -297,8 +297,8 @@ class RatioSplitter(Splitter):
         interactions["count"] = interactions.groupby(self.divide_column, sort=False)[self.divide_column].transform(len)
         interactions["train_size"] = interactions["count"] - (interactions["count"] * ratio).astype(int)
         if self.min_interactions_per_group is not None:
-            interactions["train_size"].where(
-                interactions["count"] >= self.min_interactions_per_group, interactions["count"], inplace=True
+            interactions["train_size"] = interactions["train_size"].where(
+                interactions["count"] >= self.min_interactions_per_group, interactions["count"]
             )
         else:
             interactions.loc[

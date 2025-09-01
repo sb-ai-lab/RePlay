@@ -1,5 +1,6 @@
 from typing import Optional, Tuple
 
+import pandas as pd
 import polars as pl
 
 from replay.utils import (
@@ -68,7 +69,8 @@ class ColdUserRandomSplitter(Splitter):
         train_users["is_test"] = False
 
         interactions = interactions.merge(train_users, on=self.query_column, how="left")
-        interactions["is_test"].fillna(True, inplace=True)
+        with pd.option_context("future.no_silent_downcasting", True):
+            interactions["is_test"] = interactions["is_test"].fillna(True).infer_objects(copy=False)
 
         train = interactions[~interactions["is_test"]].drop(columns=["is_test"])
         test = interactions[interactions["is_test"]].drop(columns=["is_test"])

@@ -24,6 +24,12 @@ if PYSPARK_AVAILABLE:  # pragma: no cover
 HandleInvalidStrategies = Literal["error", "skip", "keep"]
 
 
+class InternalPandasConversionWarning(Warning):
+    """Raised when an implicit conversion to Pandas is performed"""
+
+class InsufficientSamplesWarning(Warning):
+    """Raised when recieving less samples for binning than expected"""
+
 class BaseDiscretizingRule(abc.ABC):  # pragma: no cover
     """
     Interface of the discretizing rule
@@ -131,7 +137,7 @@ class GreedyDiscretizingRule(BaseDiscretizingRule):
         if total_cnt < max_bin * min_data_in_bin:
             warn_msg = f"Expected at least {max_bin*min_data_in_bin} samples (n_bins*min_data_in_bin) \
 = ({self._n_bins}*{min_data_in_bin}). Got {total_cnt}. The number of bins will be less in the result"
-            warnings.warn(warn_msg)
+            warnings.warn(warn_msg, InsufficientSamplesWarning)
         if num_distinct_values <= max_bin:
             cur_cnt_inbin = 0
             for i in range(num_distinct_values - 1):
@@ -212,7 +218,7 @@ class GreedyDiscretizingRule(BaseDiscretizingRule):
 
     def _fit_polars(self, df: PolarsDataFrame) -> None:
         warn_msg = "DataFrame will be converted to the Pandas type during internal calculations in 'fit'"
-        warnings.warn(warn_msg)
+        warnings.warn(warn_msg, InternalPandasConversionWarning)
         self._fit_pandas(df.to_pandas())
 
     def fit(self, df: DataFrameLike) -> "GreedyDiscretizingRule":
@@ -266,7 +272,7 @@ class GreedyDiscretizingRule(BaseDiscretizingRule):
 
     def _transform_polars(self, df: PolarsDataFrame) -> PolarsDataFrame:
         warn_msg = "DataFrame will be converted to the Pandas type during internal calculations in 'transform'"
-        warnings.warn(warn_msg)
+        warnings.warn(warn_msg, InternalPandasConversionWarning)
         return pl.from_pandas(self._transform_pandas(df.to_pandas()))
 
     def transform(self, df: DataFrameLike) -> DataFrameLike:
@@ -436,7 +442,7 @@ class QuantileDiscretizingRule(BaseDiscretizingRule):
 
     def _fit_polars(self, df: PolarsDataFrame) -> None:
         warn_msg = "DataFrame will be converted to the Pandas type during internal calculations in 'fit'"
-        warnings.warn(warn_msg)
+        warnings.warn(warn_msg, InternalPandasConversionWarning)
         self._fit_pandas(df.to_pandas())
 
     def fit(self, df: DataFrameLike) -> "GreedyDiscretizingRule":
@@ -495,7 +501,7 @@ class QuantileDiscretizingRule(BaseDiscretizingRule):
 
     def _transform_polars(self, df: PolarsDataFrame) -> SparkDataFrame:
         warn_msg = "DataFrame will be converted to the Pandas type during internal calculations in 'transform'"
-        warnings.warn(warn_msg)
+        warnings.warn(warn_msg, InternalPandasConversionWarning)
         return pl.from_pandas(self._transform_pandas(df.to_pandas()))
 
     def transform(self, df: DataFrameLike) -> DataFrameLike:

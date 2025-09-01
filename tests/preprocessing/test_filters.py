@@ -254,8 +254,8 @@ def test_quantile_items_filter(dataset_type, request):
         users_filtered = filtered_dataframe["query_id"].to_list()
         items_init = set(test_dataframe["item_id"].unique().to_list())
         items_filtered = set(filtered_dataframe["item_id"].unique().to_list())
-        items_distribution_init_df = test_dataframe.group_by("item_id").count()
-        items_distribution_filtered_df = filtered_dataframe.group_by("item_id").count()
+        items_distribution_init_df = test_dataframe.group_by("item_id").len(name="count")
+        items_distribution_filtered_df = filtered_dataframe.group_by("item_id").len(name="count")
         items_distribution_init = dict(
             zip(items_distribution_init_df["item_id"].to_list(), items_distribution_init_df["count"].to_list())
         )

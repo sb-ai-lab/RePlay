@@ -58,7 +58,7 @@ def suggest_params(
     :return: dict with parameter values
     """
     suggest_dict = {
-        "uniform": trial.suggest_uniform,
+        "uniform": trial.suggest_float,
         "int": trial.suggest_int,
         "loguniform": trial.suggest_loguniform,
         "loguniform_int": partial(trial.suggest_int, log=True),

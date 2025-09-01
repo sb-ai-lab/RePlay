@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 
 from replay.preprocessing import Discretizer, GreedyDiscretizingRule, QuantileDiscretizingRule
+from replay.preprocessing.discretizer import InsufficientSamplesWarning, InternalPandasConversionWarning
 from replay.utils import PolarsDataFrame, SparkDataFrame
 
 
@@ -96,7 +97,10 @@ def test_greedy_few_rows(column, interactions_100k_pandas):
     n_rows = 5
     few_rows_data = interactions_100k_pandas.copy().iloc[:n_rows]
     rule = GreedyDiscretizingRule(column, n_bins=n_bins)
-    discretizer = Discretizer([rule]).fit(few_rows_data)
+
+    with pytest.warns(InsufficientSamplesWarning):
+        discretizer = Discretizer([rule]).fit(few_rows_data)
+
     bucketed_data = discretizer.transform(few_rows_data)
     vc = bucketed_data[column].value_counts()
     assert len(vc) == n_rows
@@ -112,7 +116,8 @@ def test_greedy_few_rows(column, interactions_100k_pandas):
 def test_greedy_lots_of_repetitions_1(column):
     data = pd.DataFrame([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2], columns=["item_id"])
     rule = GreedyDiscretizingRule(column, n_bins=20)
-    discretizer = Discretizer([rule]).fit(data)
+    with pytest.warns(InsufficientSamplesWarning):
+        discretizer = Discretizer([rule]).fit(data)
     bucketed_data = discretizer.transform(data)
     vc = bucketed_data[column].value_counts()
     assert len(vc) == 2
@@ -127,7 +132,8 @@ def test_greedy_lots_of_repetitions_1(column):
 def test_greedy_lots_of_repetitions_2(column):
     data = pd.DataFrame([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2], columns=["item_id"])
     rule = GreedyDiscretizingRule(column, n_bins=20, min_data_in_bin=12)
-    discretizer = Discretizer([rule]).fit(data)
+    with pytest.warns(InsufficientSamplesWarning):
+        discretizer = Discretizer([rule]).fit(data)
     bucketed_data = discretizer.transform(data)
     vc = bucketed_data[column].value_counts()
     assert len(vc) == 1
@@ -171,12 +177,20 @@ def test_without_nan(column, discretizing_rule, handle_invalid, dataset, request
     n_bins = 20
     dataset = request.getfixturevalue(dataset)
     rule = discretizing_rule(column, n_bins=n_bins, handle_invalid=handle_invalid)
-    discretizer = Discretizer([rule]).fit(dataset)
+
+    discretizer = Discretizer([rule])
+    if isinstance(dataset, PolarsDataFrame):
+        with pytest.warns(InternalPandasConversionWarning):
+            discretizer = discretizer.fit(dataset)
+    else:
+        discretizer = discretizer.fit(dataset)
+
     if isinstance(dataset, SparkDataFrame):
         bucketed_data = discretizer.transform(dataset).toPandas()
         n_rows = dataset.count()
     elif isinstance(dataset, PolarsDataFrame):
-        bucketed_data = discretizer.transform(dataset).to_pandas()
+        with pytest.warns(InternalPandasConversionWarning):
+            bucketed_data = discretizer.transform(dataset).to_pandas()
         n_rows = dataset.shape[0]
     else:
         bucketed_data = discretizer.transform(dataset)
@@ -206,12 +220,20 @@ def test_nan_default(column, discretizing_rule, dataset, request):
     n_bins = 20
     dataset = request.getfixturevalue(dataset)
     rule = discretizing_rule(column, n_bins=n_bins)
-    discretizer = Discretizer([rule]).fit(dataset)
+
+    discretizer = Discretizer([rule])
+    if isinstance(dataset, PolarsDataFrame):
+        with pytest.warns(InternalPandasConversionWarning):
+            discretizer = discretizer.fit(dataset)
+    else:
+        discretizer = discretizer.fit(dataset)
+
     if isinstance(dataset, SparkDataFrame):
         bucketed_data = discretizer.transform(dataset).toPandas()
         n_rows = dataset.count()
     elif isinstance(dataset, PolarsDataFrame):
-        bucketed_data = discretizer.transform(dataset).to_pandas()
+        with pytest.warns(InternalPandasConversionWarning):
+            bucketed_data = discretizer.transform(dataset).to_pandas()
         n_rows = dataset.shape[0]
     else:
         bucketed_data = discretizer.transform(dataset)
@@ -241,12 +263,20 @@ def test_nan_skip(column, discretizing_rule, dataset, request):
     n_bins = 20
     dataset = request.getfixturevalue(dataset)
     rule = discretizing_rule(column, n_bins=n_bins, handle_invalid="skip")
-    discretizer = Discretizer([rule]).fit(dataset)
+
+    discretizer = Discretizer([rule])
+    if isinstance(dataset, PolarsDataFrame):
+        with pytest.warns(InternalPandasConversionWarning):
+            discretizer = discretizer.fit(dataset)
+    else:
+        discretizer = discretizer.fit(dataset)
+
     if isinstance(dataset, SparkDataFrame):
         bucketed_data = discretizer.transform(dataset).toPandas()
         n_rows = dataset.count()
     elif isinstance(dataset, PolarsDataFrame):
-        bucketed_data = discretizer.transform(dataset).to_pandas()
+        with pytest.warns(InternalPandasConversionWarning):
+            bucketed_data = discretizer.transform(dataset).to_pandas()
         n_rows = dataset.shape[0]
     else:
         bucketed_data = discretizer.transform(dataset)
@@ -296,7 +326,8 @@ def test_fit_transform(column, discretizing_rule, dataset, request):
         bucketed_data = Discretizer([rule]).fit_transform(dataset).toPandas()
         n_rows = dataset.count()
     elif isinstance(dataset, PolarsDataFrame):
-        bucketed_data = Discretizer([rule]).fit_transform(dataset).to_pandas()
+        with pytest.warns(InternalPandasConversionWarning):
+            bucketed_data = Discretizer([rule]).fit_transform(dataset).to_pandas()
         n_rows = dataset.shape[0]
     else:
         bucketed_data = Discretizer([rule]).fit_transform(dataset)
@@ -325,7 +356,14 @@ def test_discretizer_save_load(column, discretizing_rule, dataset, tmp_path, req
     path = (tmp_path / "discretizer").resolve()
     n_bins = 20
     rule = discretizing_rule(column, n_bins=n_bins)
-    d = Discretizer([rule]).fit(request.getfixturevalue(dataset))
+    dataset_obj = request.getfixturevalue(dataset)
+
+    if isinstance(dataset_obj, PolarsDataFrame):
+        with pytest.warns(InternalPandasConversionWarning):
+            d = Discretizer([rule]).fit(dataset_obj)
+    else:
+        d = Discretizer([rule]).fit(dataset_obj)
+
     d.save(path)
     assert rule._bins == Discretizer.load(path).rules[0]._bins
     assert rule._handle_invalid == Discretizer.load(path).rules[0]._handle_invalid

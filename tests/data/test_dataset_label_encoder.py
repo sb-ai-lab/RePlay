@@ -2,6 +2,7 @@ import pytest
 
 from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureType
 from replay.data.dataset_utils import DatasetLabelEncoder
+from replay.data.dataset_utils.dataset_label_encoder import LabelEncoderTransformWarning
 from replay.preprocessing import LabelEncoder
 
 
@@ -181,9 +182,10 @@ def test_label_encoder_transform_unknown_feature(full_pandas_dataset):
         interactions=full_pandas_dataset["interactions"],
     )
 
-    encoder.transform(dataset_for_transform)
-    key = "timestamp"
+    with pytest.warns(LabelEncoderTransformWarning):
+        encoder.transform(dataset_for_transform)
 
+    key = "timestamp"
     assert key not in encoder._encoding_rules
 
 
