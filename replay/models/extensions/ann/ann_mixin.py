@@ -1,7 +1,7 @@
 import importlib
 import logging
 from abc import abstractmethod
-from typing import Any, Iterable, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
 
 from replay.data import Dataset
 from replay.models.base_rec import BaseRecommender
@@ -28,7 +28,7 @@ class ANNMixin(BaseRecommender):
     and an index inference in the `_predict_wrap` step.
     """
 
-    index_builder: Optional[IndexBuilder] = None
+    index_builder: Optional["IndexBuilder"] = None
 
     @property
     def _use_ann(self) -> bool:
