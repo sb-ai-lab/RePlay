@@ -7,7 +7,7 @@ build-backend = "poetry_dynamic_versioning.backend"
 
 [tool.black]
 line-length = 120
-target-versions = ["py39", "py310", "py311"]
+target-version = ["py39", "py310", "py311"]
 
 [tool.poetry]
 name = "replay-rec"
