@@ -936,7 +936,7 @@ typing = ["typing-extensions (>=4.8)"]
 name = "fixed-install-nmslib"
 version = "2.1.2"
 description = "Non-Metric Space Library (NMSLIB)"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "fixed-install-nmslib-2.1.2.tar.gz", hash = "sha256:4584c8efdb247691de1f23afa29b8bf13713dbd9192b68f37f7b10a41dd18a0b"},
@@ -1202,7 +1202,7 @@ test = ["objgraph", "psutil", "setuptools"]
 name = "hnswlib"
 version = "0.8.0"
 description = "hnswlib"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "hnswlib-0.8.0.tar.gz", hash = "sha256:cb6d037eedebb34a7134e7dc78966441dfd04c9cf5ee93911be911ced951c44c"},
@@ -3030,18 +3030,18 @@ testing = ["coverage", "pytest", "pytest-benchmark"]
 
 [[package]]
 name = "polars"
-version = "1.32.3"
+version = "1.33.0"
 description = "Blazingly fast DataFrame library"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "polars-1.32.3-cp39-abi3-macosx_10_12_x86_64.whl", hash = "sha256:c7c472ea1d50a5104079cb64e34f78f85774bcc69b875ba8daf21233f4c70d42"},
-    {file = "polars-1.32.3-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:fd87275f0cc795e72a2030b58293198cfa748d4b009cf52218e27db5397ed07f"},
-    {file = "polars-1.32.3-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c9a9b9668ef310e5a77a7e7daa9c753874779c8da52e93f654bfd7953eb4b60b"},
-    {file = "polars-1.32.3-cp39-abi3-manylinux_2_24_aarch64.whl", hash = "sha256:c8f5d2f43b80b68e39bfaa2948ce632563633466576f12e74e8560d6481f5851"},
-    {file = "polars-1.32.3-cp39-abi3-win_amd64.whl", hash = "sha256:db56a7cb4898e173d62634e182f74bdff744c62be5470e0fe20df8d10f659af7"},
-    {file = "polars-1.32.3-cp39-abi3-win_arm64.whl", hash = "sha256:a2e3f87c60f54eefe67b1bebd3105918d84df0fd6d59cc6b870c2f16d2d26ca1"},
-    {file = "polars-1.32.3.tar.gz", hash = "sha256:57c500dc1b5cba49b0589034478db031815f3d57a20cb830b05ecee1a9ba56b1"},
+    {file = "polars-1.33.0-cp39-abi3-macosx_10_12_x86_64.whl", hash = "sha256:664ef1c0988e4098518c6acfdd5477f2e11611f4ac8a269db55b94ea4978d0e5"},
+    {file = "polars-1.33.0-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:2477b720c466914549f0f2cfc69f617a602d91e9d90205b64d795ed1ecf99b3c"},
+    {file = "polars-1.33.0-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bd9b76abc22fdb20a005c629ee8c056b0545433f18854b929fb54e351d1b98ee"},
+    {file = "polars-1.33.0-cp39-abi3-manylinux_2_24_aarch64.whl", hash = "sha256:6e78026c2ece38c45c6ee0416e2594980652d89deee13a15bd9f83743ec8fa8d"},
+    {file = "polars-1.33.0-cp39-abi3-win_amd64.whl", hash = "sha256:7973568178117667871455d7969c1929abb890597964ca89290bfd89e4366980"},
+    {file = "polars-1.33.0-cp39-abi3-win_arm64.whl", hash = "sha256:c7d614644eda028907965f8203ac54b9a4f5b90303de2723bf1c1087433a0914"},
+    {file = "polars-1.33.0.tar.gz", hash = "sha256:50ad2ab96c701be2c6ac9b584d9aa6a385f228f6c06de15b88c5d10df7990d56"},
 ]
 
 [package.extras]
@@ -3342,7 +3342,7 @@ test = ["cffi", "hypothesis", "pandas", "pytest", "pytz"]
 name = "pybind11"
 version = "3.0.1"
 description = "Seamless operability between C++11 and Python"
-optional = false
+optional = true
 python-versions = ">=3.8"
 files = [
     {file = "pybind11-3.0.1-py3-none-any.whl", hash = "sha256:aa8f0aa6e0a94d3b64adfc38f560f33f15e589be2175e103c0a33c6bce55ee89"},
@@ -5254,7 +5254,8 @@ test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more_it
 type = ["pytest-mypy"]
 
 [extras]
-all = ["lightning", "onnx", "openvino", "pyspark", "pyspark", "pytorch-optimizer", "torch"]
+all = ["fixed-install-nmslib", "hnswlib", "lightning", "onnx", "openvino", "pyspark", "pyspark", "pytorch-optimizer", "torch"]
+ann = ["fixed-install-nmslib", "hnswlib"]
 spark = ["pyspark", "pyspark"]
 torch = ["lightning", "pytorch-optimizer", "torch"]
 torch-openvino = ["lightning", "onnx", "openvino", "pytorch-optimizer", "torch"]
@@ -5262,4 +5263,4 @@ torch-openvino = ["lightning", "onnx", "openvino", "pytorch-optimizer", "torch"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9, <3.12"
-content-hash = "30abcaa2d2bb6cee925f0f707d881ce8f8cca61bbda5999e5bbeeb82c6b0f118"
+content-hash = "4fe74a4b30ed7a0ff239d9a73a689040e499ae2edd5a78aad638e34bbb2efb29"
