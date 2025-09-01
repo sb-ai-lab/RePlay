@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import numpy as np
+import pandas as pd
 import scipy.sparse as sp
 import torch
 import tqdm
@@ -223,7 +224,7 @@ class ActorDRR(nn.Module):
 
         assert scores.shape == items_mask.shape
 
-        scores *= items_mask
+        scores = scores * items_mask
 
         if return_scores:
             return scores, torch.argmax(scores, dim=1)
@@ -557,6 +558,11 @@ class DDPG(Recommender):
         self.critic_heads_q = critic_heads_q
         self.user_batch_size = user_batch_size
         self.min_trajectory_len = min_trajectory_len
+
+        self.memory = None
+        self.fit_users = None
+        self.fit_items = None
+
         if n_jobs is not None:
             torch.set_num_threads(n_jobs)
 
@@ -578,8 +584,15 @@ class DDPG(Recommender):
             "seed": self.seed,
             "user_num": self.user_num,
             "item_num": self.item_num,
-            "log_dir": self.log_dir,
             "exact_embeddings_size": self.exact_embeddings_size,
+        }
+
+    @property
+    def _dataframes(self):
+        return {
+            "memory": self.memory,
+            "fit_users": self.fit_users,
+            "fit_items": self.fit_items,
         }
 
     def _batch_pass(self, batch: dict) -> Dict[str, Any]:
@@ -591,21 +604,20 @@ class DDPG(Recommender):
         next_memory = batch["next_memory"]
         done = batch["done"]
         sample_weight = batch["sample_weight"]
-
         state = self.model.state_repr(user, memory)
-        policy_loss = self.value_net(state, self.model(user, memory))
-        policy_loss = -policy_loss.mean()
 
-        next_state = self.model.state_repr(next_user, next_memory)
-        next_action = self.target_model(next_user, next_memory)
-        target_value = self.target_value_net(next_state, next_action.detach())
-        expected_value = reward + (1.0 - done) * self.gamma * target_value.squeeze(1)  # smth strange, check article
+        with torch.no_grad():
+            next_state = self.model.state_repr(next_user, next_memory)
+            next_action = self.target_model(next_user, next_memory)
+            target_value = self.target_value_net(next_state, next_action.detach())
+            expected_value = reward + (1.0 - done) * self.gamma * target_value.squeeze(1)  # smth strange, check article
+            expected_value = torch.clamp(expected_value, self.min_value, self.max_value)
 
-        expected_value = torch.clamp(expected_value, self.min_value, self.max_value)
+        proto_action = self.model.layers(state)
+        policy_loss = -self.value_net(state.detach(), proto_action).mean()
 
         value = self.value_net(state, action)
         value_loss = (((value - expected_value.detach())).pow(2) * sample_weight).squeeze(1).mean()
-
         return policy_loss, value_loss
 
     @staticmethod
@@ -731,12 +743,12 @@ class DDPG(Recommender):
 
     def _run_train_step(self, batch: dict) -> None:
         policy_loss, value_loss = self._batch_pass(batch)
+        total_loss = policy_loss + value_loss
 
         self.policy_optimizer.zero_grad()
-        policy_loss.backward(retain_graph=True)
-        self.policy_optimizer.step()
         self.value_optimizer.zero_grad()
-        value_loss.backward()
+        total_loss.backward()
+        self.policy_optimizer.step()
         self.value_optimizer.step()
 
         self._target_update(self.target_value_net, self.value_net)
@@ -804,7 +816,6 @@ class DDPG(Recommender):
 
         self._target_update(self.target_value_net, self.value_net, soft_tau=1)
         self._target_update(self.target_model, self.model, soft_tau=1)
-
         self.policy_optimizer = Ranger(
             self.model.parameters(),
             lr=self.policy_lr,
@@ -889,17 +900,17 @@ class DDPG(Recommender):
             self.user_num,
             self.item_num,
         )
-
-        fit_users = getattr(self, "fit_users", None)
-        fit_items = getattr(self, "fit_items", None)
+        memory_df = pd.DataFrame(
+            self.model.environment.memory,
+            columns=["item_n", "item_n-1", "item_n-2", "item_n-3", "item_n-4"],
+        )
+        memory_df.loc[:, "user_id_for_order"] = np.arange(self.user_num)
+        self.memory = convert2spark(memory_df)
 
         torch.save(
             {
-                "fit_users": fit_users.toPandas() if fit_users is not None else None,
-                "fit_items": fit_items.toPandas() if fit_items is not None else None,
                 "actor": self.model.state_dict(),
                 "critic": self.value_net.state_dict(),
-                "memory": self.model.environment.memory,
                 "policy_optimizer": self.policy_optimizer.state_dict(),
                 "value_optimizer": self.value_optimizer.state_dict(),
             },
@@ -913,11 +924,12 @@ class DDPG(Recommender):
         checkpoint = torch.load(path)
         self.model.load_state_dict(checkpoint["actor"])
         self.value_net.load_state_dict(checkpoint["critic"])
-        self.model.environment.memory = checkpoint["memory"]
         self.policy_optimizer.load_state_dict(checkpoint["policy_optimizer"])
         self.value_optimizer.load_state_dict(checkpoint["value_optimizer"])
-        self.fit_users = convert2spark(checkpoint["fit_users"])
-        self.fit_items = convert2spark(checkpoint["fit_items"])
 
         self._target_update(self.target_value_net, self.value_net, soft_tau=1)
         self._target_update(self.target_model, self.model, soft_tau=1)
+
+        memory_df = self.memory.toPandas()
+        memory_df = memory_df.sort_values(by="user_id_for_order").drop("user_id_for_order", axis=1)
+        self.model.environment.memory = torch.tensor(memory_df.to_numpy())
