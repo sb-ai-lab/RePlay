@@ -1,13 +1,14 @@
 import importlib
 import logging
 from abc import abstractmethod
-from typing import Any, Dict, Iterable, Optional, Union
+from typing import Any, Iterable, Optional, Union, TYPE_CHECKING
 
 from replay.data import Dataset
 from replay.models.base_rec import BaseRecommender
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
-from .index_builders.base_index_builder import IndexBuilder
+if TYPE_CHECKING:
+    from .index_builders.base_index_builder import IndexBuilder
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -51,14 +52,14 @@ class ANNMixin(BaseRecommender):
         """
 
     @abstractmethod
-    def _get_ann_build_params(self, interactions: SparkDataFrame) -> Dict[str, Any]:
+    def _get_ann_build_params(self, interactions: SparkDataFrame) -> dict[str, Any]:
         """Implementation of this method must return dictionary
         with arguments for `_build_ann_index` method.
 
         Args:
             interactions: DataFrame with interactions
 
-        Returns: Dictionary with arguments to build index. For example: {
+        Returns: dictionary with arguments to build index. For example: {
             "id_col": "item_idx",
             "features_col": "item_factors",
             ...
@@ -123,11 +124,11 @@ class ANNMixin(BaseRecommender):
         return queries
 
     @abstractmethod
-    def _get_ann_infer_params(self) -> Dict[str, Any]:
+    def _get_ann_infer_params(self) -> dict[str, Any]:
         """Implementation of this method must return dictionary
         with arguments for `_infer_ann_index` method.
 
-        Returns: Dictionary with arguments to infer index. For example: {
+        Returns: dictionary with arguments to infer index. For example: {
             "features_col": "user_vector",
             ...
         }
