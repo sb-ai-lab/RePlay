@@ -4,7 +4,13 @@ import numpy as np
 import pandas as pd
 import polars as pl
 
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
+from replay.utils import (
+    PYSPARK_AVAILABLE,
+    DataFrameLike,
+    PandasDataFrame,
+    PolarsDataFrame,
+    SparkDataFrame,
+)
 
 from .base_splitter import Splitter
 
@@ -118,14 +124,12 @@ class LastNSplitter(Splitter):
         session_id_processing_strategy: str = "test",
     ):
         """
-        :param N: Array of interactions/timedelta to split.
+        :param N: Number of last interactions or size of the time window in seconds
         :param divide_column: Name of column for dividing
             in dataframe, default: ``query_id``.
-        :param time_column_format: Format of time_column,
-            needs for convert time_column into unix_timestamp type.
-            If strategy is set to 'interactions', then you can omit this parameter.
-            If time_column has already transformed into unix_timestamp type,
-            then you can omit this parameter.
+        :param time_column_format: Format of the timestamp column,
+            used for converting string dates to a numerical timestamp when strategy is 'timedelta'.
+            If the column is already a datetime object or a numerical timestamp, this parameter is ignored.
             default: ``yyyy-MM-dd HH:mm:ss``
         :param strategy: Defines the type of data splitting.
             Must be ``interactions`` or ``timedelta``.
@@ -223,7 +227,8 @@ class LastNSplitter(Splitter):
         time_column_type = dict(interactions.dtypes)[self.timestamp_column]
         if time_column_type == "date":
             interactions = interactions.withColumn(
-                self.timestamp_column, sf.unix_timestamp(self.timestamp_column, self.time_column_format)
+                self.timestamp_column,
+                sf.unix_timestamp(self.timestamp_column, self.time_column_format),
             )
 
         return interactions
@@ -260,7 +265,8 @@ class LastNSplitter(Splitter):
         self, interactions: SparkDataFrame, n: int
     ) -> Tuple[SparkDataFrame, SparkDataFrame]:
         interactions = interactions.withColumn(
-            "count", sf.count(self.timestamp_column).over(Window.partitionBy(self.divide_column))
+            "count",
+            sf.count(self.timestamp_column).over(Window.partitionBy(self.divide_column)),
         )
         # float(n) - because DataFrame.filter is changing order
         # of sorted DataFrame to descending
@@ -317,7 +323,8 @@ class LastNSplitter(Splitter):
         self, interactions: SparkDataFrame, timedelta: int
     ) -> Tuple[SparkDataFrame, SparkDataFrame]:
         inter_with_max_time = interactions.withColumn(
-            "max_timestamp", sf.max(self.timestamp_column).over(Window.partitionBy(self.divide_column))
+            "max_timestamp",
+            sf.max(self.timestamp_column).over(Window.partitionBy(self.divide_column)),
         )
         inter_with_diff = inter_with_max_time.withColumn(
             "diff_timestamp", sf.col("max_timestamp") - sf.col(self.timestamp_column)
