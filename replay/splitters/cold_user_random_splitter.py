@@ -38,12 +38,16 @@ class ColdUserRandomSplitter(Splitter):
         item_column: Optional[str] = "item_id",
     ):
         """
-        :param test_size: fraction of users to be in test
-        :param drop_cold_items: flag to drop cold items from test
-        :param drop_cold_users: flag to drop cold users from test
-        :param seed: random seed
-        :param query_column: query id column name
-        :param item_column: item id column name
+        :param test_size: The proportion of users to allocate to the test set.
+            Must be a float between 0.0 and 1.0.
+        :param drop_cold_items: Drop items from test DataFrame
+            which are not in train DataFrame, default: False.
+        :param seed: Seed for the random number generator to ensure
+            reproducibility of the split, default: None.
+        :param query_column: Name of query interaction column.
+            default: ``query_id``.
+        :param item_column: Name of item interaction column.
+            default: ``item_id``.
         """
         super().__init__(
             drop_cold_items=drop_cold_items,
@@ -81,7 +85,9 @@ class ColdUserRandomSplitter(Splitter):
             seed=self.seed,
         )
         interactions = interactions.join(
-            train_users.withColumn("is_test", sf.lit(False)), on=self.query_column, how="left"
+            train_users.withColumn("is_test", sf.lit(False)),
+            on=self.query_column,
+            how="left",
         ).na.fill({"is_test": True})
 
         train = interactions.filter(~sf.col("is_test")).drop("is_test")
