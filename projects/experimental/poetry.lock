@@ -6610,7 +6610,7 @@ type = ["pytest-mypy"]
 
 [extras]
 all = ["fixed-install-nmslib", "hnswlib", "lightning", "onnx", "openvino", "pyspark", "pyspark", "pytorch-optimizer", "torch"]
-ann = ["fixed-install-nmslib", "hnswlib"]
+sim-search = ["fixed-install-nmslib", "hnswlib", "pyspark", "pyspark"]
 spark = ["pyspark", "pyspark"]
 torch = ["lightning", "pytorch-optimizer", "torch"]
 torch-openvino = ["lightning", "onnx", "openvino", "pytorch-optimizer", "torch"]
@@ -6618,4 +6618,4 @@ torch-openvino = ["lightning", "onnx", "openvino", "pytorch-optimizer", "torch"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9, <3.12"
-content-hash = "78e4068d00a8048dde236eab4233a9aa92ec62df1a9711b9a8ca69932948262a"
+content-hash = "4dde2d219cdc35b48024b68d68d6e1925653e42c3e52c350d267580a6b224c9a"
