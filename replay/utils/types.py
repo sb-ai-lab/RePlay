@@ -1,3 +1,4 @@
+from importlib.util import find_spec
 from typing import Iterable, Union
 
 from pandas import DataFrame as PandasDataFrame
@@ -9,29 +10,16 @@ class MissingImportType:
     Replacement class with missing import
     """
 
+PYSPARK_AVAILABLE = find_spec("pyspark")
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import DataFrame
 
-try:
-    from pyspark.sql import DataFrame as SparkDataFrame
-
-    PYSPARK_AVAILABLE = True
-except ImportError:
-    PYSPARK_AVAILABLE = False
+    SparkDataFrame = DataFrame
+else:
     SparkDataFrame = MissingImportType
 
-try:
-    import torch  # noqa: F401
-
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
-
-try:
-    import onnx  # noqa: F401
-    import openvino  # noqa: F401
-
-    OPENVINO_AVAILABLE = TORCH_AVAILABLE
-except ImportError:
-    OPENVINO_AVAILABLE = False
+TORCH_AVAILABLE = find_spec("torch")
+OPENVINO_AVAILABLE = TORCH_AVAILABLE and find_spec("onnx") and find_spec("openvino")
 
 DataFrameLike = Union[PandasDataFrame, SparkDataFrame, PolarsDataFrame]
 IntOrList = Union[Iterable[int], int]

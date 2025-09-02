@@ -5,8 +5,6 @@ import pytest
 
 from replay.data import Dataset, get_schema
 from replay.models import ItemKNN
-from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
-from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
 from replay.utils import PYSPARK_AVAILABLE
 from tests.utils import create_dataset
 
@@ -70,6 +68,9 @@ def model():
 
 @pytest.fixture(scope="module")
 def model_with_ann():
+    from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+    from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
+
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
         m=10,
@@ -175,7 +176,7 @@ def test_weighting_raises(log, tf_idf_model):
         log = tf_idf_model._reweight_interactions(dataset.interactions)
 
 
-@pytest.mark.spark
+@pytest.mark.sim_search
 def test_knn_predict_filter_seen_items(log, model, model_with_ann):
     dataset = create_dataset(log)
     model.fit(dataset)
@@ -190,7 +191,7 @@ def test_knn_predict_filter_seen_items(log, model, model_with_ann):
     assert recs1.item_idx.equals(recs2.item_idx)
 
 
-@pytest.mark.spark
+@pytest.mark.sim_search
 def test_knn_predict(log_2items_per_user, model, model_with_ann):
     dataset = create_dataset(log_2items_per_user)
     model.fit(dataset)
