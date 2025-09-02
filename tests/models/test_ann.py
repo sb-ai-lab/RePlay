@@ -1,7 +1,7 @@
 import pytest
 
-_ = pytest.importorskip("hnswlib", f"Optional dependency hnswlib not installed")
-_ = pytest.importorskip("nmslib", f"Optional dependency nmslib not installed")
+_ = pytest.importorskip("hnswlib", "Optional dependency hnswlib not installed")
+_ = pytest.importorskip("nmslib", "Optional dependency nmslib not installed")
 
 from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
 from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam

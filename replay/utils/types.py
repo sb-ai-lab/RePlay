@@ -10,6 +10,7 @@ class MissingImportType:
     Replacement class with missing import
     """
 
+
 PYSPARK_AVAILABLE = find_spec("pyspark")
 if PYSPARK_AVAILABLE:
     from pyspark.sql import DataFrame
