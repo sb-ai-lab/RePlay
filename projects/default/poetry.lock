@@ -5263,4 +5263,8 @@ torch-openvino = ["lightning", "onnx", "openvino", "pytorch-optimizer", "torch"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9, <3.12"
+<<<<<<< HEAD
 content-hash = "6607925e2a0151dcb10c14a1c65520ce4acd9886dca257cfc813faa806dc75f8"
+=======
+content-hash = "4fe74a4b30ed7a0ff239d9a73a689040e499ae2edd5a78aad638e34bbb2efb29"
+>>>>>>> conditional-imports
