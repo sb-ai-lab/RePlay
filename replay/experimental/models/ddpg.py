@@ -716,18 +716,16 @@ class DDPG(Recommender):
         :param data: pandas DataFrame
         """
         data = data[["user_idx", "item_idx", "relevance"]]
-        users = data["user_idx"].values.tolist()
-        items = data["item_idx"].values.tolist()
-        scores = data["relevance"].values.tolist()
+        users = data["user_idx"].values
+        items = data["item_idx"].values
+        scores = data["relevance"].values
 
         user_num = max(users) + 1
         item_num = max(items) + 1
 
-        train_mat = defaultdict(float)
-        for user, item, rel in zip(users, items, scores):
-            train_mat[user, item] = rel
         train_matrix = sp.dok_matrix((user_num, item_num), dtype=np.float32)
-        dict.update(train_matrix, train_mat)
+        for user, item, rel in zip(users, items, scores):
+            train_matrix[user, item] = rel
 
         appropriate_users = data["user_idx"].unique()
 
