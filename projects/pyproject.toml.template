@@ -85,7 +85,7 @@ implicit = "^0.7.2"
 
 [tool.poetry.extras]
 spark = ["pyspark"]
-ann = ["fixed-install-nmslib", "hnswlib"]
+sim-search = ["fixed-install-nmslib", "hnswlib", "pyspark"]
 torch = ["torch", "pytorch-optimizer", "lightning"]
 torch-openvino = ["torch", "pytorch-optimizer", "lightning", "openvino", "onnx"]
 all = ["pyspark", "torch", "fixed-install-nmslib", "hnswlib", "pytorch-optimizer", "lightning", "openvino", "onnx"]
