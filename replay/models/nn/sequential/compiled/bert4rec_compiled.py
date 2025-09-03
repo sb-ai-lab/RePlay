@@ -130,9 +130,18 @@ class Bert4RecCompiled(BaseCompiledModel):
             candidates_to_score = torch.zeros((1,)).long()
             model_input_names += ["candidates_to_score"]
             model_dynamic_axes_in_input["candidates_to_score"] = {0: "num_candidates_to_score"}
-            model_input_sample = ({item_seq_name: item_sequence}, padding_mask, tokens_mask, candidates_to_score)
+            model_input_sample = (
+                {item_seq_name: item_sequence},
+                padding_mask,
+                tokens_mask,
+                candidates_to_score,
+            )
         else:
-            model_input_sample = ({item_seq_name: item_sequence}, padding_mask, tokens_mask)
+            model_input_sample = (
+                {item_seq_name: item_sequence},
+                padding_mask,
+                tokens_mask,
+            )
 
         # Need to disable "Better Transformer" optimizations that interfere with the compilation process
         if hasattr(torch.backends, "mha"):

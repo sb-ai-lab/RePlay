@@ -6,6 +6,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Union
 
+import pandas as pd
 from scipy.stats import norm
 
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, IntOrList, NumType, PandasDataFrame, SparkDataFrame
@@ -338,7 +339,7 @@ class Metric(ABC):
                 .select("count", "value")
                 .toPandas()
             )
-            res = res.append(val, ignore_index=True)
+            res = pd.concat([res, val], ignore_index=True)
         return res
 
     @staticmethod
