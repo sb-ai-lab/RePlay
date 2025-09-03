@@ -1,4 +1,3 @@
-from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -7,7 +6,7 @@ import pandas as pd
 import scipy.sparse as sp
 import torch
 import tqdm
-from pytorch_ranger import Ranger
+from pytorch_optimizer import Ranger
 from torch import nn
 from torch.distributions.gamma import Gamma
 
@@ -716,18 +715,16 @@ class DDPG(Recommender):
         :param data: pandas DataFrame
         """
         data = data[["user_idx", "item_idx", "relevance"]]
-        users = data["user_idx"].values.tolist()
-        items = data["item_idx"].values.tolist()
-        scores = data["relevance"].values.tolist()
+        users = data["user_idx"].values
+        items = data["item_idx"].values
+        scores = data["relevance"].values
 
-        user_num = max(users) + 1
-        item_num = max(items) + 1
+        user_num = int(max(users)) + 1
+        item_num = int(max(items)) + 1
 
-        train_mat = defaultdict(float)
-        for user, item, rel in zip(users, items, scores):
-            train_mat[user, item] = rel
         train_matrix = sp.dok_matrix((user_num, item_num), dtype=np.float32)
-        dict.update(train_matrix, train_mat)
+        for user, item, rel in zip(users, items, scores):
+            train_matrix[user, item] = rel
 
         appropriate_users = data["user_idx"].unique()
 
@@ -901,7 +898,7 @@ class DDPG(Recommender):
             self.item_num,
         )
         memory_df = pd.DataFrame(
-            self.model.environment.memory,
+            self.model.environment.memory.cpu(),
             columns=["item_n", "item_n-1", "item_n-2", "item_n-3", "item_n-4"],
         )
         memory_df.loc[:, "user_id_for_order"] = np.arange(self.user_num)
@@ -932,4 +929,4 @@ class DDPG(Recommender):
 
         memory_df = self.memory.toPandas()
         memory_df = memory_df.sort_values(by="user_id_for_order").drop("user_id_for_order", axis=1)
-        self.model.environment.memory = torch.tensor(memory_df.to_numpy())
+        self.model.environment.memory = torch.tensor(memory_df.to_numpy()).to(self.device)

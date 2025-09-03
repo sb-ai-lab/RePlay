@@ -131,7 +131,9 @@ class BaseCompiledModel:
         self._output_name = compiled_model.output().names.pop()
 
     @staticmethod
-    def _validate_num_candidates_to_score(num_candidates: Union[int, None]) -> Union[int, None]:
+    def _validate_num_candidates_to_score(
+        num_candidates: Union[int, None],
+    ) -> Union[int, None]:
         """Check if num_candidates param is proper"""
 
         if num_candidates is None:
@@ -199,7 +201,7 @@ class BaseCompiledModel:
 
         if onnx_path is None:
             is_saveble = False
-            onnx_file = tempfile.NamedTemporaryFile(suffix=".onnx")  # noqa: SIM115
+            onnx_file = tempfile.NamedTemporaryFile(suffix=".onnx")
             onnx_path = onnx_file.name
         else:
             is_saveble = True
