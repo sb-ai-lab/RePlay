@@ -2,10 +2,12 @@ import importlib
 import logging
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
+import warnings
+from typing_extensions import TypeAlias
 
 from replay.data import Dataset
-from replay.models.base_rec import BaseRecommender
-from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame, ANN_AVAILABLE, FeatureUnavailableWarning
+from replay.utils.common import RecommenderCommons
 
 if TYPE_CHECKING:
     from .index_builders.base_index_builder import IndexBuilder
@@ -20,177 +22,214 @@ if PYSPARK_AVAILABLE:
 
 logger = logging.getLogger("replay")
 
-
-class ANNMixin(BaseRecommender):
-    """
-    This class overrides the `_fit_wrap` and `_predict_wrap` methods of the base class,
-    adding an index construction in the `_fit_wrap` step
-    and an index inference in the `_predict_wrap` step.
-    """
-
-    index_builder: Optional["IndexBuilder"] = None
-
-    @property
-    def _use_ann(self) -> bool:
+if ANN_AVAILABLE:
+    class ANNMixin(RecommenderCommons):
         """
-        Property that determines whether the ANN (index) is used.
-        If `True`, then the index will be built (at the `fit` stage)
-        and index will be inferred (at the `predict` stage).
-        """
-        return self.index_builder is not None
-
-    @abstractmethod
-    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:
-        """Implementations of this method must return a dataframe with item vectors.
-        Item vectors from this method are used to build the index.
-
-        Args:
-            log: DataFrame with interactions
-
-        Returns: DataFrame[item_idx int, vector array<double>] or DataFrame[vector array<double>].
-        Column names in dataframe can be anything.
+        This class overrides the `_fit_wrap` and `_predict_wrap` methods of the base class,
+        adding an index construction in the `_fit_wrap` step
+        and an index inference in the `_predict_wrap` step.
         """
 
-    @abstractmethod
-    def _get_ann_build_params(self, interactions: SparkDataFrame) -> dict[str, Any]:
-        """Implementation of this method must return dictionary
-        with arguments for `_build_ann_index` method.
+        index_builder: Optional["IndexBuilder"] = None
 
-        Args:
-            interactions: DataFrame with interactions
+        @property
+        def _use_ann(self) -> bool:
+            """
+            Property that determines whether the ANN (index) is used.
+            If `True`, then the index will be built (at the `fit` stage)
+            and index will be inferred (at the `predict` stage).
+            """
+            return self.index_builder is not None
 
-        Returns: dictionary with arguments to build index. For example: {
-            "id_col": "item_idx",
-            "features_col": "item_factors",
-            ...
-        }
+        @abstractmethod
+        def _configure_index_builder(self, interactions: SparkDataFrame) -> tuple[SparkDataFrame, dict]:
+            """Implementation of this method must return dictionary
+            with arguments for for an index builder's`build_index` method.
 
-        """
+            Args:
+                interactions: DataFrame with interactions
 
-    def _fit_wrap(
-        self,
-        dataset: Dataset,
-    ) -> None:
-        """Wrapper extends `_fit_wrap`, adds construction of ANN index by flag.
+            Returns: 
+                vectors: DataFrame[item_idx int, vector array<double>] or DataFrame[vector array<double>].
+            Column names in dataframe can be anything.
+                ann_params: Dictionary with arguments to build index. For example: {
+                "id_col": "item_idx",
+                "features_col": "item_factors",
+                ...
+            }
 
-        Args:
-            dataset: historical interactions with query/item features
-                ``[user_id, item_id, timestamp, rating]``
-        """
-        super()._fit_wrap(dataset)
+            """
 
-        if self._use_ann:
-            vectors = self._get_vectors_to_build_ann(dataset.interactions)
-            ann_params = self._get_ann_build_params(dataset.interactions)
-            self.index_builder.build_index(vectors, **ann_params)
+        def _fit_wrap(
+            self,
+            dataset: Dataset,
+        ) -> None:
+            """Wrapper extends `_fit_wrap`, adds construction of ANN index by flag.
 
-    @abstractmethod
-    def _get_vectors_to_infer_ann_inner(self, interactions: SparkDataFrame, queries: SparkDataFrame) -> SparkDataFrame:
-        """Implementations of this method must return a dataframe with user vectors.
-        User vectors from this method are used to infer the index.
+            Args:
+                dataset: historical interactions with query/item features
+                    ``[user_id, item_id, timestamp, rating]``
+            """
+            super()._fit_wrap(dataset)
 
-        Args:
-            interactions: DataFrame with interactions
-            queries: DataFrame with queries
+            if self._use_ann:
+                vectors, ann_params = self._configure_index_builder(dataset.interactions)
+                self.index_builder.build_index(vectors, **ann_params)
 
-        Returns: DataFrame[user_idx int, vector array<double>] or DataFrame[vector array<double>].
-        Vector column name in dataframe can be anything.
-        """
+        @abstractmethod
+        def _get_vectors_to_infer_ann_inner(self, interactions: SparkDataFrame, queries: SparkDataFrame) -> SparkDataFrame:
+            """Implementations of this method must return a dataframe with user vectors.
+            User vectors from this method are used to infer the index.
 
-    def _get_vectors_to_infer_ann(
-        self, interactions: SparkDataFrame, queries: SparkDataFrame, filter_seen_items: bool
-    ) -> SparkDataFrame:
-        """This method wraps `_get_vectors_to_infer_ann_inner`
-        and adds seen items to dataframe with user vectors by flag.
+            Args:
+                interactions: DataFrame with interactions
+                queries: DataFrame with queries
 
-        Args:
-            interactions: DataFrame with interactions
-            queries: DataFrame with queries
-            filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
+            Returns: DataFrame[user_idx int, vector array<double>] or DataFrame[vector array<double>].
+            Vector column name in dataframe can be anything.
+            """
 
-        Returns:
+        def _get_vectors_to_infer_ann(
+            self, interactions: SparkDataFrame, queries: SparkDataFrame, filter_seen_items: bool
+        ) -> SparkDataFrame:
+            """This method wraps `_get_vectors_to_infer_ann_inner`
+            and adds seen items to dataframe with user vectors by flag.
 
-        """
-        queries = self._get_vectors_to_infer_ann_inner(interactions, queries)
+            Args:
+                interactions: DataFrame with interactions
+                queries: DataFrame with queries
+                filter_seen_items: flag to remove seen items from recommendations based on ``interactions``.
 
-        # here we add `seen_item_idxs` to filter the viewed items in UDFs (see infer_index_udf)
-        if filter_seen_items:
-            user_to_max_items = interactions.groupBy(self.query_column).agg(
-                sf.count(self.item_column).alias("num_items"),
-                sf.collect_set(self.item_column).alias("seen_item_idxs"),
-            )
-            queries = queries.join(user_to_max_items, on=self.query_column)
+            Returns:
 
-        return queries
+            """
+            queries = self._get_vectors_to_infer_ann_inner(interactions, queries)
 
-    @abstractmethod
-    def _get_ann_infer_params(self) -> dict[str, Any]:
-        """Implementation of this method must return dictionary
-        with arguments for `_infer_ann_index` method.
+            # here we add `seen_item_idxs` to filter the viewed items in UDFs (see infer_index_udf)
+            if filter_seen_items:
+                user_to_max_items = interactions.groupBy(self.query_column).agg(
+                    sf.count(self.item_column).alias("num_items"),
+                    sf.collect_set(self.item_column).alias("seen_item_idxs"),
+                )
+                queries = queries.join(user_to_max_items, on=self.query_column)
 
-        Returns: dictionary with arguments to infer index. For example: {
-            "features_col": "user_vector",
-            ...
-        }
+            return queries
 
-        """
+        @abstractmethod
+        def _get_ann_infer_params(self) -> dict[str, Any]:
+            """Implementation of this method must return dictionary
+            with arguments for `_infer_ann_index` method.
 
-    def _predict_wrap(
-        self,
-        dataset: Optional[Dataset],
-        k: int,
-        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
-        items: Optional[Union[SparkDataFrame, Iterable]] = None,
-        filter_seen_items: bool = True,
-        recs_file_path: Optional[str] = None,
-    ) -> Optional[SparkDataFrame]:
-        dataset, queries, items = self._filter_interactions_queries_items_dataframes(dataset, k, queries, items)
+            Returns: dictionary with arguments to infer index. For example: {
+                "features_col": "user_vector",
+                ...
+            }
 
-        if self._use_ann:
-            vectors = self._get_vectors_to_infer_ann(dataset.interactions, queries, filter_seen_items)
-            ann_params = self._get_ann_infer_params()
-            inferer = self.index_builder.produce_inferer(filter_seen_items)
-            recs = inferer.infer(vectors, ann_params["features_col"], k)
-        else:
-            recs = self._predict(
-                dataset,
-                k,
-                queries,
-                items,
-                filter_seen_items,
-            )
+            """
 
-        if not self._use_ann:
-            if filter_seen_items and dataset.interactions:
-                recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
+        def _predict_wrap(
+            self,
+            dataset: Optional[Dataset],
+            k: int,
+            queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+            items: Optional[Union[SparkDataFrame, Iterable]] = None,
+            filter_seen_items: bool = True,
+            recs_file_path: Optional[str] = None,
+        ) -> Optional[SparkDataFrame]:
+            dataset, queries, items = self._filter_interactions_queries_items_dataframes(dataset, k, queries, items)
 
-            recs = get_top_k_recs(recs, k=k, query_column=self.query_column, rating_column=self.rating_column).select(
-                self.query_column, self.item_column, self.rating_column
-            )
+            if self._use_ann:
+                vectors = self._get_vectors_to_infer_ann(dataset.interactions, queries, filter_seen_items)
+                ann_params = self._get_ann_infer_params()
+                inferer = self.index_builder.produce_inferer(filter_seen_items)
+                recs = inferer.infer(vectors, ann_params["features_col"], k)
+            else:
+                recs = self._predict(
+                    dataset,
+                    k,
+                    queries,
+                    items,
+                    filter_seen_items,
+                )
 
-        output = return_recs(recs, recs_file_path)
-        self._clear_model_temp_view("filter_seen_queries_interactions")
-        self._clear_model_temp_view("filter_seen_num_seen")
-        return output
+            if not self._use_ann:
+                if filter_seen_items and dataset.interactions:
+                    recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
 
-    def _save_index(self, path):
-        self.index_builder.index_store.dump_index(path)
+                recs = get_top_k_recs(recs, k=k, query_column=self.query_column, rating_column=self.rating_column).select(
+                    self.query_column, self.item_column, self.rating_column
+                )
 
-    def _load_index(self, path: str):
-        self.index_builder.index_store = SparkFilesIndexStore()
-        self.index_builder.index_store.load_from_path(path)
+            output = return_recs(recs, recs_file_path)
+            self._clear_model_temp_view("filter_seen_queries_interactions")
+            self._clear_model_temp_view("filter_seen_num_seen")
+            return output
 
-    def init_builder_from_dict(self, init_meta: dict):
-        """Inits an index builder instance from a dict with init meta."""
+        def _save_index(self, path):
+            self.index_builder.index_store.dump_index(path)
 
-        # index param entity instance initialization
-        module = importlib.import_module(init_meta["index_param"]["module"])
-        class_ = getattr(module, init_meta["index_param"]["class"])
-        index_params = class_(**init_meta["index_param"]["init_args"])
+        def _load_index(self, path: str):
+            self.index_builder.index_store = SparkFilesIndexStore()
+            self.index_builder.index_store.load_from_path(path)
 
-        # index builder instance initialization
-        module = importlib.import_module(init_meta["builder"]["module"])
-        class_ = getattr(module, init_meta["builder"]["class"])
-        index_builder = class_(index_params=index_params, index_store=None)
+        def init_builder_from_dict(self, init_meta: dict):
+            """Inits an index builder instance from a dict with init meta."""
 
-        self.index_builder = index_builder
+            # index param entity instance initialization
+            module = importlib.import_module(init_meta["index_param"]["module"])
+            class_ = getattr(module, init_meta["index_param"]["class"])
+            index_params = class_(**init_meta["index_param"]["init_args"])
+
+            # index builder instance initialization
+            module = importlib.import_module(init_meta["builder"]["module"])
+            class_ = getattr(module, init_meta["builder"]["class"])
+            index_builder = class_(index_params=index_params, index_store=None)
+
+            self.index_builder = index_builder
+
+else:
+    feature_warning = FeatureUnavailableWarning(
+        "ANN feature not enabled - `hnswlib` and/or `nmslib` packages not found. "
+        "Ensure you have the package installed if you want to "
+        "use ANN indexing in your fit()/predict() methods."
+    )
+    warnings.warn(feature_warning)
+    class ANNStub(RecommenderCommons):
+        """Stub class to warn users about disabled features while leaving mixin logic unchanged"""
+
+        index_builder: Optional["IndexBuilder"] = None
+
+        @property
+        def _use_ann(self) -> bool:
+            """
+            Property that determines whether the ANN (index) is used.
+            If `True`, then the index will be built (at the `fit` stage)
+            and index will be inferred (at the `predict` stage).
+            """
+            warnings.warn(feature_warning)
+            return False
+
+        def _fit_wrap(
+            self,
+            dataset: Dataset,
+        ) -> None:
+            """Wrapper extends `_fit_wrap`, adds construction of ANN index by flag.
+
+            Args:
+                dataset: historical interactions with query/item features
+                    ``[user_id, item_id, timestamp, rating]``
+            """
+            warnings.warn(feature_warning)
+            return super()._fit_wrap(dataset)
+
+        def _predict_wrap(self, *args, **kwargs) -> Optional[SparkDataFrame]:
+            warnings.warn(feature_warning)
+            return super()._predict_wrap(*args, **kwargs)
+
+        def init_builder_from_dict(self, init_meta: dict):
+            """Inits an index builder instance from a dict with init meta."""
+            warnings.warn(feature_warning)
+            self.index_builder = None
+
+
+SupportsANN: TypeAlias = ANNMixin if ANN_AVAILABLE else ANNStub

@@ -4,7 +4,7 @@ from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
 from .base_rec import ItemVectorModel, Recommender
-from .extensions.ann.ann_mixin import ANNMixin
+from .extensions.ann.ann_mixin import SupportsANN
 from .extensions.ann.index_builders.base_index_builder import IndexBuilder
 
 if PYSPARK_AVAILABLE:
@@ -19,7 +19,7 @@ if PYSPARK_AVAILABLE:
     from replay.utils.spark_utils import join_with_col_renaming, multiply_scala_udf, vector_dot
 
 
-class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
+class Word2VecRec(Recommender, ItemVectorModel, SupportsANN):
     """
     Trains word2vec model where items are treated as words and queries as sentences.
     """
@@ -36,16 +36,14 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         query_vectors = query_vectors.select(self.query_column, vector_to_array("query_vector").alias("query_vector"))
         return query_vectors
 
-    def _get_ann_build_params(self, interactions: SparkDataFrame) -> Dict[str, Any]:
+    def _configure_index_builder(self, interactions: SparkDataFrame) -> Dict[str, Any]:
+        item_vectors = self._get_item_vectors()
+        item_vectors = item_vectors.select(self.item_column, vector_to_array("item_vector").alias("item_vector"))
+
         self.index_builder.index_params.dim = self.rank
         self.index_builder.index_params.max_elements = interactions.select(self.item_column).distinct().count()
         self.logger.debug("index 'num_elements' = %s", self.num_elements)
-        return {"features_col": "item_vector", "ids_col": self.item_column}
-
-    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:  # noqa: ARG002
-        item_vectors = self._get_item_vectors()
-        item_vectors = item_vectors.select(self.item_column, vector_to_array("item_vector").alias("item_vector"))
-        return item_vectors
+        return item_vectors, {"features_col": "item_vector", "ids_col": self.item_column}
 
     idf: SparkDataFrame
     vectors: SparkDataFrame

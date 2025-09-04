@@ -1,8 +1,9 @@
-from typing import Any, Dict, Optional
+import sys
+from typing import Optional
 
 from replay.data import Dataset
-from replay.optimization.optuna_objective import ItemKNNObjective
-from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+from replay.optimization import ItemKNNObjective
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame, OPTUNA_AVAILABLE, FeatureUnavailableError
 
 from .base_neighbour_rec import NeighbourRec
 from .extensions.ann.index_builders.base_index_builder import IndexBuilder
@@ -15,7 +16,7 @@ if PYSPARK_AVAILABLE:
 class ItemKNN(NeighbourRec):
     """Item-based ItemKNN with modified cosine similarity measure."""
 
-    def _get_ann_infer_params(self) -> Dict[str, Any]:
+    def _get_ann_infer_params(self) -> dict:
         return {
             "features_col": None,
         }
@@ -25,12 +26,14 @@ class ItemKNN(NeighbourRec):
     item_norms: Optional[SparkDataFrame]
     bm25_k1 = 1.2
     bm25_b = 0.75
-    _objective = ItemKNNObjective
-    _search_space = {
-        "num_neighbours": {"type": "int", "args": [1, 100]},
-        "shrink": {"type": "int", "args": [0, 100]},
-        "weighting": {"type": "categorical", "args": [None, "tf_idf", "bm25"]},
-    }
+
+    if OPTUNA_AVAILABLE:
+        _objective = ItemKNNObjective
+        _search_space = {
+            "num_neighbours": {"type": "int", "args": [1, 100]},
+            "shrink": {"type": "int", "args": [0, 100]},
+            "weighting": {"type": "categorical", "args": [None, "tf_idf", "bm25"]},
+        }
 
     def __init__(
         self,
@@ -52,11 +55,20 @@ class ItemKNN(NeighbourRec):
         self.use_rating = use_rating
         self.num_neighbours = num_neighbours
 
-        valid_weightings = self._search_space["weighting"]["args"]
-        if weighting not in valid_weightings:
-            msg = f"weighting must be one of {valid_weightings}"
-            raise ValueError(msg)
-        self.weighting = weighting
+        self.weighting = None
+        if weighting is not None:
+            if not OPTUNA_AVAILABLE:
+                err = FeatureUnavailableError("`weighting` can only be provided when the optimization feature is enabled.")
+                if sys.version_info >= (3, 10):
+                    err.add_note("To enable optimization, install the `optuna` pacakge in your environment.")
+                raise err
+
+            valid_weightings = self._search_space["weighting"]["args"]
+            if weighting not in valid_weightings:
+                msg = f"weighting must be one of {valid_weightings}"
+                raise ValueError(msg)
+            self.weighting = weighting
+
         if isinstance(index_builder, (IndexBuilder, type(None))):
             self.index_builder = index_builder
         elif isinstance(index_builder, dict):

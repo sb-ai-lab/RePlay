@@ -66,12 +66,12 @@ def fit_predict_add_res(
     print(
         experiment.results[
             [
-                "NDCG@{}".format(top_k),
-                "MRR@{}".format(top_k),
-                "Coverage@{}".format(top_k),
+                f"NDCG@{top_k}",
+                f"MRR@{top_k}",
+                f"Coverage@{top_k}",
                 "fit_time",
             ]
-        ].sort_values("NDCG@{}".format(top_k), ascending=False)
+        ].sort_values(f"NDCG@{top_k}", ascending=False)
     )
     experiment.results.to_csv(folder_path / f"{name}.csv")
 

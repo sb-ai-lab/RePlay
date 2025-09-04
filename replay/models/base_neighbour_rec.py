@@ -10,7 +10,7 @@ from replay.data.dataset import Dataset
 from replay.utils import PYSPARK_AVAILABLE, MissingImportType, SparkDataFrame
 
 from .base_rec import Recommender
-from .extensions.ann.ann_mixin import ANNMixin
+from .extensions.ann.ann_mixin import SupportsANN
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -19,7 +19,7 @@ else:
     Column = MissingImportType
 
 
-class NeighbourRec(Recommender, ANNMixin, ABC):
+class NeighbourRec(Recommender, SupportsANN, ABC):
     """Base class that requires interactions at prediction time"""
 
     similarity: Optional[SparkDataFrame]
@@ -187,15 +187,12 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
             "similarity" if metric is None else metric,
         )
 
-    def _get_ann_build_params(self, interactions: SparkDataFrame) -> Dict[str, Any]:
+    def _configure_index_builder(self, interactions: SparkDataFrame) -> Dict[str, Any]:
+        similarity_df = self.similarity.select("similarity", "item_idx_one", "item_idx_two")
         self.index_builder.index_params.items_count = interactions.select(sf.max(self.item_column)).first()[0] + 1
-        return {
+        return similarity_df, {
             "features_col": None,
         }
-
-    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:  # noqa: ARG002
-        similarity_df = self.similarity.select("similarity", "item_idx_one", "item_idx_two")
-        return similarity_df
 
     def _get_vectors_to_infer_ann_inner(
         self, interactions: SparkDataFrame, queries: SparkDataFrame  # noqa: ARG002
