@@ -1,12 +1,13 @@
 import importlib
 import logging
+import warnings
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
-import warnings
+
 from typing_extensions import TypeAlias
 
 from replay.data import Dataset
-from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame, ANN_AVAILABLE, FeatureUnavailableWarning
+from replay.utils import ANN_AVAILABLE, PYSPARK_AVAILABLE, FeatureUnavailableWarning, SparkDataFrame
 from replay.utils.common import RecommenderCommons
 
 if TYPE_CHECKING:
@@ -23,6 +24,7 @@ if PYSPARK_AVAILABLE:
 logger = logging.getLogger("replay")
 
 if ANN_AVAILABLE:
+
     class ANNMixin(RecommenderCommons):
         """
         This class overrides the `_fit_wrap` and `_predict_wrap` methods of the base class,
@@ -49,7 +51,7 @@ if ANN_AVAILABLE:
             Args:
                 interactions: DataFrame with interactions
 
-            Returns: 
+            Returns:
                 vectors: DataFrame[item_idx int, vector array<double>] or DataFrame[vector array<double>].
             Column names in dataframe can be anything.
                 ann_params: Dictionary with arguments to build index. For example: {
@@ -77,7 +79,9 @@ if ANN_AVAILABLE:
                 self.index_builder.build_index(vectors, **ann_params)
 
         @abstractmethod
-        def _get_vectors_to_infer_ann_inner(self, interactions: SparkDataFrame, queries: SparkDataFrame) -> SparkDataFrame:
+        def _get_vectors_to_infer_ann_inner(
+            self, interactions: SparkDataFrame, queries: SparkDataFrame
+        ) -> SparkDataFrame:
             """Implementations of this method must return a dataframe with user vectors.
             User vectors from this method are used to infer the index.
 
@@ -156,9 +160,9 @@ if ANN_AVAILABLE:
                 if filter_seen_items and dataset.interactions:
                     recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
 
-                recs = get_top_k_recs(recs, k=k, query_column=self.query_column, rating_column=self.rating_column).select(
-                    self.query_column, self.item_column, self.rating_column
-                )
+                recs = get_top_k_recs(
+                    recs, k=k, query_column=self.query_column, rating_column=self.rating_column
+                ).select(self.query_column, self.item_column, self.rating_column)
 
             output = return_recs(recs, recs_file_path)
             self._clear_model_temp_view("filter_seen_queries_interactions")
@@ -194,6 +198,7 @@ else:
         "use ANN indexing in your fit()/predict() methods."
     )
     warnings.warn(feature_warning)
+
     class ANNStub(RecommenderCommons):
         """Stub class to warn users about disabled features while leaving mixin logic unchanged"""
 
@@ -226,7 +231,7 @@ else:
             warnings.warn(feature_warning)
             return super()._predict_wrap(*args, **kwargs)
 
-        def init_builder_from_dict(self, init_meta: dict):
+        def init_builder_from_dict(self, _init_meta: dict):
             """Inits an index builder instance from a dict with init meta."""
             warnings.warn(feature_warning)
             self.index_builder = None

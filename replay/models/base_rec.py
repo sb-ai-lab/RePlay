@@ -21,7 +21,6 @@ import pandas as pd
 from numpy.random import default_rng
 
 from replay.data import Dataset, get_schema
-
 from replay.optimization import IsOptimizible
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 from replay.utils.common import RecommenderCommons
@@ -81,6 +80,7 @@ class IsSavable(ABC):
         """
         Method for loading model attributes from disk
         """
+
 
 class BaseRecommender(IsSavable, RecommenderCommons, IsOptimizible, ABC):
     """Base recommender"""

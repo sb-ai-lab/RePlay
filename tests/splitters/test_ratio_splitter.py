@@ -1,5 +1,3 @@
-from typing import List
-
 import pandas as pd
 import polars as pl
 import pytest

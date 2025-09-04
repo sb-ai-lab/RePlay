@@ -4,7 +4,7 @@ from replay.experimental.models.base_rec import ItemVectorModel, Recommender
 from replay.experimental.models.extensions.spark_custom_models.als_extension import ALS, ALSModel
 from replay.models.extensions.ann.ann_mixin import SupportsANN
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame, OPTUNA_AVAILABLE
+from replay.utils import OPTUNA_AVAILABLE, PYSPARK_AVAILABLE, SparkDataFrame
 from replay.utils.spark_utils import list_to_vector_udf
 
 if PYSPARK_AVAILABLE:

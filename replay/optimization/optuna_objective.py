@@ -5,7 +5,7 @@ This class calculates loss function for optimization process
 import collections
 import logging
 from functools import partial
-from typing import Any, Callable, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Union
 
 from replay.metrics import Metric
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame

@@ -1,25 +1,25 @@
+import warnings
 from collections.abc import Sequence
 from copy import deepcopy
-import sys
 from typing import NoReturn, Optional, Union
-from typing_extensions import TypeAlias
-import warnings
 
 from optuna import create_study
 from optuna.samplers import TPESampler
+from typing_extensions import TypeAlias
 
 from replay.data import Dataset
 from replay.metrics import NDCG, Metric
 from replay.optimization import MainObjective, SplitData
-from replay.utils.common import RecommenderCommons
 from replay.utils import OPTUNA_AVAILABLE, FeatureUnavailableWarning
-
+from replay.utils.common import RecommenderCommons
 
 if OPTUNA_AVAILABLE:
+
     class OptunaMixin(RecommenderCommons):
         """
         A mixin class enabling hyperparameter optimization in a recommender using Optuna objectives.
         """
+
         _objective = MainObjective
         _search_space: Optional[dict[str, Union[str, Sequence[Union[str, int, float]]]]] = None
         study = None
@@ -84,7 +84,7 @@ if OPTUNA_AVAILABLE:
                 items,
             )
             return split_data
-        
+
         def _check_borders(self, param, borders):
             """Raise value error if param borders are not valid"""
             if param not in self._search_space:
@@ -96,10 +96,8 @@ if OPTUNA_AVAILABLE:
             if self._search_space[param]["type"] != "categorical" and len(borders) != 2:
                 msg = f"Hyper parameter {param} is numerical but bounds are not in ([lower, upper]) format"
                 raise ValueError(msg)
-        
-        def _prepare_param_borders(
-            self, param_borders: Optional[dict[str, list]] = None
-        ) -> dict[str, dict[str, list]]:
+
+        def _prepare_param_borders(self, param_borders: Optional[dict[str, list]] = None) -> dict[str, dict[str, list]]:
             """
             Checks if param borders are valid and convert them to a search_space format
 
@@ -129,7 +127,7 @@ if OPTUNA_AVAILABLE:
                     search_space[param]["args"] = [value, value]
 
             return search_space
-        
+
         def _init_params_in_search_space(self, search_space):
             """Check if model params are inside search space"""
             params = self._init_args
@@ -158,7 +156,7 @@ if OPTUNA_AVAILABLE:
                 return False
             else:
                 return True
-        
+
         def _params_tried(self):
             """check if current parameters were already evaluated"""
             if self.study is None:
@@ -166,7 +164,7 @@ if OPTUNA_AVAILABLE:
 
             params = {name: value for name, value in self._init_args.items() if name in self._search_space}
             return any(params == trial.params for trial in self.study.trials)
-        
+
         def optimize(
             self,
             train_dataset: Dataset,
@@ -239,7 +237,7 @@ else:
 
     class OptunaStub(RecommenderCommons):
         """A stub class to use in case of missing dependencies."""
-        
+
         def optimize(
             self,
             _test_dataset: Dataset,
@@ -265,10 +263,11 @@ else:
             :return: dictionary with best parameters
             """
             import sys
+
             err = ImportError('Cannot use method "optimize()" - Optuna not found.')
             if sys.version_info >= (3, 10):
                 err.add_note('To enable this functionality, ensure you have the "optuna" package isntalled.')
-            
+
             raise err
 
 

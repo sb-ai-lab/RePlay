@@ -1,6 +1,5 @@
 from os.path import dirname, join
 from random import shuffle
-from typing import Tuple
 
 import numpy as np
 import pandas as pd

@@ -3,7 +3,7 @@ from typing import Optional
 
 from replay.data import Dataset
 from replay.optimization import ItemKNNObjective
-from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame, OPTUNA_AVAILABLE, FeatureUnavailableError
+from replay.utils import OPTUNA_AVAILABLE, PYSPARK_AVAILABLE, FeatureUnavailableError, SparkDataFrame
 
 from .base_neighbour_rec import NeighbourRec
 from .extensions.ann.index_builders.base_index_builder import IndexBuilder
@@ -58,7 +58,9 @@ class ItemKNN(NeighbourRec):
         self.weighting = None
         if weighting is not None:
             if not OPTUNA_AVAILABLE:
-                err = FeatureUnavailableError("`weighting` can only be provided when the optimization feature is enabled.")
+                err = FeatureUnavailableError(
+                    "`weighting` can only be provided when the optimization feature is enabled."
+                )
                 if sys.version_info >= (3, 10):
                     err.add_note("To enable optimization, install the `optuna` pacakge in your environment.")
                 raise err
