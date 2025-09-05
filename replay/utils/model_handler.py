@@ -3,17 +3,19 @@ import json
 import os
 import pickle
 import warnings
+from collections.abc import Callable
 from os.path import join
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from replay.data.dataset_utils import DatasetLabelEncoder
-from replay.models import *
-from replay.models.base_rec import BaseRecommender
-from replay.splitters import *
+from replay.splitters import Splitter
 
 from .session_handler import State
 from .types import PYSPARK_AVAILABLE
+
+if TYPE_CHECKING:
+    from replay.models.base_rec import BaseRecommender
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import SparkSession
@@ -43,7 +45,7 @@ if PYSPARK_AVAILABLE:
         return [str(f.getPath()) for f in statuses]
 
 
-def save(model: BaseRecommender, path: Union[str, Path], overwrite: bool = False):
+def save(model: "BaseRecommender", path: Union[str, Path], overwrite: bool = False):
     """
     Save fitted model to disk as a folder
 
@@ -86,7 +88,7 @@ def save(model: BaseRecommender, path: Union[str, Path], overwrite: bool = False
         save_picklable_to_parquet(model.study, join(path, "study"))
 
 
-def load(path: str, model_type=None) -> BaseRecommender:
+def load(path: str, model_type=None) -> "BaseRecommender":
     """
     Load saved model from disk
 
