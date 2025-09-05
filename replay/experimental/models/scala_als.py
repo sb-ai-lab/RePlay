@@ -207,7 +207,7 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
         index_builder: Optional[IndexBuilder] = None,
     ):
         ALSWrap.__init__(self, rank, implicit_prefs, seed, num_item_blocks, num_user_blocks)
-        ANNMixin.__init__(self, index_builder)
+        self.init_index_builder(index_builder)
         self.num_elements = None
 
     @property

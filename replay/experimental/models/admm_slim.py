@@ -103,7 +103,7 @@ class ADMMSLIM(NeighbourRec):
         :param index_builder: `IndexBuilder` instance that adds ANN functionality.
             If not set, then ann will not be used.
         """
-        super().__init__(index_builder)
+        self.init_index_builder(index_builder)
 
         if lambda_1 < 0 or lambda_2 <= 0:
             msg = "Invalid regularization parameters"

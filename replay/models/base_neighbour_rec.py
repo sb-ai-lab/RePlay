@@ -3,16 +3,14 @@ NeighbourRec - base class that requires interactions at prediction time.
 Part of set of abstract classes (from base_rec.py)
 """
 
-import sys
 from abc import ABC
 from typing import Any, Dict, Iterable, Optional, Union
 
 from replay.data.dataset import Dataset
-from replay.utils import ANN_AVAILABLE, PYSPARK_AVAILABLE, FeatureUnavailableError, MissingImportType, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, MissingImportType, SparkDataFrame
 
 from .base_rec import Recommender
 from .extensions.ann.ann_mixin import ANNMixin
-from .extensions.ann.index_builders.base_index_builder import IndexBuilder
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -30,21 +28,6 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
     can_change_metric: bool = False
     item_to_item_metrics = ["similarity"]
     _similarity_metric = "similarity"
-
-    def __init__(self, index_builder: Optional[IndexBuilder] = None) -> None:
-        if index_builder is not None and not ANN_AVAILABLE:
-            err = FeatureUnavailableError(
-                "`index_builder` can only be provided when all ANN dependencies are installed."
-            )
-            if sys.version_info >= (3, 10):
-                err.add_note(
-                    "To enable ANN, ensure you have both 'hnswlib' and 'fixed-install-nmslib' packages installed."
-                )
-            raise err
-        elif isinstance(index_builder, (IndexBuilder, type(None))):
-            self.index_builder = index_builder
-        elif isinstance(index_builder, dict):
-            self.init_builder_from_dict(index_builder)
 
     @property
     def _dataframes(self):

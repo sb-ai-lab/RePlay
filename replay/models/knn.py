@@ -51,7 +51,7 @@ class ItemKNN(NeighbourRec):
         :param index_builder: `IndexBuilder` instance that adds ANN functionality.
             If not set, then ann will not be used.
         """
-        super().__init__(index_builder)
+        self.init_index_builder(index_builder)
         self.shrink = shrink
         self.use_rating = use_rating
         self.num_neighbours = num_neighbours

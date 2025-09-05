@@ -79,7 +79,7 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         :param index_builder: `IndexBuilder` instance that adds ANN functionality.
             If not set, then ann will not be used.
         """
-        ANNMixin.__init__(self, index_builder)
+        self.init_index_builder(index_builder)
 
         self.rank = rank
         self.window_size = window_size

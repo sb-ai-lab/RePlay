@@ -142,7 +142,7 @@ class AssociationRulesItemRec(NeighbourRec):
         :param index_builder: `IndexBuilder` instance that adds ANN functionality.
             If not set, then ann will not be used.
         """
-        super().__init__(index_builder)
+        self.init_index_builder(index_builder)
 
         self.session_column = session_column
         self.min_item_count = min_item_count

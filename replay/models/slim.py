@@ -48,7 +48,7 @@ class SLIM(NeighbourRec):
         :param allow_collect_to_master: Flag allowing spark to make a collection to the master node,
             Default: ``False``.
         """
-        super().__init__(index_builder)
+        self.init_index_builder(index_builder)
 
         if beta < 0 or lambda_ <= 0:
             msg = "Invalid regularization parameters"

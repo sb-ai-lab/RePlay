@@ -1,10 +1,11 @@
 import importlib
 import logging
+import sys
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
 
 from replay.data import Dataset
-from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+from replay.utils import ANN_AVAILABLE, PYSPARK_AVAILABLE, FeatureUnavailableError, SparkDataFrame
 from replay.utils.common import RecommenderCommons
 
 if TYPE_CHECKING:
@@ -28,6 +29,21 @@ class ANNMixin(RecommenderCommons):
     """
 
     index_builder: Optional["IndexBuilder"] = None
+
+    def init_index_builder(self, index_builder: Optional[IndexBuilder] = None) -> None:
+        if index_builder is not None and not ANN_AVAILABLE:
+            err = FeatureUnavailableError(
+                "`index_builder` can only be provided when all ANN dependencies are installed."
+            )
+            if sys.version_info >= (3, 10):
+                err.add_note(
+                    "To enable ANN, ensure you have both 'hnswlib' and 'fixed-install-nmslib' packages installed."
+                )
+            raise err
+        elif isinstance(index_builder, (IndexBuilder, type(None))):
+            self.index_builder = index_builder
+        elif isinstance(index_builder, dict):
+            self.init_builder_from_dict(index_builder)
 
     @property
     def _use_ann(self) -> bool:
