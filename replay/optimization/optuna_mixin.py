@@ -1,6 +1,7 @@
 import warnings
 from collections.abc import Sequence
 from copy import deepcopy
+from functools import partial
 from typing import NoReturn, Optional, Union
 
 from optuna import create_study
@@ -9,9 +10,11 @@ from typing_extensions import TypeAlias
 
 from replay.data import Dataset
 from replay.metrics import NDCG, Metric
-from replay.optimization import MainObjective, SplitData
+from replay.optimization.optuna_objective import ObjectiveWrapper, SplitData, scenario_objective_calculator
 from replay.utils import OPTUNA_AVAILABLE, FeatureUnavailableWarning
 from replay.utils.common import RecommenderCommons
+
+MainObjective = partial(ObjectiveWrapper, objective_calculator=scenario_objective_calculator)
 
 if OPTUNA_AVAILABLE:
 

@@ -147,9 +147,6 @@ def scenario_objective_calculator(
     return eval_quality(split_data, recommender, criterion, k)
 
 
-MainObjective = partial(ObjectiveWrapper, objective_calculator=scenario_objective_calculator)
-
-
 class ItemKNNObjective:
     """
     This class is implemented according to
