@@ -82,7 +82,7 @@ class IsSavable(ABC):
         """
 
 
-class BaseRecommender(IsSavable, RecommenderCommons, IsOptimizible, ABC):
+class BaseRecommender(IsSavable, IsOptimizible, RecommenderCommons, ABC):
     """Base recommender"""
 
     model: Any
