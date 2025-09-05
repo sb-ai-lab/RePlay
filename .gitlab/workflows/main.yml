@@ -15,9 +15,12 @@ variables:
 .setup_env: &setup_env
   - pip install -q --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning
 
+.setup_env_conditionals: &setup_env_conditionals
+  - pip install -q --upgrade onnx openvino optuna hnswlib fixed-install-nmslib
+
 .setup_experimental_env: &setup_experimental_env
   - *setup_env
-  - pip install -q --upgrade lightfm==1.17
+  - *setup_env_conditionals
 
 .install_replay: &install_replay
   before_script:
