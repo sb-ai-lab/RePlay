@@ -3,19 +3,21 @@ NeighbourRec - base class that requires log at prediction time.
 Part of set of abstract classes (from base_rec.py)
 """
 
+import sys
 from abc import ABC
 from typing import Any, Dict, Iterable, Optional, Union
 
 from replay.experimental.models.base_rec import Recommender
-from replay.models.extensions.ann.ann_mixin import SupportsANN
-from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+from replay.models.extensions.ann.ann_mixin import ANNMixin
+from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
+from replay.utils import ANN_AVAILABLE, PYSPARK_AVAILABLE, FeatureUnavailableError, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
     from pyspark.sql.column import Column
 
 
-class NeighbourRec(Recommender, SupportsANN, ABC):
+class NeighbourRec(Recommender, ANNMixin, ABC):
     """Base class that requires log at prediction time"""
 
     similarity: Optional[SparkDataFrame]
@@ -24,6 +26,21 @@ class NeighbourRec(Recommender, SupportsANN, ABC):
     can_change_metric: bool = False
     item_to_item_metrics = ["similarity"]
     _similarity_metric = "similarity"
+
+    def __init__(self, index_builder: Optional[IndexBuilder] = None) -> None:
+        if index_builder is not None and not ANN_AVAILABLE:
+            err = FeatureUnavailableError(
+                "`index_builder` can only be provided when all ANN dependencies are installed."
+            )
+            if sys.version_info >= (3, 10):
+                err.add_note(
+                    "To enable ANN, ensure you have both 'hnswlib' and 'fixed-install-nmslib' packages installed."
+                )
+            raise err
+        elif isinstance(index_builder, (IndexBuilder, type(None))):
+            self.index_builder = index_builder
+        elif isinstance(index_builder, dict):
+            self.init_builder_from_dict(index_builder)
 
     @property
     def _dataframes(self):

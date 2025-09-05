@@ -4,7 +4,7 @@ from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
 from .base_rec import ItemVectorModel, Recommender
-from .extensions.ann.ann_mixin import SupportsANN
+from .extensions.ann.ann_mixin import ANNMixin
 from .extensions.ann.index_builders.base_index_builder import IndexBuilder
 
 if PYSPARK_AVAILABLE:
@@ -19,7 +19,7 @@ if PYSPARK_AVAILABLE:
     from replay.utils.spark_utils import join_with_col_renaming, multiply_scala_udf, vector_dot
 
 
-class Word2VecRec(Recommender, ItemVectorModel, SupportsANN):
+class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
     """
     Trains word2vec model where items are treated as words and queries as sentences.
     """
@@ -79,6 +79,7 @@ class Word2VecRec(Recommender, ItemVectorModel, SupportsANN):
         :param index_builder: `IndexBuilder` instance that adds ANN functionality.
             If not set, then ann will not be used.
         """
+        ANNMixin.__init__(self, index_builder)
 
         self.rank = rank
         self.window_size = window_size
@@ -88,10 +89,6 @@ class Word2VecRec(Recommender, ItemVectorModel, SupportsANN):
         self.max_iter = max_iter
         self._seed = seed
         self._num_partitions = num_partitions
-        if isinstance(index_builder, (IndexBuilder, type(None))):
-            self.index_builder = index_builder
-        elif isinstance(index_builder, dict):
-            self.init_builder_from_dict(index_builder)
         self.num_elements = None
 
     @property

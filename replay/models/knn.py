@@ -51,6 +51,7 @@ class ItemKNN(NeighbourRec):
         :param index_builder: `IndexBuilder` instance that adds ANN functionality.
             If not set, then ann will not be used.
         """
+        super().__init__(index_builder)
         self.shrink = shrink
         self.use_rating = use_rating
         self.num_neighbours = num_neighbours
@@ -70,11 +71,6 @@ class ItemKNN(NeighbourRec):
                 msg = f"weighting must be one of {valid_weightings}"
                 raise ValueError(msg)
             self.weighting = weighting
-
-        if isinstance(index_builder, (IndexBuilder, type(None))):
-            self.index_builder = index_builder
-        elif isinstance(index_builder, dict):
-            self.init_builder_from_dict(index_builder)
 
     @property
     def _init_args(self):

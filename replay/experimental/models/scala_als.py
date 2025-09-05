@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from replay.experimental.models.base_rec import ItemVectorModel, Recommender
 from replay.experimental.models.extensions.spark_custom_models.als_extension import ALS, ALSModel
-from replay.models.extensions.ann.ann_mixin import SupportsANN
+from replay.models.extensions.ann.ann_mixin import ANNMixin
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.utils import OPTUNA_AVAILABLE, PYSPARK_AVAILABLE, SparkDataFrame
 from replay.utils.spark_utils import list_to_vector_udf
@@ -169,7 +169,7 @@ class ALSWrap(Recommender, ItemVectorModel):
         )
 
 
-class ScalaALSWrap(ALSWrap, SupportsANN):
+class ScalaALSWrap(ALSWrap, ANNMixin):
     """Wrapper for `Spark ALS
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
@@ -207,10 +207,7 @@ class ScalaALSWrap(ALSWrap, SupportsANN):
         index_builder: Optional[IndexBuilder] = None,
     ):
         ALSWrap.__init__(self, rank, implicit_prefs, seed, num_item_blocks, num_user_blocks)
-        if isinstance(index_builder, (IndexBuilder, type(None))):
-            self.index_builder = index_builder
-        elif isinstance(index_builder, dict):
-            self.init_builder_from_dict(index_builder)
+        ANNMixin.__init__(self, index_builder)
         self.num_elements = None
 
     @property

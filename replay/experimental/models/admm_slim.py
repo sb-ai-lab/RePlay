@@ -103,6 +103,8 @@ class ADMMSLIM(NeighbourRec):
         :param index_builder: `IndexBuilder` instance that adds ANN functionality.
             If not set, then ann will not be used.
         """
+        super().__init__(index_builder)
+
         if lambda_1 < 0 or lambda_2 <= 0:
             msg = "Invalid regularization parameters"
             raise ValueError(msg)
@@ -110,10 +112,6 @@ class ADMMSLIM(NeighbourRec):
         self.lambda_2 = lambda_2
         self.rho = lambda_2
         self.seed = seed
-        if isinstance(index_builder, (IndexBuilder, type(None))):
-            self.index_builder = index_builder
-        elif isinstance(index_builder, dict):
-            self.init_builder_from_dict(index_builder)
 
     @property
     def _init_args(self):
