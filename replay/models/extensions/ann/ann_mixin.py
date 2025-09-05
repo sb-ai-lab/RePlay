@@ -2,14 +2,13 @@ import importlib
 import logging
 import sys
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
+from typing import Any, Iterable, Optional, Union
 
 from replay.data import Dataset
 from replay.utils import ANN_AVAILABLE, PYSPARK_AVAILABLE, FeatureUnavailableError, SparkDataFrame
 from replay.utils.common import RecommenderCommons
 
-if TYPE_CHECKING:
-    from .index_builders.base_index_builder import IndexBuilder
+from .index_builders.base_index_builder import IndexBuilder
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
