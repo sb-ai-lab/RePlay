@@ -203,7 +203,7 @@ def main():
     for name in tqdm.tqdm(algorithms.keys(), desc="Model"):
         model = algorithms[name]
 
-        logger.info(msg=f"{name} started")
+        logger.info(msg="{} started".format(name))
 
         train_ = train
         if isinstance(model, (Wilson, UCB)):

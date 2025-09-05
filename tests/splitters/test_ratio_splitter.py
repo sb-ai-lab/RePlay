@@ -1,3 +1,5 @@
+from typing import List
+
 import pandas as pd
 import polars as pl
 import pytest
@@ -9,15 +11,15 @@ if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as F
 
 
-def _get_column_list(data, column: str) -> list[list]:
+def _get_column_list(data, column: str) -> List[list]:
     return [[ids[0] for ids in dataframe.select(column).collect()] for dataframe in data]
 
 
-def _get_column_list_pandas(data, column: str) -> list[list]:
+def _get_column_list_pandas(data, column: str) -> List[list]:
     return [dataframe[column].tolist() for dataframe in data]
 
 
-def _get_column_list_polars(data, column: str) -> list[list]:
+def _get_column_list_polars(data, column: str) -> List[list]:
     return [dataframe[column].to_list() for dataframe in data]
 
 

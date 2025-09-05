@@ -46,9 +46,9 @@ def eval_baselines(dataset, bandit_feedback_train, bandit_feedback_test):
             position=bandit_feedback_train["position"],
         )
 
-    action_dist_nn_dm, action_dist_nn_ipw, action_dist_nn_dr = (
+    action_dist_nn_dm, action_dist_nn_ipw, action_dist_nn_dr = [
         m.predict_proba(context=bandit_feedback_test["context"]) for m in nn_methods
-    )
+    ]
 
     clss = [
         LogisticRegression(C=100, random_state=12345),
@@ -66,7 +66,7 @@ def eval_baselines(dataset, bandit_feedback_train, bandit_feedback_test):
             position=bandit_feedback_train["position"],
         )
 
-    action_dist_ipw_lr, action_dist_ipw_rf = (m.predict(context=bandit_feedback_test["context"]) for m in ipw_methods)
+    action_dist_ipw_lr, action_dist_ipw_rf = [m.predict(context=bandit_feedback_test["context"]) for m in ipw_methods]
 
     random = Random(n_actions=dataset.n_actions, len_list=dataset.len_list)
 
