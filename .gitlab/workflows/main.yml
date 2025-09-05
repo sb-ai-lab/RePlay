@@ -20,7 +20,6 @@ variables:
 
 .setup_experimental_env: &setup_experimental_env
   - *setup_env
-  - *setup_env_conditionals
 
 .install_replay: &install_replay
   before_script:
@@ -31,6 +30,7 @@ variables:
   before_script:
     - *setup_experimental_env
     - ./poetry_wrapper.sh --experimental install
+    - *setup_env_conditionals
 
 .install_experimental_replay_with_spark: &install_experimental_replay_with_spark
   before_script:

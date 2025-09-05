@@ -3,9 +3,6 @@ from collections.abc import Sequence
 from copy import deepcopy
 from functools import partial
 from typing import NoReturn, Optional, Union
-
-from optuna import create_study
-from optuna.samplers import TPESampler
 from typing_extensions import TypeAlias
 
 from replay.data import Dataset
@@ -193,6 +190,9 @@ if OPTUNA_AVAILABLE:
             :param new_study: keep searching with previous study or start a new study
             :return: dictionary with best parameters
             """
+            from optuna import create_study
+            from optuna.samplers import TPESampler
+
             self.query_column = train_dataset.feature_schema.query_id_column
             self.item_column = train_dataset.feature_schema.item_id_column
             self.rating_column = train_dataset.feature_schema.interactions_rating_column
