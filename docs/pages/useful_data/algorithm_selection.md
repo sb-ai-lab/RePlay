@@ -27,28 +27,28 @@ The same goes for new items.
 
 | Algorithm      | Data         | Interactions | New Users | New Items |
 | ---------------|--------------|-------|-------|-------|
-|Popular Recommender        |Collaborative    | converted to unary ratings             | + | - |
 |Popular By Users           |Collaborative    | implicit feedback                      | - | - |
+|Alternating Least Squares  |Collaborative    | implicit feedback                      | - | - |
 |Wilson Recommender         |Collaborative    | binary ratings                         | + | - |
 |UCB                        |Collaborative    | binary ratings                         | + | + |
 |KL-UCB                     |Collaborative    | binary ratings                         | + | + |
 |LinUCB                     |Collaborative    | binary ratings                         | + | - |
 |Thompson Sampling          |Collaborative    | binary ratings                         | + | + |
+|Conservative Q-Learning (Experimental) | Collaborative | binary ratings             | + | - |
+|DDPG (Experimental)        | Collaborative | binary ratings                        | + | - |
+|Popular Recommender        |Collaborative    | converted to unary ratings             | + | - |
 |Random Recommender         |Collaborative    | converted to unary ratings             | + | + |
 |K-Nearest Neighbours       |Collaborative    | converted to unary ratings             | + | - |
-|Alternating Least Squares  |Collaborative    | implicit feedback                      | - | - |
-|Conservative Q-Learning (Experimental) | Collaborative | implicit feedback            | + | - |
-|DDPG (Experimental)        | Collaborative | implicit feedback                        | + | - |
 |BERT4Rec                   |Collaborative    | converted to unary ratings             | - | - |
 |SASRec                   |Collaborative    | converted to unary ratings             | - | - |
-|Neural Matrix Factorization (Experimental)|Collaborative    | converted to unary ratings             | - | - |
-|SLIM                       |Collaborative    | unary ratings, explicit feedback       | + | - |
-|ADMM SLIM (Experimental)   |Collaborative    | unary ratings, explicit feedback       | + | - |
 |Mult-VAE (Experimental)    |Collaborative    | converted to unary ratings             | + | - |
 |Word2Vec Recommender       |Collaborative    | converted to unary ratings             | + | - |
 |Association Rules          |Collaborative    | converted to unary ratings             | + | - |
+|Neural Matrix Factorization (Experimental)|Collaborative    | converted to unary ratings             | - | - |
+|SLIM                       |Collaborative    | unary ratings, explicit feedback       | + | - |
+|ADMM SLIM (Experimental)   |Collaborative    | unary ratings, explicit feedback       | + | - |
 |ULinUCB (Experimental)     |Hybrid           | binary ratings                         | - | + |
-|Neural Thompson Sampling (Experimental)  |Hybrid           | implicit feedback                      | + | - |
+|Neural Thompson Sampling (Experimental)  |Hybrid           | binary ratings                       | + | - |
 |Category Popular Recommender |Hybrid           | converted to unary ratings             | + | - |
 |Cluster Recommender        |Hybrid           | converted to unary ratings             | + | - |
 |LightFM Wrap (Experimental) |Hybrid           | [depends on loss](https://making.lyst.com/lightfm/docs/lightfm.html#lightfm)       | + | + |
@@ -73,26 +73,26 @@ The same goes for new items.
 
 | Algorithm      | Personalized | Cold Users | Cold Items |  Recommends Unseen Items |
 | ---------------|--------------|-------|-------|-------|
-|Popular Recommender          | - | + | - | + |
 |Popular By Users             | + | - | - | - |
+|Alternating Least Squares    | + | - | - | + |
 |Wilson Recommender           | - | + | - | + |
 |UCB                          | - | + | + | + |
 |KL-UCB                       | - | + | + | + |
 |LinUCB                       | + | + | - | + |
 |Thompson Sampling            | - | + | + | + |
-|Random Recommender           | - | + | + | + |
-|K-Nearest Neighbours         | + | + | - | + |
-|Alternating Least Squares    | + | - | - | + |
 |Conservative Q-Learning (Experimental) | + | + | - | + |
 |DDPG (Experimental)          | + | + | - | + |
+|Popular Recommender          | - | + | - | + |
+|Random Recommender           | - | + | + | + |
+|K-Nearest Neighbours         | + | + | - | + |
 |BERT4Rec                     | + | - | - | + |
 |SASRec                       | + | - | - | + |
-|Neural Matrix Factorization (Experimental) | + | - | - | + |
-|SLIM                         | + | - | - | + |
-|ADMM SLIM (Experimental)     | + | - | - | + |
 |Mult-VAE (Experimental)      | + | - | - | + |
 |Word2Vec Recommender         | + | - | - | + |
 |Association Rules            | + | - | - | + |
+|Neural Matrix Factorization (Experimental) | + | - | - | + |
+|SLIM                         | + | - | - | + |
+|ADMM SLIM (Experimental)     | + | - | - | + |
 |ULinUCB (Experimental)       | + | - | + | + |
 |Neural Thompson Sampling (Experimental)| + | + | - | + |
 |Category Popular Recommender | - | + | - | + |
