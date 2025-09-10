@@ -222,7 +222,7 @@ pytest-experimental:
     WRAPPER_EXTRAS: --all-extras
   script:
     - *install_conditionals
-    - pytest -m "experimental" tests/
+    - pytest -m "experimental"
     - mv .coverage .coverage_experimental_${image:(-4)}
   artifacts:
     paths:
