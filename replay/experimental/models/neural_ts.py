@@ -982,5 +982,5 @@ class NeuralTS(HybridRecommender):
         self.model.load_state_dict(torch.load(os.path.join(dir_name, "model_weights.pth")))
 
         checkpoint = torch.load(os.path.join(dir_name, "fit_info.pth"), weights_only=False)
-        self.fit_queries = convert2spark(checkpoint["fit_queries"])
+        self.fit_users = convert2spark(checkpoint["fit_users"])
         self.fit_items = convert2spark(checkpoint["fit_items"])
