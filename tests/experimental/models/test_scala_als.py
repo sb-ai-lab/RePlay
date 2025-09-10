@@ -9,10 +9,11 @@ from pyspark.sql import functions as sf
 from replay.experimental.models import ScalaALSWrap as ALSWrap
 from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
 from replay.experimental.scenarios.two_stages.two_stages_scenario import get_first_level_model_features
+from replay.experimental.utils.model_handler import save
 from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
 from replay.models.extensions.ann.index_builders.executor_hnswlib_index_builder import ExecutorHnswlibIndexBuilder
 from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
-from replay.utils.model_handler import load, save
+from replay.utils.model_handler import load
 from tests.utils import sparkDataFrameEqual
 
 SEED = 123
@@ -139,7 +140,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred):
     )
 
     condition = ~sf.col("item_idx").isin([4, 5])
-    if not model.can_predict_cold_queries:
+    if not model.can_predict_cold_users:
         condition = condition & (sf.col("user_idx") != 4)
 
     sparkDataFrameEqual(
@@ -254,7 +255,7 @@ def test_predict_cold_and_new_filter_out(long_log_with_features):
         users=[0, 3],
     )
     # assert new/cold users are filtered out in `predict`
-    if not model.can_predict_cold_queries:
+    if not model.can_predict_cold_users:
         assert pred.count() == 0
     else:
         assert 1 <= pred.count() <= 2

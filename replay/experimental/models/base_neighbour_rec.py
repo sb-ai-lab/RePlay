@@ -15,12 +15,12 @@ if PYSPARK_AVAILABLE:
     from pyspark.sql.column import Column
 
 
-class NeighbourRec(Recommender, ANNMixin, ABC):
+class NeighbourRec(ANNMixin, Recommender, ABC):
     """Base class that requires log at prediction time"""
 
     similarity: Optional[SparkDataFrame]
     can_predict_item_to_item: bool = True
-    can_predict_cold_queries: bool = True
+    can_predict_cold_users: bool = True
     can_change_metric: bool = False
     item_to_item_metrics = ["similarity"]
     _similarity_metric = "similarity"

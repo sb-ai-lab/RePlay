@@ -110,7 +110,6 @@ def predict_sorted_dict():
 
 
 @pytest.fixture(scope="module")
-@pytest.mark.usefixtures("predict_sorted_dict")
 def predict_unsorted_dict(predict_sorted_dict):
     converted_dict = {}
     for user, items in predict_sorted_dict.items():

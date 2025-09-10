@@ -12,7 +12,8 @@ from replay.data import get_schema
 from replay.experimental.models import LightFMWrap
 from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
 from replay.experimental.scenarios.two_stages.two_stages_scenario import get_first_level_model_features
-from replay.utils.model_handler import load, save
+from replay.experimental.utils.model_handler import save
+from replay.utils.model_handler import load
 from tests.utils import sparkDataFrameEqual
 
 SEED = 123
@@ -95,7 +96,7 @@ def test_predict(log, user_features, item_features, model):
 def test_predict_no_user_features(log, item_features, model):
     model.fit(log, None, item_features)
     assert model.can_predict_cold_items
-    assert not model.can_predict_cold_queries
+    assert not model.can_predict_cold_users
     pred = model.predict(
         log=log,
         k=1,
@@ -218,7 +219,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred):
     )
 
     condition = ~sf.col("item_idx").isin([4, 5])
-    if not model.can_predict_cold_queries:
+    if not model.can_predict_cold_users:
         condition = condition & (sf.col("user_idx") != 4)
 
     sparkDataFrameEqual(

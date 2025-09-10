@@ -11,7 +11,8 @@ from pyspark.sql import functions as sf
 from replay.data import get_schema
 from replay.experimental.models import ADMMSLIM
 from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
-from replay.utils.model_handler import load, save
+from replay.experimental.utils.model_handler import save
+from replay.utils.model_handler import load
 from tests.utils import sparkDataFrameEqual
 
 SEED = 123
@@ -108,7 +109,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred):
     )
 
     condition = ~sf.col("item_idx").isin([4, 5])
-    if not model.can_predict_cold_queries:
+    if not model.can_predict_cold_users:
         condition = condition & (sf.col("user_idx") != 4)
 
     sparkDataFrameEqual(

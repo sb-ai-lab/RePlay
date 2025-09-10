@@ -140,7 +140,7 @@ class TwoStagesScenario(HybridRecommender):
 
     """
 
-    can_predict_cold_queries: bool = True
+    can_predict_cold_users: bool = True
     can_predict_cold_items: bool = True
 
     def __init__(
@@ -352,7 +352,7 @@ class TwoStagesScenario(HybridRecommender):
         log_to_filter: SparkDataFrame,
     ):
         """
-        Filter users and items using can_predict_cold_items and can_predict_cold_queries, and predict
+        Filter users and items using can_predict_cold_items and can_predict_cold_users, and predict
         """
         if not model.can_predict_cold_items:
             log, items, item_features = [
@@ -362,7 +362,7 @@ class TwoStagesScenario(HybridRecommender):
                 )
                 for df in [log, items, item_features]
             ]
-        if not model.can_predict_cold_queries:
+        if not model.can_predict_cold_users:
             log, users, user_features = [
                 self._filter_or_return(
                     dataframe=df,
@@ -425,7 +425,7 @@ class TwoStagesScenario(HybridRecommender):
                 )
                 for df in [log, pairs, item_features]
             ]
-        if not model.can_predict_cold_queries:
+        if not model.can_predict_cold_users:
             log, pairs, user_features = [
                 self._filter_or_return(
                     dataframe=df,

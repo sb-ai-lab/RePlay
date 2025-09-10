@@ -945,7 +945,7 @@ class NeuralTS(HybridRecommender):
         torch.save(self.model.state_dict(), os.path.join(dir_name, "model_weights.pth"))
         torch.save(
             {
-                "fit_queries": self.fit_queries.toPandas(),
+                "fit_users": self.fit_users.toPandas(),
                 "fit_items": self.fit_items.toPandas(),
             },
             os.path.join(dir_name, "fit_info.pth"),

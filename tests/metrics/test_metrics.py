@@ -395,7 +395,6 @@ def test_offline_metrics_query_id_errors(predict_data, gt_data, train_data, requ
         )
 
 
-@pytest.mark.cpu
 def test_offline_metrics_subset_queries_works(predict_pd, gt_pd):
     OfflineMetrics(
         [
@@ -406,7 +405,6 @@ def test_offline_metrics_subset_queries_works(predict_pd, gt_pd):
     )(predict_pd, gt_pd[gt_pd["uid"] != 3])
 
 
-@pytest.mark.cpu
 def test_offline_metrics_diversity_metric_only_works(predict_pd, gt_pd):
     OfflineMetrics(
         [CategoricalDiversity([5])],
