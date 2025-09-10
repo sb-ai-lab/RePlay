@@ -20,8 +20,9 @@ from numpy.random import default_rng
 
 from replay.data import get_schema
 from replay.experimental.utils.session_handler import State
-from replay.models.base_rec import IsSavable, RecommenderCommons
+from replay.models.base_rec import IsSavable
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
+from replay.utils.common import RecommenderCommons
 from replay.utils.spark_utils import (
     convert2spark,
     cosine_similarity,
@@ -47,9 +48,9 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
     """Base recommender"""
 
     model: Any
-    can_predict_cold_users: bool = False
+    can_predict_cold_queries: bool = False
     can_predict_cold_items: bool = False
-    fit_users: SparkDataFrame
+    fit_queries: SparkDataFrame
     fit_items: SparkDataFrame
     _num_users: int
     _num_items: int
@@ -82,11 +83,11 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             items = log.select("item_idx").distinct()
         else:
             items = log.select("item_idx").union(item_features.select("item_idx")).distinct()
-        self.fit_users = sf.broadcast(users)
+        self.fit_queries = sf.broadcast(users)
         self.fit_items = sf.broadcast(items)
-        self._num_users = self.fit_users.count()
+        self._num_users = self.fit_queries.count()
         self._num_items = self.fit_items.count()
-        self._user_dim_size = self.fit_users.agg({"user_idx": "max"}).first()[0] + 1
+        self._user_dim_size = self.fit_queries.agg({"user_idx": "max"}).first()[0] + 1
         self._item_dim_size = self.fit_items.agg({"item_idx": "max"}).first()[0] + 1
         self._fit(log, user_features, item_features)
 
@@ -179,9 +180,9 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :return: triplet of filtered `log`, `users`, and `items` dataframes.
         """
         self.logger.debug("Starting predict %s", type(self).__name__)
-        user_data = users or log or user_features or self.fit_users
+        user_data = users or log or user_features or self.fit_queries
         users = get_unique_entities(user_data, "user_idx")
-        users, log = self._filter_cold_for_predict(users, log, "user")
+        users, log = self._filter_cold_for_predict(users, log, "query")
 
         item_data = items or self.fit_items
         items = get_unique_entities(item_data, "item_idx")
@@ -252,26 +253,27 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         main_df: SparkDataFrame,
         log_df: Optional[SparkDataFrame],
         entity: str,
-        suffix: str = "idx",
     ):
         """
         Filter out cold entities (users/items) from the `main_df` and `log_df`
         if the model does not predict cold.
         Warn if cold entities are present in the `main_df`.
         """
-        if getattr(self, f"can_predict_cold_{entity}s"):
+        can_predict_cold = self.can_predict_cold_queries if entity == "query" else self.can_predict_cold_items
+        if can_predict_cold:
             return main_df, log_df
 
-        fit_entities = getattr(self, f"fit_{entity}s")
+        fit_entities = self.fit_queries if entity == "query" else self.fit_items
+        column = self.query_column if entity == "query" else self.item_column
 
-        num_new, main_df = filter_cold(main_df, fit_entities, col_name=f"{entity}_{suffix}")
+        num_new, main_df = filter_cold(main_df, fit_entities, col_name=column)
         if num_new > 0:
             self.logger.info(
                 "%s model can't predict cold %ss, they will be ignored",
                 self,
                 entity,
             )
-        _, log_df = filter_cold(log_df, fit_entities, col_name=f"{entity}_{suffix}")
+        _, log_df = filter_cold(log_df, fit_entities, col_name=column)
         return main_df, log_df
 
     @abstractmethod
@@ -377,13 +379,15 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         return action_dist
 
     def _get_fit_counts(self, entity: str) -> int:
-        if not hasattr(self, f"_num_{entity}s"):
+        num_entities = "_num_queries" if entity == "query" else "_num_items"
+        fit_entities = self.fit_queries if entity == "query" else self.fit_items
+        if not hasattr(self, num_entities):
             setattr(
                 self,
-                f"_num_{entity}s",
-                getattr(self, f"fit_{entity}s").count(),
+                num_entities,
+                fit_entities.count(),
             )
-        return getattr(self, f"_num_{entity}s")
+        return getattr(self, num_entities)
 
     @property
     def users_count(self) -> int:
@@ -400,13 +404,16 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         return self._get_fit_counts("item")
 
     def _get_fit_dims(self, entity: str) -> int:
-        if not hasattr(self, f"_{entity}_dim_size"):
+        dim_size = f"_{entity}_dim_size"
+        fit_entities = self.fit_queries if entity == "query" else self.fit_items
+        column = self.query_column if entity == "query" else self.item_column
+        if not hasattr(self, dim_size):
             setattr(
                 self,
-                f"_{entity}_dim_size",
-                getattr(self, f"fit_{entity}s").agg({f"{entity}_idx": "max"}).first()[0] + 1,
+                dim_size,
+                fit_entities.agg({column: "max"}).first()[0] + 1,
             )
-        return getattr(self, f"_{entity}_dim_size")
+        return getattr(self, dim_size)
 
     @property
     def _user_dim(self) -> int:
@@ -475,7 +482,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         if sorted(pairs.columns) != ["item_idx", "user_idx"]:
             msg = "pairs must be a dataframe with columns strictly [user_idx, item_idx]"
             raise ValueError(msg)
-        pairs, log = self._filter_cold_for_predict(pairs, log, "user")
+        pairs, log = self._filter_cold_for_predict(pairs, log, "query")
         pairs, log = self._filter_cold_for_predict(pairs, log, "item")
 
         pred = self._predict_pairs(
@@ -1120,7 +1127,7 @@ class UserRecommender(BaseRecommender, ABC):
 class NonPersonalizedRecommender(Recommender, ABC):
     """Base class for non-personalized recommenders with popularity statistics."""
 
-    can_predict_cold_users = True
+    can_predict_cold_queries = True
     can_predict_cold_items = True
     item_popularity: SparkDataFrame
     add_cold_items: bool

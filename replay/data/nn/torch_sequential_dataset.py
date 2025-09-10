@@ -1,13 +1,14 @@
-from typing import Generator, NamedTuple, Optional, Sequence, Tuple, Union, cast
+from typing import TYPE_CHECKING, Generator, NamedTuple, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 import torch
 from torch.utils.data import Dataset as TorchDataset
 
-from replay.utils.model_handler import deprecation_warning
+from replay.utils import deprecation_warning
 
-from .schema import TensorFeatureInfo, TensorMap, TensorSchema
-from .sequential_dataset import SequentialDataset
+if TYPE_CHECKING:
+    from .schema import TensorFeatureInfo, TensorMap, TensorSchema
+    from .sequential_dataset import SequentialDataset
 
 
 # We do not use dataclasses as PyTorch default collate
@@ -19,7 +20,7 @@ class TorchSequentialBatch(NamedTuple):
 
     query_id: torch.LongTensor
     padding_mask: torch.BoolTensor
-    features: TensorMap
+    features: "TensorMap"
 
 
 class TorchSequentialDataset(TorchDataset):
@@ -33,7 +34,7 @@ class TorchSequentialDataset(TorchDataset):
     )
     def __init__(
         self,
-        sequential: SequentialDataset,
+        sequential: "SequentialDataset",
         max_sequence_length: int,
         sliding_window_step: Optional[int] = None,
         padding_value: int = 0,
@@ -89,7 +90,7 @@ class TorchSequentialDataset(TorchDataset):
 
     def _generate_tensor_feature(
         self,
-        feature: TensorFeatureInfo,
+        feature: "TensorFeatureInfo",
         sequence_index: int,
         sequence_offset: int,
     ) -> torch.Tensor:
@@ -161,7 +162,7 @@ class TorchSequentialValidationBatch(NamedTuple):
 
     query_id: torch.LongTensor
     padding_mask: torch.BoolTensor
-    features: TensorMap
+    features: "TensorMap"
     ground_truth: torch.LongTensor
     train: torch.LongTensor
 
@@ -181,9 +182,9 @@ class TorchSequentialValidationDataset(TorchDataset):
     )
     def __init__(
         self,
-        sequential: SequentialDataset,
-        ground_truth: SequentialDataset,
-        train: SequentialDataset,
+        sequential: "SequentialDataset",
+        ground_truth: "SequentialDataset",
+        train: "SequentialDataset",
         max_sequence_length: int,
         padding_value: int = 0,
         sliding_window_step: Optional[int] = None,
@@ -280,8 +281,8 @@ class TorchSequentialValidationDataset(TorchDataset):
     @classmethod
     def _check_if_schema_match(
         cls,
-        sequential_schema: TensorSchema,
-        ground_truth_schema: TensorSchema,
+        sequential_schema: "TensorSchema",
+        ground_truth_schema: "TensorSchema",
     ) -> None:
         sequential_item_feature = sequential_schema.item_id_features.item()
         ground_truth_item_feature = ground_truth_schema.item_id_features.item()

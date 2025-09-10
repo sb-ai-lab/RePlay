@@ -3,7 +3,7 @@ import json
 import pickle
 import warnings
 from pathlib import Path
-from typing import Dict, Generic, List, Optional, Sequence, Set, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Dict, Generic, List, Optional, Sequence, Set, Tuple, TypeVar, Union
 
 import numpy as np
 import polars as pl
@@ -14,11 +14,11 @@ from replay.data import Dataset, FeatureHint, FeatureSchema, FeatureSource, Feat
 from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.preprocessing import LabelEncoder, LabelEncodingRule
 from replay.preprocessing.label_encoder import HandleUnknownStrategies
-from replay.utils.model_handler import deprecation_warning
+from replay.utils import deprecation_warning
 
-from .schema import TensorFeatureInfo, TensorFeatureSource, TensorSchema
-from .sequential_dataset import PandasSequentialDataset, PolarsSequentialDataset, SequentialDataset
-from .utils import ensure_pandas, groupby_sequences
+if TYPE_CHECKING:
+    from .schema import TensorFeatureInfo, TensorFeatureSource, TensorSchema
+    from .sequential_dataset import SequentialDataset
 
 SequenceDataFrameLike = Union[PandasDataFrame, PolarsDataFrame]
 _T = TypeVar("_T")
@@ -34,7 +34,7 @@ class SequenceTokenizer:
 
     def __init__(
         self,
-        tensor_schema: TensorSchema,
+        tensor_schema: "TensorSchema",
         handle_unknown_rule: HandleUnknownStrategies = "error",
         default_value_rule: Optional[Union[int, str]] = None,
         allow_collect_to_master: bool = False,
@@ -77,7 +77,7 @@ class SequenceTokenizer:
         self,
         dataset: Dataset,
         tensor_features_to_keep: Optional[Sequence[str]] = None,
-    ) -> SequentialDataset:
+    ) -> "SequentialDataset":
         """
         :param dataset: input dataset to transform
         :param tensor_features_to_keep: specified feature names to transform
@@ -89,7 +89,7 @@ class SequenceTokenizer:
     def fit_transform(
         self,
         dataset: Dataset,
-    ) -> SequentialDataset:
+    ) -> "SequentialDataset":
         """
         :param dataset: input dataset to transform
         :returns: SequentialDataset
@@ -97,7 +97,7 @@ class SequenceTokenizer:
         return self.fit(dataset)._transform_unchecked(dataset)
 
     @property
-    def tensor_schema(self) -> TensorSchema:
+    def tensor_schema(self) -> "TensorSchema":
         """
         :returns: tensor schema
         """
@@ -149,7 +149,9 @@ class SequenceTokenizer:
         self,
         dataset: Dataset,
         tensor_features_to_keep: Optional[Sequence[str]] = None,
-    ) -> SequentialDataset:
+    ) -> "SequentialDataset":
+        from replay.data.nn.sequential_dataset import PandasSequentialDataset, PolarsSequentialDataset
+
         schema = self._tensor_schema
         if tensor_features_to_keep is not None:
             schema = schema.subset(tensor_features_to_keep)
@@ -186,6 +188,8 @@ class SequenceTokenizer:
         self,
         dataset: Dataset,
     ) -> Tuple[SequenceDataFrameLike, Optional[SequenceDataFrameLike], Optional[SequenceDataFrameLike]]:
+        from replay.data.nn.utils import ensure_pandas, groupby_sequences
+
         grouped_interactions = groupby_sequences(
             events=dataset.interactions,
             groupby_col=dataset.feature_schema.query_id_column,
@@ -218,7 +222,7 @@ class SequenceTokenizer:
 
     def _make_sequence_features(
         self,
-        schema: TensorSchema,
+        schema: "TensorSchema",
         feature_schema: FeatureSchema,
         grouped_interactions: SequenceDataFrameLike,
         query_features: Optional[SequenceDataFrameLike],
@@ -242,7 +246,7 @@ class SequenceTokenizer:
     def _match_features_with_tensor_schema(
         cls,
         dataset: Dataset,
-        tensor_schema: TensorSchema,
+        tensor_schema: "TensorSchema",
     ) -> Dataset:
         feature_subset_filter = cls._get_features_filter_from_schema(
             tensor_schema,
@@ -261,7 +265,7 @@ class SequenceTokenizer:
     @classmethod
     def _get_features_filter_from_schema(
         cls,
-        tensor_schema: TensorSchema,
+        tensor_schema: "TensorSchema",
         query_id_column: str,
         item_id_column: str,
     ) -> Set[str]:
@@ -291,7 +295,7 @@ class SequenceTokenizer:
         return set(features_subset)
 
     @classmethod
-    def _check_tensor_schema(cls, tensor_schema: TensorSchema) -> None:
+    def _check_tensor_schema(cls, tensor_schema: "TensorSchema") -> None:
         # Check consistency of sequential features
         for tensor_feature in tensor_schema.all_features:
             feature_sources = tensor_feature.feature_sources
@@ -319,11 +323,11 @@ class SequenceTokenizer:
     def _check_if_tensor_schema_matches_data(  # noqa: C901
         cls,
         dataset: Dataset,
-        tensor_schema: TensorSchema,
+        tensor_schema: "TensorSchema",
         tensor_features_to_keep: Optional[Sequence[str]] = None,
     ) -> None:
         # Check if all source columns specified in tensor schema exist in provided data frames
-        sources_for_tensors: List[TensorFeatureSource] = []
+        sources_for_tensors: List["TensorFeatureSource"] = []
         for tensor_feature_name, tensor_feature in tensor_schema.items():
             if tensor_features_to_keep is not None and tensor_feature_name not in tensor_features_to_keep:
                 continue
@@ -413,6 +417,8 @@ class SequenceTokenizer:
 
         :returns: Loaded tokenizer object.
         """
+        from replay.data.nn import TensorSchema
+
         if not use_pickle:
             base_path = Path(path).with_suffix(".replay").resolve()
             with open(base_path / "init_args.json", "r") as file:
@@ -500,7 +506,7 @@ class _BaseSequenceProcessor(Generic[_T]):
 
     def __init__(
         self,
-        tensor_schema: TensorSchema,
+        tensor_schema: "TensorSchema",
         query_id_column: str,
         item_id_column: str,
         grouped_interactions: _T,
@@ -535,7 +541,7 @@ class _BaseSequenceProcessor(Generic[_T]):
             return self._process_num_feature(tensor_feature)
         assert False, "Unknown tensor feature type"
 
-    def _process_num_feature(self, tensor_feature: TensorFeatureInfo) -> _T:
+    def _process_num_feature(self, tensor_feature: "TensorFeatureInfo") -> _T:
         """
         Process numerical tensor feature depends on it source.
         """
@@ -548,7 +554,7 @@ class _BaseSequenceProcessor(Generic[_T]):
             return self._process_num_item_feature(tensor_feature)
         assert False, "Unknown tensor feature source table"
 
-    def _process_cat_feature(self, tensor_feature: TensorFeatureInfo) -> _T:
+    def _process_cat_feature(self, tensor_feature: "TensorFeatureInfo") -> _T:
         """
         Process categorical tensor feature depends on it source.
         """
@@ -562,27 +568,27 @@ class _BaseSequenceProcessor(Generic[_T]):
         assert False, "Unknown tensor feature source table"
 
     @abc.abstractmethod
-    def _process_cat_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> _T:  # pragma: no cover
+    def _process_cat_interaction_feature(self, tensor_feature: "TensorFeatureInfo") -> _T:  # pragma: no cover
         pass
 
     @abc.abstractmethod
-    def _process_cat_query_feature(self, tensor_feature: TensorFeatureInfo) -> _T:  # pragma: no cover
+    def _process_cat_query_feature(self, tensor_feature: "TensorFeatureInfo") -> _T:  # pragma: no cover
         pass
 
     @abc.abstractmethod
-    def _process_cat_item_feature(self, tensor_feature: TensorFeatureInfo) -> _T:  # pragma: no cover
+    def _process_cat_item_feature(self, tensor_feature: "TensorFeatureInfo") -> _T:  # pragma: no cover
         pass
 
     @abc.abstractmethod
-    def _process_num_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> _T:  # pragma: no cover
+    def _process_num_interaction_feature(self, tensor_feature: "TensorFeatureInfo") -> _T:  # pragma: no cover
         pass
 
     @abc.abstractmethod
-    def _process_num_query_feature(self, tensor_feature: TensorFeatureInfo) -> _T:  # pragma: no cover
+    def _process_num_query_feature(self, tensor_feature: "TensorFeatureInfo") -> _T:  # pragma: no cover
         pass
 
     @abc.abstractmethod
-    def _process_num_item_feature(self, tensor_feature: TensorFeatureInfo) -> _T:  # pragma: no cover
+    def _process_num_item_feature(self, tensor_feature: "TensorFeatureInfo") -> _T:  # pragma: no cover
         pass
 
 
@@ -597,7 +603,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
 
     def __init__(
         self,
-        tensor_schema: TensorSchema,
+        tensor_schema: "TensorSchema",
         query_id_column: str,
         item_id_column: str,
         grouped_interactions: PandasDataFrame,
@@ -628,7 +634,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
         return PandasDataFrame(all_features)
 
     def _process_num_interaction_feature(
-        self, tensor_feature: TensorFeatureInfo
+        self, tensor_feature: "TensorFeatureInfo"
     ) -> Union[List[np.ndarray], List[List]]:
         """
         Process numerical interaction feature.
@@ -650,7 +656,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
                 values.append(np.array(sequence))
         return values
 
-    def _process_num_item_feature(self, tensor_feature: TensorFeatureInfo) -> Union[List[np.ndarray], List[List]]:
+    def _process_num_item_feature(self, tensor_feature: "TensorFeatureInfo") -> Union[List[np.ndarray], List[List]]:
         """
         Process numerical feature from item features dataset.
 
@@ -676,7 +682,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
 
         return values
 
-    def _process_num_query_feature(self, tensor_feature: TensorFeatureInfo) -> List[np.ndarray]:
+    def _process_num_query_feature(self, tensor_feature: "TensorFeatureInfo") -> List[np.ndarray]:
         """
         Process numerical feature from query features dataset.
 
@@ -687,7 +693,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
         return self._process_cat_query_feature(tensor_feature)
 
     def _process_cat_interaction_feature(
-        self, tensor_feature: TensorFeatureInfo
+        self, tensor_feature: "TensorFeatureInfo"
     ) -> Union[List[np.ndarray], List[List]]:
         """
         Process categorical interaction feature.
@@ -709,7 +715,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
                 values.append(np.array(sequence))
         return values
 
-    def _process_cat_query_feature(self, tensor_feature: TensorFeatureInfo) -> List[np.ndarray]:
+    def _process_cat_query_feature(self, tensor_feature: "TensorFeatureInfo") -> List[np.ndarray]:
         """
         Process categorical feature from query features dataset.
 
@@ -738,7 +744,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
                 ]
         return [np.array([query_feature[i]]).reshape(-1) for i in range(len(self._grouped_interactions))]
 
-    def _process_cat_item_feature(self, tensor_feature: TensorFeatureInfo) -> Union[List[np.ndarray], List[List]]:
+    def _process_cat_item_feature(self, tensor_feature: "TensorFeatureInfo") -> Union[List[np.ndarray], List[List]]:
         """
         Process categorical feature from item features dataset.
 
@@ -784,7 +790,7 @@ class _PolarsSequenceProcessor(_BaseSequenceProcessor[PolarsDataFrame]):
             data = data.join(self._process_feature(tensor_feature_name), on=self._query_id_column, how="left")
         return data
 
-    def _process_num_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> PolarsDataFrame:
+    def _process_num_interaction_feature(self, tensor_feature: "TensorFeatureInfo") -> PolarsDataFrame:
         """
         Process numerical interaction feature.
 
@@ -794,7 +800,7 @@ class _PolarsSequenceProcessor(_BaseSequenceProcessor[PolarsDataFrame]):
         """
         return self._process_cat_interaction_feature(tensor_feature)
 
-    def _process_num_query_feature(self, tensor_feature: TensorFeatureInfo) -> PolarsDataFrame:
+    def _process_num_query_feature(self, tensor_feature: "TensorFeatureInfo") -> PolarsDataFrame:
         """
         Process numerical feature from query features dataset.
 
@@ -805,7 +811,7 @@ class _PolarsSequenceProcessor(_BaseSequenceProcessor[PolarsDataFrame]):
         """
         return self._process_cat_query_feature(tensor_feature)
 
-    def _process_num_item_feature(self, tensor_feature: TensorFeatureInfo) -> PolarsDataFrame:
+    def _process_num_item_feature(self, tensor_feature: "TensorFeatureInfo") -> PolarsDataFrame:
         """
         Process numerical feature from item features dataset.
 
@@ -816,7 +822,7 @@ class _PolarsSequenceProcessor(_BaseSequenceProcessor[PolarsDataFrame]):
         """
         return self._process_cat_item_feature(tensor_feature)
 
-    def _process_cat_interaction_feature(self, tensor_feature: TensorFeatureInfo) -> PolarsDataFrame:
+    def _process_cat_interaction_feature(self, tensor_feature: "TensorFeatureInfo") -> PolarsDataFrame:
         """
         Process categorical interaction feature.
 
@@ -833,7 +839,7 @@ class _PolarsSequenceProcessor(_BaseSequenceProcessor[PolarsDataFrame]):
             {source.column: tensor_feature.name}
         )
 
-    def _process_cat_query_feature(self, tensor_feature: TensorFeatureInfo) -> PolarsDataFrame:
+    def _process_cat_query_feature(self, tensor_feature: "TensorFeatureInfo") -> PolarsDataFrame:
         """
         Process categorical feature from query features dataset.
 
@@ -877,7 +883,7 @@ class _PolarsSequenceProcessor(_BaseSequenceProcessor[PolarsDataFrame]):
             {source.column: tensor_feature.name}
         )
 
-    def _process_cat_item_feature(self, tensor_feature: TensorFeatureInfo) -> PolarsDataFrame:
+    def _process_cat_item_feature(self, tensor_feature: "TensorFeatureInfo") -> PolarsDataFrame:
         """
         Process categorical feature from item features dataset.
 

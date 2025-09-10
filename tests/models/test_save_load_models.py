@@ -19,13 +19,6 @@ from replay.models import (
     Wilson,
     Word2VecRec,
 )
-from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
-from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
-from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
-from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
-from replay.models.extensions.ann.index_builders.executor_nmslib_index_builder import ExecutorNmslibIndexBuilder
-from replay.models.extensions.ann.index_stores.hdfs_index_store import HdfsIndexStore
-from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
 from replay.preprocessing.label_encoder import LabelEncoder, LabelEncodingRule
 from replay.utils import PYSPARK_AVAILABLE
 from tests.utils import create_dataset, sparkDataFrameEqual
@@ -204,8 +197,12 @@ def test_study(df, tmp_path):
     assert loaded_model.study == model.study
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_ann_word2vec_saving_loading(long_log_with_features, tmp_path):
+    from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
+    from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
+    from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
+
     model = Word2VecRec(
         rank=1,
         window_size=1,
@@ -234,8 +231,11 @@ def test_ann_word2vec_saving_loading(long_log_with_features, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_ann_slim_saving_loading(long_log_with_features, tmp_path):
+    from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+    from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
+
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
         m=10,
@@ -265,8 +265,11 @@ def test_ann_slim_saving_loading(long_log_with_features, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_ann_association_rule_saving_loading(long_log_with_features, tmp_path):
+    from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+    from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
+
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
         m=10,
@@ -297,8 +300,12 @@ def test_ann_association_rule_saving_loading(long_log_with_features, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_ann_knn_saving_loading(long_log_with_features, tmp_path):
+    from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+    from replay.models.extensions.ann.index_builders.executor_nmslib_index_builder import ExecutorNmslibIndexBuilder
+    from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
+
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
         m=10,
@@ -327,6 +334,8 @@ def test_ann_knn_saving_loading(long_log_with_features, tmp_path):
 
 @pytest.mark.core
 def test_hdfs_index_store_exception():
+    from replay.models.extensions.ann.index_stores.hdfs_index_store import HdfsIndexStore
+
     local_warehouse_dir = "file:///tmp"
     with pytest.raises(ValueError, match=f"Can't recognize path {local_warehouse_dir + '/index_dir'} as HDFS path!"):
         HdfsIndexStore(warehouse_dir=local_warehouse_dir, index_dir="index_dir")

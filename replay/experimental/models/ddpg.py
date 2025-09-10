@@ -559,7 +559,7 @@ class DDPG(Recommender):
         self.min_trajectory_len = min_trajectory_len
 
         self.memory = None
-        self.fit_users = None
+        self.fit_queries = None
         self.fit_items = None
 
         if n_jobs is not None:
@@ -590,7 +590,7 @@ class DDPG(Recommender):
     def _dataframes(self):
         return {
             "memory": self.memory,
-            "fit_users": self.fit_users,
+            "fit_queries": self.fit_queries,
             "fit_items": self.fit_items,
         }
 

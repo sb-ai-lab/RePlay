@@ -10,7 +10,7 @@ from replay.data.nn import (
     TorchSequentialDataset,
     TorchSequentialValidationDataset,
 )
-from replay.utils.model_handler import deprecation_warning
+from replay.utils import deprecation_warning
 
 
 class SasRecTrainingBatch(NamedTuple):

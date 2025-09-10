@@ -8,7 +8,7 @@ from replay.experimental.models.base_rec import BaseRecommender
 from replay.experimental.preprocessing import Indexer
 from replay.utils import PYSPARK_AVAILABLE
 from replay.utils.session_handler import State
-from replay.utils.spark_utils import load_pickled_from_parquet, save_picklable_to_parquet
+from replay.utils.spark_utils import load_pickled_from_parquet
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.types as st
@@ -28,49 +28,6 @@ if PYSPARK_AVAILABLE:
         fs = get_fs(spark)
         statuses = fs.listStatus(spark._jvm.org.apache.hadoop.fs.Path(dir_path))
         return [str(f.getPath()) for f in statuses]
-
-
-def save(model: BaseRecommender, path: Union[str, Path], overwrite: bool = False):
-    """
-    Save fitted model to disk as a folder
-
-    :param model: Trained recommender
-    :param path: destination where model files will be stored
-    :return:
-    """
-    if isinstance(path, Path):
-        path = str(path)
-
-    spark = State().session
-
-    fs = get_fs(spark)
-    if not overwrite:
-        is_exists = fs.exists(spark._jvm.org.apache.hadoop.fs.Path(path))
-        if is_exists:
-            msg = f"Path '{path}' already exists. Mode is 'overwrite = False'."
-            raise FileExistsError(msg)
-
-    fs.mkdirs(spark._jvm.org.apache.hadoop.fs.Path(path))
-    model._save_model(join(path, "model"))
-
-    init_args = model._init_args
-    init_args["_model_name"] = str(model)
-    sc = spark.sparkContext
-    df = spark.read.json(sc.parallelize([json.dumps(init_args)]))
-    df.coalesce(1).write.mode("overwrite").option("ignoreNullFields", "false").json(join(path, "init_args.json"))
-
-    dataframes = model._dataframes
-    df_path = join(path, "dataframes")
-    for name, df in dataframes.items():
-        if df is not None:
-            df.write.mode("overwrite").parquet(join(df_path, name))
-
-    if hasattr(model, "fit_users"):
-        model.fit_users.write.mode("overwrite").parquet(join(df_path, "fit_users"))
-    if hasattr(model, "fit_items"):
-        model.fit_items.write.mode("overwrite").parquet(join(df_path, "fit_items"))
-    if hasattr(model, "study"):
-        save_picklable_to_parquet(model.study, join(path, "study"))
 
 
 def load(path: str, model_type=None) -> BaseRecommender:

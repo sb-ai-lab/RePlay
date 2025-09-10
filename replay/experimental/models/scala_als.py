@@ -4,7 +4,7 @@ from replay.experimental.models.base_rec import ItemVectorModel, Recommender
 from replay.experimental.models.extensions.spark_custom_models.als_extension import ALS, ALSModel
 from replay.models.extensions.ann.ann_mixin import ANNMixin
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+from replay.utils import OPTUNA_AVAILABLE, PYSPARK_AVAILABLE, SparkDataFrame
 from replay.utils.spark_utils import list_to_vector_udf
 
 if PYSPARK_AVAILABLE:
@@ -18,9 +18,10 @@ class ALSWrap(Recommender, ItemVectorModel):
     """
 
     _seed: Optional[int] = None
-    _search_space = {
-        "rank": {"type": "loguniform_int", "args": [8, 256]},
-    }
+    if OPTUNA_AVAILABLE:
+        _search_space = {
+            "rank": {"type": "loguniform_int", "args": [8, 256]},
+        }
 
     def __init__(
         self,
@@ -185,17 +186,16 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
         user_vectors, _ = self.get_features(queries)
         return user_vectors
 
-    def _get_ann_build_params(self, interactions: SparkDataFrame):
+    def _configure_index_builder(self, interactions: SparkDataFrame):
+        item_vectors, _ = self.get_features(interactions.select("item_idx").distinct())
+
         self.index_builder.index_params.dim = self.rank
         self.index_builder.index_params.max_elements = interactions.select("item_idx").distinct().count()
-        return {
+
+        return item_vectors, {
             "features_col": "item_factors",
             "ids_col": "item_idx",
         }
-
-    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:
-        item_vectors, _ = self.get_features(interactions.select("item_idx").distinct())
-        return item_vectors
 
     def __init__(
         self,
@@ -207,10 +207,7 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
         index_builder: Optional[IndexBuilder] = None,
     ):
         ALSWrap.__init__(self, rank, implicit_prefs, seed, num_item_blocks, num_user_blocks)
-        if isinstance(index_builder, (IndexBuilder, type(None))):
-            self.index_builder = index_builder
-        elif isinstance(index_builder, dict):
-            self.init_builder_from_dict(index_builder)
+        self.init_index_builder(index_builder)
         self.num_elements = None
 
     @property

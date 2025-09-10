@@ -1,5 +1,8 @@
 import pytest
 
+_ = pytest.importorskip("hnswlib", "Optional dependency hnswlib not installed")
+_ = pytest.importorskip("nmslib", "Optional dependency nmslib not installed")
+
 from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
 from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
 from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
@@ -72,7 +75,7 @@ def nms_executor(tmp_path):
     )
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 @pytest.mark.parametrize("driver", ["hnsw_driver", "hnsw_executor"])
 def test_hnsw_index_builder(driver, vectors, request):
     driver = request.getfixturevalue(driver)
@@ -89,7 +92,7 @@ def test_hnsw_index_builder(driver, vectors, request):
     driver.build_index(vectors, features_col="features", ids_col=None)
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_nms_index_builder(nms_executor):
     inferer = nms_executor.produce_inferer(filter_seen_items=False)
     assert isinstance(inferer, NmslibIndexInferer)

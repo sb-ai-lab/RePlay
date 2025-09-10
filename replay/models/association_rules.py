@@ -142,6 +142,7 @@ class AssociationRulesItemRec(NeighbourRec):
         :param index_builder: `IndexBuilder` instance that adds ANN functionality.
             If not set, then ann will not be used.
         """
+        self.init_index_builder(index_builder)
 
         self.session_column = session_column
         self.min_item_count = min_item_count
@@ -149,10 +150,6 @@ class AssociationRulesItemRec(NeighbourRec):
         self.num_neighbours = num_neighbours
         self.use_rating = use_rating
         self.similarity_metric = similarity_metric
-        if isinstance(index_builder, (IndexBuilder, type(None))):
-            self.index_builder = index_builder
-        elif isinstance(index_builder, dict):
-            self.init_builder_from_dict(index_builder)
 
     @property
     def _init_args(self):

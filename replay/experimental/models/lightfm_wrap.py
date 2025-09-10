@@ -182,7 +182,7 @@ class LightFMWrap(HybridRecommender):
         csr_user_features = self._feature_table_to_csr(log.select("user_idx").distinct(), user_features)
 
         if user_features is not None:
-            self.can_predict_cold_users = True
+            self.can_predict_cold_queries = True
         if item_features is not None:
             self.can_predict_cold_items = True
 
@@ -215,7 +215,7 @@ class LightFMWrap(HybridRecommender):
 
         model = self.model
 
-        if self.can_predict_cold_users and user_features is None:
+        if self.can_predict_cold_queries and user_features is None:
             msg = "User features are missing for predict"
             raise ValueError(msg)
         if self.can_predict_cold_items and item_features is None:
@@ -270,7 +270,8 @@ class LightFMWrap(HybridRecommender):
 
         # models without features use sparse matrix
         if features is None:
-            matrix_width = getattr(self, f"fit_{entity}s").count()
+            fit_entities = self.fit_queries if entity == "query" else self.fit_items
+            matrix_width = fit_entities.count()
             warm_ids = ids_list[ids_list < matrix_width]
             sparse_features = csr_matrix(
                 (

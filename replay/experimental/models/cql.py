@@ -142,7 +142,7 @@ class CQL(Recommender):
     mdp_dataset_builder: "MdpDatasetBuilder"
     model: CQL_d3rlpy
 
-    can_predict_cold_users = True
+    can_predict_cold_queries = True
 
     _observation_shape = (2,)
     _action_size = 1

@@ -12,27 +12,24 @@ variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   RUNNER: amazme-1
 
+
 .setup_env: &setup_env
-  - pip install -q --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning
+  - pip install -q --upgrade pip wheel poetry==2.1 poetry-dynamic-versioning
 
-.setup_experimental_env: &setup_experimental_env
-  - *setup_env
-  - pip install -q --upgrade lightfm==1.17
+.wrapper_install: &wrapper_install
+  - ./poetry_wrapper.sh ${WRAPPER_ARGS} install ${WRAPPER_EXTRAS} 
 
-.install_replay: &install_replay
+.install_conditionals: &install_conditionals
+  - pip install -q --upgrade onnx openvino optuna hnswlib fixed-install-nmslib
+
+.install_experimental_replay_all_extras: &install_experimental_replay_all_extras
+  variables:
+    WRAPPER_ARGS: --experimental
+    WRAPPER_EXTRAS: --all-extras
   before_script:
     - *setup_env
-    - ./poetry_wrapper.sh install
-
-.install_experimental_replay: &install_experimental_replay
-  before_script:
-    - *setup_experimental_env
-    - ./poetry_wrapper.sh --experimental install
-
-.install_experimental_replay_with_spark: &install_experimental_replay_with_spark
-  before_script:
-    - *setup_experimental_env
-    - ./poetry_wrapper.sh --experimental install --all-extras
+    - *install_conditionals
+    - *wrapper_install
 
 cache: &global_cache
   key: ${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHORT_SHA}
@@ -45,6 +42,7 @@ stages:
   - resolve
   - code_quality
   - test_core
+  - test_conditional
   - test_torch
   - test_spark
   - test_spark_torch
@@ -60,7 +58,7 @@ resolve-job:
     <<: *global_cache
     policy: push
   script:
-    - *setup_experimental_env
+    - *setup_env
     - poetry --version
     - pip --version
     - ./poetry_wrapper.sh --experimental install --all-extras
@@ -76,7 +74,7 @@ resolve-job:
     - ${RUNNER}
 
 ruff:
-  <<: *install_experimental_replay_with_spark
+  <<: *install_experimental_replay_all_extras
   stage: code_quality
   script:
     - ./poetry_wrapper.sh --generate
@@ -85,7 +83,7 @@ ruff:
     - ${RUNNER}
 
 black:
-  <<: *install_experimental_replay_with_spark
+  <<: *install_experimental_replay_all_extras
   stage: code_quality
   script:
     - ./poetry_wrapper.sh --generate
@@ -94,7 +92,7 @@ black:
     - ${RUNNER}
 
 poetry-check:
-  <<: *install_experimental_replay_with_spark
+  <<: *install_experimental_replay_all_extras
   stage: code_quality
   script:
     - ./poetry_wrapper.sh check
@@ -103,7 +101,7 @@ poetry-check:
     - ${RUNNER}
 
 toml-sort:
-  <<: *install_experimental_replay_with_spark
+  <<: *install_experimental_replay_all_extras
   stage: code_quality
   script:
     - ./poetry_wrapper.sh --generate
@@ -114,7 +112,7 @@ toml-sort:
     - ${RUNNER}
 
 sphinx-job:
-  <<: *install_experimental_replay_with_spark
+  <<: *install_experimental_replay_all_extras
   stage: code_quality
   script:
     - make -C docs clean html
@@ -129,6 +127,7 @@ sphinx-job:
   before_script:
     - export REPLAY_SPARK_CORE_COUNT=4
     - export REPLAY_SPARK_MEMORY=16
+    - *wrapper_install
   parallel:
     matrix:
       - image:
@@ -140,7 +139,7 @@ pytest-core:
   <<: *pytest_template
   stage: test_core
   script:
-    - ./poetry_wrapper.sh install
+    - *wrapper_install
     - pytest -m core tests/ --ignore=tests/experimental
     - mv .coverage .coverage_core_${image:(-4)}
   artifacts:
@@ -148,12 +147,28 @@ pytest-core:
       - .coverage_core_${image:(-4)}
     expire_in: 1 day
 
+pytest-conditional:
+  <<: *pytest_template
+  stage: test_conditional
+  variables:
+    WRAPPER_ARGS: --experimental
+    WRAPPER_EXTRAS: --all-extras
+  script:
+    - *install_conditionals
+    - pytest -m conditional tests/ --ignore=tests/experimental
+    - mv .coverage .coverage_conditional_${image:(-4)}
+  artifacts:
+    paths:
+      - .coverage_conditional_${image:(-4)}
+    expire_in: 1 day
+
 pytest-torch:
   <<: *pytest_template
   stage: test_torch
+  variables:
+    WRAPPER_EXTRAS: -E torch
   script:
-    - ./poetry_wrapper.sh install -E torch-openvino
-    - pytest -m "not spark and not experimental" tests/ --ignore=tests/experimental
+    - pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental
     - mv .coverage .coverage_torch_${image:(-4)}
   artifacts:
     paths:
@@ -163,9 +178,10 @@ pytest-torch:
 pytest-spark:
   <<: *pytest_template
   stage: test_spark
+  variables:
+    WRAPPER_EXTRAS: -E spark
   script:
-    - ./poetry_wrapper.sh install -E spark
-    - pytest -m "not torch and not experimental" tests/ --ignore=tests/experimental --ignore=tests/models
+    - pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models
     - mv .coverage .coverage_spark_${image:(-4)}
   artifacts:
     paths:
@@ -175,9 +191,10 @@ pytest-spark:
 pytest-spark-and-torch:
   <<: *pytest_template
   stage: test_spark_torch
+  variables:
+    WRAPPER_EXTRAS: --all-extras
   script:
-    - ./poetry_wrapper.sh install --all-extras
-    - pytest -m "not experimental" --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
+    - pytest -m "not experimental and not conditional" tests/ --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
     - mv .coverage .coverage_spark_and_torch_${image:(-4)}
   artifacts:
     paths:
@@ -187,9 +204,10 @@ pytest-spark-and-torch:
 pytest-models:
   <<: *pytest_template
   stage: test_models
+  variables:
+    WRAPPER_EXTRAS: --all-extras
   script:
-    - ./poetry_wrapper.sh install --all-extras
-    - pytest -m "not experimental" tests/models --ignore=replay/experimental --ignore=tests/experimental
+    - pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental
     - mv .coverage .coverage_models_${image:(-4)}
   artifacts:
     paths:
@@ -199,9 +217,12 @@ pytest-models:
 pytest-experimental:
   <<: *pytest_template
   stage: test_experimental
+  variables:
+    WRAPPER_ARGS: --experimental
+    WRAPPER_EXTRAS: --all-extras
   script:
-    - ./poetry_wrapper.sh --experimental install --all-extras
-    - pytest -m "experimental"
+    - *install_conditionals
+    - pytest -m "experimental" tests/
     - mv .coverage .coverage_experimental_${image:(-4)}
   artifacts:
     paths:
@@ -210,14 +231,16 @@ pytest-experimental:
 
 merge-coverage:
   stage: merge coverage
+  variables: 
+    WRAPPER_EXTRAS: --only dev
   before_script:
     - *setup_env
-    - ./poetry_wrapper.sh install --only dev
+    - *wrapper_install
   script:
-    - coverage combine .coverage_core_${image:(-4)} .coverage_spark_${image:(-4)} .coverage_torch_${image:(-4)} .coverage_spark_and_torch_${image:(-4)} .coverage_models_${image:(-4)} .coverage_experimental_${image:(-4)}
+    - coverage combine .coverage_core_${image:(-4)} .coverage_conditional_${image:(-4)} .coverage_spark_${image:(-4)} .coverage_torch_${image:(-4)} .coverage_spark_and_torch_${image:(-4)} .coverage_models_${image:(-4)} .coverage_experimental_${image:(-4)}
     - coverage report --fail-under=100
     - coverage xml
-  needs: ["pytest-core", "pytest-torch", "pytest-spark", "pytest-spark-and-torch", "pytest-models", "pytest-experimental"]
+  needs: ["pytest-core", "pytest-conditional", "pytest-torch", "pytest-spark", "pytest-spark-and-torch", "pytest-models", "pytest-experimental"]
   tags:
     - ${RUNNER}
   parallel:
@@ -235,7 +258,9 @@ merge-coverage:
         path: coverage.xml
 
 examples-execute-job:
-  <<: *install_replay
+  before_script:
+    - *setup_env
+    - *wrapper_install
   rules:
     - when: never
   stage: examples

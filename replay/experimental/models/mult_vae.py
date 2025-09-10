@@ -118,7 +118,7 @@ class MultVAE(TorchRecommender):
     n_saved: int = 2
     valid_split_size: float = 0.1
     seed: int = 42
-    can_predict_cold_users = True
+    can_predict_cold_queries = True
     train_user_batch: csr_matrix
     valid_user_batch: csr_matrix
     _search_space = {

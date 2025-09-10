@@ -20,7 +20,7 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
 
     similarity: Optional[SparkDataFrame]
     can_predict_item_to_item: bool = True
-    can_predict_cold_users: bool = True
+    can_predict_cold_queries: bool = True
     can_change_metric: bool = False
     item_to_item_metrics = ["similarity"]
     _similarity_metric = "similarity"
@@ -185,15 +185,10 @@ class NeighbourRec(Recommender, ANNMixin, ABC):
             "similarity" if metric is None else metric,
         )
 
-    def _get_ann_build_params(self, interactions: SparkDataFrame) -> Dict[str, Any]:
-        self.index_builder.index_params.items_count = interactions.select(sf.max("item_idx")).first()[0] + 1
-        return {
-            "features_col": None,
-        }
-
-    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:  # noqa: ARG002
+    def _configure_index_builder(self, interactions: SparkDataFrame) -> Dict[str, Any]:
         similarity_df = self.similarity.select("similarity", "item_idx_one", "item_idx_two")
-        return similarity_df
+        self.index_builder.index_params.items_count = interactions.select(sf.max("item_idx")).first()[0] + 1
+        return similarity_df, {"features_col": None}
 
     def _get_vectors_to_infer_ann_inner(
         self, interactions: SparkDataFrame, queries: SparkDataFrame  # noqa: ARG002

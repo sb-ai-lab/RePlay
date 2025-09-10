@@ -2,13 +2,15 @@ import os
 
 import pytest
 
-from replay.utils import TORCH_AVAILABLE
+from replay.utils import OPENVINO_AVAILABLE, TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
     from replay.models.nn.sequential.bert4rec import (
         Bert4Rec,
         Bert4RecPredictionDataset,
     )
+
+if OPENVINO_AVAILABLE:
     from replay.models.nn.sequential.compiled import Bert4RecCompiled
 
 
@@ -16,7 +18,7 @@ torch = pytest.importorskip("torch")
 L = pytest.importorskip("lightning")
 
 
-@pytest.mark.torch
+@pytest.mark.conditional
 @pytest.mark.parametrize(
     "num_candidates, candidates",
     [
@@ -72,7 +74,7 @@ def test_prediction_optimized_bert4rec(
         assert scores.shape == (batch.padding_mask.shape[0], score_size)
 
 
-@pytest.mark.torch
+@pytest.mark.conditional
 def test_predictions_optimized_bert4rec_equal_with_permuted_candidates(item_user_sequential_dataset, train_bert_loader):
     pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_bert4rec_loader = torch.utils.data.DataLoader(pred)
@@ -95,7 +97,7 @@ def test_predictions_optimized_bert4rec_equal_with_permuted_candidates(item_user
         assert torch.equal(predictions_permuted_candidates[:, ordering], predictions_sorted_candidates)
 
 
-@pytest.mark.torch
+@pytest.mark.conditional
 @pytest.mark.parametrize(
     "num_candidates, candidates",
     [
@@ -138,7 +140,7 @@ def test_prediction_optimized_bert4rec_invalid_candidates_to_score(
         assert "Expected num_candidates_to_score to be of type ``int``" in str(e.value)
 
 
-@pytest.mark.torch
+@pytest.mark.conditional
 @pytest.mark.parametrize(
     "mode, batch_size, model_batch_size",
     [
@@ -173,13 +175,13 @@ def test_prediction_optimized_bert4rec_invalid_batch_in_batch_mode(
             opt_model.predict(batch=batch)
 
 
-@pytest.mark.torch
+@pytest.mark.conditional
 def test_optimized_bert4rec_invalid_mode():
     with pytest.raises(ValueError):
         Bert4RecCompiled.compile(model="some_path", mode="invalid_mode")
 
 
-@pytest.mark.torch
+@pytest.mark.conditional
 def test_optimized_bert4rec_compile_from_different_sources(item_user_sequential_dataset, train_bert_loader, tmp_path):
     model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
@@ -197,7 +199,7 @@ def test_optimized_bert4rec_compile_from_different_sources(item_user_sequential_
     assert str(opt_model1._model) == str(opt_model2._model) == str(opt_model3._model)
 
 
-@pytest.mark.torch
+@pytest.mark.conditional
 def test_optimized_bert4rec_onnx_path_param(item_user_sequential_dataset, tmp_path):
     model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
@@ -209,7 +211,7 @@ def test_optimized_bert4rec_onnx_path_param(item_user_sequential_dataset, tmp_pa
     assert os.path.exists(path_to_save)
 
 
-@pytest.mark.torch
+@pytest.mark.conditional
 @pytest.mark.parametrize("threads", [1, 2])
 def test_optimized_bert4rec_num_threads_param(item_user_sequential_dataset, threads):
     model = Bert4Rec(

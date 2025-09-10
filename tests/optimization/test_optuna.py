@@ -15,7 +15,7 @@ def model():
     return ALSWrap()
 
 
-@pytest.mark.core
+@pytest.mark.conditional
 @pytest.mark.parametrize("borders", [{"beta": [1, 2]}, {"lambda_": [1, 2]}])
 def test_partial_borders(borders):
     model = SLIM()
@@ -23,7 +23,7 @@ def test_partial_borders(borders):
     assert len(res) == len(model._search_space)
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_ItemKNN(log):
     model = ItemKNN()
     dataset = create_dataset(log)
@@ -31,7 +31,7 @@ def test_ItemKNN(log):
     assert isinstance(res["num_neighbours"], int)
 
 
-@pytest.mark.core
+@pytest.mark.conditional
 @pytest.mark.parametrize(
     "borders",
     [
@@ -54,7 +54,7 @@ def test_bad_borders(model, borders):
         model._prepare_param_borders(borders)
 
 
-@pytest.mark.core
+@pytest.mark.conditional
 @pytest.mark.parametrize("borders", [None, {"rank": [5, 9]}])
 def test_correct_borders(model, borders):
     res = model._prepare_param_borders(borders)
@@ -64,14 +64,14 @@ def test_correct_borders(model, borders):
     assert res["rank"].keys() == model._search_space["rank"].keys()
 
 
-@pytest.mark.core
+@pytest.mark.conditional
 @pytest.mark.parametrize("borders,answer", [(None, True), ({"rank": [-10, -1]}, False)])
 def test_param_in_borders(model, borders, answer):
     search_space = model._prepare_param_borders(borders)
     assert model._init_params_in_search_space(search_space) == answer
 
 
-@pytest.mark.core
+@pytest.mark.conditional
 def test_missing_categorical_borders():
     borders = {"num_neighbours": [5, 10]}
     model = ItemKNN(weighting="bm25")
@@ -79,7 +79,7 @@ def test_missing_categorical_borders():
     assert search_space["weighting"]["args"] == ["bm25"]
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_it_works(model, log):
     dataset = create_dataset(log)
     assert model._params_tried() is False
@@ -87,7 +87,7 @@ def test_it_works(model, log):
     assert isinstance(res["rank"], int)
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_empty_search_space(log, caplog):
     with caplog.at_level(logging.WARNING):
         model = ItemKNN()
@@ -98,7 +98,7 @@ def test_empty_search_space(log, caplog):
         assert res is None
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_filter_dataset_features(log, all_users_features, item_features):
     model = ItemKNN()
     dataset = create_dataset(log, all_users_features, item_features)
