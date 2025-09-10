@@ -6,11 +6,11 @@ from replay.preprocessing import Sessionizer
 from replay.utils import SparkDataFrame
 
 
-def _get_column_list(data, column: str) -> List[list]:
+def _get_column_list(data, column: str) -> List[List]:
     return [ids[0] for ids in data.select(column).collect()]
 
 
-def _get_column_list_pandas(data, column: str) -> List[list]:
+def _get_column_list_pandas(data, column: str) -> List[List]:
     return data[column].tolist()
 
 

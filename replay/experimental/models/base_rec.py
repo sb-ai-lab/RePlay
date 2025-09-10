@@ -18,7 +18,7 @@ from typing import Any, Iterable, List, Optional, Tuple, Union
 import numpy as np
 from numpy.random import default_rng
 
-from replay.data import Dataset, get_schema
+from replay.data import get_schema
 from replay.experimental.utils.session_handler import State
 from replay.models.base_rec import IsSavable
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
@@ -379,7 +379,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
     def _filter_interactions_queries_items_dataframes(
         self,
-        log: Optional[Dataset],
+        log: Optional[SparkDataFrame],
         k: int,
         queries: Optional[Union[SparkDataFrame, Iterable]] = None,
         items: Optional[Union[SparkDataFrame, Iterable]] = None,

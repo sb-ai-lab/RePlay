@@ -2,8 +2,7 @@ import argparse
 import re
 import sys
 from pathlib import Path
-from typing import TextIO, Tuple
-from collections.abc import Mapping
+from typing import Mapping, TextIO, Tuple
 
 
 class TemplateEngine:
@@ -64,15 +63,15 @@ class TemplateEngine:
 
 
 def process(config) -> None:
-    def parse_param(name_value: str) -> tuple[str, str]:
-        name, value = (x.strip() for x in name_value.split("="))
+    def parse_param(name_value: str) -> Tuple[str, str]:
+        name, value = [x.strip() for x in name_value.split("=")]
         return (name, value)
 
     params = config.param or []
     variables = dict(parse_param(param) for param in params)
 
     engine = TemplateEngine(variables)
-    with open(config.filename) as file:
+    with open(config.filename, "r") as file:
         engine.process(file, sys.stdout)
 
 

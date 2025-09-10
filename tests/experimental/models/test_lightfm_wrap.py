@@ -307,7 +307,7 @@ def test_predict_cold_and_new_filter_out(long_log_with_features):
         users=[0, 3],
     )
 
-    if isinstance(model, LightFMWrap) or not model.can_predict_cold_queries:
+    if isinstance(model, LightFMWrap) or not model.can_predict_cold_users:
         assert pred.count() == 0
     else:
         assert 1 <= pred.count() <= 2

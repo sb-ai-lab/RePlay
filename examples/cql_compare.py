@@ -23,8 +23,7 @@ from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
 
-    from replay.experimental.utils.model_handler import load
-    from replay.utils.model_handler import save
+    from replay.experimental.utils.model_handler import load, save
     from replay.utils.session_handler import State, get_spark_session
     from replay.utils.spark_utils import get_log_info
 
