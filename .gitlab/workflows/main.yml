@@ -16,8 +16,9 @@ variables:
   - ./poetry_wrapper.sh ${WRAPPER_ARGS} sync ${WRAPPER_EXTRAS} 
 
 .install_conditionals: &install_conditionals
+  - ./poetry_wrapper.sh --generate
   - eval $(poetry env activate)
-  - pip install --upgrade onnx openvino optuna hnswlib fixed-install-nmslib
+  - pip install -q --upgrade onnx openvino optuna hnswlib fixed-install-nmslib
 
 .install_experimental_replay_all_extras: &install_experimental_replay_all_extras
   variables:
@@ -73,7 +74,7 @@ ruff:
   stage: code_quality
   script:
     - ./poetry_wrapper.sh --generate
-    - ruff check .
+    - poetry run ruff check .
   tags:
     - ${RUNNER}
 
@@ -82,7 +83,7 @@ black:
   stage: code_quality
   script:
     - ./poetry_wrapper.sh --generate
-    - black --check --diff -- .
+    - poetry run black --check --diff -- .
   tags:
     - ${RUNNER}
 
@@ -100,9 +101,9 @@ toml-sort:
   stage: code_quality
   script:
     - ./poetry_wrapper.sh --generate
-    - toml-sort --check pyproject.toml
+    - poetry run toml-sort --check pyproject.toml
     - ./poetry_wrapper.sh --experimental --generate
-    - toml-sort --check pyproject.toml
+    - poetry run toml-sort --check pyproject.toml
   tags:
     - ${RUNNER}
 
