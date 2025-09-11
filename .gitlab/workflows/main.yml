@@ -73,7 +73,6 @@ ruff:
   <<: *install_experimental_replay_all_extras
   stage: code_quality
   script:
-    - ./poetry_wrapper.sh --generate
     - poetry run ruff check .
   tags:
     - ${RUNNER}
@@ -82,7 +81,6 @@ black:
   <<: *install_experimental_replay_all_extras
   stage: code_quality
   script:
-    - ./poetry_wrapper.sh --generate
     - poetry run black --check --diff -- .
   tags:
     - ${RUNNER}
