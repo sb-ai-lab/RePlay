@@ -3,12 +3,12 @@ from typing import Optional
 import torch
 
 from replay.utils.session_handler import Borg, get_spark_session, logger_with_settings
-from replay.utils.types import PYSPARK_AVAILABLE, MissingImportType
+from replay.utils.types import PYSPARK_AVAILABLE, MissingImport
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import SparkSession
 else:
-    SparkSession = MissingImportType
+    SparkSession = MissingImport
 
 
 class State(Borg):

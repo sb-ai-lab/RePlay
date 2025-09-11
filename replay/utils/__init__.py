@@ -9,7 +9,7 @@ from .types import (
     FeatureUnavailableError,
     FeatureUnavailableWarning,
     IntOrList,
-    MissingImportType,
+    MissingImport,
     NumType,
     PandasDataFrame,
     PolarsDataFrame,

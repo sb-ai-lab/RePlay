@@ -3,6 +3,7 @@ import logging
 import pytest
 
 from replay.models import SLIM, ALSWrap, ItemKNN
+from replay.utils import FeatureUnavailableWarning
 from tests.utils import (
     create_dataset,
     sparkDataFrameEqual,
@@ -13,6 +14,12 @@ from tests.utils import (
 @pytest.fixture(scope="module")
 def model():
     return ALSWrap()
+
+
+@pytest.mark.core
+def test_import_while_missing_deps():
+    with pytest.warns(FeatureUnavailableWarning):
+        from replay.optimization import IsOptimizible  # noqa: F401
 
 
 @pytest.mark.conditional

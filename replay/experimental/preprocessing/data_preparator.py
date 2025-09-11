@@ -13,7 +13,7 @@ import string
 from os.path import join
 from typing import Dict, List, Optional
 
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, MissingImportType, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, MissingImport, SparkDataFrame
 from replay.utils.session_handler import State
 
 if PYSPARK_AVAILABLE:
@@ -835,5 +835,5 @@ if PYSPARK_AVAILABLE:
             return self.transform(spark_df)
 
 else:
-    Indexer = MissingImportType
-    DataPreparator = MissingImportType
+    Indexer = MissingImport
+    DataPreparator = MissingImport

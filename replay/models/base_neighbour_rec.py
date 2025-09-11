@@ -7,7 +7,7 @@ from abc import ABC
 from typing import Any, Dict, Iterable, Optional, Union
 
 from replay.data.dataset import Dataset
-from replay.utils import PYSPARK_AVAILABLE, MissingImportType, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, MissingImport, SparkDataFrame
 
 from .base_rec import Recommender
 from .extensions.ann.ann_mixin import ANNMixin
@@ -16,7 +16,7 @@ if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
     from pyspark.sql.column import Column
 else:
-    Column = MissingImportType
+    Column = MissingImport
 
 
 class NeighbourRec(ANNMixin, Recommender, ABC):

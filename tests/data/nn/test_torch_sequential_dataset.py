@@ -7,7 +7,7 @@ import pytest
 torch = pytest.importorskip("torch")
 
 from replay.data import FeatureHint, FeatureType
-from replay.utils import TORCH_AVAILABLE, MissingImportType
+from replay.utils import TORCH_AVAILABLE, MissingImport
 
 if TORCH_AVAILABLE:
     import torch
@@ -21,9 +21,9 @@ if TORCH_AVAILABLE:
         TorchSequentialValidationDataset,
     )
 else:
-    PandasSequentialDataset = MissingImportType
-    SequentialDataset = MissingImportType
-    TorchSequentialDataset = MissingImportType
+    PandasSequentialDataset = MissingImport
+    SequentialDataset = MissingImport
+    TorchSequentialDataset = MissingImport
 
 
 @pytest.mark.torch

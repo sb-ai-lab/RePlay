@@ -6,14 +6,14 @@ import torch
 
 from replay.models.nn.sequential import Bert4Rec
 from replay.models.nn.sequential.postprocessors import BasePostProcessor
-from replay.utils import PYSPARK_AVAILABLE, MissingImportType, PandasDataFrame, PolarsDataFrame, SparkDataFrame
+from replay.utils import PYSPARK_AVAILABLE, MissingImport, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:  # pragma: no cover
     import pyspark.sql.functions as sf
     from pyspark.sql import SparkSession
     from pyspark.sql.types import ArrayType, DoubleType, IntegerType, StructType
 else:
-    SparkSession = MissingImportType
+    SparkSession = MissingImport
 
 
 class PredictionBatch(Protocol):
