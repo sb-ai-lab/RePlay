@@ -3,9 +3,10 @@ from typing import Iterable, Union
 
 from pandas import DataFrame as PandasDataFrame
 from polars import DataFrame as PolarsDataFrame
+from typing_extensions import TypeAlias
 
 
-class MissingImportType:
+class MissingImport:
     """
     Replacement class with missing import
     """
@@ -20,12 +21,13 @@ class FeatureUnavailableWarning(Warning):
 
 
 PYSPARK_AVAILABLE = find_spec("pyspark")
-if PYSPARK_AVAILABLE:
+if not PYSPARK_AVAILABLE:
+    SparkDataFrame: TypeAlias = MissingImport
+else:
     from pyspark.sql import DataFrame
 
-    SparkDataFrame = DataFrame
-else:
-    SparkDataFrame = MissingImportType
+    SparkDataFrame: TypeAlias = DataFrame
+
 
 TORCH_AVAILABLE = find_spec("torch")
 

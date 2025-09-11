@@ -238,8 +238,8 @@ merge-coverage:
     - *wrapper_install
   script:
     - coverage combine .coverage_core_${image:(-4)} .coverage_conditional_${image:(-4)} .coverage_spark_${image:(-4)} .coverage_torch_${image:(-4)} .coverage_spark_and_torch_${image:(-4)} .coverage_models_${image:(-4)} .coverage_experimental_${image:(-4)}
-    - coverage report --fail-under=100
     - coverage xml
+    - coverage report -m --fail-under=100
   needs: ["pytest-core", "pytest-conditional", "pytest-torch", "pytest-spark", "pytest-spark-and-torch", "pytest-models", "pytest-experimental"]
   tags:
     - ${RUNNER}
@@ -251,7 +251,8 @@ merge-coverage:
         - "${CI_REGISTRY_IMAGE}:${VERSION}_py311"
   coverage: '/TOTAL.*\s+(\d+%)$/'
   artifacts:
-    when: always
+    paths:
+      - coverage.xml
     reports:
       coverage_report:
         coverage_format: cobertura
