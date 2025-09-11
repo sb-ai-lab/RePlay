@@ -1,4 +1,3 @@
-from .session_handler import State, get_spark_session
 from .types import (
     ANN_AVAILABLE,
     OPENVINO_AVAILABLE,
