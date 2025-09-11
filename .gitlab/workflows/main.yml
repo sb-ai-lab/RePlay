@@ -8,28 +8,23 @@ workflow:
 image: "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
 
 variables:
-  VERSION: "0.0.9"
+  VERSION: "0.0.10"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   RUNNER: amazme-1
-
-
-.setup_env: &setup_env
-  - pip install -q --upgrade pip wheel poetry==2.1 poetry-dynamic-versioning
 
 .wrapper_install: &wrapper_install
   - ./poetry_wrapper.sh ${WRAPPER_ARGS} sync ${WRAPPER_EXTRAS} 
 
 .install_conditionals: &install_conditionals
-  - pip install -q --upgrade onnx openvino optuna hnswlib fixed-install-nmslib
+  - eval $(poetry env activate)
+  - pip install --upgrade onnx openvino optuna hnswlib fixed-install-nmslib
 
 .install_experimental_replay_all_extras: &install_experimental_replay_all_extras
   variables:
     WRAPPER_ARGS: --experimental
     WRAPPER_EXTRAS: -E torch-cpu -E spark
   before_script:
-    - *setup_env
     - *wrapper_install
-    - ./poetry_wrapper.sh shell
     - *install_conditionals
 
 cache: &global_cache
@@ -59,7 +54,6 @@ resolve-job:
     <<: *global_cache
     policy: push
   script:
-    - *setup_env
     - poetry --version
     - pip --version
     - ./poetry_wrapper.sh --experimental install -E torch-cpu -E spark
@@ -235,7 +229,6 @@ merge-coverage:
   variables: 
     WRAPPER_EXTRAS: --only dev
   before_script:
-    - *setup_env
     - *wrapper_install
   script:
     - coverage combine .coverage_core_${image:(-4)} .coverage_conditional_${image:(-4)} .coverage_spark_${image:(-4)} .coverage_torch_${image:(-4)} .coverage_spark_and_torch_${image:(-4)} .coverage_models_${image:(-4)} .coverage_experimental_${image:(-4)}
@@ -261,7 +254,6 @@ merge-coverage:
 
 examples-execute-job:
   before_script:
-    - *setup_env
     - *wrapper_install
   rules:
     - when: never
@@ -278,7 +270,6 @@ build-production-package:
   tags:
     - ${RUNNER}
   script:
-    - *setup_env
     - export PACKAGE_SUFFIX=.dev${CI_JOB_ID}
     - echo $PACKAGE_SUFFIX
     - ./poetry_wrapper.sh --generate
