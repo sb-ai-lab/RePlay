@@ -29,7 +29,7 @@ variables:
   before_script:
     - *setup_env
     - *wrapper_install
-    - poetry shell
+    - ./poetry_wrapper.sh shell
     - *install_conditionals
 
 cache: &global_cache
