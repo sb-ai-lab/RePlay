@@ -2,11 +2,13 @@ import sys
 from typing import Optional
 
 from replay.data import Dataset
-from replay.optimization import ItemKNNObjective
 from replay.utils import OPTUNA_AVAILABLE, PYSPARK_AVAILABLE, FeatureUnavailableError, SparkDataFrame
 
 from .base_neighbour_rec import NeighbourRec
 from .extensions.ann.index_builders.base_index_builder import IndexBuilder
+
+if OPTUNA_AVAILABLE:
+    from replay.optimization import ItemKNNObjective
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
