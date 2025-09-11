@@ -17,7 +17,7 @@ variables:
   - pip install -q --upgrade pip wheel poetry==2.1 poetry-dynamic-versioning
 
 .wrapper_install: &wrapper_install
-  - ./poetry_wrapper.sh ${WRAPPER_ARGS} install ${WRAPPER_EXTRAS} 
+  - ./poetry_wrapper.sh ${WRAPPER_ARGS} sync ${WRAPPER_EXTRAS} 
 
 .install_conditionals: &install_conditionals
   - pip install -q --upgrade onnx openvino optuna hnswlib fixed-install-nmslib
@@ -25,11 +25,11 @@ variables:
 .install_experimental_replay_all_extras: &install_experimental_replay_all_extras
   variables:
     WRAPPER_ARGS: --experimental
-    WRAPPER_EXTRAS: --all-extras
+    WRAPPER_EXTRAS: -E torch-cpu -E spark
   before_script:
     - *setup_env
-    - *install_conditionals
     - *wrapper_install
+    - *install_conditionals
 
 cache: &global_cache
   key: ${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHORT_SHA}
@@ -61,7 +61,7 @@ resolve-job:
     - *setup_env
     - poetry --version
     - pip --version
-    - ./poetry_wrapper.sh --experimental install --all-extras
+    - ./poetry_wrapper.sh --experimental install -E torch-cpu -E spark
     - dependencies="${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHORT_SHA}_dependencies.txt"
     - dependencies=$(echo ${dependencies} | sed -e 's/[^0-9a-zA-Z.-]/_/g') # removed invalid characters
     - pip list > ${dependencies}
@@ -152,7 +152,7 @@ pytest-conditional:
   stage: test_conditional
   variables:
     WRAPPER_ARGS: --experimental
-    WRAPPER_EXTRAS: --all-extras
+    WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
     - *install_conditionals
     - pytest -m conditional tests/ --ignore=tests/experimental
@@ -166,7 +166,7 @@ pytest-torch:
   <<: *pytest_template
   stage: test_torch
   variables:
-    WRAPPER_EXTRAS: -E torch
+    WRAPPER_EXTRAS: -E torch-cpu
   script:
     - pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental
     - mv .coverage .coverage_torch_${image:(-4)}
@@ -192,7 +192,7 @@ pytest-spark-and-torch:
   <<: *pytest_template
   stage: test_spark_torch
   variables:
-    WRAPPER_EXTRAS: --all-extras
+    WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
     - pytest -m "not experimental and not conditional" tests/ --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
     - mv .coverage .coverage_spark_and_torch_${image:(-4)}
@@ -205,7 +205,7 @@ pytest-models:
   <<: *pytest_template
   stage: test_models
   variables:
-    WRAPPER_EXTRAS: --all-extras
+    WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
     - pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental
     - mv .coverage .coverage_models_${image:(-4)}
@@ -219,7 +219,7 @@ pytest-experimental:
   stage: test_experimental
   variables:
     WRAPPER_ARGS: --experimental
-    WRAPPER_EXTRAS: --all-extras
+    WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
     - *install_conditionals
     - pytest -m "experimental"
