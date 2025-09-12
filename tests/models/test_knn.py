@@ -6,6 +6,7 @@ import pytest
 from replay.data import Dataset, get_schema
 from replay.models import ItemKNN
 from replay.utils import PYSPARK_AVAILABLE
+from replay.utils.types import FeatureUnavailableError
 from tests.utils import create_dataset
 
 if PYSPARK_AVAILABLE:
@@ -98,6 +99,12 @@ def bm25_model():
 
 
 @pytest.mark.core
+def test_unavailable_weighting():
+    with pytest.raises(FeatureUnavailableError):
+        ItemKNN(1, weighting="any_weighting")
+
+
+@pytest.mark.conditional
 def test_invalid_weighting():
     with pytest.raises(ValueError):
         ItemKNN(1, weighting="invalid_weighting")

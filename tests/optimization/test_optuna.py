@@ -2,7 +2,6 @@ import logging
 
 import pytest
 
-from replay.models import SLIM, ALSWrap, ItemKNN
 from replay.utils import FeatureUnavailableWarning
 from tests.utils import (
     create_dataset,
@@ -13,6 +12,8 @@ from tests.utils import (
 
 @pytest.fixture(scope="module")
 def model():
+    from replay.models import ALSWrap
+
     return ALSWrap()
 
 
@@ -25,6 +26,8 @@ def test_import_while_missing_deps():
 @pytest.mark.conditional
 @pytest.mark.parametrize("borders", [{"beta": [1, 2]}, {"lambda_": [1, 2]}])
 def test_partial_borders(borders):
+    from replay.models import SLIM
+
     model = SLIM()
     res = model._prepare_param_borders(borders)
     assert len(res) == len(model._search_space)
@@ -32,6 +35,8 @@ def test_partial_borders(borders):
 
 @pytest.mark.conditional
 def test_ItemKNN(log):
+    from replay.models import ItemKNN
+
     model = ItemKNN()
     dataset = create_dataset(log)
     res = model.optimize(dataset, dataset, k=2, budget=1)
@@ -80,6 +85,8 @@ def test_param_in_borders(model, borders, answer):
 
 @pytest.mark.conditional
 def test_missing_categorical_borders():
+    from replay.models import ItemKNN
+
     borders = {"num_neighbours": [5, 10]}
     model = ItemKNN(weighting="bm25")
     search_space = model._prepare_param_borders(borders)
@@ -96,6 +103,8 @@ def test_it_works(model, log):
 
 @pytest.mark.conditional
 def test_empty_search_space(log, caplog):
+    from replay.models import ItemKNN
+
     with caplog.at_level(logging.WARNING):
         model = ItemKNN()
         model._search_space = None
@@ -107,6 +116,8 @@ def test_empty_search_space(log, caplog):
 
 @pytest.mark.conditional
 def test_filter_dataset_features(log, all_users_features, item_features):
+    from replay.models import ItemKNN
+
     model = ItemKNN()
     dataset = create_dataset(log, all_users_features, item_features)
     filtered_dataset = model._filter_dataset_features(dataset)
