@@ -244,6 +244,7 @@ else:
 
         def optimize(
             self,
+            _train_dataset: Dataset,
             _test_dataset: Dataset,
             _param_borders: Optional[dict[str, list]] = None,
             _criterion: Metric = NDCG,
