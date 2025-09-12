@@ -134,7 +134,7 @@ pytest-core:
   stage: test_core
   script:
     - *wrapper_install
-    - pytest -m core tests/ --ignore=tests/experimental
+    - poetry run pytest -m core tests/ --ignore=tests/experimental
     - mv .coverage .coverage_core_${image:(-4)}
   artifacts:
     paths:
@@ -149,7 +149,7 @@ pytest-conditional:
     WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
     - *install_conditionals
-    - pytest -m conditional tests/ --ignore=tests/experimental
+    - poetry run pytest -m conditional tests/ --ignore=tests/experimental
     - mv .coverage .coverage_conditional_${image:(-4)}
   artifacts:
     paths:
@@ -162,7 +162,7 @@ pytest-torch:
   variables:
     WRAPPER_EXTRAS: -E torch-cpu
   script:
-    - pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental
+    - poetry run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental
     - mv .coverage .coverage_torch_${image:(-4)}
   artifacts:
     paths:
@@ -175,7 +175,7 @@ pytest-spark:
   variables:
     WRAPPER_EXTRAS: -E spark
   script:
-    - pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models
+    - poetry run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models
     - mv .coverage .coverage_spark_${image:(-4)}
   artifacts:
     paths:
@@ -188,7 +188,7 @@ pytest-spark-and-torch:
   variables:
     WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
-    - pytest -m "not experimental and not conditional" tests/ --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
+    - poetry run pytest -m "not experimental and not conditional" tests/ --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
     - mv .coverage .coverage_spark_and_torch_${image:(-4)}
   artifacts:
     paths:
@@ -201,7 +201,7 @@ pytest-models:
   variables:
     WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
-    - pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental
+    - poetry run pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental
     - mv .coverage .coverage_models_${image:(-4)}
   artifacts:
     paths:
@@ -216,7 +216,7 @@ pytest-experimental:
     WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
     - *install_conditionals
-    - pytest -m "experimental"
+    - poetry run pytest -m "experimental"
     - mv .coverage .coverage_experimental_${image:(-4)}
   artifacts:
     paths:
