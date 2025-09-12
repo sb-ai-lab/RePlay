@@ -81,7 +81,7 @@ black:
   <<: *install_experimental_replay_all_extras
   stage: code_quality
   script:
-    - poetry run black --check --diff -- .
+    - poetry run black . --check --diff
   tags:
     - ${RUNNER}
 
