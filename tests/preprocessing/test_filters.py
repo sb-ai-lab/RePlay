@@ -15,7 +15,8 @@ from replay.preprocessing.filters import (
     QuantileItemsFilter,
     TimePeriodFilter,
 )
-from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame, get_spark_session
+from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame
+from replay.utils.session_handler import get_spark_session
 
 
 @pytest.fixture

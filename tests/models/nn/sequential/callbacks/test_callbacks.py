@@ -5,8 +5,8 @@ from replay.utils import (
     PandasDataFrame,
     PolarsDataFrame,
     SparkDataFrame,
-    get_spark_session,
 )
+from replay.utils.session_handler import get_spark_session
 
 if TORCH_AVAILABLE:
     from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionDataset
