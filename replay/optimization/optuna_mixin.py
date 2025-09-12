@@ -244,13 +244,13 @@ else:
 
         def optimize(
             self,
-            _train_dataset: Dataset,
-            _test_dataset: Dataset,
-            _param_borders: Optional[dict[str, list]] = None,
-            _criterion: Metric = NDCG,
-            _k: int = 10,
-            _budget: int = 10,
-            _new_study: bool = True,
+            train_dataset: Dataset, # noqa: ARG002
+            test_dataset: Dataset, # noqa: ARG002
+            param_borders: Optional[dict[str, list]] = None, # noqa: ARG002
+            criterion: Metric = NDCG, # noqa: ARG002
+            k: int = 10, # noqa: ARG002
+            budget: int = 10, # noqa: ARG002
+            new_study: bool = True, # noqa: ARG002
         ) -> NoReturn:
             """
             Searches the best parameters with optuna.

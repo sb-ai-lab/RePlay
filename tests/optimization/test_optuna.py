@@ -2,7 +2,6 @@ import logging
 
 import pytest
 
-from replay.utils import FeatureUnavailableWarning
 from tests.utils import (
     create_dataset,
     sparkDataFrameEqual,
