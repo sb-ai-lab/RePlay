@@ -133,7 +133,7 @@ pytest-core:
   <<: *pytest_template
   stage: test_core
   script:
-    - *wrapper_install
+    - ./poetry_wrapper.sh --generate
     - poetry run pytest -m core tests/ --ignore=tests/experimental
     - mv .coverage .coverage_core_${image:(-4)}
   artifacts:
@@ -149,6 +149,7 @@ pytest-conditional:
     WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
     - *install_conditionals
+    - ./poetry_wrapper.sh --generate
     - poetry run pytest -m conditional tests/ --ignore=tests/experimental
     - mv .coverage .coverage_conditional_${image:(-4)}
   artifacts:
@@ -162,6 +163,7 @@ pytest-torch:
   variables:
     WRAPPER_EXTRAS: -E torch-cpu
   script:
+    - ./poetry_wrapper.sh --generate
     - poetry run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental
     - mv .coverage .coverage_torch_${image:(-4)}
   artifacts:
@@ -175,6 +177,7 @@ pytest-spark:
   variables:
     WRAPPER_EXTRAS: -E spark
   script:
+    - ./poetry_wrapper.sh --generate
     - poetry run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models
     - mv .coverage .coverage_spark_${image:(-4)}
   artifacts:
@@ -188,6 +191,7 @@ pytest-spark-and-torch:
   variables:
     WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
+    - ./poetry_wrapper.sh --generate
     - poetry run pytest -m "not experimental and not conditional" tests/ --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
     - mv .coverage .coverage_spark_and_torch_${image:(-4)}
   artifacts:
@@ -201,6 +205,7 @@ pytest-models:
   variables:
     WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
+    - ./poetry_wrapper.sh --generate
     - poetry run pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental
     - mv .coverage .coverage_models_${image:(-4)}
   artifacts:
@@ -216,6 +221,7 @@ pytest-experimental:
     WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
     - *install_conditionals
+    - ./poetry_wrapper.sh --generate
     - poetry run pytest -m "experimental"
     - mv .coverage .coverage_experimental_${image:(-4)}
   artifacts:
