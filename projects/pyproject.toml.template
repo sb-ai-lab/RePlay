@@ -53,6 +53,7 @@ polars = "<2.0"
 scipy = "^1.13.1"
 psutil = {version = "<=7.0.0", optional = true}
 scikit-learn = "^1.6.1"
+pyarrow = "<22.0"
 torch = [
     {version = ">=1.8, <3.0.0", markers = "extra == 'torch-cpu'", source = "torch-cpu", optional = true},
     {version = ">=1.8, <3.0.0", markers = "extra != 'torch-cpu'", source = "pypi", optional = true},
@@ -68,7 +69,6 @@ pytorch-optimizer = {version = "^3.8.0", optional = true}
 {% endif %}
 {% if project == "experimental" %}
 lightning = ">=2.0.2, <=2.4.0"
-pyarrow = "<22.0"
 pytorch-optimizer = "^3.8.0"
 lightfm = {git = "https://github.com/lyst/lightfm", rev = "0c9c31e"}
 lightautoml = "^0.4.1"
