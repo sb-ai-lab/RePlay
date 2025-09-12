@@ -101,7 +101,7 @@ def bm25_model():
 @pytest.mark.core
 def test_unavailable_weighting():
     with pytest.raises(FeatureUnavailableError):
-        ItemKNN(1, weighting="any_weighting")
+        ItemKNN(1, weighting="tf_idf")
 
 
 @pytest.mark.conditional

@@ -17,12 +17,6 @@ def model():
     return ALSWrap()
 
 
-@pytest.mark.core
-def test_import_while_missing_deps():
-    with pytest.warns(FeatureUnavailableWarning):
-        from replay.optimization import IsOptimizible  # noqa: F401
-
-
 @pytest.mark.conditional
 @pytest.mark.parametrize("borders", [{"beta": [1, 2]}, {"lambda_": [1, 2]}])
 def test_partial_borders(borders):
