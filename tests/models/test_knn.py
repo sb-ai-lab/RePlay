@@ -119,7 +119,7 @@ def test_works(log, model):
     assert recs.loc[recs["user_idx"] == 1, "item_idx"].iloc[0] == 0
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_tf_idf(weighting_log, tf_idf_model):
     train_dataset = create_dataset(weighting_log)
     tf_idf_model.fit(train_dataset)
@@ -133,7 +133,7 @@ def test_tf_idf(weighting_log, tf_idf_model):
     assert recs.loc[recs["user_idx"] == 1, "item_idx"].iloc[0] == 0
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_bm25(weighting_log, bm25_model):
     k1 = bm25_model.bm25_k1
     b = bm25_model.bm25_b
@@ -174,7 +174,7 @@ def test_bm25(weighting_log, bm25_model):
     assert recs.loc[recs["user_idx"] == 1, "item_idx"].iloc[0] == 0
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_weighting_raises(log, tf_idf_model):
     with pytest.raises(ValueError, match="weighting must be one of .*"):
         tf_idf_model.weighting = " "
