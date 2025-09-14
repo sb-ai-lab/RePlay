@@ -236,9 +236,10 @@ merge-coverage:
   before_script:
     - *wrapper_install
   script:
-    - coverage combine .coverage_core_${image:(-4)} .coverage_conditional_${image:(-4)} .coverage_spark_${image:(-4)} .coverage_torch_${image:(-4)} .coverage_spark_and_torch_${image:(-4)} .coverage_models_${image:(-4)} .coverage_experimental_${image:(-4)}
-    - coverage xml
-    - coverage report -m --fail-under=100
+    - ./poetry_wrapper.sh --generate
+    - poetry run coverage combine .coverage_core_${image:(-4)} .coverage_conditional_${image:(-4)} .coverage_spark_${image:(-4)} .coverage_torch_${image:(-4)} .coverage_spark_and_torch_${image:(-4)} .coverage_models_${image:(-4)} .coverage_experimental_${image:(-4)}
+    - poetry run coverage xml
+    - poetry run coverage report -m --fail-under=100
   needs: ["pytest-core", "pytest-conditional", "pytest-torch", "pytest-spark", "pytest-spark-and-torch", "pytest-models", "pytest-experimental"]
   tags:
     - ${RUNNER}
