@@ -209,7 +209,7 @@ def fitted_model_hybrid(request, dataset_linucb):
     return model
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_optimize_disjoint(fitted_model_disjoint, dataset_linucb, caplog):
     with caplog.at_level(logging.WARNING):
         fitted_model_disjoint.optimize(
@@ -221,7 +221,7 @@ def test_optimize_disjoint(fitted_model_disjoint, dataset_linucb, caplog):
         )
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_optimize_hybrid(fitted_model_hybrid, dataset_linucb, caplog):
     with caplog.at_level(logging.WARNING):
         fitted_model_hybrid.optimize(

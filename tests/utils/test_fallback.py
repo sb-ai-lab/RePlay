@@ -25,7 +25,7 @@ def test_fallback():
     sparkDataFrameEqual(bypass_res, base)
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_class(log, log2):
     model = Fallback(ItemKNN(), threshold=3)
     assert model._init_args == {"threshold": 3}

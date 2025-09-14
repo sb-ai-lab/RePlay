@@ -18,7 +18,7 @@ def users_features(user_features):
     return user_features.drop("gender")
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_works(long_log_with_features, short_log_with_features, users_features):
     model = ClusterRec()
     train_dataset = create_dataset(long_log_with_features, user_features=users_features)
