@@ -9,7 +9,7 @@ from typing_extensions import TypeAlias
 from replay.data import Dataset
 from replay.metrics import NDCG, Metric
 from replay.optimization.optuna_objective import ObjectiveWrapper, SplitData, scenario_objective_calculator
-from replay.utils import OPTUNA_AVAILABLE, FeatureUnavailableWarning, FeatureUnavailableError
+from replay.utils import OPTUNA_AVAILABLE, FeatureUnavailableError, FeatureUnavailableWarning
 from replay.utils.common import RecommenderCommons
 
 MainObjective = partial(ObjectiveWrapper, objective_calculator=scenario_objective_calculator)
@@ -270,7 +270,7 @@ else:
             import sys
 
             err = FeatureUnavailableError('Cannot use method "optimize()" - Optuna not found.')
-            if sys.version_info >= (3, 11): # pragma: py-gte-311
+            if sys.version_info >= (3, 11):  # pragma: py-lt-311
                 err.add_note('To enable this functionality, ensure you have the "optuna" package isntalled.')
 
             raise err
