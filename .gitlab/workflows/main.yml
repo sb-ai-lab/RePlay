@@ -192,7 +192,7 @@ pytest-spark-and-torch:
     WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
     - ./poetry_wrapper.sh --generate
-    - poetry run pytest -m "not experimental and not conditional" --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
+    - poetry run pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
     - mv .coverage .coverage_spark_and_torch_${image:(-4)}
   artifacts:
     paths:
