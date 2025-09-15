@@ -5,6 +5,7 @@ import pytest
 
 from replay.data import get_schema
 from replay.models import Word2VecRec
+from replay.utils import FeatureUnavailableError
 from tests.utils import create_dataset
 
 pyspark = pytest.importorskip("pyspark")
@@ -92,6 +93,12 @@ def test_predict(log, model):
         recs.toPandas().sort_values("user_idx").relevance,
         [1.0003180271011836, 0.9653348251181987, 0.972993367280087],
     )
+
+
+@pytest.mark.core
+def test_init_ann_without_libs_isntalled():
+    with pytest.raises(FeatureUnavailableError):
+        _ = Word2VecRec(rank=1, window_size=1, use_idf=True, seed=42, min_count=0, index_builder="some_config")
 
 
 # here we use `test.utils.log` because we can't build the hnsw index on `log` data
