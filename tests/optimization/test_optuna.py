@@ -2,6 +2,7 @@ import logging
 
 import pytest
 
+from replay.utils import FeatureUnavailableError
 from tests.utils import (
     create_dataset,
     sparkDataFrameEqual,
@@ -34,6 +35,15 @@ def test_ItemKNN(log):
     dataset = create_dataset(log)
     res = model.optimize(dataset, dataset, k=2, budget=1)
     assert isinstance(res["num_neighbours"], int)
+
+
+@pytest.mark.core
+def test_ItemKNN_with_stub():
+    from replay.models import ItemKNN
+
+    model = ItemKNN()
+    with pytest.raises(FeatureUnavailableError):
+        _ = model.optimize(None, None, k=2, budget=1)
 
 
 @pytest.mark.conditional

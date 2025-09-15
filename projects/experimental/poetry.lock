@@ -1021,6 +1021,23 @@ tomli = {version = "*", optional = true, markers = "python_full_version <= \"3.1
 toml = ["tomli ; python_full_version <= \"3.11.0a6\""]
 
 [[package]]
+name = "coverage-conditional-plugin"
+version = "0.9.0"
+description = "Conditional coverage based on any rules you define!"
+optional = false
+python-versions = ">=3.7,<4.0"
+groups = ["dev"]
+files = [
+    {file = "coverage_conditional_plugin-0.9.0-py3-none-any.whl", hash = "sha256:1b37bc469019d2ab5b01f5eee453abe1846b3431e64e209720c2a9ec4afb8130"},
+    {file = "coverage_conditional_plugin-0.9.0.tar.gz", hash = "sha256:6893dab0542695dbd5ea714281dae0dfec8d0e36480ba32d839e9fa7344f8215"},
+]
+
+[package.dependencies]
+coverage = ">=7,<8"
+importlib_metadata = {version = "*", markers = "python_version < \"3.10\""}
+packaging = ">=20.4"
+
+[[package]]
 name = "cycler"
 version = "0.12.1"
 description = "Composable style cycles"
@@ -6762,4 +6779,4 @@ torch-cpu = ["lightning", "pytorch-optimizer", "torch", "torch"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9, <3.12"
-content-hash = "6164afdf8bc781d9f083c39c9048998c3d3d02e9ec975b8d4b0310830a3a1089"
+content-hash = "27cea0458af0b9cdd4e5d569204fbb9b7c1711982f2d0e9d6f8bea0700936dbc"

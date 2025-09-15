@@ -34,7 +34,7 @@ class ANNMixin(RecommenderCommons):
             err = FeatureUnavailableError(
                 "`index_builder` can only be provided when all ANN dependencies are installed."
             )
-            if sys.version_info >= (3, 11):
+            if sys.version_info >= (3, 11): # pragma: py-gte-311
                 err.add_note(
                     "To enable ANN, ensure you have both 'hnswlib' and 'fixed-install-nmslib' packages installed."
                 )

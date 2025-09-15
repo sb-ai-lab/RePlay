@@ -64,7 +64,7 @@ class ItemKNN(NeighbourRec):
                 err = FeatureUnavailableError(
                     "`weighting` can only be provided when the optimization feature is enabled."
                 )
-                if sys.version_info >= (3, 11):
+                if sys.version_info >= (3, 11): # pragma: py-gte-311
                     err.add_note("To enable optimization, install the `optuna` pacakge in your environment.")
                 raise err
 
