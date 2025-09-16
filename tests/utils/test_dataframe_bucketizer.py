@@ -33,7 +33,7 @@ def test_dataframe_bucketizer(spark, log, log2):
     ) as bucketizer:
         with pytest.raises(
             ValueError,
-            match="Parameter 'table_name' is not set! " "Please set it via method 'set_table_name'.",
+            match=r"Parameter 'table_name' is not set! " "Please set it via method 'set_table_name'.",
         ):
             bucketed_log = bucketizer.transform(log2)
 

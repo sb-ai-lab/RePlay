@@ -147,7 +147,7 @@ def test_init_args(model):
 @pytest.mark.spark
 def test_predict_pairs_raises_pairs_format(log):
     model = ALSWrap(seed=SEED)
-    with pytest.raises(ValueError, match="pairs must be a dataframe with .*"):
+    with pytest.raises(ValueError, match=r"pairs must be a dataframe with .*"):
         dataset = create_dataset(log)
         model.fit(dataset)
         model.predict_pairs(log, dataset)

@@ -192,7 +192,7 @@ def test_predict_empty_log(log):
 @pytest.mark.experimental
 def test_predict_pairs_raises_pairs_format(log):
     model = ALSWrap(seed=SEED)
-    with pytest.raises(ValueError, match="pairs must be a dataframe with .*"):
+    with pytest.raises(ValueError, match=r"pairs must be a dataframe with .*"):
         model.fit(log)
         model.predict_pairs(log, log)
 

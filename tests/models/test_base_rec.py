@@ -195,7 +195,7 @@ def test_get_features_warning(model, caplog):
 
 @pytest.mark.core
 def test_get_nearest_items_not_implemented(model):
-    with pytest.raises(NotImplementedError, match="item-to-item prediction is not implemented for.*"):
+    with pytest.raises(NotImplementedError, match=r"item-to-item prediction is not implemented for.*"):
         model._get_nearest_items(None, None, None)
 
 
@@ -216,7 +216,7 @@ def test_non_pers_init_raise():
 
 @pytest.mark.spark
 def test_non_pers_check_rating_raise(log):
-    with pytest.raises(ValueError, match="Rating values in interactions must be 0 or 1"):
+    with pytest.raises(ValueError, match=r"Rating values in interactions must be 0 or 1"):
         model = NonPersRec(add_cold_items=True, cold_weight=0.5)
         dataset = create_dataset(log)
         model._check_rating(dataset)

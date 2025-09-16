@@ -245,5 +245,5 @@ def test_history_based_fp_one_features_df(log_for_feature_gen, user_features):
 @pytest.mark.spark
 def test_history_based_fp_transform_raise(log_for_feature_gen, user_features):
     history_based_fp = HistoryBasedFeaturesProcessor(user_cat_features_list=["gender"])
-    with pytest.raises(AttributeError, match="Call fit before running transform"):
+    with pytest.raises(AttributeError, match=r"Call fit before running transform"):
         history_based_fp.transform(log_for_feature_gen.join(user_features, on="user_idx"))

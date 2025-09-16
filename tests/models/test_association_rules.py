@@ -132,7 +132,7 @@ def test_metric(log, log_to_pred, model):
 
 @pytest.mark.spark
 def test_similarity_metric_raises(log, model):
-    with pytest.raises(ValueError, match="Select one of the valid metrics for predict:.*"):
+    with pytest.raises(ValueError, match=r"Select one of the valid metrics for predict:.*"):
         dataset = create_dataset(log)
         model.fit(dataset)
         model.similarity_metric = "invalid"

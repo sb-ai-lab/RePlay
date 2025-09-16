@@ -293,7 +293,7 @@ def test_pad_sequence_raise(sequential_dataset):
         sliding_window_step=2,
     )
     sequence = [[[1, 1]], [[2, 2]]]
-    with pytest.raises(ValueError, match="Unsupported shape for sequence"):
+    with pytest.raises(ValueError, match=r"Unsupported shape for sequence"):
         dataset._pad_sequence(torch.tensor(sequence, dtype=torch.long), -1).tolist()
 
 

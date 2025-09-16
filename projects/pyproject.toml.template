@@ -52,7 +52,7 @@ dependencies = [
     "psutil<=7.0.0",
 {% endif %}
 ]
-dynamic = ["version", "dependencies"]
+dynamic = ["version"]
 
 [project.urls]
 homepage = "https://sb-ai-lab.github.io/RePlay/"

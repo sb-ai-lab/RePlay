@@ -176,7 +176,7 @@ def test_bm25(weighting_log, bm25_model):
 
 @pytest.mark.conditional
 def test_weighting_raises(log, tf_idf_model):
-    with pytest.raises(ValueError, match="weighting must be one of .*"):
+    with pytest.raises(ValueError, match=r"weighting must be one of .*"):
         tf_idf_model.weighting = " "
         dataset = create_dataset(log)
         tf_idf_model.fit(dataset)
