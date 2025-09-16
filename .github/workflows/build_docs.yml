@@ -24,7 +24,7 @@ jobs:
         run: |
           pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
           poetry cache clear pypi --all
-          ./poetry_wrapper.sh --experimental sync -E torch-cpu -E spark
+          ./poetry_wrapper.sh --experimental sync -E torch -E spark
       - name: Build docs
         run: |
           eval $(poetry env activate)
