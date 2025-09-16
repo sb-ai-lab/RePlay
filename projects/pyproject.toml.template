@@ -48,6 +48,8 @@ dependencies = [
     "sb-obp >=0.5.10,<0.6",
     "d3rlpy >=2.8.1,<2.9",
     "implicit >=0.7.2,<0.8",
+    "pyspark>=3.0,<3.5",
+    "psutil<=7.0.0",
 {% endif %}
 ]
 dynamic = ["version", "dependencies"]
