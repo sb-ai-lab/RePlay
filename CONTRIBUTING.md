@@ -68,13 +68,13 @@ If you are installing from the source, you will need Python 3.8.1-3.11.
 3. Install RePlay:
 
     ```bash
-    pip install poetry==1.5.1
-    ./poetry_wrapper.sh install --all-extras
+    pip install poetry==2.1.3
+    ./poetry_wrapper.sh sync --all-extras
     ```
     **If you need to install Replay with the experimental submodule**:
     ```bash
-    pip install poetry==1.5.1
-    ./poetry_wrapper.sh --experimental install --all-extras
+    pip install poetry==2.1.3
+    ./poetry_wrapper.sh --experimental sync --all-extras
     ```
     After that, there is an environment, where you can test and implement your own code.
     So, you don't need to rebuild the full project every time.
@@ -140,8 +140,8 @@ You can just get pyproject.toml file from step 6, to start using linters and for
 In order to automate checking of the code quality, please run:
 
     ```bash
-    ruff check .
-    black --check --diff -- .
+    poetry run ruff check .
+    poetry run black --check --diff -- .
     ./poetry_wrapper.sh check
     ./poetry_wrapper.sh --experimental check
     ```
@@ -156,7 +156,7 @@ When you're done with your feature development please create [pull request](#pul
 Before making a pull request (despite changing only the documentation or writing new code), please check your code on tests:
 
     ```bash
-    pytest
+    poetry run pytest
     ```
 
 Also if you develop new functionality, please add your own tests.
