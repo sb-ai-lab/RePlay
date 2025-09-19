@@ -21,9 +21,9 @@ import pandas as pd
 from numpy.random import default_rng
 
 from replay.data import Dataset, get_schema
-from replay.optimization import IsOptimizible
+from replay.models.common import RecommenderCommons
+from replay.models.optimization import IsOptimizible
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
-from replay.utils.common import RecommenderCommons
 from replay.utils.session_handler import State
 from replay.utils.spark_utils import SparkCollectToMasterWarning
 

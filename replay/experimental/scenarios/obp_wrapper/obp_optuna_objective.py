@@ -6,7 +6,7 @@ from obp.ope import DirectMethod, DoublyRobust, InverseProbabilityWeighting, Off
 from optuna import Trial
 
 from replay.experimental.scenarios.obp_wrapper.utils import get_est_rewards_by_reg
-from replay.optimization.optuna_objective import ObjectiveWrapper, suggest_params
+from replay.models.optimization.optuna_objective import ObjectiveWrapper, suggest_params
 
 
 def obp_objective_calculator(

@@ -5,8 +5,8 @@ from abc import abstractmethod
 from typing import Any, Iterable, Optional, Union
 
 from replay.data import Dataset
+from replay.models.common import RecommenderCommons
 from replay.utils import ANN_AVAILABLE, PYSPARK_AVAILABLE, FeatureUnavailableError, SparkDataFrame
-from replay.utils.common import RecommenderCommons
 
 from .index_builders.base_index_builder import IndexBuilder
 

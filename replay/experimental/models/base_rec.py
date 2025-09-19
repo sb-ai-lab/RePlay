@@ -21,8 +21,8 @@ from numpy.random import default_rng
 from replay.data import get_schema
 from replay.experimental.utils.session_handler import State
 from replay.models.base_rec import IsSavable
+from replay.models.common import RecommenderCommons
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
-from replay.utils.common import RecommenderCommons
 from replay.utils.spark_utils import (
     convert2spark,
     cosine_similarity,

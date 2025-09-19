@@ -8,9 +8,9 @@ from typing_extensions import TypeAlias
 
 from replay.data import Dataset
 from replay.metrics import NDCG, Metric
-from replay.optimization.optuna_objective import ObjectiveWrapper, SplitData, scenario_objective_calculator
+from replay.models.common import RecommenderCommons
+from replay.models.optimization.optuna_objective import ObjectiveWrapper, SplitData, scenario_objective_calculator
 from replay.utils import OPTUNA_AVAILABLE, FeatureUnavailableError, FeatureUnavailableWarning
-from replay.utils.common import RecommenderCommons
 
 MainObjective = partial(ObjectiveWrapper, objective_calculator=scenario_objective_calculator)
 
