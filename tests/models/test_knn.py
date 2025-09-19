@@ -6,7 +6,6 @@ import pytest
 from replay.data import Dataset, get_schema
 from replay.models import ItemKNN
 from replay.utils import PYSPARK_AVAILABLE
-from replay.utils.types import FeatureUnavailableError
 from tests.utils import create_dataset
 
 if PYSPARK_AVAILABLE:
