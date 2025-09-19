@@ -102,20 +102,16 @@ class Coverage(Metric):
         return grouped_recs
 
     def _get_enriched_recommendations_polars(self, recommendations: PolarsDataFrame) -> PolarsDataFrame:
-        sorted_by_score_recommendations = recommendations.select(
-            pl.all().sort_by(self.rating_column, descending=True).over(self.query_column)
-        )
-        sorted_by_score_recommendations = sorted_by_score_recommendations.with_columns(
-            sorted_by_score_recommendations.select(
-                pl.col(self.query_column).cum_count().over(self.query_column).alias("rank")
+        return (
+            recommendations.with_columns(
+                pl.col(self.rating_column)
+                .rank(method="ordinal", descending=True)
+                .over(self.query_column)
+                .alias("__rank")
             )
-        )
-        grouped_recs = (
-            sorted_by_score_recommendations.select(self.item_column, "rank")
             .group_by(self.item_column)
-            .agg(pl.col("rank").min().alias("best_position"))
+            .agg(pl.col("__rank").min().alias("best_position"))
         )
-        return grouped_recs
 
     def _spark_compute(self, recs: SparkDataFrame, train: SparkDataFrame) -> MetricsMeanReturnType:
         """
