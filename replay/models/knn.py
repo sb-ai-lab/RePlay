@@ -28,12 +28,13 @@ class ItemKNN(NeighbourRec):
     bm25_k1 = 1.2
     bm25_b = 0.75
 
+    _valid_weightings = [None, "tf_idf", "bm25"]
     if OPTUNA_AVAILABLE:
         _objective = ItemKNNObjective
         _search_space = {
             "num_neighbours": {"type": "int", "args": [1, 100]},
             "shrink": {"type": "int", "args": [0, 100]},
-            "weighting": {"type": "categorical", "args": [None, "tf_idf", "bm25"]},
+            "weighting": {"type": "categorical", "args": _valid_weightings},
         }
 
     def __init__(
@@ -58,9 +59,8 @@ class ItemKNN(NeighbourRec):
         self.num_neighbours = num_neighbours
 
         if weighting is not None:
-            valid_weightings = self._search_space["weighting"]["args"]
-            if weighting not in valid_weightings:
-                msg = f"weighting must be one of {valid_weightings}"
+            if weighting not in self._valid_weightings:
+                msg = f"weighting must be one of {self._valid_weightings}"
                 raise ValueError(msg)
             self.weighting = weighting
 
