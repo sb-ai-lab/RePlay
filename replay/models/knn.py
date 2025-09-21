@@ -59,8 +59,8 @@ class ItemKNN(NeighbourRec):
         self.num_neighbours = num_neighbours
 
         if weighting not in self._valid_weightings:
-                msg = f"weighting must be one of {self._valid_weightings}"
-                raise ValueError(msg)
+            msg = f"weighting must be one of {self._valid_weightings}"
+            raise ValueError(msg)
         self.weighting = weighting
 
     @property
