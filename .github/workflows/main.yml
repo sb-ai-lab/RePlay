@@ -69,6 +69,7 @@ jobs:
           ./poetry_wrapper.sh sync
       - name: pytest
         run: |
+          ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry run pytest -m core tests/ --ignore=tests/experimental
           mv .coverage coverage_core_${{ matrix.python-version }}
@@ -98,6 +99,7 @@ jobs:
           pip install -q --upgrade onnx openvino optuna hnswlib fixed-install-nmslib
       - name: pytest
         run: |
+          ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry run pytest -m conditional tests/ --ignore=tests/experimental
           mv .coverage coverage_conditional_${{ matrix.python-version }}
@@ -125,6 +127,7 @@ jobs:
           ./poetry_wrapper.sh sync -E torch
       - name: pytest
         run: |
+          ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental
           mv .coverage coverage_torch_${{ matrix.python-version }}
@@ -152,6 +155,7 @@ jobs:
           ./poetry_wrapper.sh sync -E spark
       - name: pytest
         run: |
+          ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models
           mv .coverage coverage_spark_${{ matrix.python-version }}
@@ -179,6 +183,7 @@ jobs:
           ./poetry_wrapper.sh sync -E spark -E torch
       - name: pytest
         run: |
+          ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry run pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
           mv .coverage coverage_spark_and_torch_${{ matrix.python-version }}
@@ -206,7 +211,8 @@ jobs:
           ./poetry_wrapper.sh --experimental sync
       - name: pytest
         run: |
-          . ./venv/bin/activate
+          ./poetry_wrapper.sh --generate
+          eval $(poetry env activate)
           poetry run pytest -m "experimental" tests/
           mv .coverage coverage_experimental_${{ matrix.python-version }}
       - name: Upload coverage
@@ -233,6 +239,7 @@ jobs:
           ./poetry_wrapper.sh sync -E spark -E torch
       - name: pytest
         run: |
+          ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry run pytest -m "not experimental" tests/models --ignore=replay/experimental --ignore=tests/experimental
           mv .coverage coverage_models_${{ matrix.python-version }}
@@ -265,6 +272,7 @@ jobs:
           merge-multiple: true
       - name: Combine coverage
         run: |
+          ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry run coverage combine coverage_core_${{ matrix.python-version }} coverage_conditional_${{ matrix.python-version }} coverage_torch_${{ matrix.python-version }} coverage_spark_${{ matrix.python-version }} coverage_spark_and_torch_${{ matrix.python-version }} coverage_models_${{ matrix.python-version }} coverage_experimental_${{ matrix.python-version }}
           poetry run coverage report --fail-under=100
@@ -286,6 +294,7 @@ jobs:
           ./poetry_wrapper.sh sync -E torch -E spark
       - name: Build
         run: |
+          ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           export PACKAGE_SUFFIX=.dev
           ./poetry_wrapper.sh build
@@ -307,6 +316,7 @@ jobs:
           ./poetry_wrapper.sh --experimental sync
       - name: Build
         run: |
+          ./poetry_wrapper.sh --generate --experimental
           eval $(poetry env activate)
           export PACKAGE_SUFFIX=.preview
           ./poetry_wrapper.sh --experimental build
