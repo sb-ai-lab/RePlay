@@ -111,7 +111,7 @@ def test_refit(fitted_model, log_ucb, log_ucb2):
     equality_check(pred_after_full_fit, pred_after_refit)
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_optimize(fitted_model, log_ucb, caplog):
     dataset = create_dataset(log_ucb)
     with caplog.at_level(logging.WARNING):

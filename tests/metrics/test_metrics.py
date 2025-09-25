@@ -372,7 +372,7 @@ def test_offline_metrics_types_raises(request):
     predict_data = request.getfixturevalue("predict_spark")
     gt_data = request.getfixturevalue("gt_pd")
     train_data = request.getfixturevalue("fake_train_dict")
-    with pytest.raises(ValueError, match="All given data frames must have the same type"):
+    with pytest.raises(ValueError, match=r"All given data frames must have the same type"):
         OfflineMetrics([Recall(5), Precision(5)], **INIT_DICT)(predict_data, gt_data, train_data)
 
 
@@ -395,7 +395,6 @@ def test_offline_metrics_query_id_errors(predict_data, gt_data, train_data, requ
         )
 
 
-@pytest.mark.cpu
 def test_offline_metrics_subset_queries_works(predict_pd, gt_pd):
     OfflineMetrics(
         [
@@ -406,7 +405,6 @@ def test_offline_metrics_subset_queries_works(predict_pd, gt_pd):
     )(predict_pd, gt_pd[gt_pd["uid"] != 3])
 
 
-@pytest.mark.cpu
 def test_offline_metrics_diversity_metric_only_works(predict_pd, gt_pd):
     OfflineMetrics(
         [CategoricalDiversity([5])],
@@ -558,7 +556,7 @@ def test_topk_instance(metric, topk):
     ],
 )
 def test_experiment_raise(predict_data):
-    with pytest.raises(ValueError, match="No results for model*"):
+    with pytest.raises(ValueError, match=r"No results for model*"):
         result = Experiment([NDCG(1), Surprisal(1)], predict_data)
         result.compare("test_metric")
 

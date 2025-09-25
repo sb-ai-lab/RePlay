@@ -19,7 +19,7 @@ if PYSPARK_AVAILABLE:
     from replay.utils.spark_utils import join_with_col_renaming, multiply_scala_udf, vector_dot
 
 
-class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
+class Word2VecRec(ANNMixin, Recommender, ItemVectorModel):
     """
     Trains word2vec model where items are treated as words and queries as sentences.
     """
@@ -36,16 +36,14 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         query_vectors = query_vectors.select(self.query_column, vector_to_array("query_vector").alias("query_vector"))
         return query_vectors
 
-    def _get_ann_build_params(self, interactions: SparkDataFrame) -> Dict[str, Any]:
+    def _configure_index_builder(self, interactions: SparkDataFrame) -> Dict[str, Any]:
+        item_vectors = self._get_item_vectors()
+        item_vectors = item_vectors.select(self.item_column, vector_to_array("item_vector").alias("item_vector"))
+
         self.index_builder.index_params.dim = self.rank
         self.index_builder.index_params.max_elements = interactions.select(self.item_column).distinct().count()
         self.logger.debug("index 'num_elements' = %s", self.num_elements)
-        return {"features_col": "item_vector", "ids_col": self.item_column}
-
-    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:  # noqa: ARG002
-        item_vectors = self._get_item_vectors()
-        item_vectors = item_vectors.select(self.item_column, vector_to_array("item_vector").alias("item_vector"))
-        return item_vectors
+        return item_vectors, {"features_col": "item_vector", "ids_col": self.item_column}
 
     idf: SparkDataFrame
     vectors: SparkDataFrame
@@ -81,6 +79,7 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         :param index_builder: `IndexBuilder` instance that adds ANN functionality.
             If not set, then ann will not be used.
         """
+        self.init_index_builder(index_builder)
 
         self.rank = rank
         self.window_size = window_size
@@ -90,10 +89,6 @@ class Word2VecRec(Recommender, ItemVectorModel, ANNMixin):
         self.max_iter = max_iter
         self._seed = seed
         self._num_partitions = num_partitions
-        if isinstance(index_builder, (IndexBuilder, type(None))):
-            self.index_builder = index_builder
-        elif isinstance(index_builder, dict):
-            self.init_builder_from_dict(index_builder)
         self.num_elements = None
 
     @property

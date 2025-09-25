@@ -147,7 +147,7 @@ def test_init_args(model):
 @pytest.mark.spark
 def test_predict_pairs_raises_pairs_format(log):
     model = ALSWrap(seed=SEED)
-    with pytest.raises(ValueError, match="pairs must be a dataframe with .*"):
+    with pytest.raises(ValueError, match=r"pairs must be a dataframe with .*"):
         dataset = create_dataset(log)
         model.fit(dataset)
         model.predict_pairs(log, dataset)
@@ -168,7 +168,7 @@ def test_nearest_items_raises(log, metric):
         model.get_nearest_items(items=[0, 1], k=2, metric=metric)
 
 
-@pytest.mark.core
+@pytest.mark.conditional
 @pytest.mark.parametrize(
     "borders",
     [
@@ -192,7 +192,7 @@ def test_bad_borders(borders):
         model._prepare_param_borders(borders)
 
 
-@pytest.mark.core
+@pytest.mark.conditional
 @pytest.mark.parametrize("borders", [None, {"rank": [5, 9]}])
 def test_correct_borders(borders):
     model = ALSWrap()
@@ -203,7 +203,7 @@ def test_correct_borders(borders):
     assert res["rank"].keys() == model._search_space["rank"].keys()
 
 
-@pytest.mark.core
+@pytest.mark.conditional
 @pytest.mark.parametrize("borders,answer", [(None, True), ({"rank": [-10, -1]}, False)])
 def test_param_in_borders(borders, answer):
     model = ALSWrap()
@@ -211,7 +211,7 @@ def test_param_in_borders(borders, answer):
     assert model._init_params_in_search_space(search_space) == answer
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_it_works(log):
     model = ALSWrap()
     dataset = create_dataset(log)

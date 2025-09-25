@@ -122,7 +122,7 @@ def test_utils_time_raise():
         "relevance": [1, 1, 1, 1, 1],
     }
     df = pd.DataFrame(d)
-    with pytest.raises(ValueError, match="parameter kind must be one of [power, exp, linear]*"):
+    with pytest.raises(ValueError, match=r"parameter kind must be one of [power, exp, linear]*"):
         get_item_recency(df, kind="fake_kind")
 
 
@@ -170,7 +170,7 @@ def test_process_timestamp_column_raise(spark):
 @pytest.mark.spark
 def test_get_unique_entities_fake_column():
     log = 42
-    with pytest.raises(ValueError, match="Wrong type <class 'int'>"):
+    with pytest.raises(ValueError, match=r"Wrong type <class 'int'>"):
         utils.get_unique_entities(df=log, column="fake_column")
 
 

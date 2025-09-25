@@ -5,12 +5,8 @@ import pytest
 
 from replay.data import get_schema
 from replay.models import Word2VecRec
-from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
-from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
-from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
-from tests.utils import (
-    create_dataset,
-)
+from replay.utils import FeatureUnavailableError
+from tests.utils import create_dataset
 
 pyspark = pytest.importorskip("pyspark")
 from pyspark.sql import functions as sf
@@ -44,6 +40,10 @@ def model():
 
 @pytest.fixture(scope="function")
 def model_with_ann(tmp_path):
+    from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
+    from replay.models.extensions.ann.index_builders.driver_hnswlib_index_builder import DriverHnswlibIndexBuilder
+    from replay.models.extensions.ann.index_stores.shared_disk_index_store import SharedDiskIndexStore
+
     model = Word2VecRec(
         rank=1,
         window_size=1,
@@ -95,8 +95,14 @@ def test_predict(log, model):
     )
 
 
+@pytest.mark.core
+def test_init_ann_without_libs_isntalled():
+    with pytest.raises(FeatureUnavailableError):
+        _ = Word2VecRec(rank=1, window_size=1, use_idf=True, seed=42, min_count=0, index_builder="some_config")
+
+
 # here we use `test.utils.log` because we can't build the hnsw index on `log` data
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_word2vec_predict_filter_seen_items(log2, model, model_with_ann):
     dataset = create_dataset(log2)
     model.fit(dataset)
@@ -111,7 +117,7 @@ def test_word2vec_predict_filter_seen_items(log2, model, model_with_ann):
     assert recs1.item_idx.equals(recs2.item_idx)
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_word2vec_predict(log2, model, model_with_ann):
     dataset = create_dataset(log2)
     model.fit(dataset)

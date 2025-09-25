@@ -161,7 +161,7 @@ def test_predict_empty_log(log):
 @pytest.mark.experimental
 def test_predict_pairs_raises(log):
     model = ADMMSLIM(seed=SEED)
-    with pytest.raises(ValueError, match="log is not provided,.*"):
+    with pytest.raises(ValueError, match=r"log is not provided,.*"):
         model.fit(log)
         model.predict_pairs(log.select("user_idx", "item_idx"))
 

@@ -72,7 +72,7 @@ def nms_executor(tmp_path):
     )
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 @pytest.mark.parametrize("driver", ["hnsw_driver", "hnsw_executor"])
 def test_hnsw_index_builder(driver, vectors, request):
     driver = request.getfixturevalue(driver)
@@ -89,7 +89,7 @@ def test_hnsw_index_builder(driver, vectors, request):
     driver.build_index(vectors, features_col="features", ids_col=None)
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_nms_index_builder(nms_executor):
     inferer = nms_executor.produce_inferer(filter_seen_items=False)
     assert isinstance(inferer, NmslibIndexInferer)

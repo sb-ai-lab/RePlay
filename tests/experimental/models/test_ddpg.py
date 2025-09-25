@@ -13,7 +13,6 @@ from replay.data import get_schema
 from replay.experimental.models import DDPG
 from replay.experimental.models.ddpg import ActorDRR, CriticDRR, OUNoise, ReplayBuffer, StateReprModule
 from replay.experimental.utils.model_handler import load, save
-from replay.utils import PYSPARK_AVAILABLE, TORCH_AVAILABLE
 from tests.utils import (
     sparkDataFrameEqual,
 )

@@ -4,7 +4,7 @@ import sys
 import numpy as np
 import pytest
 
-if sys.version_info >= (3, 10):
+if sys.version_info >= (3, 11):
     pytest.skip(
         reason="obp does't support 3.10",
         allow_module_level=True,

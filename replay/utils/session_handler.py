@@ -10,13 +10,13 @@ from typing import Any, Dict, Optional
 
 import psutil
 
-from .types import PYSPARK_AVAILABLE, MissingImportType
+from .types import PYSPARK_AVAILABLE, MissingImport
 
 if PYSPARK_AVAILABLE:
     from pyspark import __version__ as pyspark_version
     from pyspark.sql import SparkSession
 else:
-    SparkSession = MissingImportType
+    SparkSession = MissingImport
 
 
 def get_spark_session(

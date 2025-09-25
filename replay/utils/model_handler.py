@@ -1,16 +1,13 @@
-import functools
 import json
 import os
 import pickle
-import warnings
 from os.path import join
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Union
 
 from replay.data.dataset_utils import DatasetLabelEncoder
-from replay.models import *
 from replay.models.base_rec import BaseRecommender
-from replay.splitters import *
+from replay.splitters import Splitter
 
 from .session_handler import State
 from .types import PYSPARK_AVAILABLE
@@ -43,7 +40,7 @@ if PYSPARK_AVAILABLE:
         return [str(f.getPath()) for f in statuses]
 
 
-def save(model: BaseRecommender, path: Union[str, Path], overwrite: bool = False):
+def save(model: "BaseRecommender", path: Union[str, Path], overwrite: bool = False):
     """
     Save fitted model to disk as a folder
 
@@ -86,19 +83,22 @@ def save(model: BaseRecommender, path: Union[str, Path], overwrite: bool = False
         save_picklable_to_parquet(model.study, join(path, "study"))
 
 
-def load(path: str, model_type=None) -> BaseRecommender:
+def load(path: str, model_type=None) -> "BaseRecommender":
     """
     Load saved model from disk
 
     :param path: path to model folder
     :return: Restored trained model
     """
+    # FIXME: Surely there's a better way to handle this? Not having this method at all perhaps?
+    import replay.models as models
+
     spark = State().session
     args = spark.read.json(join(path, "init_args.json")).first().asDict(recursive=True)
     name = args["_model_name"]
     del args["_model_name"]
 
-    model_class = model_type if model_type is not None else globals()[name]
+    model_class = model_type if model_type is not None else getattr(models, name)
 
     model = model_class(**args)
 
@@ -175,31 +175,11 @@ def load_splitter(path: str) -> Splitter:
     :param path: path to folder
     :return: restored Splitter
     """
+    import replay.splitters as splitters
+
     spark = State().session
     args = spark.read.json(join(path, "init_args.json")).first().asDict()
     name = args["_splitter_name"]
     del args["_splitter_name"]
-    splitter = globals()[name]
+    splitter = getattr(splitters, name)
     return splitter(**args)
-
-
-def deprecation_warning(message: Optional[str] = None) -> Callable[..., Any]:
-    """
-    Decorator that throws deprecation warnings.
-
-    :param message: message to deprecation warning without func name.
-    """
-    base_msg = "will be deprecated in future versions."
-
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            msg = f"{func.__qualname__} {message if message else base_msg}"
-            warnings.simplefilter("always", DeprecationWarning)  # turn off filter
-            warnings.warn(msg, category=DeprecationWarning, stacklevel=2)
-            warnings.simplefilter("default", DeprecationWarning)  # reset filter
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator

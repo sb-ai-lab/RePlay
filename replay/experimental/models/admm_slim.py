@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Iterable, Optional, Tuple, Union
 
 import numba as nb
 import numpy as np
@@ -6,9 +6,11 @@ import pandas as pd
 from scipy.sparse import coo_matrix, csr_matrix
 
 from replay.experimental.models.base_neighbour_rec import NeighbourRec
+from replay.experimental.models.base_rec import Recommender
 from replay.experimental.utils.session_handler import State
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
 from replay.utils import SparkDataFrame
+from replay.utils.spark_utils import get_top_k_recs, return_recs
 
 
 @nb.njit(parallel=True)
@@ -103,6 +105,8 @@ class ADMMSLIM(NeighbourRec):
         :param index_builder: `IndexBuilder` instance that adds ANN functionality.
             If not set, then ann will not be used.
         """
+        self.init_index_builder(index_builder)
+
         if lambda_1 < 0 or lambda_2 <= 0:
             msg = "Invalid regularization parameters"
             raise ValueError(msg)
@@ -110,10 +114,6 @@ class ADMMSLIM(NeighbourRec):
         self.lambda_2 = lambda_2
         self.rho = lambda_2
         self.seed = seed
-        if isinstance(index_builder, (IndexBuilder, type(None))):
-            self.index_builder = index_builder
-        elif isinstance(index_builder, dict):
-            self.init_builder_from_dict(index_builder)
 
     @property
     def _init_args(self):
@@ -122,6 +122,19 @@ class ADMMSLIM(NeighbourRec):
             "lambda_2": self.lambda_2,
             "seed": self.seed,
         }
+
+    def fit(self, log: "SparkDataFrame", user_features=None, item_features=None) -> None:
+        """Wrapper extends `_fit_wrap`, adds construction of ANN index by flag.
+
+        Args:
+            dataset: historical interactions with query/item features
+                ``[user_id, item_id, timestamp, rating]``
+        """
+        Recommender._fit_wrap(self, log, user_features, item_features)
+
+        if self._use_ann:
+            vectors, ann_params = self._configure_index_builder(log)
+            self.index_builder.build_index(vectors, **ann_params)
 
     def _fit(
         self,
@@ -194,6 +207,44 @@ class ADMMSLIM(NeighbourRec):
             schema="item_idx_one int, item_idx_two int, similarity double",
         )
         self.similarity.cache().count()
+
+    def _predict_wrap(
+        self,
+        log: SparkDataFrame,
+        k: int,
+        users: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
+        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        filter_seen_items: bool = True,
+        recs_file_path: Optional[str] = None,
+    ) -> Optional[SparkDataFrame]:
+        log, users, items = self._filter_interactions_queries_items_dataframes(log, k, users, items)
+
+        if self._use_ann:
+            vectors = self._get_vectors_to_infer_ann(log, users, filter_seen_items)
+            ann_params = self._get_ann_infer_params()
+            inferer = self.index_builder.produce_inferer(filter_seen_items)
+            recs = inferer.infer(vectors, ann_params["features_col"], k)
+        else:
+            recs = self._predict(
+                log,
+                k,
+                users,
+                items,
+                filter_seen_items,
+            )
+
+        if not self._use_ann:
+            if filter_seen_items and log:
+                recs = self._filter_seen(recs=recs, log=log, users=users, k=k)
+
+            recs = get_top_k_recs(recs, k=k).select("user_idx", "item_idx", "relevance")
+
+        output = return_recs(recs, recs_file_path)
+        self._clear_model_temp_view("filter_seen_queries_interactions")
+        self._clear_model_temp_view("filter_seen_num_seen")
+        return output
 
     def _init_matrix(self, size: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Matrix initialization"""

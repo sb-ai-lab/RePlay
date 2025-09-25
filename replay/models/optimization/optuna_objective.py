@@ -5,15 +5,16 @@ This class calculates loss function for optimization process
 import collections
 import logging
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional, Union
-
-from optuna import Trial
+from typing import TYPE_CHECKING, Any, Callable, Union
 
 from replay.metrics import Metric
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
+
+if TYPE_CHECKING:
+    from optuna import Trial
 
 
 SplitData = collections.namedtuple(  # noqa: PYI024
@@ -36,7 +37,7 @@ class ObjectiveWrapper:
         self.objective_calculator = objective_calculator
         self.kwargs = kwargs
 
-    def __call__(self, trial: Trial) -> float:
+    def __call__(self, trial: "Trial") -> float:
         """
         Calculate criterion for ``optuna``.
 
@@ -47,9 +48,9 @@ class ObjectiveWrapper:
 
 
 def suggest_params(
-    trial: Trial,
-    search_space: Dict[str, Dict[str, Union[str, List[Any]]]],
-) -> Dict[str, Any]:
+    trial: "Trial",
+    search_space: dict[str, dict[str, Union[str, list]]],
+) -> dict:
     """
     This function suggests params to try.
 
@@ -124,8 +125,8 @@ def eval_quality(
 
 
 def scenario_objective_calculator(
-    trial: Trial,
-    search_space: Dict[str, List[Optional[Any]]],
+    trial: "Trial",
+    search_space: dict[str, list],
     split_data: SplitData,
     recommender,
     criterion: Metric,
@@ -144,9 +145,6 @@ def scenario_objective_calculator(
     params_for_trial = suggest_params(trial, search_space)
     recommender.set_params(**params_for_trial)
     return eval_quality(split_data, recommender, criterion, k)
-
-
-MainObjective = partial(ObjectiveWrapper, objective_calculator=scenario_objective_calculator)
 
 
 class ItemKNNObjective:
@@ -180,8 +178,8 @@ class ItemKNNObjective:
 
     def objective_calculator(
         self,
-        trial: Trial,
-        search_space: Dict[str, List[Optional[Any]]],
+        trial: "Trial",
+        search_space: dict[str, list],
         split_data: SplitData,
         recommender,
         criterion: Metric,
@@ -215,7 +213,7 @@ class ItemKNNObjective:
         logger.debug("%s=%.6f", criterion, criterion_value)
         return criterion_value
 
-    def __call__(self, trial: Trial) -> float:
+    def __call__(self, trial: "Trial") -> float:
         """
         Calculate criterion for ``optuna``.
 

@@ -1,4 +1,10 @@
 [run]
+plugins =
+        coverage_conditional_plugin
 omit =
         replay/models/extensions/ann/index_stores/hdfs_index_store.py
         replay/experimental/*
+
+[coverage_conditional_plugin]
+rules =
+        "sys_version_info < (3, 11)": py-lt-311

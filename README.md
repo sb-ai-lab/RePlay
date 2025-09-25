@@ -177,6 +177,25 @@ pip install replay-rec[spark]==XX.YY.ZZrc0
 To build RePlay from sources please use the [instruction](CONTRIBUTING.md#installing-from-the-source).
 
 
+### Optional features
+RePlay includes a set of optional features which require users to install optional dependencies manually. These features include:
+
+1) Hyperpearameter search via Optuna:
+```bash
+pip install optuna
+```
+
+2) Model compilation via OpenVINO:
+```bash
+pip install openvino onnx
+```
+
+3) Vector database and hierarchical search support:
+```bash
+pip install hnswlib fixed-install-nmslib
+```
+
+
 <a name="examples"></a>
 ## 📑  Resources
 

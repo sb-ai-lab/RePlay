@@ -10,7 +10,7 @@ torch = pytest.importorskip("torch")
 
 from replay.data import FeatureHint, FeatureSource, FeatureType
 from replay.preprocessing import LabelEncoder
-from replay.utils import TORCH_AVAILABLE, MissingImportType
+from replay.utils import TORCH_AVAILABLE, MissingImport
 
 if TORCH_AVAILABLE:
     from replay.data.nn import (
@@ -22,9 +22,9 @@ if TORCH_AVAILABLE:
     )
     from replay.data.nn.sequence_tokenizer import _PandasSequenceProcessor, _PolarsSequenceProcessor
 else:
-    TensorSchema = MissingImportType
-    SequentialDataset = MissingImportType
-    PandasSequentialDataset = MissingImportType
+    TensorSchema = MissingImport
+    SequentialDataset = MissingImport
+    PandasSequentialDataset = MissingImport
 
 
 def _compare_sequence(

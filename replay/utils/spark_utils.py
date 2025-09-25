@@ -10,7 +10,7 @@ import pandas as pd
 from numpy.random import default_rng
 
 from .session_handler import State
-from .types import PYSPARK_AVAILABLE, DataFrameLike, MissingImportType, NumType, PolarsDataFrame, SparkDataFrame
+from .types import PYSPARK_AVAILABLE, DataFrameLike, MissingImport, NumType, PolarsDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.types as st
@@ -24,7 +24,7 @@ if PYSPARK_AVAILABLE:
     from pyspark.sql.column import _to_java_column, _to_seq
     from pyspark.sql.types import DoubleType, IntegerType, StructField, StructType
 else:
-    Column = MissingImportType
+    Column = MissingImport
 
 
 class PolarsConvertToSparkWarning(Warning):

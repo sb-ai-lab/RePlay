@@ -11,22 +11,18 @@ Base abstract classes:
     with popularity statistics
 """
 
-import logging
 import warnings
 from abc import ABC, abstractmethod
-from copy import deepcopy
 from os.path import join
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from numpy.random import default_rng
-from optuna import create_study
-from optuna.samplers import TPESampler
 
 from replay.data import Dataset, get_schema
-from replay.metrics import NDCG, Metric
-from replay.optimization.optuna_objective import MainObjective, SplitData
+from replay.models.common import RecommenderCommons
+from replay.models.optimization import IsOptimizible
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 from replay.utils.session_handler import State
 from replay.utils.spark_utils import SparkCollectToMasterWarning
@@ -38,10 +34,8 @@ if PYSPARK_AVAILABLE:
     )
 
     from replay.utils.spark_utils import (
-        cache_temp_view,
         convert2spark,
         cosine_similarity,
-        drop_temp_view,
         filter_cold,
         get_top_k,
         get_top_k_recs,
@@ -88,282 +82,18 @@ class IsSavable(ABC):
         """
 
 
-class RecommenderCommons:
-    """
-    Common methods and attributes of RePlay models for caching, setting parameters and logging
-    """
-
-    _logger: Optional[logging.Logger] = None
-    cached_dfs: Optional[Set] = None
-    query_column: str
-    item_column: str
-    rating_column: str
-    timestamp_column: str
-
-    def set_params(self, **params: Dict[str, Any]) -> None:
-        """
-        Set model parameters
-
-        :param params: dictionary param name - param value
-        :return:
-        """
-        for param, value in params.items():
-            setattr(self, param, value)
-        self._clear_cache()
-
-    def _clear_cache(self):
-        """
-        Clear spark cache
-        """
-
-    def __str__(self):
-        return type(self).__name__
-
-    @property
-    def logger(self) -> logging.Logger:
-        """
-        :returns: get library logger
-        """
-        if self._logger is None:
-            self._logger = logging.getLogger("replay")
-        return self._logger
-
-    def _cache_model_temp_view(self, df: SparkDataFrame, df_name: str) -> None:
-        """
-        Create Spark SQL temporary view for df, cache it and add temp view name to self.cached_dfs.
-        Temp view name is : "id_<python object id>_model_<RePlay model name>_<df_name>"
-        """
-        full_name = f"id_{id(self)}_model_{self!s}_{df_name}"
-        cache_temp_view(df, full_name)
-
-        if self.cached_dfs is None:
-            self.cached_dfs = set()
-        self.cached_dfs.add(full_name)
-
-    def _clear_model_temp_view(self, df_name: str) -> None:
-        """
-        Uncache and drop Spark SQL temporary view and remove from self.cached_dfs
-        Temp view to replace will be constructed as
-        "id_<python object id>_model_<RePlay model name>_<df_name>"
-        """
-        full_name = f"id_{id(self)}_model_{self!s}_{df_name}"
-        drop_temp_view(full_name)
-        if self.cached_dfs is not None:
-            self.cached_dfs.discard(full_name)
-
-
-class BaseRecommender(RecommenderCommons, IsSavable, ABC):
+class BaseRecommender(IsSavable, IsOptimizible, RecommenderCommons, ABC):
     """Base recommender"""
 
     model: Any
     can_predict_cold_queries: bool = False
     can_predict_cold_items: bool = False
-    _search_space: Optional[Dict[str, Union[str, Sequence[Union[str, int, float]]]]] = None
-    _objective = MainObjective
-    study = None
-    criterion = None
     fit_queries: SparkDataFrame
     fit_items: SparkDataFrame
     _num_queries: int
     _num_items: int
     _query_dim_size: int
     _item_dim_size: int
-
-    def optimize(
-        self,
-        train_dataset: Dataset,
-        test_dataset: Dataset,
-        param_borders: Optional[Dict[str, List[Any]]] = None,
-        criterion: Metric = NDCG,
-        k: int = 10,
-        budget: int = 10,
-        new_study: bool = True,
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Searches the best parameters with optuna.
-
-        :param train_dataset: train data
-        :param test_dataset: test data
-        :param param_borders: a dictionary with search borders, where
-            key is the parameter name and value is the range of possible values
-            ``{param: [low, high]}``. In case of categorical parameters it is
-            all possible values: ``{cat_param: [cat_1, cat_2, cat_3]}``.
-        :param criterion: metric to use for optimization
-        :param k: recommendation list length
-        :param budget: number of points to try
-        :param new_study: keep searching with previous study or start a new study
-        :return: dictionary with best parameters
-        """
-        self.query_column = train_dataset.feature_schema.query_id_column
-        self.item_column = train_dataset.feature_schema.item_id_column
-        self.rating_column = train_dataset.feature_schema.interactions_rating_column
-        self.timestamp_column = train_dataset.feature_schema.interactions_timestamp_column
-
-        self.criterion = criterion(
-            topk=k,
-            query_column=self.query_column,
-            item_column=self.item_column,
-            rating_column=self.rating_column,
-        )
-
-        if self._search_space is None:
-            self.logger.warning("%s has no hyper parameters to optimize", str(self))
-            return None
-
-        if self.study is None or new_study:
-            self.study = create_study(direction="maximize", sampler=TPESampler())
-
-        search_space = self._prepare_param_borders(param_borders)
-        if self._init_params_in_search_space(search_space) and not self._params_tried():
-            self.study.enqueue_trial(self._init_args)
-
-        split_data = self._prepare_split_data(train_dataset, test_dataset)
-        objective = self._objective(
-            search_space=search_space,
-            split_data=split_data,
-            recommender=self,
-            criterion=self.criterion,
-            k=k,
-        )
-
-        self.study.optimize(objective, budget)
-        best_params = self.study.best_params
-        self.set_params(**best_params)
-        return best_params
-
-    def _init_params_in_search_space(self, search_space):
-        """Check if model params are inside search space"""
-        params = self._init_args
-        outside_search_space = {}
-        for param, value in params.items():
-            if param not in search_space:
-                continue
-            borders = search_space[param]["args"]
-            param_type = search_space[param]["type"]
-
-            extra_category = param_type == "categorical" and value not in borders
-            param_out_of_bounds = param_type != "categorical" and (value < borders[0] or value > borders[1])
-            if extra_category or param_out_of_bounds:
-                outside_search_space[param] = {
-                    "borders": borders,
-                    "value": value,
-                }
-
-        if outside_search_space:
-            self.logger.debug(
-                "Model is initialized with parameters outside the search space: %s."
-                "Initial parameters will not be evaluated during optimization."
-                "Change search spare with 'param_borders' argument if necessary",
-                outside_search_space,
-            )
-            return False
-        else:
-            return True
-
-    def _prepare_param_borders(
-        self, param_borders: Optional[Dict[str, List[Any]]] = None
-    ) -> Dict[str, Dict[str, List[Any]]]:
-        """
-        Checks if param borders are valid and convert them to a search_space format
-
-        :param param_borders: a dictionary with search grid, where
-            key is the parameter name and value is the range of possible values
-            ``{param: [low, high]}``.
-        :return:
-        """
-        search_space = deepcopy(self._search_space)
-        if param_borders is None:
-            return search_space
-
-        for param, borders in param_borders.items():
-            self._check_borders(param, borders)
-            search_space[param]["args"] = borders
-
-        # Optuna trials should contain all searchable parameters
-        # to be able to correctly return best params
-        # If used didn't specify some params to be tested optuna still needs to suggest them
-        # This part makes sure this suggestion will be constant
-        args = self._init_args
-        missing_borders = {param: args[param] for param in search_space if param not in param_borders}
-        for param, value in missing_borders.items():
-            if search_space[param]["type"] == "categorical":
-                search_space[param]["args"] = [value]
-            else:
-                search_space[param]["args"] = [value, value]
-
-        return search_space
-
-    def _check_borders(self, param, borders):
-        """Raise value error if param borders are not valid"""
-        if param not in self._search_space:
-            msg = f"Hyper parameter {param} is not defined for {self!s}"
-            raise ValueError(msg)
-        if not isinstance(borders, list):
-            msg = f"Parameter {param} borders are not a list"
-            raise ValueError()
-        if self._search_space[param]["type"] != "categorical" and len(borders) != 2:
-            msg = f"Hyper parameter {param} is numerical but bounds are not in ([lower, upper]) format"
-            raise ValueError(msg)
-
-    def _prepare_split_data(
-        self,
-        train_dataset: Dataset,
-        test_dataset: Dataset,
-    ) -> SplitData:
-        """
-        This method converts data to spark and packs it into a named tuple to pass into optuna.
-
-        :param train_dataset: train data
-        :param test_dataset: test data
-        :return: packed PySpark DataFrames
-        """
-        train = self._filter_dataset_features(train_dataset)
-        test = self._filter_dataset_features(test_dataset)
-        queries = test_dataset.interactions.select(self.query_column).distinct()
-        items = test_dataset.interactions.select(self.item_column).distinct()
-
-        split_data = SplitData(
-            train,
-            test,
-            queries,
-            items,
-        )
-        return split_data
-
-    @staticmethod
-    def _filter_dataset_features(
-        dataset: Dataset,
-    ) -> Dataset:
-        """
-        Filter features of dataset to match with items and queries of interactions
-
-        :param dataset: dataset with interactions and features
-        :return: filtered dataset
-        """
-        if dataset.query_features is None and dataset.item_features is None:
-            return dataset
-
-        query_features = None
-        item_features = None
-        if dataset.query_features is not None:
-            query_features = dataset.query_features.join(
-                dataset.interactions.select(dataset.feature_schema.query_id_column).distinct(),
-                on=dataset.feature_schema.query_id_column,
-            )
-        if dataset.item_features is not None:
-            item_features = dataset.item_features.join(
-                dataset.interactions.select(dataset.feature_schema.item_id_column).distinct(),
-                on=dataset.feature_schema.item_id_column,
-            )
-
-        return Dataset(
-            feature_schema=dataset.feature_schema,
-            interactions=dataset.interactions,
-            query_features=query_features,
-            item_features=item_features,
-            check_consistency=False,
-            categorical_encoded=False,
-        )
 
     def _fit_wrap(
         self,
@@ -585,10 +315,11 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         Warn if cold entities are present in the `main_df`.
         """
         can_predict_cold = self.can_predict_cold_queries if entity == "query" else self.can_predict_cold_items
-        fit_entities = self.fit_queries if entity == "query" else self.fit_items
-        column = self.query_column if entity == "query" else self.item_column
         if can_predict_cold:
             return main_df, interactions_df
+
+        fit_entities = self.fit_queries if entity == "query" else self.fit_items
+        column = self.query_column if entity == "query" else self.item_column
 
         num_new, main_df = filter_cold(main_df, fit_entities, col_name=column)
         if num_new > 0:
@@ -926,14 +657,6 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
     ) -> Optional[SparkDataFrame]:
         msg = f"item-to-item prediction is not implemented for {self}"
         raise NotImplementedError(msg)
-
-    def _params_tried(self):
-        """check if current parameters were already evaluated"""
-        if self.study is None:
-            return False
-
-        params = {name: value for name, value in self._init_args.items() if name in self._search_space}
-        return any(params == trial.params for trial in self.study.trials)
 
     def _save_model(self, path: str, additional_params: Optional[dict] = None):
         saved_params = {
