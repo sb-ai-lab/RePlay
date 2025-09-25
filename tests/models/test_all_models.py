@@ -231,7 +231,7 @@ def test_predict_empty_dataset(log, log_binary_rating, model):
     ],
 )
 def test_predict_empty_dataset_raises(log, model):
-    with pytest.raises(ValueError, match="interactions is not provided,.*"):
+    with pytest.raises(ValueError, match=r"interactions is not provided,.*"):
         dataset = create_dataset(log)
         model.fit(dataset)
         model.predict(None, 1)
@@ -254,7 +254,7 @@ def test_predict_empty_dataset_raises(log, model):
     ],
 )
 def test_predict_pairs_raises(log, model):
-    with pytest.raises(ValueError, match="interactions is not provided,.*"):
+    with pytest.raises(ValueError, match=r"interactions is not provided,.*"):
         dataset = create_dataset(log)
         model.fit(dataset)
         model.predict_pairs(log.select("user_idx", "item_idx"))
@@ -342,7 +342,7 @@ def test_get_nearest_items(log, model, metric, caplog):
     ],
 )
 def test_get_nearest_items_metric_error(log, model, metric):
-    with pytest.raises(ValueError, match="Select one of the valid distance metrics*"):
+    with pytest.raises(ValueError, match=r"Select one of the valid distance metrics*"):
         train_dataset = create_dataset(log)
         model.fit(train_dataset)
         _ = model.get_nearest_items(items=[0, 1], k=2, metric=metric)
@@ -608,7 +608,7 @@ def test_add_cold_items_for_nonpersonalized(model, add_cold_items, predict_cold_
 def test_similarity_metric_raises(log, model):
     with pytest.raises(
         ValueError,
-        match="This class does not support changing similarity metrics",
+        match=r"This class does not support changing similarity metrics",
     ):
         train_dataset = create_dataset(log)
         model.fit(train_dataset)

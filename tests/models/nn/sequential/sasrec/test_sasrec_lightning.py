@@ -273,7 +273,7 @@ def test_not_implemented_sampling_strategy(item_user_sequential_dataset, train_s
 
 @pytest.mark.torch
 def test_model_predict_with_nn_parallel(item_user_sequential_dataset, simple_masks):
-    item_sequences, padding_mask, tokens_mask, _ = simple_masks
+    item_sequences, padding_mask, _tokens_mask, _ = simple_masks
 
     model = SasRec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,

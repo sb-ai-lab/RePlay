@@ -36,7 +36,7 @@ class DriverHnswlibIndexBuilder(IndexBuilder):
         vectors_np = np.squeeze(vectors[features_col].values)
         index = create_hnswlib_index_instance(self.index_params, init=True)
 
-        if ids_col:
+        if ids_col is not None:
             index.add_items(np.stack(vectors_np), vectors[ids_col].values)
         else:
             index.add_items(np.stack(vectors_np))

@@ -15,7 +15,8 @@ from replay.preprocessing.filters import (
     QuantileItemsFilter,
     TimePeriodFilter,
 )
-from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame, get_spark_session
+from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame
+from replay.utils.session_handler import get_spark_session
 
 
 @pytest.fixture
@@ -385,7 +386,7 @@ def test_consecutive_duplicates_filter(consecutive_duplicates, backend, request)
 
 @pytest.mark.core
 def test_consecutive_duplicates_filter_invalid_param_keep_error():
-    with pytest.raises(ValueError, match="`keep` must be either 'first' or 'last'"):
+    with pytest.raises(ValueError, match=r"`keep` must be either 'first' or 'last'"):
         ConsecutiveDuplicatesFilter(keep="42")
 
 

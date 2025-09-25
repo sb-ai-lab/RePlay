@@ -1,11 +1,13 @@
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from replay.data import Dataset
-from replay.optimization.optuna_objective import ItemKNNObjective
-from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+from replay.utils import OPTUNA_AVAILABLE, PYSPARK_AVAILABLE, SparkDataFrame
 
 from .base_neighbour_rec import NeighbourRec
 from .extensions.ann.index_builders.base_index_builder import IndexBuilder
+
+if OPTUNA_AVAILABLE:
+    from replay.models.optimization import ItemKNNObjective
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf
@@ -15,7 +17,7 @@ if PYSPARK_AVAILABLE:
 class ItemKNN(NeighbourRec):
     """Item-based ItemKNN with modified cosine similarity measure."""
 
-    def _get_ann_infer_params(self) -> Dict[str, Any]:
+    def _get_ann_infer_params(self) -> dict:
         return {
             "features_col": None,
         }
@@ -25,12 +27,15 @@ class ItemKNN(NeighbourRec):
     item_norms: Optional[SparkDataFrame]
     bm25_k1 = 1.2
     bm25_b = 0.75
-    _objective = ItemKNNObjective
-    _search_space = {
-        "num_neighbours": {"type": "int", "args": [1, 100]},
-        "shrink": {"type": "int", "args": [0, 100]},
-        "weighting": {"type": "categorical", "args": [None, "tf_idf", "bm25"]},
-    }
+
+    _valid_weightings = [None, "tf_idf", "bm25"]
+    if OPTUNA_AVAILABLE:
+        _objective = ItemKNNObjective
+        _search_space = {
+            "num_neighbours": {"type": "int", "args": [1, 100]},
+            "shrink": {"type": "int", "args": [0, 100]},
+            "weighting": {"type": "categorical", "args": _valid_weightings},
+        }
 
     def __init__(
         self,
@@ -48,19 +53,15 @@ class ItemKNN(NeighbourRec):
         :param index_builder: `IndexBuilder` instance that adds ANN functionality.
             If not set, then ann will not be used.
         """
+        self.init_index_builder(index_builder)
         self.shrink = shrink
         self.use_rating = use_rating
         self.num_neighbours = num_neighbours
 
-        valid_weightings = self._search_space["weighting"]["args"]
-        if weighting not in valid_weightings:
-            msg = f"weighting must be one of {valid_weightings}"
+        if weighting not in self._valid_weightings:
+            msg = f"weighting must be one of {self._valid_weightings}"
             raise ValueError(msg)
         self.weighting = weighting
-        if isinstance(index_builder, (IndexBuilder, type(None))):
-            self.index_builder = index_builder
-        elif isinstance(index_builder, dict):
-            self.init_builder_from_dict(index_builder)
 
     @property
     def _init_args(self):

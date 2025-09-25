@@ -6,6 +6,9 @@ import pytest
 pyspark = pytest.importorskip("pyspark")
 
 import replay
+
+# FIXME: Needs a rework of utils' load/save methods
+from replay.models import *  # noqa: F403
 from replay.models import ItemKNN
 from replay.preprocessing.label_encoder import LabelEncoder, LabelEncodingRule
 from replay.splitters import (

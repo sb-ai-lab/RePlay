@@ -5,8 +5,6 @@ import pytest
 
 from replay.data import Dataset, get_schema
 from replay.models import ItemKNN
-from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
-from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
 from replay.utils import PYSPARK_AVAILABLE
 from tests.utils import create_dataset
 
@@ -70,6 +68,9 @@ def model():
 
 @pytest.fixture(scope="module")
 def model_with_ann():
+    from replay.models.extensions.ann.entities.nmslib_hnsw_param import NmslibHnswParam
+    from replay.models.extensions.ann.index_builders.driver_nmslib_index_builder import DriverNmslibIndexBuilder
+
     nmslib_hnsw_params = NmslibHnswParam(
         space="negdotprod_sparse",
         m=10,
@@ -96,7 +97,7 @@ def bm25_model():
     return model
 
 
-@pytest.mark.core
+@pytest.mark.conditional
 def test_invalid_weighting():
     with pytest.raises(ValueError):
         ItemKNN(1, weighting="invalid_weighting")
@@ -111,7 +112,7 @@ def test_works(log, model):
     assert recs.loc[recs["user_idx"] == 1, "item_idx"].iloc[0] == 0
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_tf_idf(weighting_log, tf_idf_model):
     train_dataset = create_dataset(weighting_log)
     tf_idf_model.fit(train_dataset)
@@ -125,7 +126,7 @@ def test_tf_idf(weighting_log, tf_idf_model):
     assert recs.loc[recs["user_idx"] == 1, "item_idx"].iloc[0] == 0
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_bm25(weighting_log, bm25_model):
     k1 = bm25_model.bm25_k1
     b = bm25_model.bm25_b
@@ -166,16 +167,16 @@ def test_bm25(weighting_log, bm25_model):
     assert recs.loc[recs["user_idx"] == 1, "item_idx"].iloc[0] == 0
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_weighting_raises(log, tf_idf_model):
-    with pytest.raises(ValueError, match="weighting must be one of .*"):
+    with pytest.raises(ValueError, match=r"weighting must be one of .*"):
         tf_idf_model.weighting = " "
         dataset = create_dataset(log)
         tf_idf_model.fit(dataset)
         log = tf_idf_model._reweight_interactions(dataset.interactions)
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_knn_predict_filter_seen_items(log, model, model_with_ann):
     dataset = create_dataset(log)
     model.fit(dataset)
@@ -190,7 +191,7 @@ def test_knn_predict_filter_seen_items(log, model, model_with_ann):
     assert recs1.item_idx.equals(recs2.item_idx)
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_knn_predict(log_2items_per_user, model, model_with_ann):
     dataset = create_dataset(log_2items_per_user)
     model.fit(dataset)

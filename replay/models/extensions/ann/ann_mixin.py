@@ -1,11 +1,12 @@
 import importlib
 import logging
+import sys
 from abc import abstractmethod
-from typing import Any, Dict, Iterable, Optional, Union
+from typing import Any, Iterable, Optional, Union
 
 from replay.data import Dataset
-from replay.models.base_rec import BaseRecommender
-from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+from replay.models.common import RecommenderCommons
+from replay.utils import ANN_AVAILABLE, PYSPARK_AVAILABLE, FeatureUnavailableError, SparkDataFrame
 
 from .index_builders.base_index_builder import IndexBuilder
 
@@ -16,18 +17,32 @@ if PYSPARK_AVAILABLE:
 
     from .index_stores.spark_files_index_store import SparkFilesIndexStore
 
-
 logger = logging.getLogger("replay")
 
 
-class ANNMixin(BaseRecommender):
+class ANNMixin(RecommenderCommons):
     """
     This class overrides the `_fit_wrap` and `_predict_wrap` methods of the base class,
     adding an index construction in the `_fit_wrap` step
     and an index inference in the `_predict_wrap` step.
     """
 
-    index_builder: Optional[IndexBuilder] = None
+    index_builder: Optional["IndexBuilder"] = None
+
+    def init_index_builder(self, index_builder: Optional[IndexBuilder] = None) -> None:
+        if index_builder is not None and not ANN_AVAILABLE:
+            err = FeatureUnavailableError(
+                "`index_builder` can only be provided when all ANN dependencies are installed."
+            )
+            if sys.version_info >= (3, 11):  # pragma: py-lt-311
+                err.add_note(
+                    "To enable ANN, ensure you have both 'hnswlib' and 'fixed-install-nmslib' packages installed."
+                )
+            raise err
+        elif isinstance(index_builder, IndexBuilder):
+            self.index_builder = index_builder
+        elif isinstance(index_builder, dict):
+            self.init_builder_from_dict(index_builder)
 
     @property
     def _use_ann(self) -> bool:
@@ -39,26 +54,17 @@ class ANNMixin(BaseRecommender):
         return self.index_builder is not None
 
     @abstractmethod
-    def _get_vectors_to_build_ann(self, interactions: SparkDataFrame) -> SparkDataFrame:
-        """Implementations of this method must return a dataframe with item vectors.
-        Item vectors from this method are used to build the index.
-
-        Args:
-            log: DataFrame with interactions
-
-        Returns: DataFrame[item_idx int, vector array<double>] or DataFrame[vector array<double>].
-        Column names in dataframe can be anything.
-        """
-
-    @abstractmethod
-    def _get_ann_build_params(self, interactions: SparkDataFrame) -> Dict[str, Any]:
+    def _configure_index_builder(self, interactions: SparkDataFrame) -> tuple[SparkDataFrame, dict]:
         """Implementation of this method must return dictionary
-        with arguments for `_build_ann_index` method.
+        with arguments for for an index builder's`build_index` method.
 
         Args:
             interactions: DataFrame with interactions
 
-        Returns: Dictionary with arguments to build index. For example: {
+        Returns:
+            vectors: DataFrame[item_idx int, vector array<double>] or DataFrame[vector array<double>].
+        Column names in dataframe can be anything.
+            ann_params: Dictionary with arguments to build index. For example: {
             "id_col": "item_idx",
             "features_col": "item_factors",
             ...
@@ -79,8 +85,7 @@ class ANNMixin(BaseRecommender):
         super()._fit_wrap(dataset)
 
         if self._use_ann:
-            vectors = self._get_vectors_to_build_ann(dataset.interactions)
-            ann_params = self._get_ann_build_params(dataset.interactions)
+            vectors, ann_params = self._configure_index_builder(dataset.interactions)
             self.index_builder.build_index(vectors, **ann_params)
 
     @abstractmethod
@@ -123,11 +128,11 @@ class ANNMixin(BaseRecommender):
         return queries
 
     @abstractmethod
-    def _get_ann_infer_params(self) -> Dict[str, Any]:
+    def _get_ann_infer_params(self) -> dict[str, Any]:
         """Implementation of this method must return dictionary
         with arguments for `_infer_ann_index` method.
 
-        Returns: Dictionary with arguments to infer index. For example: {
+        Returns: dictionary with arguments to infer index. For example: {
             "features_col": "user_vector",
             ...
         }

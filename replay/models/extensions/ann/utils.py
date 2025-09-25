@@ -1,6 +1,3 @@
-import hnswlib
-import nmslib
-
 from .entities.hnswlib_param import HnswlibParam
 from .entities.nmslib_hnsw_param import NmslibHnswParam
 
@@ -15,6 +12,8 @@ def create_hnswlib_index_instance(params: HnswlibParam, init: bool = False):
         If `False` then the index will be used to load index data from a file.
     :return: `hnswlib` index instance
     """
+    import hnswlib
+
     index = hnswlib.Index(space=params.space, dim=params.dim)
 
     if init:
@@ -35,6 +34,8 @@ def create_nmslib_index_instance(params: NmslibHnswParam):
     :param params: `NmslibHnswParam`
     :return: `nmslib` index
     """
+    import nmslib
+
     index = nmslib.init(
         method=params.method,
         space=params.space,

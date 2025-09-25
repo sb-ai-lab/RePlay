@@ -1,7 +1,7 @@
 import abc
 import json
 from pathlib import Path
-from typing import Tuple, Union
+from typing import TYPE_CHECKING, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -9,7 +9,8 @@ import polars as pl
 from pandas import DataFrame as PandasDataFrame
 from polars import DataFrame as PolarsDataFrame
 
-from .schema import TensorSchema
+if TYPE_CHECKING:
+    from .schema import TensorSchema
 
 
 class SequentialDataset(abc.ABC):
@@ -81,7 +82,7 @@ class SequentialDataset(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def schema(self) -> TensorSchema:  # pragma: no cover
+    def schema(self) -> "TensorSchema":  # pragma: no cover
         """
         :returns: List of tensor features.
         """
@@ -128,7 +129,7 @@ class PandasSequentialDataset(SequentialDataset):
 
     def __init__(
         self,
-        tensor_schema: TensorSchema,
+        tensor_schema: "TensorSchema",
         query_id_column: str,
         item_id_column: str,
         sequences: PandasDataFrame,
@@ -184,11 +185,11 @@ class PandasSequentialDataset(SequentialDataset):
         )
 
     @property
-    def schema(self) -> TensorSchema:
+    def schema(self) -> "TensorSchema":
         return self._tensor_schema
 
     @classmethod
-    def _check_if_schema_matches_data(cls, tensor_schema: TensorSchema, data: PandasDataFrame) -> None:
+    def _check_if_schema_matches_data(cls, tensor_schema: "TensorSchema", data: PandasDataFrame) -> None:
         for tensor_feature_name in tensor_schema:
             if tensor_feature_name not in data:
                 msg = "Tensor schema does not match with provided data frame"
@@ -199,6 +200,8 @@ class PandasSequentialDataset(SequentialDataset):
         """
         Method for loading PandasSequentialDataset object from `.replay` directory.
         """
+        from replay.data.nn import TensorSchema
+
         base_path = Path(path).with_suffix(".replay").resolve()
         with open(base_path / "init_args.json", "r") as file:
             sequential_dict = json.loads(file.read())
@@ -221,7 +224,7 @@ class PolarsSequentialDataset(PandasSequentialDataset):
 
     def __init__(
         self,
-        tensor_schema: TensorSchema,
+        tensor_schema: "TensorSchema",
         query_id_column: str,
         item_id_column: str,
         sequences: PolarsDataFrame,
@@ -270,7 +273,7 @@ class PolarsSequentialDataset(PandasSequentialDataset):
         return pl.from_dict(df.to_dict("list"))
 
     @classmethod
-    def _check_if_schema_matches_data(cls, tensor_schema: TensorSchema, data: PolarsDataFrame) -> None:
+    def _check_if_schema_matches_data(cls, tensor_schema: "TensorSchema", data: PolarsDataFrame) -> None:
         for tensor_feature_name in tensor_schema:
             if tensor_feature_name not in data:
                 msg = "Tensor schema does not match with provided data frame"
@@ -281,6 +284,8 @@ class PolarsSequentialDataset(PandasSequentialDataset):
         """
         Method for loading PandasSequentialDataset object from `.replay` directory.
         """
+        from replay.data.nn import TensorSchema
+
         base_path = Path(path).with_suffix(".replay").resolve()
         with open(base_path / "init_args.json", "r") as file:
             sequential_dict = json.loads(file.read())

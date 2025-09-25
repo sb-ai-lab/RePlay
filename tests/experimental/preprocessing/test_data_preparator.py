@@ -36,14 +36,14 @@ def test_read_data_invalid_format(data_preparator):
     with pytest.raises(ValueError, match=r"Invalid value of format_type.*"):
         data_preparator.read_as_spark_df(path="/test_path", format_type="blabla")
 
-    with pytest.raises(ValueError, match="Either data or path parameters must not be None"):
+    with pytest.raises(ValueError, match=r"Either data or path parameters must not be None"):
         data_preparator.read_as_spark_df(format_type="csv")
 
 
 # errors in check_df
 @pytest.mark.experimental
 def test_check_df_errors(data_preparator, long_log_with_features, mapping):
-    with pytest.raises(ValueError, match="DataFrame is empty"):
+    with pytest.raises(ValueError, match=r"DataFrame is empty"):
         data_preparator.check_df(
             dataframe=long_log_with_features.filter(sf.col("user_idx") > 10),
             columns_mapping=mapping,
@@ -51,7 +51,7 @@ def test_check_df_errors(data_preparator, long_log_with_features, mapping):
 
     with pytest.raises(
         ValueError,
-        match="Column `relevance` stated in mapping is absent in dataframe",
+        match=r"Column `relevance` stated in mapping is absent in dataframe",
     ):
         col_map = mapping
         data_preparator.check_df(

@@ -209,7 +209,7 @@ def fitted_model_hybrid(request, dataset_linucb):
     return model
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_optimize_disjoint(fitted_model_disjoint, dataset_linucb, caplog):
     with caplog.at_level(logging.WARNING):
         fitted_model_disjoint.optimize(
@@ -221,7 +221,7 @@ def test_optimize_disjoint(fitted_model_disjoint, dataset_linucb, caplog):
         )
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_optimize_hybrid(fitted_model_hybrid, dataset_linucb, caplog):
     with caplog.at_level(logging.WARNING):
         fitted_model_hybrid.optimize(
@@ -253,12 +253,12 @@ def test_predict_k_hybrid(fitted_model_hybrid, user_features, dataset_linucb, k)
 def test_fit_raises(log, user_features, feature_schema_raises, dataset_with_categorical):
     model = LinUCB(eps=1.0, alpha=1.0, is_hybrid=False)
 
-    with pytest.raises(ValueError, match="User features are missing"):
+    with pytest.raises(ValueError, match=r"User features are missing"):
         model.fit(create_dataset(log, None, None, feature_schema_raises))
-    with pytest.raises(ValueError, match="Item features are missing"):
+    with pytest.raises(ValueError, match=r"Item features are missing"):
         model.fit(create_dataset(log, user_features, None, feature_schema_raises))
 
-    with pytest.raises(ValueError, match="Categorical features are not supported"):
+    with pytest.raises(ValueError, match=r"Categorical features are not supported"):
         model.fit(dataset_with_categorical)
 
 
@@ -268,18 +268,18 @@ def test_predict_raises(
 ):
     users = user_features.select("user_idx").distinct()
 
-    with pytest.raises(ValueError, match="User features are missing"):
+    with pytest.raises(ValueError, match=r"User features are missing"):
         fitted_model_disjoint.predict(
             create_dataset(log, None, None, feature_schema_raises),
             queries=users,
             k=k,
         )
-    with pytest.raises(ValueError, match="Item features are missing"):
+    with pytest.raises(ValueError, match=r"Item features are missing"):
         fitted_model_disjoint.predict(
             create_dataset(log, user_features, None, feature_schema_raises),
             queries=users,
             k=k,
         )
 
-    with pytest.raises(ValueError, match="Categorical features are not supported"):
+    with pytest.raises(ValueError, match=r"Categorical features are not supported"):
         fitted_model_disjoint.predict(dataset_with_categorical, queries=users, k=k)

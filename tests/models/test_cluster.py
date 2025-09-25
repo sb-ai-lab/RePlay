@@ -18,7 +18,7 @@ def users_features(user_features):
     return user_features.drop("gender")
 
 
-@pytest.mark.spark
+@pytest.mark.conditional
 def test_works(long_log_with_features, short_log_with_features, users_features):
     model = ClusterRec()
     train_dataset = create_dataset(long_log_with_features, user_features=users_features)
@@ -64,7 +64,7 @@ def test_predict_pairs(long_log_with_features, users_features):
 @pytest.mark.spark
 def test_raises(long_log_with_features, users_features):
     model = ClusterRec()
-    with pytest.raises(TypeError, match="missing 1 required positional argument"):
+    with pytest.raises(TypeError, match=r"missing 1 required positional argument"):
         train_dataset = create_dataset(long_log_with_features, users_features)
         model.fit(train_dataset)
         model.predict_pairs(long_log_with_features.filter(sf.col("user_idx") == 1).select("user_idx", "item_idx"))
@@ -81,13 +81,13 @@ def test_predict_empty_log(long_log_with_features, users_features):
 
 @pytest.mark.spark
 def test_predict_empty_dataset(long_log_with_features, users_features):
-    with pytest.raises(ValueError, match="Query features are missing for predict"):
+    with pytest.raises(ValueError, match=r"Query features are missing for predict"):
         model = ClusterRec()
         train_dataset = create_dataset(long_log_with_features, user_features=users_features)
         model.fit(train_dataset)
         model.predict(None, k=1)
 
-    with pytest.raises(ValueError, match="Query features are missing for predict"):
+    with pytest.raises(ValueError, match=r"Query features are missing for predict"):
         model = ClusterRec()
         train_dataset = create_dataset(long_log_with_features, user_features=users_features)
         pred_dataset = create_dataset(long_log_with_features, user_features=None)
@@ -97,7 +97,7 @@ def test_predict_empty_dataset(long_log_with_features, users_features):
 
 @pytest.mark.spark
 def test_raise_without_features(long_log_with_features, users_features):
-    with pytest.raises(ValueError, match="Query features are missing for predict"):
+    with pytest.raises(ValueError, match=r"Query features are missing for predict"):
         model = ClusterRec()
         train_dataset = create_dataset(long_log_with_features, user_features=users_features)
         test_dataset = create_dataset(long_log_with_features)

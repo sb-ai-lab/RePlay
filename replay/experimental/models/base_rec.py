@@ -20,7 +20,8 @@ from numpy.random import default_rng
 
 from replay.data import get_schema
 from replay.experimental.utils.session_handler import State
-from replay.models.base_rec import IsSavable, RecommenderCommons
+from replay.models.base_rec import IsSavable
+from replay.models.common import RecommenderCommons
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, SparkDataFrame
 from replay.utils.spark_utils import (
     convert2spark,
@@ -375,6 +376,50 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
             ] += 1
 
         return action_dist
+
+    def _filter_interactions_queries_items_dataframes(
+        self,
+        log: Optional[SparkDataFrame],
+        k: int,
+        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
+        items: Optional[Union[SparkDataFrame, Iterable]] = None,
+    ):
+        """
+        Returns triplet of filtered `dataset`, `queries`, and `items`.
+        Filters out cold entities (queries/items) from the `queries`/`items` and `dataset`
+        if the model does not predict cold.
+        Filters out duplicates from `queries` and `items` dataframes,
+        and excludes all columns except `user_idx` and `item_idx`.
+
+        :param dataset: historical interactions with query/item features
+            ``[user_idx, item_idx, timestamp, rating]``
+        :param k: number of recommendations for each user
+        :param queries: queries to create recommendations for
+            dataframe containing ``[user_idx]`` or ``array-like``;
+            if ``None``, recommend to all queries from ``dataset``
+        :param items: candidate items for recommendations
+            dataframe containing ``[item_idx]`` or ``array-like``;
+            if ``None``, take all items from ``dataset``.
+            If it contains new items, ``rating`` for them will be ``0``.
+        :return: triplet of filtered `dataset`, `queries`, and `items`.
+        """
+        self.logger.debug("Starting predict %s", type(self).__name__)
+
+        query_data = queries or log or self.fit_users
+        interactions = log
+
+        queries = get_unique_entities(query_data, "user_idx")
+        queries, interactions = self._filter_cold_for_predict(queries, interactions, "user")
+
+        item_data = items or self.fit_items
+        items = get_unique_entities(item_data, "item_idx")
+        items, interactions = self._filter_cold_for_predict(items, interactions, "item")
+        num_items = items.count()
+        if num_items < k:
+            message = f"k = {k} > number of items = {num_items}"
+            self.logger.debug(message)
+
+        return log, queries, items
 
     def _get_fit_counts(self, entity: str) -> int:
         if not hasattr(self, f"_num_{entity}s"):

@@ -136,7 +136,7 @@ def test_predict_pairs(log, user_features, item_features, model):
 
 @pytest.mark.experimental
 def test_raises_fit(log, user_features, item_features, model):
-    with pytest.raises(ValueError, match="features for .*"):
+    with pytest.raises(ValueError, match=r"features for .*"):
         model.fit(
             log.filter(sf.col("user_idx") != 0),
             user_features.filter(sf.col("user_idx") != 1),
@@ -146,7 +146,7 @@ def test_raises_fit(log, user_features, item_features, model):
 
 @pytest.mark.experimental
 def test_raises_predict(log, item_features, model):
-    with pytest.raises(ValueError, match="Item features are missing for predict"):
+    with pytest.raises(ValueError, match=r"Item features are missing for predict"):
         model.fit(log, None, item_features)
         _ = model.predict_pairs(
             log.select("user_idx", "item_idx"),

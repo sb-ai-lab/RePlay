@@ -11,9 +11,4 @@ RUN update-alternatives --install /usr/bin/java java /usr/local/openjdk-11/bin/j
 
 WORKDIR /root
 
-RUN pip install --no-cache-dir --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning lightfm==1.17 \
-    && python -m poetry config virtualenvs.create false
-COPY . replay/
-RUN cd replay && ./poetry_wrapper.sh install --all-extras
-RUN cd replay && ./poetry_wrapper.sh --experimental install --all-extras
-RUN rm -rf replay/
+RUN pip install --no-cache-dir --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning

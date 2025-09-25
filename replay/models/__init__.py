@@ -23,3 +23,22 @@ from .thompson_sampling import ThompsonSampling
 from .ucb import UCB
 from .wilson import Wilson
 from .word2vec import Word2VecRec
+
+__all__ = [
+    "KLUCB",
+    "SLIM",
+    "UCB",
+    "ALSWrap",
+    "AssociationRulesItemRec",
+    "CatPopRec",
+    "ClusterRec",
+    "ItemKNN",
+    "LinUCB",
+    "PopRec",
+    "QueryPopRec",
+    "RandomRec",
+    "Recommender",
+    "ThompsonSampling",
+    "Wilson",
+    "Word2VecRec",
+]

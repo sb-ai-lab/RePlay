@@ -7,7 +7,7 @@ import pytest
 torch = pytest.importorskip("torch")
 
 from replay.data import FeatureHint, FeatureType
-from replay.utils import TORCH_AVAILABLE, MissingImportType
+from replay.utils import TORCH_AVAILABLE, MissingImport
 
 if TORCH_AVAILABLE:
     import torch
@@ -21,9 +21,9 @@ if TORCH_AVAILABLE:
         TorchSequentialValidationDataset,
     )
 else:
-    PandasSequentialDataset = MissingImportType
-    SequentialDataset = MissingImportType
-    TorchSequentialDataset = MissingImportType
+    PandasSequentialDataset = MissingImport
+    SequentialDataset = MissingImport
+    TorchSequentialDataset = MissingImport
 
 
 @pytest.mark.torch
@@ -293,7 +293,7 @@ def test_pad_sequence_raise(sequential_dataset):
         sliding_window_step=2,
     )
     sequence = [[[1, 1]], [[2, 2]]]
-    with pytest.raises(ValueError, match="Unsupported shape for sequence"):
+    with pytest.raises(ValueError, match=r"Unsupported shape for sequence"):
         dataset._pad_sequence(torch.tensor(sequence, dtype=torch.long), -1).tolist()
 
 

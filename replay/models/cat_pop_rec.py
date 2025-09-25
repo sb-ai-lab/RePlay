@@ -4,7 +4,8 @@ from typing import Iterable, Optional, Union
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
-from .base_rec import IsSavable, RecommenderCommons
+from .base_rec import IsSavable
+from .common import RecommenderCommons
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import functions as sf

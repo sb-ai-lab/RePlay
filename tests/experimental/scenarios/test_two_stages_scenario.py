@@ -53,12 +53,12 @@ def test_init(two_stages_kwargs):
     assert two_stages.use_first_level_models_feat == [True, True, True]
 
     two_stages_kwargs["use_first_level_models_feat"] = [True]
-    with pytest.raises(ValueError, match="For each model from first_level_models specify.*"):
+    with pytest.raises(ValueError, match=r"For each model from first_level_models specify.*"):
         TwoStagesScenario(**two_stages_kwargs)
 
     two_stages_kwargs["use_first_level_models_feat"] = True
     two_stages_kwargs["negatives_type"] = "abs"
-    with pytest.raises(ValueError, match="Invalid negatives_type value.*"):
+    with pytest.raises(ValueError, match=r"Invalid negatives_type value.*"):
         TwoStagesScenario(**two_stages_kwargs)
 
 
