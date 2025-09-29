@@ -116,12 +116,13 @@ prefetch-artifacts:
   tags:
     - ${RUNNER}
   before_script:
-    - ls /root/.cache/pypoetry/artifacts
+    - poetry config cache-dir
+    - ls $(poetry config cache-dir)
   script:
     - ./poetry_wrapper.sh sync -E spark -E torch --with dev
     - ./poetry_wrapper.sh --experimental sync --with dev
   after_script:
-    - ls /root/.cache/pypoetry/artifacts
+    - ls $(poetry config cache-dir)
   parallel:
     matrix:
       - py_version:
