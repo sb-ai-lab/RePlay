@@ -115,7 +115,6 @@ sphinx-job:
         - "${CI_REGISTRY_IMAGE}:${VERSION}_py310"
         - "${CI_REGISTRY_IMAGE}:${VERSION}_py311"
         - "${CI_REGISTRY_IMAGE}:${VERSION}_py312"
-        - "${CI_REGISTRY_IMAGE}:${VERSION}_py313"
 
 pytest-core:
   <<: *pytest_template
@@ -132,8 +131,6 @@ pytest-core:
 pytest-conditional:
   <<: *pytest_template
   stage: test_conditional
-  variables:
-    WRAPPER_ARGS: --experimental
   script:
     - *install_conditionals
     - *activate_poetry
@@ -236,7 +233,6 @@ merge-coverage:
         - "${CI_REGISTRY_IMAGE}:${VERSION}_py310"
         - "${CI_REGISTRY_IMAGE}:${VERSION}_py311"
         - "${CI_REGISTRY_IMAGE}:${VERSION}_py312"
-        - "${CI_REGISTRY_IMAGE}:${VERSION}_py313"
   coverage: '/TOTAL.*\s+(\d+%)$/'
   artifacts:
     paths:
