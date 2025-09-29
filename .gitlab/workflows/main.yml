@@ -7,10 +7,11 @@ workflow:
 
 image: "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
 
-cache:
-  paths:
-    - ~/.cache/pypoetry/artifacts/
-  policy: pull
+default:
+  cache:
+    paths:
+      - ~/.cache/pypoetry/artifacts/
+    policy: pull
 
 variables:
   VERSION: "0.0.10"
