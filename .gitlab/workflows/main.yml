@@ -118,10 +118,10 @@ prefetch-artifacts:
   before_script:
     - poetry config --list
   script:
-    - ./poetry_wrapper.sh sync -E spark -E torch --with dev
+    - ./poetry_wrapper.sh sync -E spark -E torch-cpu --with dev
     - ./poetry_wrapper.sh --experimental sync --with dev
   after_script:
-    - ls $(poetry config cache-dir)
+    - ls "$(poetry config cache-dir)/artifacts"
   parallel:
     matrix:
       - py_version:
