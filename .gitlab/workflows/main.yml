@@ -8,7 +8,7 @@ workflow:
 image: "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
 
 default:
-  cache:
+  cache: &global_cache
     paths:
       - ~/.cache/pypoetry/artifacts/
     policy: pull
@@ -110,6 +110,7 @@ prefetch-artifacts:
   stage: prefetch_artifacts
   image: "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
   cache:
+    <<: *global_cache
     key: ${CI_COMMIT_REF_SLUG}_${py_version}
     policy: pull-push
   needs: []
@@ -133,6 +134,7 @@ prefetch-artifacts:
 .pytest_template: &pytest_template
   image: "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
   cache:
+    <<: *global_cache
     key: ${CI_COMMIT_REF_SLUG}_${py_version}
   tags:
     - ${RUNNER}
@@ -252,6 +254,7 @@ pytest-experimental:
 merge-coverage:
   stage: merge coverage
   cache:
+    <<: *global_cache
     key: ${CI_COMMIT_REF_SLUG}_${py_version}
   variables: 
     WRAPPER_EXTRAS: --only dev
