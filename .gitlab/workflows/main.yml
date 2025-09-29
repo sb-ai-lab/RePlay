@@ -131,6 +131,8 @@ pytest-core:
 pytest-conditional:
   <<: *pytest_template
   stage: test_conditional
+  variables:
+    WRAPPER_EXTRAS: -E spark -E torch
   script:
     - *install_conditionals
     - *activate_poetry
