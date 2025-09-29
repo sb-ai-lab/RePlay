@@ -113,8 +113,9 @@ prefetch-artifacts:
   script:
     ./poetry_wrapper.sh sync -E spark -E torch --with dev
     ./poetry_wrapper.sh --experimental sync --with dev
-  matrix:
-    - py_version:
+  parallel:
+    matrix:
+      - py_version:
         - "py39"
         - "py310"
         - "py311"
