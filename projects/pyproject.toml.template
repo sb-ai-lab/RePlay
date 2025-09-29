@@ -2,7 +2,7 @@
 requires = [
     "poetry-core>=2.0.0",
     "poetry-dynamic-versioning>=1.0.0,<2.0.0",
-    "setuptools"
+    "setuptools",
 ]
 build-backend = "poetry_dynamic_versioning.backend"
 
@@ -86,11 +86,6 @@ exclude = [
 version = "0.0.0"
 
 {% if project == "default" %}
-[[tool.poetry.source]]
-name = "torch-cpu-mirror"
-url = "https://download.pytorch.org/whl/cpu"
-priority = "explicit"
-
 [tool.poetry.dependencies]
 torch = [
     {markers = "extra == 'torch-cpu' and extra !='torch'", source = "torch-cpu-mirror"},
@@ -117,6 +112,13 @@ ghp-import = "2.1.0"
 docutils = "0.16"
 data-science-types = "0.2.23"
 filelock = "~3.14.0"
+
+{% if project == "default" %}
+[[tool.poetry.source]]
+name = "torch-cpu-mirror"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "explicit"
+{% endif %}
 
 [tool.poetry-dynamic-versioning]
 enable = true

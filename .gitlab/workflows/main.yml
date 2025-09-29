@@ -107,10 +107,12 @@ sphinx-job:
   
 prefetch-artifacts:
   stage: prefetch_artifacts
-  needs: []
   cache:
     key: ${CI_COMMIT_REF_SLUG}_${py_version}
     policy: pull-push
+  needs: []
+  tags:
+    - ${RUNNER}
   script:
     ./poetry_wrapper.sh sync -E spark -E torch --with dev
     ./poetry_wrapper.sh --experimental sync --with dev
