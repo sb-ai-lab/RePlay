@@ -114,8 +114,8 @@ prefetch-artifacts:
   tags:
     - ${RUNNER}
   script:
-    ./poetry_wrapper.sh sync -E spark -E torch --with dev
-    ./poetry_wrapper.sh --experimental sync --with dev
+    - ./poetry_wrapper.sh sync -E spark -E torch --with dev
+    - ./poetry_wrapper.sh --experimental sync --with dev
   parallel:
     matrix:
       - py_version:
