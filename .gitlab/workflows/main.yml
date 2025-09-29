@@ -7,6 +7,11 @@ workflow:
 
 image: "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
 
+cache:
+  paths:
+    - ~/.cache/pypoetry/artifacts/
+  policy: pull
+
 variables:
   VERSION: "0.0.10"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
@@ -26,6 +31,7 @@ variables:
 stages:
   - code_quality
   - docs_quality
+  - prefetch_artifacts
   - test_core
   - test_conditional
   - test_torch
@@ -98,23 +104,40 @@ sphinx-job:
     - make -C docs clean html
   tags:
     - ${RUNNER}
+  
+prefetch-artifacts:
+  stage: prefetch_artifacts
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}_${py_version}
+    policy: pull-push
+  script:
+    ./poetry_wrapper.sh sync -E spark -E torch --with dev
+    ./poetry_wrapper.sh --experimental sync --with dev
+  matrix:
+    - py_version:
+        - "py39"
+        - "py310"
+        - "py311"
+        - "py312"
 
 .pytest_template: &pytest_template
-  image: ${image}
+  image: ${image} "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}_${py_version}
   tags:
     - ${RUNNER}
-  needs: ["ruff", "black", "poetry-check"]
+  needs: ["ruff", "black", "poetry-check", "prefetch-artifacts"]
   before_script:
     - export REPLAY_SPARK_CORE_COUNT=4
     - export REPLAY_SPARK_MEMORY=16
     - *wrapper_install
   parallel:
     matrix:
-      - image:
-        - "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
-        - "${CI_REGISTRY_IMAGE}:${VERSION}_py310"
-        - "${CI_REGISTRY_IMAGE}:${VERSION}_py311"
-        - "${CI_REGISTRY_IMAGE}:${VERSION}_py312"
+      - py_version:
+        - "py39"
+        - "py310"
+        - "py311"
+        - "py312"
 
 pytest-core:
   <<: *pytest_template
@@ -216,6 +239,8 @@ pytest-experimental:
 
 merge-coverage:
   stage: merge coverage
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}_${py_version}
   variables: 
     WRAPPER_EXTRAS: --only dev
   before_script:
@@ -228,13 +253,14 @@ merge-coverage:
   needs: ["pytest-core", "pytest-conditional", "pytest-torch", "pytest-spark", "pytest-spark-and-torch", "pytest-models", "pytest-experimental"]
   tags:
     - ${RUNNER}
+  image: ${image} "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
   parallel:
     matrix:
-      - image:
-        - "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
-        - "${CI_REGISTRY_IMAGE}:${VERSION}_py310"
-        - "${CI_REGISTRY_IMAGE}:${VERSION}_py311"
-        - "${CI_REGISTRY_IMAGE}:${VERSION}_py312"
+      - py_version:
+        - "py39"
+        - "py310"
+        - "py311"
+        - "py312"
   coverage: '/TOTAL.*\s+(\d+%)$/'
   artifacts:
     paths:
