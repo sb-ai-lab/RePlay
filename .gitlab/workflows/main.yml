@@ -25,6 +25,7 @@ variables:
 
 stages:
   - code_quality
+  - docs_quality
   - test_core
   - test_conditional
   - test_torch
@@ -87,12 +88,12 @@ toml-sort:
     - ${RUNNER}
 
 sphinx-job:
+  stage: docs_quality
   variables:
     WRAPPER_ARGS: --experimental
   before_script:
     - *wrapper_install
     - *install_conditionals
-  stage: code_quality
   script:
     - make -C docs clean html
   tags:
@@ -102,7 +103,7 @@ sphinx-job:
   image: ${image}
   tags:
     - ${RUNNER}
-  needs: ["ruff", "black", "poetry-check", "sphinx-job"]
+  needs: ["ruff", "black", "poetry-check"]
   before_script:
     - export REPLAY_SPARK_CORE_COUNT=4
     - export REPLAY_SPARK_MEMORY=16
