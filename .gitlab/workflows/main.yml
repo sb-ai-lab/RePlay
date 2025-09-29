@@ -13,11 +13,14 @@ variables:
   RUNNER: amazme-1
 
 .wrapper_install: &wrapper_install
-  - ./poetry_wrapper.sh ${WRAPPER_ARGS} sync ${WRAPPER_EXTRAS} 
+  - ./poetry_wrapper.sh ${WRAPPER_ARGS} sync ${WRAPPER_EXTRAS}
 
-.install_conditionals: &install_conditionals
+.activate_poetry: &activate_poetry
   - ./poetry_wrapper.sh --generate
   - eval $(poetry env activate)
+
+.install_conditionals: &install_conditionals
+  - *activate_poetry
   - pip install -q --upgrade onnx openvino optuna hnswlib fixed-install-nmslib
 
 stages:
@@ -40,6 +43,7 @@ ruff:
   before_script:
     - *wrapper_install
   script:
+    - *activate_poetry
     - poetry run ruff check .
   tags:
     - ${RUNNER}
@@ -51,6 +55,7 @@ black:
   before_script:
     - *wrapper_install
   script:
+    - *activate_poetry
     - poetry run black . --check --diff
   tags:
     - ${RUNNER}
@@ -115,7 +120,7 @@ pytest-core:
   <<: *pytest_template
   stage: test_core
   script:
-    - ./poetry_wrapper.sh --generate
+    - *activate_poetry
     - poetry run pytest -m core tests/ --ignore=tests/experimental
     - mv .coverage .coverage_core_${image:(-4)}
   artifacts:
@@ -130,7 +135,7 @@ pytest-conditional:
     WRAPPER_ARGS: --experimental
   script:
     - *install_conditionals
-    - ./poetry_wrapper.sh --generate
+    - *activate_poetry
     - poetry run pytest -m conditional tests/ --ignore=tests/experimental
     - mv .coverage .coverage_conditional_${image:(-4)}
   artifacts:
@@ -144,7 +149,7 @@ pytest-torch:
   variables:
     WRAPPER_EXTRAS: -E torch
   script:
-    - ./poetry_wrapper.sh --generate
+    - *activate_poetry
     - poetry run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental
     - mv .coverage .coverage_torch_${image:(-4)}
   artifacts:
@@ -158,7 +163,7 @@ pytest-spark:
   variables:
     WRAPPER_EXTRAS: -E spark
   script:
-    - ./poetry_wrapper.sh --generate
+    - *activate_poetry
     - poetry run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models
     - mv .coverage .coverage_spark_${image:(-4)}
   artifacts:
@@ -172,7 +177,7 @@ pytest-spark-and-torch:
   variables:
     WRAPPER_EXTRAS: -E torch -E spark
   script:
-    - ./poetry_wrapper.sh --generate
+    - *activate_poetry
     - poetry run pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
     - mv .coverage .coverage_spark_and_torch_${image:(-4)}
   artifacts:
@@ -186,7 +191,7 @@ pytest-models:
   variables:
     WRAPPER_EXTRAS: -E torch -E spark
   script:
-    - ./poetry_wrapper.sh --generate
+    - *activate_poetry
     - poetry run pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental
     - mv .coverage .coverage_models_${image:(-4)}
   artifacts:
@@ -201,7 +206,7 @@ pytest-experimental:
     WRAPPER_ARGS: --experimental
   script:
     - *install_conditionals
-    - ./poetry_wrapper.sh --generate
+    - *activate_poetry
     - poetry run pytest -m "experimental"
     - mv .coverage .coverage_experimental_${image:(-4)}
   artifacts:
@@ -216,7 +221,7 @@ merge-coverage:
   before_script:
     - *wrapper_install
   script:
-    - ./poetry_wrapper.sh --generate
+    - *activate_poetry
     - poetry run coverage combine .coverage_core_${image:(-4)} .coverage_conditional_${image:(-4)} .coverage_spark_${image:(-4)} .coverage_torch_${image:(-4)} .coverage_spark_and_torch_${image:(-4)} .coverage_models_${image:(-4)} .coverage_experimental_${image:(-4)}
     - poetry run coverage xml
     - poetry run coverage report -m --fail-under=100
