@@ -125,7 +125,7 @@ prefetch-artifacts:
         - "py312"
 
 .pytest_template: &pytest_template
-  image: ${image} "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
+  image: "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
   cache:
     key: ${CI_COMMIT_REF_SLUG}_${py_version}
   tags:
@@ -257,7 +257,7 @@ merge-coverage:
   needs: ["pytest-core", "pytest-conditional", "pytest-torch", "pytest-spark", "pytest-spark-and-torch", "pytest-models", "pytest-experimental"]
   tags:
     - ${RUNNER}
-  image: ${image} "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
+  image: "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
   parallel:
     matrix:
       - py_version:
