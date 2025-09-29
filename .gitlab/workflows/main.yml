@@ -115,9 +115,13 @@ prefetch-artifacts:
   needs: []
   tags:
     - ${RUNNER}
+  before_script:
+    - ls /root/.cache/pypoetry/artifacts
   script:
     - ./poetry_wrapper.sh sync -E spark -E torch --with dev
     - ./poetry_wrapper.sh --experimental sync --with dev
+  after_script:
+    - ls /root/.cache/pypoetry/artifacts
   parallel:
     matrix:
       - py_version:
@@ -134,9 +138,11 @@ prefetch-artifacts:
     - ${RUNNER}
   needs: ["ruff", "black", "poetry-check", "prefetch-artifacts"]
   before_script:
+    - ls /root/.cache/pypoetry/artifacts
     - export REPLAY_SPARK_CORE_COUNT=4
     - export REPLAY_SPARK_MEMORY=16
     - *wrapper_install
+    - ls /root/.cache/pypoetry/artifacts
   parallel:
     matrix:
       - py_version:
