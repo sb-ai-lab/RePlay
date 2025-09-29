@@ -20,13 +20,6 @@ variables:
   - eval $(poetry env activate)
   - pip install -q --upgrade onnx openvino optuna hnswlib fixed-install-nmslib
 
-.install_experimental_replay_all_extras: &install_experimental_replay_all_extras
-  variables:
-    WRAPPER_ARGS: --experimental
-  before_script:
-    - *wrapper_install
-    - *install_conditionals
-
 stages:
   - code_quality
   - test_core
@@ -41,24 +34,33 @@ stages:
   - build packages
 
 ruff:
-  <<: *install_experimental_replay_all_extras
   stage: code_quality
+  variables:
+    WRAPPER_EXTRAS: --only dev
+  before_script:
+    - *wrapper_install
   script:
     - poetry run ruff check .
   tags:
     - ${RUNNER}
 
 black:
-  <<: *install_experimental_replay_all_extras
   stage: code_quality
+  variables:
+    WRAPPER_EXTRAS: --only dev
+  before_script:
+    - *wrapper_install
   script:
     - poetry run black . --check --diff
   tags:
     - ${RUNNER}
 
 poetry-check:
-  <<: *install_experimental_replay_all_extras
   stage: code_quality
+  variables:
+    WRAPPER_EXTRAS: --only dev
+  before_script:
+    - *wrapper_install
   script:
     - ./poetry_wrapper.sh check
     - ./poetry_wrapper.sh --experimental check
@@ -66,8 +68,11 @@ poetry-check:
     - ${RUNNER}
 
 toml-sort:
-  <<: *install_experimental_replay_all_extras
   stage: code_quality
+  variables:
+    WRAPPER_EXTRAS: --only dev
+  before_script:
+    - *wrapper_install
   script:
     - ./poetry_wrapper.sh --generate
     - poetry run toml-sort --check pyproject.toml
@@ -77,7 +82,11 @@ toml-sort:
     - ${RUNNER}
 
 sphinx-job:
-  <<: *install_experimental_replay_all_extras
+  variables:
+    WRAPPER_ARGS: --experimental
+  before_script:
+    - *wrapper_install
+    - *install_conditionals
   stage: code_quality
   script:
     - make -C docs clean html
