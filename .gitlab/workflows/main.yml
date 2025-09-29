@@ -107,6 +107,7 @@ sphinx-job:
   
 prefetch-artifacts:
   stage: prefetch_artifacts
+  image: "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
   cache:
     key: ${CI_COMMIT_REF_SLUG}_${py_version}
     policy: pull-push
