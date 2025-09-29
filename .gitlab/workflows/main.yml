@@ -116,8 +116,7 @@ prefetch-artifacts:
   tags:
     - ${RUNNER}
   before_script:
-    - poetry config cache-dir
-    - ls $(poetry config cache-dir)
+    - poetry config --list
   script:
     - ./poetry_wrapper.sh sync -E spark -E torch --with dev
     - ./poetry_wrapper.sh --experimental sync --with dev
