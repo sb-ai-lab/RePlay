@@ -132,7 +132,7 @@ pytest-conditional:
   <<: *pytest_template
   stage: test_conditional
   variables:
-    WRAPPER_EXTRAS: -E spark -E torch
+    WRAPPER_EXTRAS: -E spark -E torch-cpu
   script:
     - *install_conditionals
     - *activate_poetry
@@ -147,7 +147,7 @@ pytest-torch:
   <<: *pytest_template
   stage: test_torch
   variables:
-    WRAPPER_EXTRAS: -E torch
+    WRAPPER_EXTRAS: -E torch-cpu
   script:
     - *activate_poetry
     - poetry run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental
@@ -175,7 +175,7 @@ pytest-spark-and-torch:
   <<: *pytest_template
   stage: test_spark_torch
   variables:
-    WRAPPER_EXTRAS: -E torch -E spark
+    WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
     - *activate_poetry
     - poetry run pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
@@ -189,7 +189,7 @@ pytest-models:
   <<: *pytest_template
   stage: test_models
   variables:
-    WRAPPER_EXTRAS: -E torch -E spark
+    WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
     - *activate_poetry
     - poetry run pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental
