@@ -141,6 +141,7 @@ prefetch-artifacts:
   needs: ["ruff", "black", "poetry-check", "prefetch-artifacts"]
   before_script:
     - poetry config virtualenvs.in-project true
+    - poetry config virtualenvs.create false
     - export REPLAY_SPARK_CORE_COUNT=4
     - export REPLAY_SPARK_MEMORY=16
     - ./poetry_wrapper.sh show
