@@ -120,6 +120,9 @@ prefetch-artifacts:
     - poetry config virtualenvs.in-project true
     - ./poetry_wrapper.sh sync -E spark -E torch-cpu --with dev
     - *install_conditionals
+  after_script:
+    - ./poetry_wrapper.sh env show
+    - ./poetry_wrapper.sh env activate
   parallel:
     matrix:
       - py_version:
@@ -140,6 +143,8 @@ prefetch-artifacts:
     - poetry config virtualenvs.in-project true
     - export REPLAY_SPARK_CORE_COUNT=4
     - export REPLAY_SPARK_MEMORY=16
+    - ./poetry_wrapper.sh env show
+    - ./poetry_wrapper.sh env activate
     - *wrapper_install
   parallel:
     matrix:
