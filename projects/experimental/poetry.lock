@@ -3071,9 +3071,9 @@ scipy = ">=0.17.0"
 
 [package.source]
 type = "git"
-url = "https://github.com/lyst/lightfm"
-reference = "0c9c31e"
-resolved_reference = "0c9c31e027b976beab2385e268b58010fff46096"
+url = "https://github.com/daviddavo/lightfm"
+reference = "HEAD"
+resolved_reference = "f0eb500ead54ab65eb8e1b3890337a7223a35114"
 
 [[package]]
 name = "lightgbm"
@@ -7361,4 +7361,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9, <3.13"
-content-hash = "a3d439553f3c15b6867b6696388a9f7e557f06c2a45a95c80622d3e18f52032d"
+content-hash = "07a58be43ec4eb33473c6e255636b3582dc16566500021cb90b788b8fc63f454"
