@@ -26,7 +26,6 @@ variables:
 stages:
   - code_quality
   - docs_quality
-  - prefetch_artifacts
   - test_core
   - test_conditional
   - test_torch
@@ -157,10 +156,10 @@ pytest-core:
   script:
     - *activate_poetry
     - poetry run pytest -m core tests/ --ignore=tests/experimental
-    - mv .coverage .coverage_core_${image:(-4)}
+    - mv .coverage .coverage_core_${py_version}
   artifacts:
     paths:
-      - .coverage_core_${image:(-4)}
+      - .coverage_core_${py_version}
     expire_in: 1 day
 
 pytest-conditional:
@@ -172,10 +171,10 @@ pytest-conditional:
     - *install_conditionals
     - *activate_poetry
     - poetry run pytest -m conditional tests/ --ignore=tests/experimental
-    - mv .coverage .coverage_conditional_${image:(-4)}
+    - mv .coverage .coverage_conditional_${py_version}
   artifacts:
     paths:
-      - .coverage_conditional_${image:(-4)}
+      - .coverage_conditional_${py_version}
     expire_in: 1 day
 
 pytest-torch:
@@ -186,10 +185,10 @@ pytest-torch:
   script:
     - *activate_poetry
     - poetry run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental
-    - mv .coverage .coverage_torch_${image:(-4)}
+    - mv .coverage .coverage_torch_${py_version}
   artifacts:
     paths:
-      - .coverage_torch_${image:(-4)}
+      - .coverage_torch_${py_version}
     expire_in: 1 day
 
 pytest-spark:
@@ -200,10 +199,10 @@ pytest-spark:
   script:
     - *activate_poetry
     - poetry run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models
-    - mv .coverage .coverage_spark_${image:(-4)}
+    - mv .coverage .coverage_spark_${py_version}
   artifacts:
     paths:
-      - .coverage_spark_${image:(-4)}
+      - .coverage_spark_${py_version}
     expire_in: 1 day
 
 pytest-spark-and-torch:
@@ -214,10 +213,10 @@ pytest-spark-and-torch:
   script:
     - *activate_poetry
     - poetry run pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
-    - mv .coverage .coverage_spark_and_torch_${image:(-4)}
+    - mv .coverage .coverage_spark_and_torch_${py_version}
   artifacts:
     paths:
-      - .coverage_spark_and_torch_${image:(-4)}
+      - .coverage_spark_and_torch_${py_version}
     expire_in: 1 day
 
 pytest-models:
@@ -228,10 +227,10 @@ pytest-models:
   script:
     - *activate_poetry
     - poetry run pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental
-    - mv .coverage .coverage_models_${image:(-4)}
+    - mv .coverage .coverage_models_${py_version}
   artifacts:
     paths:
-      - .coverage_models_${image:(-4)}
+      - .coverage_models_${py_version}
     expire_in: 1 day
 
 pytest-experimental:
@@ -243,10 +242,10 @@ pytest-experimental:
     - *install_conditionals
     - *activate_poetry
     - poetry run pytest -m "experimental"
-    - mv .coverage .coverage_experimental_${image:(-4)}
+    - mv .coverage .coverage_experimental_${py_version}
   artifacts:
     paths:
-      - .coverage_experimental_${image:(-4)}
+      - .coverage_experimental_${py_version}
     expire_in: 1 day
 
 merge-coverage:
@@ -260,10 +259,17 @@ merge-coverage:
     - *wrapper_install
   script:
     - *activate_poetry
-    - poetry run coverage combine .coverage_core_${image:(-4)} .coverage_conditional_${image:(-4)} .coverage_spark_${image:(-4)} .coverage_torch_${image:(-4)} .coverage_spark_and_torch_${image:(-4)} .coverage_models_${image:(-4)} .coverage_experimental_${image:(-4)}
+    - poetry run coverage combine .coverage_core_${py_version} .coverage_conditional_${py_version} .coverage_spark_${py_version} .coverage_torch_${py_version} .coverage_spark_and_torch_${py_version} .coverage_models_${py_version} .coverage_experimental_${py_version}
     - poetry run coverage xml
     - poetry run coverage report -m --fail-under=100
-  needs: ["pytest-core", "pytest-conditional", "pytest-torch", "pytest-spark", "pytest-spark-and-torch", "pytest-models", "pytest-experimental"]
+  needs: 
+    - "pytest-core: [${py_version}]"
+    - "pytest-conditional: [${py_version}]"
+    - "pytest-torch: [${py_version}]"
+    - "pytest-spark: [${py_version}]"
+    - "pytest-spark-and-torch: [${py_version}]"
+    - "pytest-models: [${py_version}]"
+    - "pytest-experimental: [${py_version}]"
   tags:
     - ${RUNNER}
   image: "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
