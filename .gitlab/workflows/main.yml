@@ -133,7 +133,7 @@ sphinx-job:
   #     - .venv
   #   policy: pull
   #   key: ${CI_COMMIT_REF_SLUG}_${py_version}
-  # tags:
+  tags:
     - ${RUNNER}
   needs: ["ruff", "black", "poetry-check"] # , "prefetch-artifacts"]
   before_script:
