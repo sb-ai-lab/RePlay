@@ -163,7 +163,6 @@ pip install replay-rec==XX.YY.ZZrc0
 In addition to the core package, several extras are also provided, including:
 - `[spark]`: Install PySpark functionality
 - `[torch]`: Install PyTorch and Lightning functionality
-- `[all]`: `[spark]` `[torch]`
 
 Example:
 ```bash
@@ -173,6 +172,13 @@ pip install replay-rec[spark]
 # Install package with experimental submodule and PySpark dependency
 pip install replay-rec[spark]==XX.YY.ZZrc0
 ```
+
+Additionally, `replay-rec[torch]` may be installed with CPU-only version of `torch` by providing its respective index URL during installation:
+```bash
+# Install package with the CPU version of torch
+pip install replay-rec[torch] --extra-index-url https://download.pytorch.org/whl/cpu
+```
+
 
 To build RePlay from sources please use the [instruction](CONTRIBUTING.md#installing-from-the-source).
 

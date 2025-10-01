@@ -26,19 +26,17 @@ Development of any feature is organized in separate branches with naming convent
 ## Installation 
 
 ### Basic
-
-    ```bash
-    pip install replay-rec
-    ```
+```bash
+pip install replay-rec
+```
 
 
 ### General
-
 If you have an installation trouble, update the core packages:
 
-    ```bash
-    pip install --upgrade pip wheel
-    ```
+```bash
+pip install --upgrade pip wheel
+```
 
 ### RePlay dependencies compilation
 
@@ -47,10 +45,9 @@ RePlay depends on packages that perform C/C++ extension compilation on installat
 An example of error indicating header files absence is: Python.h: No such file or directory
 
 To install the necessary packages run the following instructions:
-
-    ```bash
-    sudo apt-get install build-essential
-    ```
+```bash
+sudo apt-get install build-essential
+```
 
 ### Installing from the source
 
@@ -69,12 +66,12 @@ If you are installing from the source, you will need Python 3.8.1-3.11.
 
     ```bash
     pip install poetry==2.1.3
-    ./poetry_wrapper.sh sync --all-extras
+    ./poetry_wrapper.sh sync -E spark -E torch-cpu
     ```
     **If you need to install Replay with the experimental submodule**:
     ```bash
     pip install poetry==2.1.3
-    ./poetry_wrapper.sh --experimental sync --all-extras
+    ./poetry_wrapper.sh --experimental sync
     ```
     After that, there is an environment, where you can test and implement your own code.
     So, you don't need to rebuild the full project every time.
@@ -138,13 +135,12 @@ First of all, make sure that you have the correct style configuration set up.
 You can just get pyproject.toml file from step 6, to start using linters and formatters  
 
 In order to automate checking of the code quality, please run:
-
-    ```bash
-    poetry run ruff check .
-    poetry run black --check --diff -- .
-    ./poetry_wrapper.sh check
-    ./poetry_wrapper.sh --experimental check
-    ```
+```bash
+poetry run ruff check .
+poetry run black --check --diff -- .
+./poetry_wrapper.sh check
+./poetry_wrapper.sh --experimental check
+```
 
 ## How to add a new model
 How to add a new model is described [here](https://sb-ai-lab.github.io/RePlay/pages/development.html#adding-new-model).
@@ -154,10 +150,9 @@ When you're done with your feature development please create [pull request](#pul
 ## Testing
 
 Before making a pull request (despite changing only the documentation or writing new code), please check your code on tests:
-
-    ```bash
-    poetry run pytest
-    ```
+```bash
+poetry run pytest
+```
 
 Also if you develop new functionality, please add your own tests.
 
