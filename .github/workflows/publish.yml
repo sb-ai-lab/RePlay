@@ -26,16 +26,14 @@ jobs:
 
       - name: Install experimental package
         run: |
-          python -m venv venv
-          . ./venv/bin/activate
-          pip install --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning lightfm==1.17
-
-          poetry cache clear pypi --all
-          ./poetry_wrapper.sh --experimental install --all-extras
+          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          eval $(poetry env activate)
+          poetry cache clear PyPI --all
+          ./poetry_wrapper.sh --experimental sync
 
       - name: Build Experimental
         run: |
-          . ./venv/bin/activate
+          eval $(poetry env activate)
           export PACKAGE_SUFFIX=.preview
           ./poetry_wrapper.sh --experimental build
 
@@ -61,16 +59,14 @@ jobs:
 
       - name: Install production package
         run: |
-          python -m venv venv
-          . ./venv/bin/activate
-          pip install --upgrade pip wheel poetry==1.5.1 poetry-dynamic-versioning
-
-          poetry cache clear pypi --all
-          ./poetry_wrapper.sh install --all-extras
+          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          eval $(poetry env activate)
+          poetry cache clear PyPI --all
+          ./poetry_wrapper.sh sync -E torch -E spark
 
       - name: Build Production
         run: |
-          . ./venv/bin/activate
+          eval $(poetry env activate)
           ./poetry_wrapper.sh build
 
       - name: Publish Production
