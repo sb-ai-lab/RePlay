@@ -30,4 +30,5 @@ jobs:
           pip install --upgrade onnx openvino optuna hnswlib fixed-install-nmslib
       - name: Build docs
         run: |
+          eval $(poetry env activate)
           make -C docs clean html
