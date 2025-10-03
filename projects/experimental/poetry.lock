@@ -3071,8 +3071,8 @@ scipy = ">=0.17.0"
 
 [package.source]
 type = "git"
-url = "https://github.com/daviddavo/lightfm"
-reference = "HEAD"
+url = "https://github.com/daviddavo/lightfm.git"
+reference = "f0eb500ead54ab65eb8e1b3890337a7223a35114"
 resolved_reference = "f0eb500ead54ab65eb8e1b3890337a7223a35114"
 
 [[package]]
@@ -7361,4 +7361,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9, <3.13"
-content-hash = "814a691bb57fdcca84f1960af602d6770e426d81041e76ea22fa9cefc87b8122"
+content-hash = "0dd6f28e313e797e7fef2ba3bf67dc3ee42675111b86414491d67f76836fa502"

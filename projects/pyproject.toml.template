@@ -51,7 +51,7 @@ dependencies = [
     "torch (>=1.8,<3.0.0)",
     "lightning (>=2.0.2,<=2.4.0)",
     "pytorch-optimizer (>=3.8.0,<4)",
-    "lightfm@git+https://github.com/daviddavo/lightfm",
+    "lightfm@git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114",
     "lightautoml (>=0.4.1,<0.5)",
     "numba (>=0.50,<1)",
     "sb-obp (>=0.5.10,<0.6)",
