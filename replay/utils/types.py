@@ -29,7 +29,7 @@ else:
     SparkDataFrame: TypeAlias = DataFrame
 
 
-TORCH_AVAILABLE = find_spec("torch")
+TORCH_AVAILABLE = find_spec("torch") and find_spec("lightning")
 
 DataFrameLike = Union[PandasDataFrame, SparkDataFrame, PolarsDataFrame]
 IntOrList = Union[Iterable[int], int]
