@@ -8,11 +8,8 @@ from replay.data.nn import TensorMap, TensorSchema
 from replay.models.nn.loss import ScalableCrossEntropyLoss, SCEParams
 from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
 
-from .dataset import SasRecPredictionBatch, SasRecTrainingBatch, SasRecValidationBatch
-from .model import SasRecModel
 
-
-class SasRec(lightning.LightningModule):
+class UniversalReplayLightningModule(lightning.LightningModule):
     """
     SASRec Lightning module.
 
@@ -23,13 +20,7 @@ class SasRec(lightning.LightningModule):
     def __init__(
         self,
         tensor_schema: TensorSchema,
-        block_count: int = 2,
-        head_count: int = 1,
-        hidden_size: int = 50,
-        max_seq_len: int = 200,
-        dropout_rate: float = 0.2,
-        ti_modification: bool = False,
-        time_span: int = 256,
+        model: torch.nn.Module,
         loss_type: Literal["BCE", "CE", "SCE"] = "CE",
         loss_sample_count: Optional[int] = None,
         negative_sampling_strategy: str = "global_uniform",
@@ -40,20 +31,6 @@ class SasRec(lightning.LightningModule):
     ):
         """
         :param tensor_schema: Tensor schema of features.
-        :param block_count: Number of Transformer blocks.
-            Default: ``2``.
-        :param head_count: Number of Attention heads.
-            Default: ``1``.
-        :param hidden_size: Hidden size of transformer.
-            Default: ``50``.
-        :param max_seq_len: Max length of sequence.
-            Default: ``200``.
-        :param dropout_rate: Dropout rate.
-            Default: ``0.2``.
-        :param ti_modification: Enable time relation.
-            Default: ``False``.
-        :param time_span: Time span value.
-            Default: ``256``.
         :param loss_type: Loss type. Possible values: ``"CE"``, ``"BCE"``, ``"SCE"``.
             Default: ``CE``.
         :param loss_sample_count (Optional[int]): Sample count to calculate loss.
@@ -74,16 +51,7 @@ class SasRec(lightning.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters()
-        self._model = SasRecModel(
-            schema=tensor_schema,
-            num_blocks=block_count,
-            num_heads=head_count,
-            hidden_size=hidden_size,
-            max_len=max_seq_len,
-            dropout=dropout_rate,
-            ti_modification=ti_modification,
-            time_span=time_span,
-        )
+        self._model = model
         self._loss_type = loss_type
         self._loss_sample_count = loss_sample_count
         self._negative_sampling_strategy = negative_sampling_strategy
@@ -102,22 +70,20 @@ class SasRec(lightning.LightningModule):
         self._vocab_size = item_count
         self.candidates_to_score = None
 
-    def training_step(self, batch: SasRecTrainingBatch, batch_idx: int) -> torch.Tensor:
+    def training_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
         """
         :param batch (SasRecTrainingBatch): Batch of training data.
         :param batch_idx (int): Batch index.
 
         :returns: Computed loss for batch.
         """
-        if batch_idx % 100 == 0 and torch.cuda.is_available():  # pragma: no cover
-            torch.cuda.empty_cache()
         loss = self._compute_loss(batch)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         return loss
 
     def predict_step(
         self,
-        batch: SasRecPredictionBatch,
+        batch: Any,
         batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> torch.Tensor:
@@ -128,12 +94,11 @@ class SasRec(lightning.LightningModule):
 
         :returns: Calculated scores.
         """
-        batch = _prepare_prediction_batch(self._schema, self._model.max_len, batch)
         return self._model_predict(batch.features, batch.padding_mask)
 
     def predict(
         self,
-        batch: SasRecPredictionBatch,
+        batch: Any,
         candidates_to_score: Optional[torch.LongTensor] = None,
     ) -> torch.Tensor:
         """
@@ -143,7 +108,6 @@ class SasRec(lightning.LightningModule):
 
         :returns: Calculated scores.
         """
-        batch = _prepare_prediction_batch(self._schema, self._model.max_len, batch)
         return self._model_predict(batch.features, batch.padding_mask, candidates_to_score)
 
     def forward(
@@ -164,7 +128,7 @@ class SasRec(lightning.LightningModule):
 
     def validation_step(
         self,
-        batch: SasRecValidationBatch,
+        batch: Any,
         batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> torch.Tensor:
@@ -194,8 +158,7 @@ class SasRec(lightning.LightningModule):
         padding_mask: torch.BoolTensor,
         candidates_to_score: torch.LongTensor = None,
     ) -> torch.Tensor:
-        model: SasRecModel
-        model = cast(SasRecModel, self._model.module) if isinstance(self._model, torch.nn.DataParallel) else self._model
+        model = self._model.module if isinstance(self._model, torch.nn.DataParallel) else self._model
         candidates_to_score = self.candidates_to_score if candidates_to_score is None else candidates_to_score
         scores = model.predict(feature_tensors, padding_mask, candidates_to_score)
         return scores
