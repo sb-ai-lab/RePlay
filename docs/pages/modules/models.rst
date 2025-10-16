@@ -339,7 +339,7 @@ ADMM SLIM (Experimental)
 
 LightFM (Experimental)
 ```````````````````````````
-.. autoclass:: replay.experimental.models.LightFMWrap
+.. autoclass:: replay.experimental.models.lightfm_wrap.LightFMWrap
     :special-members: __init__
 
 implicit (Experimental)

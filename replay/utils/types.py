@@ -46,3 +46,4 @@ ANN_AVAILABLE = all(
 )
 OPENVINO_AVAILABLE = TORCH_AVAILABLE and find_spec("onnx") and find_spec("openvino")
 OPTUNA_AVAILABLE = find_spec("optuna")
+LIGHTFM_AVAILABLE = find_spec("lightfm")

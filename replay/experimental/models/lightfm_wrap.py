@@ -3,7 +3,6 @@ from os.path import join
 from typing import Optional, Tuple
 
 import numpy as np
-from lightfm import LightFM
 from scipy.sparse import csr_matrix, diags, hstack
 from sklearn.preprocessing import MinMaxScaler
 
@@ -168,6 +167,8 @@ class LightFMWrap(HybridRecommender):
         user_features: Optional[SparkDataFrame] = None,
         item_features: Optional[SparkDataFrame] = None,
     ) -> None:
+        from lightfm import LightFM
+
         self.user_feat_scaler = None
         self.item_feat_scaler = None
 

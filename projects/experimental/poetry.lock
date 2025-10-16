@@ -3054,28 +3054,6 @@ nlp = ["gensim (>=4)", "nltk", "transformers (>=4)"]
 report = ["cffi (==1.14.5)", "weasyprint (==52.5)"]
 
 [[package]]
-name = "lightfm"
-version = "1.17"
-description = "LightFM recommendation model"
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = []
-develop = false
-
-[package.dependencies]
-numpy = "*"
-requests = "*"
-scikit-learn = "*"
-scipy = ">=0.17.0"
-
-[package.source]
-type = "git"
-url = "https://github.com/daviddavo/lightfm.git"
-reference = "f0eb500ead54ab65eb8e1b3890337a7223a35114"
-resolved_reference = "f0eb500ead54ab65eb8e1b3890337a7223a35114"
-
-[[package]]
 name = "lightgbm"
 version = "4.6.0"
 description = "LightGBM Python-package"
@@ -7361,4 +7339,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9, <3.13"
-content-hash = "0dd6f28e313e797e7fef2ba3bf67dc3ee42675111b86414491d67f76836fa502"
+content-hash = "1e7ff749802edf706dcf87a6d55c793e3b3ba52b705a4e0824e5230077e0c733"

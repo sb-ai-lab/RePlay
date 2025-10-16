@@ -21,7 +21,7 @@ variables:
 
 .install_conditionals: &install_conditionals
   - *activate_poetry
-  - pip install -q --upgrade onnx openvino optuna hnswlib fixed-install-nmslib
+  - pip install -q --upgrade onnx openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114
 
 stages:
   - code_quality
@@ -155,7 +155,7 @@ pytest-core:
   stage: test_core
   script:
     - *activate_poetry
-    - poetry run pytest -m core tests/ --ignore=tests/experimental
+    - poetry run pytest -m core tests/ --ignore=tests/experimental --ignore=tests/conditional
     - mv .coverage .coverage_core_${py_version}
   artifacts:
     paths:
@@ -166,7 +166,7 @@ pytest-conditional:
   <<: *pytest_template
   stage: test_conditional
   variables:
-    WRAPPER_EXTRAS: -E spark -E torch-cpu
+    WRAPPER_ARGS: --experimental
   script:
     - *install_conditionals
     - *activate_poetry
@@ -184,7 +184,7 @@ pytest-torch:
     WRAPPER_EXTRAS: -E torch-cpu
   script:
     - *activate_poetry
-    - poetry run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental
+    - poetry run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/conditional
     - mv .coverage .coverage_torch_${py_version}
   artifacts:
     paths:
@@ -198,7 +198,7 @@ pytest-spark:
     WRAPPER_EXTRAS: -E spark
   script:
     - *activate_poetry
-    - poetry run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models
+    - poetry run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
     - mv .coverage .coverage_spark_${py_version}
   artifacts:
     paths:
@@ -212,7 +212,7 @@ pytest-spark-and-torch:
     WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
     - *activate_poetry
-    - poetry run pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models
+    - poetry run pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
     - mv .coverage .coverage_spark_and_torch_${py_version}
   artifacts:
     paths:
@@ -226,7 +226,7 @@ pytest-models:
     WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
     - *activate_poetry
-    - poetry run pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental
+    - poetry run pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/conditional
     - mv .coverage .coverage_models_${py_version}
   artifacts:
     paths:
