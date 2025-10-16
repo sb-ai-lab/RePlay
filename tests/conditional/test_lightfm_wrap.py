@@ -3,13 +3,17 @@ from datetime import datetime
 import numpy as np
 import pytest
 
+from replay.experimental.models import ConditionalAccessError
+
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
+lightfm = pytest.importorskip("lightfm")
+if lightfm:
+    from replay.experimental.models.lightfm_wrap import LightFMWrap
 
 from pyspark.sql import functions as sf
 
 from replay.data import get_schema
-from replay.experimental.models import LightFMWrap
 from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
 from replay.experimental.scenarios.two_stages.two_stages_scenario import get_first_level_model_features
 from replay.experimental.utils.model_handler import save
@@ -63,6 +67,14 @@ def model():
     return model
 
 
+@pytest.mark.conditional
+@pytest.mark.experimental
+def test_lightfm_erroneous_import():
+    with pytest.raises(ConditionalAccessError):
+        from replay.experimental.models import LightFMWrap  # noqa: F401
+
+
+@pytest.mark.conditional
 @pytest.mark.experimental
 def test_equal_preds(long_log_with_features, tmp_path):
     path = (tmp_path / "test").resolve()
@@ -75,6 +87,7 @@ def test_equal_preds(long_log_with_features, tmp_path):
     sparkDataFrameEqual(base_pred, new_pred)
 
 
+@pytest.mark.conditional
 @pytest.mark.experimental
 def test_predict(log, user_features, item_features, model):
     model.fit(log, user_features, item_features)
@@ -92,6 +105,7 @@ def test_predict(log, user_features, item_features, model):
     ]
 
 
+@pytest.mark.conditional
 @pytest.mark.experimental
 def test_predict_no_user_features(log, item_features, model):
     model.fit(log, None, item_features)
@@ -111,6 +125,7 @@ def test_predict_no_user_features(log, item_features, model):
     ]
 
 
+@pytest.mark.conditional
 @pytest.mark.experimental
 def test_predict_pairs(log, user_features, item_features, model):
     model.fit(
@@ -134,6 +149,7 @@ def test_predict_pairs(log, user_features, item_features, model):
     assert pred.select("user_idx").distinct().collect()[0][0] == 1
 
 
+@pytest.mark.conditional
 @pytest.mark.experimental
 def test_raises_fit(log, user_features, item_features, model):
     with pytest.raises(ValueError, match=r"features for .*"):
@@ -144,6 +160,7 @@ def test_raises_fit(log, user_features, item_features, model):
         )
 
 
+@pytest.mark.conditional
 @pytest.mark.experimental
 def test_raises_predict(log, item_features, model):
     with pytest.raises(ValueError, match=r"Item features are missing for predict"):
@@ -155,6 +172,7 @@ def test_raises_predict(log, item_features, model):
         )
 
 
+@pytest.mark.conditional
 def _fit_predict_compare_features(model, log, user_features, user_features_filtered, item_features, test_ids):
     model.fit(log, user_features=user_features_filtered, item_features=item_features)
 
@@ -184,6 +202,7 @@ def _fit_predict_compare_features(model, log, user_features, user_features_filte
     )
 
 
+@pytest.mark.conditional
 @pytest.mark.experimental
 def test_enrich_with_features(log, user_features, item_features, model):
     test_pair = log.filter((sf.col("item_idx") == 1) & (sf.col("user_idx") == 1))
@@ -201,6 +220,7 @@ def test_enrich_with_features(log, user_features, item_features, model):
             )
 
 
+@pytest.mark.conditional
 @pytest.mark.experimental
 def test_predict_pairs_warm_items_only(log, log_to_pred):
     model = LightFMWrap(random_state=SEED)
@@ -239,6 +259,7 @@ def test_predict_pairs_warm_items_only(log, log_to_pred):
     )
 
 
+@pytest.mark.conditional
 @pytest.mark.experimental
 def test_predict_pairs_k(log):
     model = LightFMWrap(random_state=SEED)
@@ -261,6 +282,7 @@ def test_predict_pairs_k(log):
     assert pairs_pred.groupBy("user_idx").count().filter(sf.col("count") > 1).count() > 0
 
 
+@pytest.mark.conditional
 @pytest.mark.experimental
 def test_predict_empty_log(log):
     model = LightFMWrap(random_state=SEED)
@@ -268,6 +290,7 @@ def test_predict_empty_log(log):
     model.predict(log.limit(0), 1)
 
 
+@pytest.mark.conditional
 @pytest.mark.experimental
 def test_predict_new_users(long_log_with_features, user_features):
     model = LightFMWrap(random_state=SEED, no_components=4)
@@ -282,6 +305,7 @@ def test_predict_new_users(long_log_with_features, user_features):
     assert pred.collect()[0][0] == 0
 
 
+@pytest.mark.conditional
 @pytest.mark.experimental
 def test_predict_cold_users(long_log_with_features, user_features):
     model = LightFMWrap(random_state=SEED, no_components=4)
@@ -296,6 +320,7 @@ def test_predict_cold_users(long_log_with_features, user_features):
     assert pred.collect()[0][0] == 0
 
 
+@pytest.mark.conditional
 @pytest.mark.experimental
 def test_predict_cold_and_new_filter_out(long_log_with_features):
     model = LightFMWrap()

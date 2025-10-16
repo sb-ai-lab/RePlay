@@ -10,7 +10,8 @@ import torch
 import tqdm
 from optuna.exceptions import ExperimentalWarning
 
-from replay.experimental.models import CQL, LightFMWrap
+from replay.experimental.models import CQL
+from replay.experimental.models.lightfm_wrap import LightFMWrap
 from replay.experimental.models.cql import MdpDatasetBuilder
 from replay.experimental.preprocessing.data_preparator import DataPreparator, Indexer
 from replay.metrics import MAP, MRR, NDCG, Coverage, HitRate, Surprisal

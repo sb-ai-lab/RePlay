@@ -201,6 +201,12 @@ pip install openvino onnx
 pip install hnswlib fixed-install-nmslib
 ```
 
+4) (Experimental) LightFM model support:
+```bash
+pip install ligfhtfm
+```
+> **_NOTE_** : LightFM is not officially supported for Python 3.12 due to discontinued maintenance of the library. If you wish to install it locally, you'll have to use a patched fork of LightFM, such as the [one used internally](https://github.com/daviddavo/lightfm).
+
 
 <a name="examples"></a>
 ## 📑  Resources

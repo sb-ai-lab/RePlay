@@ -27,7 +27,7 @@ jobs:
           ./poetry_wrapper.sh --experimental --generate
           eval $(poetry env activate)
           poetry sync --with dev
-          pip install --upgrade onnx openvino optuna hnswlib fixed-install-nmslib
+          pip install --upgrade onnx openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114
       - name: Build docs
         run: |
           eval $(poetry env activate)
