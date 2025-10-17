@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 import pandas as pd
 from tqdm import tqdm
@@ -71,7 +71,7 @@ class DT4Rec(Recommender):
             max_timestep=self.item_num,
         )
         self.model: GPT
-        self.user_trajectory: List
+        self.user_trajectory: list
         self.trainer: Trainer
         self.use_cuda = use_cuda
         set_seed(self.seed)

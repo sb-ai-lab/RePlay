@@ -4,7 +4,7 @@ Multi-Layer Perceptron (MLP),
 Neural Matrix Factorization (MLP + GMF).
 """
 
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 import torch
@@ -75,7 +75,7 @@ class MLP(nn.Module):
         user_count: int,
         item_count: int,
         embedding_dim: int,
-        hidden_dims: Optional[List[int]] = None,
+        hidden_dims: Optional[list[int]] = None,
     ):
         """
         :param user_count: number of users
@@ -131,7 +131,7 @@ class NMF(nn.Module):
         item_count: int,
         embedding_gmf_dim: Optional[int] = None,
         embedding_mlp_dim: Optional[int] = None,
-        hidden_mlp_dims: Optional[List[int]] = None,
+        hidden_mlp_dims: Optional[list[int]] = None,
     ):
         """
         :param user_count: number of users
@@ -202,7 +202,7 @@ class NeuroMF(TorchRecommender):
         epochs: int = 20,
         embedding_gmf_dim: Optional[int] = None,
         embedding_mlp_dim: Optional[int] = None,
-        hidden_mlp_dims: Optional[List[int]] = None,
+        hidden_mlp_dims: Optional[list[int]] = None,
         l2_reg: float = 0,
         count_negative_sample: int = 1,
         factor: float = 0.2,

@@ -1,6 +1,6 @@
 import functools
 import operator
-from typing import Dict, List, Union
+from typing import Union
 
 import polars as pl
 
@@ -60,7 +60,7 @@ class Coverage(Metric):
 
     def __init__(
         self,
-        topk: Union[List, int],
+        topk: Union[list, int],
         query_column: str = "query_id",
         item_column: str = "item_id",
         rating_column: str = "rating",
@@ -173,7 +173,7 @@ class Coverage(Metric):
         recs = self._get_enriched_recommendations(recommendations)
         return self._polars_compute(recs, train)
 
-    def _dict_call(self, recommendations: Dict, train: Dict) -> MetricsReturnType:
+    def _dict_call(self, recommendations: dict, train: dict) -> MetricsReturnType:
         """
         Calculating metrics in dict format.
         """
@@ -229,5 +229,5 @@ class Coverage(Metric):
         return self._dict_call(recommendations, train)
 
     @staticmethod
-    def _get_metric_value_by_user(ks, *args) -> List[float]:  # pragma: no cover
+    def _get_metric_value_by_user(ks, *args) -> list[float]:  # pragma: no cover
         pass

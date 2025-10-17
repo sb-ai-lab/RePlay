@@ -1,6 +1,6 @@
 import logging
 from abc import abstractmethod
-from typing import Dict, Optional
+from typing import Optional
 
 from lightautoml.automl.presets.tabular_presets import TabularAutoML
 from lightautoml.tasks import Task
@@ -27,7 +27,7 @@ class ReRanker:
         return self._logger
 
     @abstractmethod
-    def fit(self, data: DataFrame, fit_params: Optional[Dict] = None) -> None:
+    def fit(self, data: DataFrame, fit_params: Optional[dict] = None) -> None:
         """
         Fit the model which re-rank user-item pairs generated outside the models.
 
@@ -55,7 +55,7 @@ class LamaWrap(ReRanker):
 
     def __init__(
         self,
-        params: Optional[Dict] = None,
+        params: Optional[dict] = None,
         config_path: Optional[str] = None,
     ):
         """
@@ -70,7 +70,7 @@ class LamaWrap(ReRanker):
             **(params if params is not None else {}),
         )
 
-    def fit(self, data: DataFrame, fit_params: Optional[Dict] = None) -> None:
+    def fit(self, data: DataFrame, fit_params: Optional[dict] = None) -> None:
         """
         Fit the LightAutoML TabularPipeline model with binary classification task.
         Data should include negative and positive user-item pairs.

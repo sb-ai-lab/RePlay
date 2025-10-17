@@ -1,5 +1,4 @@
 import abc
-from typing import Tuple
 
 import torch
 
@@ -10,7 +9,7 @@ class BasePostProcessor(abc.ABC):  # pragma: no cover
     """
 
     @abc.abstractmethod
-    def on_prediction(self, query_ids: torch.LongTensor, scores: torch.Tensor) -> Tuple[torch.LongTensor, torch.Tensor]:
+    def on_prediction(self, query_ids: torch.LongTensor, scores: torch.Tensor) -> tuple[torch.LongTensor, torch.Tensor]:
         """
         Prediction step.
 
@@ -24,7 +23,7 @@ class BasePostProcessor(abc.ABC):  # pragma: no cover
     @abc.abstractmethod
     def on_validation(
         self, query_ids: torch.LongTensor, scores: torch.Tensor, ground_truth: torch.LongTensor
-    ) -> Tuple[torch.LongTensor, torch.Tensor, torch.LongTensor]:
+    ) -> tuple[torch.LongTensor, torch.Tensor, torch.LongTensor]:
         """
         Validation step.
 

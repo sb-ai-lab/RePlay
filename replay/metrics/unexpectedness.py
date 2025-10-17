@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
@@ -152,7 +152,7 @@ class Unexpectedness(Metric):
         )
 
     @staticmethod
-    def _get_metric_value_by_user(ks: List[int], base_recs: Optional[List], recs: Optional[List]) -> List[float]:
+    def _get_metric_value_by_user(ks: list[int], base_recs: Optional[list], recs: Optional[list]) -> list[float]:
         if not base_recs or not recs:
             return [0.0 for _ in ks]
         return [1.0 - len(set(recs[:k]) & set(base_recs[:k])) / k for k in ks]

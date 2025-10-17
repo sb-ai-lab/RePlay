@@ -1,5 +1,5 @@
 import abc
-from typing import Iterator, Tuple
+from collections.abc import Iterator
 
 import torch
 
@@ -47,7 +47,7 @@ class FatOptimizerFactory(OptimizerFactory):
         learning_rate: float = 0.001,
         weight_decay: float = 0.0,
         sgd_momentum: float = 0.0,
-        betas: Tuple[float, float] = (0.9, 0.98),
+        betas: tuple[float, float] = (0.9, 0.98),
     ) -> None:
         super().__init__()
         self.optimizer = optimizer

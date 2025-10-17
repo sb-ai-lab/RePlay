@@ -1,4 +1,5 @@
-from typing import Any, Dict, Iterable, List, Optional, Union
+from collections.abc import Iterable
+from typing import Any, Optional, Union
 
 import numpy as np
 
@@ -97,13 +98,13 @@ class AssociationRulesItemRec(NeighbourRec):
     In this case all items in sessions should have the same rating.
     """
 
-    def _get_ann_infer_params(self) -> Dict[str, Any]:
+    def _get_ann_infer_params(self) -> dict[str, Any]:
         return {
             "features_col": None,
         }
 
     can_predict_item_to_item = True
-    item_to_item_metrics: List[str] = ["lift", "confidence", "confidence_gain"]
+    item_to_item_metrics: list[str] = ["lift", "confidence", "confidence_gain"]
     similarity: SparkDataFrame
     can_change_metric = True
     _search_space = {

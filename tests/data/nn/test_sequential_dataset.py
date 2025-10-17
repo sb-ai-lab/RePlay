@@ -1,5 +1,3 @@
-from typing import List
-
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -46,7 +44,7 @@ def test_can_get_sequence(dataset_type, request):
         sequential_info = request.getfixturevalue("sequential_info_polars")
         sequential_dataset = PolarsSequentialDataset(**sequential_info)
 
-    def compare_sequence(index: int, feature_name: str, expected: List[int]):
+    def compare_sequence(index: int, feature_name: str, expected: list[int]):
         assert (sequential_dataset.get_sequence(index, feature_name) == np.array(expected)).all()
 
     compare_sequence(0, "item_id", [0, 1])

@@ -1,5 +1,3 @@
-from typing import Dict, List, Tuple
-
 import numpy as np
 from obp.ope import RegressionModel
 from sklearn.linear_model import LogisticRegression
@@ -31,7 +29,7 @@ def get_est_rewards_by_reg(n_actions, len_list, bandit_feedback_train, bandit_fe
     return estimated_rewards_by_reg_model
 
 
-def bandit_subset(borders: List[int], bandit_feedback: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+def bandit_subset(borders: list[int], bandit_feedback: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
     """
     This function returns subset of a `bandit_feedback`
     with borders specified in `borders`.
@@ -65,8 +63,8 @@ def bandit_subset(borders: List[int], bandit_feedback: Dict[str, np.ndarray]) ->
 
 
 def split_bandit_feedback(
-    bandit_feedback: Dict[str, np.ndarray], val_size: int = 0.3
-) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
+    bandit_feedback: dict[str, np.ndarray], val_size: int = 0.3
+) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
     """
     Split `bandit_feedback` into two subsets.
     :param bandit_feedback: Bandit log data with fields

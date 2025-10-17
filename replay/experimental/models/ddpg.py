@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -594,7 +594,7 @@ class DDPG(Recommender):
             "fit_items": self.fit_items,
         }
 
-    def _batch_pass(self, batch: dict) -> Dict[str, Any]:
+    def _batch_pass(self, batch: dict) -> dict[str, Any]:
         user = batch["user"]
         memory = batch["memory"]
         action = batch["action"]
@@ -616,7 +616,7 @@ class DDPG(Recommender):
         policy_loss = -self.value_net(state.detach(), proto_action).mean()
 
         value = self.value_net(state, action)
-        value_loss = (((value - expected_value.detach())).pow(2) * sample_weight).squeeze(1).mean()
+        value_loss = ((value - expected_value.detach()).pow(2) * sample_weight).squeeze(1).mean()
         return policy_loss, value_loss
 
     @staticmethod

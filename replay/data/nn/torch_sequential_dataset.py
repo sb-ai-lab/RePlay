@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Generator, NamedTuple, Optional, Sequence, Tuple, Union, cast
+from collections.abc import Generator, Sequence
+from typing import TYPE_CHECKING, NamedTuple, Optional, Union, cast
 
 import numpy as np
 import torch
@@ -110,7 +111,7 @@ class TorchSequentialDataset(TorchDataset):
             return sequence
 
         # form shape for padded_sequence. Now supported one and two-dimentions features
-        padded_sequence_shape: Union[Tuple[int, int], Tuple[int]]
+        padded_sequence_shape: Union[tuple[int, int], tuple[int]]
         if len(sequence.shape) == 1:
             padded_sequence_shape = (self._max_sequence_length,)
         elif len(sequence.shape) == 2:
@@ -134,10 +135,10 @@ class TorchSequentialDataset(TorchDataset):
             return torch.float32
         assert False, "Unknown tensor feature type"
 
-    def _build_index2sequence_map(self) -> Sequence[Tuple[int, int]]:
+    def _build_index2sequence_map(self) -> Sequence[tuple[int, int]]:
         return list(self._iter_with_window())
 
-    def _iter_with_window(self) -> Generator[Tuple[int, int], None, None]:
+    def _iter_with_window(self) -> Generator[tuple[int, int], None, None]:
         for i in range(len(self._sequential)):
             actual_seq_len = self._sequential.get_sequence_length(i)
             left_seq_len = actual_seq_len - self._max_sequence_length

@@ -3,7 +3,8 @@ import logging
 import os
 import pickle
 import warnings
-from typing import Any, Iterable, List, Optional, Tuple, Union
+from collections.abc import Iterable
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -90,7 +91,7 @@ def convert2spark(data_frame: Optional[DataFrameLike]) -> Optional[SparkDataFram
 def get_top_k(
     dataframe: SparkDataFrame,
     partition_by_col: Column,
-    order_by_col: List[Column],
+    order_by_col: list[Column],
     k: int,
 ) -> SparkDataFrame:
     """
@@ -393,7 +394,7 @@ def horizontal_explode(
     data_frame: SparkDataFrame,
     column_to_explode: str,
     prefix: str,
-    other_columns: List[Column],
+    other_columns: list[Column],
 ) -> SparkDataFrame:
     """
     Transform a column with an array of values into separate columns.
@@ -509,7 +510,7 @@ def unpersist_if_exists(dataframe: Optional[SparkDataFrame]) -> None:
 def join_with_col_renaming(
     left: SparkDataFrame,
     right: SparkDataFrame,
-    on_col_name: Union[str, List],
+    on_col_name: Union[str, list],
     how: str = "inner",
     suffix="join",
 ) -> SparkDataFrame:
@@ -698,7 +699,7 @@ def filter_cold(
     df: Optional[SparkDataFrame],
     warm_df: SparkDataFrame,
     col_name: str,
-) -> Tuple[int, Optional[SparkDataFrame]]:
+) -> tuple[int, Optional[SparkDataFrame]]:
     """
     Filter out new user/item ids absent in `warm_df`.
     Return number of new users/items and filtered dataframe.

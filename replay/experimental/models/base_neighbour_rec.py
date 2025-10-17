@@ -4,7 +4,8 @@ Part of set of abstract classes (from base_rec.py)
 """
 
 from abc import ABC
-from typing import Any, Dict, Iterable, Optional, Union
+from collections.abc import Iterable
+from typing import Any, Optional, Union
 
 from replay.experimental.models.base_rec import Recommender
 from replay.models.extensions.ann.ann_mixin import ANNMixin
@@ -185,7 +186,7 @@ class NeighbourRec(ANNMixin, Recommender, ABC):
             "similarity" if metric is None else metric,
         )
 
-    def _configure_index_builder(self, interactions: SparkDataFrame) -> Dict[str, Any]:
+    def _configure_index_builder(self, interactions: SparkDataFrame) -> dict[str, Any]:
         similarity_df = self.similarity.select("similarity", "item_idx_one", "item_idx_two")
         self.index_builder.index_params.items_count = interactions.select(sf.max("item_idx")).first()[0] + 1
         return similarity_df, {"features_col": None}

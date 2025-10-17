@@ -5,8 +5,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Sequence, Union
+from typing import Callable, Optional, Union
 
 import numpy as np
 from pandas import read_parquet as pd_read_parquet
@@ -315,7 +316,7 @@ class Dataset:
         :returns: Loaded Dataset.
         """
         base_path = Path(path).with_suffix(".replay").resolve()
-        with open(base_path / "init_args.json", "r") as file:
+        with open(base_path / "init_args.json") as file:
             dataset_dict = json.loads(file.read())
 
         if dataframe_type not in ["pandas", "spark", "polars", None]:
@@ -436,14 +437,14 @@ class Dataset:
         )
 
     def _get_feature_source_map(self):
-        self._feature_source_map: Dict[FeatureSource, DataFrameLike] = {
+        self._feature_source_map: dict[FeatureSource, DataFrameLike] = {
             FeatureSource.INTERACTIONS: self.interactions,
             FeatureSource.QUERY_FEATURES: self.query_features,
             FeatureSource.ITEM_FEATURES: self.item_features,
         }
 
     def _get_ids_source_map(self):
-        self._ids_feature_map: Dict[FeatureHint, DataFrameLike] = {
+        self._ids_feature_map: dict[FeatureHint, DataFrameLike] = {
             FeatureHint.QUERY_ID: self.query_features if self.query_features is not None else self.interactions,
             FeatureHint.ITEM_ID: self.item_features if self.item_features is not None else self.interactions,
         }
@@ -499,10 +500,10 @@ class Dataset:
             )
         return FeatureSchema(features_list=features_list + filled_features)
 
-    def _fill_unlabeled_features_sources(self, feature_schema: FeatureSchema) -> List[FeatureInfo]:
+    def _fill_unlabeled_features_sources(self, feature_schema: FeatureSchema) -> list[FeatureInfo]:
         features_list = list(feature_schema.all_features)
 
-        source_mapping: Dict[str, FeatureSource] = {}
+        source_mapping: dict[str, FeatureSource] = {}
         for source in FeatureSource:
             dataframe = self._feature_source_map[source]
             if dataframe is not None:
@@ -524,7 +525,7 @@ class Dataset:
         self._set_cardinality(features_list=features_list)
         return features_list
 
-    def _get_unlabeled_columns(self, source: FeatureSource, feature_schema: FeatureSchema) -> List[FeatureInfo]:
+    def _get_unlabeled_columns(self, source: FeatureSource, feature_schema: FeatureSchema) -> list[FeatureInfo]:
         set_source_dataframe_columns = set(self._feature_source_map[source].columns)
         set_labeled_dataframe_columns = set(feature_schema.columns)
         unlabeled_columns = set_source_dataframe_columns - set_labeled_dataframe_columns
@@ -534,13 +535,13 @@ class Dataset:
         ]
         return unlabeled_features_list
 
-    def _fill_unlabeled_features(self, source: FeatureSource, feature_schema: FeatureSchema) -> List[FeatureInfo]:
+    def _fill_unlabeled_features(self, source: FeatureSource, feature_schema: FeatureSchema) -> list[FeatureInfo]:
         unlabeled_columns = self._get_unlabeled_columns(source=source, feature_schema=feature_schema)
         self._set_features_source(feature_list=unlabeled_columns, source=source)
         self._set_cardinality(features_list=unlabeled_columns)
         return unlabeled_columns
 
-    def _set_features_source(self, feature_list: List[FeatureInfo], source: FeatureSource) -> None:
+    def _set_features_source(self, feature_list: list[FeatureInfo], source: FeatureSource) -> None:
         for feature in feature_list:
             feature._set_feature_source(source)
 

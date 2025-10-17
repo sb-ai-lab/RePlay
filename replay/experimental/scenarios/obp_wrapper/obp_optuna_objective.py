@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import numpy as np
 from obp.ope import DirectMethod, DoublyRobust, InverseProbabilityWeighting, OffPolicyEvaluation
@@ -11,9 +11,9 @@ from replay.models.optimization.optuna_objective import ObjectiveWrapper, sugges
 
 def obp_objective_calculator(
     trial: Trial,
-    search_space: Dict[str, List[Optional[Any]]],
-    bandit_feedback_train: Dict[str, np.ndarray],
-    bandit_feedback_val: Dict[str, np.ndarray],
+    search_space: dict[str, list[Optional[Any]]],
+    bandit_feedback_train: dict[str, np.ndarray],
+    bandit_feedback_val: dict[str, np.ndarray],
     learner,
     criterion: str,
     k: int,

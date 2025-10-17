@@ -1,11 +1,11 @@
-from typing import TYPE_CHECKING, List, Type
+from typing import TYPE_CHECKING
 
 from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 from .base_metric import Metric, MetricsDataFrameLike, MetricsReturnType
 
 if TYPE_CHECKING:  # pragma: no cover
-    __class__: Type
+    __class__: type
 
 
 class Novelty(Metric):
@@ -139,7 +139,7 @@ class Novelty(Metric):
         return self._polars_compute(recs)
 
     @staticmethod
-    def _get_metric_value_by_user(ks: List[int], pred: List, train: List) -> List[float]:
+    def _get_metric_value_by_user(ks: list[int], pred: list, train: list) -> list[float]:
         if not train or not pred:
             return [1.0 for _ in ks]
         set_train = set(train)

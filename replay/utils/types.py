@@ -1,5 +1,6 @@
+from collections.abc import Iterable
 from importlib.util import find_spec
-from typing import Iterable, Union
+from typing import Union
 
 from pandas import DataFrame as PandasDataFrame
 from polars import DataFrame as PolarsDataFrame

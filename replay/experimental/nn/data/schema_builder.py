@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Optional
 
 from replay.data import FeatureHint, FeatureType
 from replay.data.nn.schema import TensorFeatureInfo, TensorFeatureSource, TensorSchema
@@ -10,7 +10,7 @@ class TensorSchemaBuilder:
     """
 
     def __init__(self) -> None:
-        self._tensor_schema: Dict[str, TensorFeatureInfo] = {}
+        self._tensor_schema: dict[str, TensorFeatureInfo] = {}
 
     def categorical(
         self,
@@ -40,7 +40,7 @@ class TensorSchemaBuilder:
         name: str,
         tensor_dim: int,
         is_seq: bool = False,
-        feature_sources: Optional[List[TensorFeatureSource]] = None,
+        feature_sources: Optional[list[TensorFeatureSource]] = None,
         feature_hint: Optional[FeatureHint] = None,
         padding_value: int = 0,
     ) -> "TensorSchemaBuilder":
@@ -83,7 +83,7 @@ class TensorSchemaBuilder:
         name: str,
         tensor_dim: int,
         is_seq: bool = False,
-        feature_sources: Optional[List[TensorFeatureSource]] = None,
+        feature_sources: Optional[list[TensorFeatureSource]] = None,
         feature_hint: Optional[FeatureHint] = None,
         padding_value: int = 0,
     ) -> "TensorSchemaBuilder":

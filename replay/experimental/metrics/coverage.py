@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, IntOrList, NumType, SparkDataFrame
 from replay.utils.spark_utils import convert2spark
@@ -53,7 +53,7 @@ class Coverage(RecOnlyMetric):
         recs: DataFrameLike,  # noqa: ARG002
         k_list: IntOrList,
         alpha: float = 0.95,  # noqa: ARG002
-    ) -> Union[Dict[int, float], float]:
+    ) -> Union[dict[int, float], float]:
         if isinstance(k_list, int):
             return 0.0
         return dict.fromkeys(k_list, 0.0)
@@ -62,7 +62,7 @@ class Coverage(RecOnlyMetric):
         self,
         recs: DataFrameLike,
         k_list: IntOrList,
-    ) -> Union[Dict[int, NumType], NumType]:
+    ) -> Union[dict[int, NumType], NumType]:
         return self._mean(recs, k_list)
 
     @process_k
@@ -70,7 +70,7 @@ class Coverage(RecOnlyMetric):
         self,
         recs: SparkDataFrame,
         k_list: list,
-    ) -> Union[Dict[int, NumType], NumType]:
+    ) -> Union[dict[int, NumType], NumType]:
         unknown_item_count = recs.select("item_idx").distinct().exceptAll(self.items).count()
         if unknown_item_count > 0:
             self.logger.warning(

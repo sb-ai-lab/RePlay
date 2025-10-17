@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List
 
 import numpy as np
 import pandas as pd
@@ -13,15 +12,15 @@ if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as F
 
 
-def _get_column_list(data, column: str) -> List[list]:
+def _get_column_list(data, column: str) -> list[list]:
     return [[ids[0] for ids in dataframe.select(column).collect()] for dataframe in data]
 
 
-def _get_column_list_pandas(data, column: str) -> List[list]:
+def _get_column_list_pandas(data, column: str) -> list[list]:
     return [dataframe[column].tolist() for dataframe in data]
 
 
-def _get_column_list_polars(data, column: str) -> List[list]:
+def _get_column_list_polars(data, column: str) -> list[list]:
     return [dataframe[column].to_list() for dataframe in data]
 
 

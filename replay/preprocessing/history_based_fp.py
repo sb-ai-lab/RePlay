@@ -9,7 +9,7 @@ Contains classes for users' and items' features generation based on interactions
 """
 
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Optional
 
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
@@ -64,7 +64,7 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
     user_log_features: Optional[SparkDataFrame] = None
     item_log_features: Optional[SparkDataFrame] = None
 
-    def _create_log_aggregates(self, agg_col: str = "user_idx") -> List:
+    def _create_log_aggregates(self, agg_col: str = "user_idx") -> list:
         """
         Create features based on relevance type
         (binary or not) and whether timestamp is present.
@@ -289,12 +289,12 @@ class ConditionalPopularityProcessor(EmptyFeatureProcessor):
     If user features are provided, item features will be generated and vice versa.
     """
 
-    conditional_pop_dict: Optional[Dict[str, SparkDataFrame]]
+    conditional_pop_dict: Optional[dict[str, SparkDataFrame]]
     entity_name: str
 
     def __init__(
         self,
-        cat_features_list: List,
+        cat_features_list: list,
     ):
         """
         :param cat_features_list: List of columns with categorical features to use
@@ -397,8 +397,8 @@ class HistoryBasedFeaturesProcessor:
         self,
         use_log_features: bool = True,
         use_conditional_popularity: bool = True,
-        user_cat_features_list: Optional[List] = None,
-        item_cat_features_list: Optional[List] = None,
+        user_cat_features_list: Optional[list] = None,
+        item_cat_features_list: Optional[list] = None,
     ):
         """
         :param use_log_features: if add statistical log-based features

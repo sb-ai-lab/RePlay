@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from replay.utils import DataFrameLike, IntOrList, NumType, PandasDataFrame
 from replay.utils.spark_utils import convert2spark
@@ -54,7 +54,7 @@ class Experiment:
     def __init__(
         self,
         test: Any,
-        metrics: Dict[Metric, IntOrList],
+        metrics: dict[Metric, IntOrList],
         calc_median: bool = False,
         calc_conf_interval: Optional[float] = None,
     ):

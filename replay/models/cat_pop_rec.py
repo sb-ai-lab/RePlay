@@ -1,5 +1,6 @@
+from collections.abc import Iterable
 from os.path import join
-from typing import Iterable, Optional, Union
+from typing import Optional, Union
 
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame

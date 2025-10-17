@@ -11,7 +11,7 @@ import json
 import logging
 import string
 from os.path import join
-from typing import Dict, List, Optional
+from typing import Optional
 
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, MissingImport, SparkDataFrame
 from replay.utils.session_handler import State
@@ -513,7 +513,7 @@ if PYSPARK_AVAILABLE:
                 raise ValueError(msg)
             return dataframe
 
-        def check_df(self, dataframe: SparkDataFrame, columns_mapping: Dict[str, str]) -> None:
+        def check_df(self, dataframe: SparkDataFrame, columns_mapping: dict[str, str]) -> None:
             """
             Check:
             - if dataframe is not empty,
@@ -570,7 +570,7 @@ if PYSPARK_AVAILABLE:
         @staticmethod
         def add_absent_log_cols(
             dataframe: SparkDataFrame,
-            columns_mapping: Dict[str, str],
+            columns_mapping: dict[str, str],
             default_relevance: float = 1.0,
             default_ts: str = "2099-01-01",
         ):
@@ -594,7 +594,7 @@ if PYSPARK_AVAILABLE:
             return dataframe
 
         @staticmethod
-        def _rename(df: SparkDataFrame, mapping: Dict) -> Optional[SparkDataFrame]:
+        def _rename(df: SparkDataFrame, mapping: dict) -> Optional[SparkDataFrame]:
             """
             rename dataframe columns based on mapping
             """
@@ -607,12 +607,12 @@ if PYSPARK_AVAILABLE:
 
         def transform(
             self,
-            columns_mapping: Dict[str, str],
+            columns_mapping: dict[str, str],
             data: Optional[DataFrameLike] = None,
             path: Optional[str] = None,
             format_type: Optional[str] = None,
             date_format: Optional[str] = None,
-            reader_kwargs: Optional[Dict] = None,
+            reader_kwargs: Optional[dict] = None,
         ) -> SparkDataFrame:
             """
             Transforms log, user or item features into a Spark DataFrame
@@ -680,7 +680,7 @@ if PYSPARK_AVAILABLE:
 
         def __init__(
             self,
-            cat_cols_list: List,
+            cat_cols_list: list,
             alias: str = "ohe",
         ):
             """
@@ -738,9 +738,9 @@ if PYSPARK_AVAILABLE:
         """
 
         cat_feat_transformer: Optional[CatFeaturesTransformer]
-        cols_to_ohe: Optional[List]
-        cols_to_del: Optional[List]
-        all_columns: Optional[List]
+        cols_to_ohe: Optional[list]
+        cols_to_del: Optional[list]
+        all_columns: Optional[list]
 
         def __init__(self, threshold: Optional[int] = 100):
             self.threshold = threshold

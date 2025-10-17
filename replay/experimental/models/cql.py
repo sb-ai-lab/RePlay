@@ -6,7 +6,7 @@ import io
 import logging
 import tempfile
 import timeit
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
@@ -337,7 +337,7 @@ class CQL(Recommender):
         )
 
     @property
-    def _init_args(self) -> Dict[str, Any]:
+    def _init_args(self) -> dict[str, Any]:
         return {
             # non-model hyperparams
             "mdp_dataset_builder": self.mdp_dataset_builder.init_args(),
@@ -355,7 +355,7 @@ class CQL(Recommender):
         self.logger.info("-- Loading model from %s", path)
         self.model.load_model(path)
 
-    def _get_model_hyperparams(self) -> Dict[str, Any]:
+    def _get_model_hyperparams(self) -> dict[str, Any]:
         """Get model hyperparams as dictionary.
         NB: The code is taken from a `d3rlpy.base.save_config(logger)` method as
         there's no method to just return such params without saving them.

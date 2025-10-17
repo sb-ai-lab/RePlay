@@ -1,5 +1,5 @@
 import abc
-from typing import Generic, List, Optional, Protocol, Tuple, TypeVar, cast
+from typing import Generic, Optional, Protocol, TypeVar, cast
 
 import lightning
 import torch
@@ -38,7 +38,7 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
         query_column: str,
         item_column: str,
         rating_column: str = "rating",
-        postprocessors: Optional[List[BasePostProcessor]] = None,
+        postprocessors: Optional[list[BasePostProcessor]] = None,
     ) -> None:
         """
         :param top_k: Takes the highest k scores in the ranking.
@@ -52,10 +52,10 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
         self.item_column = item_column
         self.rating_column = rating_column
         self._top_k = top_k
-        self._postprocessors: List[BasePostProcessor] = postprocessors or []
-        self._query_batches: List[torch.Tensor] = []
-        self._item_batches: List[torch.Tensor] = []
-        self._item_scores: List[torch.Tensor] = []
+        self._postprocessors: list[BasePostProcessor] = postprocessors or []
+        self._query_batches: list[torch.Tensor] = []
+        self._item_batches: list[torch.Tensor] = []
+        self._item_scores: list[torch.Tensor] = []
 
     def on_predict_epoch_start(
         self, trainer: lightning.Trainer, pl_module: lightning.LightningModule  # noqa: ARG002
@@ -97,7 +97,7 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
 
     def _compute_pipeline(
         self, query_ids: torch.LongTensor, scores: torch.Tensor
-    ) -> Tuple[torch.LongTensor, torch.Tensor]:
+    ) -> tuple[torch.LongTensor, torch.Tensor]:
         for postprocessor in self._postprocessors:
             query_ids, scores = postprocessor.on_prediction(query_ids, scores)
         return query_ids, scores
@@ -166,7 +166,7 @@ class SparkPredictionCallback(BasePredictionCallback[SparkDataFrame]):
         item_column: str,
         rating_column: str,
         spark_session: SparkSession,
-        postprocessors: Optional[List[BasePostProcessor]] = None,
+        postprocessors: Optional[list[BasePostProcessor]] = None,
     ) -> None:
         """
         :param top_k: Takes the highest k scores in the ranking.
@@ -213,7 +213,7 @@ class SparkPredictionCallback(BasePredictionCallback[SparkDataFrame]):
         return prediction
 
 
-class TorchPredictionCallback(BasePredictionCallback[Tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]]):
+class TorchPredictionCallback(BasePredictionCallback[tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]]):
     """
     Callback for predition stage with tuple of tensors
     """
@@ -221,7 +221,7 @@ class TorchPredictionCallback(BasePredictionCallback[Tuple[torch.LongTensor, tor
     def __init__(
         self,
         top_k: int,
-        postprocessors: Optional[List[BasePostProcessor]] = None,
+        postprocessors: Optional[list[BasePostProcessor]] = None,
     ) -> None:
         """
         :param top_k: Takes the highest k scores in the ranking.
@@ -240,7 +240,7 @@ class TorchPredictionCallback(BasePredictionCallback[Tuple[torch.LongTensor, tor
         query_ids: torch.Tensor,
         item_ids: torch.Tensor,
         item_scores: torch.Tensor,
-    ) -> Tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]:
+    ) -> tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]:
         return (
             cast(torch.LongTensor, query_ids.flatten().cpu().long()),
             cast(torch.LongTensor, item_ids.cpu().long()),
@@ -254,7 +254,7 @@ class QueryEmbeddingsPredictionCallback(lightning.Callback):
     """
 
     def __init__(self):
-        self._embeddings_per_batch: List[torch.Tensor] = []
+        self._embeddings_per_batch: list[torch.Tensor] = []
 
     def on_predict_epoch_start(
         self, trainer: lightning.Trainer, pl_module: lightning.LightningModule  # noqa: ARG002

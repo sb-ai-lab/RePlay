@@ -1,7 +1,7 @@
 import pathlib
 import tempfile
 from abc import abstractmethod
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Literal, Optional, Union
 
 import lightning
 import openvino as ov
@@ -68,7 +68,7 @@ class BaseCompiledModel:
         """
         self._batch_size: int
         self._max_seq_len: int
-        self._inputs_names: List[str]
+        self._inputs_names: list[str]
         self._output_name: str
 
         self._set_inner_params_from_openvino_model(compiled_model)
@@ -171,9 +171,9 @@ class BaseCompiledModel:
     @staticmethod
     def _run_model_compilation(
         lightning_model: lightning.LightningModule,
-        model_input_sample: Tuple[Union[torch.Tensor, Dict[str, torch.Tensor]]],
-        model_input_names: List[str],
-        model_dynamic_axes_in_input: Dict[str, Dict],
+        model_input_sample: tuple[Union[torch.Tensor, dict[str, torch.Tensor]]],
+        model_input_names: list[str],
+        model_dynamic_axes_in_input: dict[str, dict],
         batch_size: int,
         num_candidates_to_score: Union[int, None],
         num_threads: Optional[int] = None,

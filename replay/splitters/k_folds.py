@@ -1,4 +1,4 @@
-from typing import Literal, Optional, Tuple
+from typing import Literal, Optional
 
 import polars as pl
 
@@ -83,7 +83,7 @@ class KFolds(Splitter):
         """
         return self._core_split(interactions)
 
-    def _query_split_spark(self, interactions: SparkDataFrame) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    def _query_split_spark(self, interactions: SparkDataFrame) -> tuple[SparkDataFrame, SparkDataFrame]:
         dataframe = interactions.withColumn("_rand", sf.rand(self.seed))
         dataframe = dataframe.withColumn(
             "fold",
@@ -100,7 +100,7 @@ class KFolds(Splitter):
             test = self._drop_cold_items_and_users(train, test)
             yield train, test
 
-    def _query_split_pandas(self, interactions: PandasDataFrame) -> Tuple[PandasDataFrame, PandasDataFrame]:
+    def _query_split_pandas(self, interactions: PandasDataFrame) -> tuple[PandasDataFrame, PandasDataFrame]:
         dataframe = interactions.sample(frac=1, random_state=self.seed).sort_values(self.query_column)
         dataframe["fold"] = (dataframe.groupby(self.query_column, sort=False).cumcount() + 1) % self.n_folds
         for i in range(self.n_folds):
@@ -115,7 +115,7 @@ class KFolds(Splitter):
             test = self._drop_cold_items_and_users(train, test)
             yield train, test
 
-    def _query_split_polars(self, interactions: PolarsDataFrame) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+    def _query_split_polars(self, interactions: PolarsDataFrame) -> tuple[PolarsDataFrame, PolarsDataFrame]:
         dataframe = interactions.sample(fraction=1, shuffle=True, seed=self.seed).sort(self.query_column)
         dataframe = dataframe.with_columns(
             (pl.cum_count(self.query_column).over(self.query_column) % self.n_folds).alias("fold")

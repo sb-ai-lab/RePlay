@@ -1,6 +1,6 @@
 import bisect
 import random
-from typing import List, Union
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -87,7 +87,7 @@ class ValidateDataset(Dataset):
             dtype=torch.float32,
         )
         actions = torch.tensor(user["actions"][start:end], dtype=torch.long)
-        rtgs = torch.zeros((end - start + 1 if start < 0 else len(user["actions"])))
+        rtgs = torch.zeros(end - start + 1 if start < 0 else len(user["actions"]))
         rtgs[start:end] = torch.tensor(user["rtgs"][start:end], dtype=torch.float32)
         rtgs[end] = 10
         timesteps = len(user["actions"]) + start if start < 0 else 0
@@ -96,7 +96,7 @@ class ValidateDataset(Dataset):
 
 
 def pad_sequence(
-    sequences: Union[torch.Tensor, List[torch.Tensor]],
+    sequences: Union[torch.Tensor, list[torch.Tensor]],
     batch_first: bool = False,
     padding_value: float = 0.0,
     pos: str = "right",

@@ -4,7 +4,7 @@ Select or remove data by some criteria
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Callable, Literal, Optional, Tuple, Union
+from typing import Callable, Literal, Optional, Union
 from uuid import uuid4
 
 import numpy as np
@@ -182,7 +182,7 @@ class InteractionEntriesFilter(_BaseFilter):
         non_agg_column: str,
         min_inter: Optional[int] = None,
         max_inter: Optional[int] = None,
-    ) -> Tuple[PandasDataFrame, int, int]:
+    ) -> tuple[PandasDataFrame, int, int]:
         filtered_interactions = interactions.copy(deep=True)
 
         filtered_interactions["count"] = filtered_interactions.groupby(agg_column, sort=False)[
@@ -207,7 +207,7 @@ class InteractionEntriesFilter(_BaseFilter):
         non_agg_column: str,
         min_inter: Optional[int] = None,
         max_inter: Optional[int] = None,
-    ) -> Tuple[SparkDataFrame, int, int]:
+    ) -> tuple[SparkDataFrame, int, int]:
         filtered_interactions = interactions.withColumn(
             "count", sf.count(non_agg_column).over(Window.partitionBy(agg_column))
         )
@@ -233,7 +233,7 @@ class InteractionEntriesFilter(_BaseFilter):
         non_agg_column: str,
         min_inter: Optional[int] = None,
         max_inter: Optional[int] = None,
-    ) -> Tuple[PolarsDataFrame, int, int]:
+    ) -> tuple[PolarsDataFrame, int, int]:
         filtered_interactions = interactions.with_columns(
             pl.col(non_agg_column).count().over(pl.col(agg_column)).alias("count")
         )

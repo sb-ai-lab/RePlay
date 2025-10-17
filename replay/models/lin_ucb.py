@@ -1,5 +1,5 @@
 import warnings
-from typing import List, Tuple, Union
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -70,7 +70,7 @@ class HybridArm:
         # right-hand side of the regression
         self.b = np.zeros(d, dtype=float)
 
-    def feature_update(self, usr_features, usr_itm_features, relevances) -> Tuple[np.ndarray, np.ndarray]:
+    def feature_update(self, usr_features, usr_itm_features, relevances) -> tuple[np.ndarray, np.ndarray]:
         """
         Function to update featurs or each Lin-UCB hand in the current model.
 
@@ -175,7 +175,7 @@ class LinUCB(HybridRecommender):
         "alpha": {"type": "uniform", "args": [0.001, 10.0]},
     }
     _study = None  # field required for proper optuna's optimization
-    linucb_arms: List[Union[DisjointArm, HybridArm]]  # initialize only when working within fit method
+    linucb_arms: list[Union[DisjointArm, HybridArm]]  # initialize only when working within fit method
     rel_matrix: np.array  # matrix with relevance scores from predict method
 
     def __init__(

@@ -1,7 +1,7 @@
 import json
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 import polars as pl
 
@@ -20,7 +20,7 @@ if PYSPARK_AVAILABLE:
     )
 
 
-SplitterReturnType = Tuple[DataFrameLike, DataFrameLike]
+SplitterReturnType = tuple[DataFrameLike, DataFrameLike]
 
 
 class Splitter(ABC):
@@ -90,7 +90,7 @@ class Splitter(ABC):
         Method for loading splitter from `.replay` directory.
         """
         base_path = Path(path).with_suffix(".replay").resolve()
-        with open(base_path / "init_args.json", "r") as file:
+        with open(base_path / "init_args.json") as file:
             splitter_dict = json.loads(file.read())
         splitter = cls(**splitter_dict["init_args"])
 
