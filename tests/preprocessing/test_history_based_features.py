@@ -225,7 +225,7 @@ def test_history_based_fp_fit_transform(
     assert history_based_fp.user_cond_pop_proc.conditional_pop_dict is not None
     assert "i_pop_by_gender" in history_based_fp.user_cond_pop_proc.conditional_pop_dict["gender"].columns
     res = history_based_fp.transform(
-        (log_for_feature_gen.join(user_features, on="user_idx").join(item_features, on="item_idx"))
+        log_for_feature_gen.join(user_features, on="user_idx").join(item_features, on="item_idx")
     )
     assert "gender" in res.columns
     assert "i_pop_by_gender" in res.columns

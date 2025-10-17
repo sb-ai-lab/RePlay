@@ -1,4 +1,5 @@
-from typing import Any, Dict, Iterable, Optional, Tuple, Union
+from collections.abc import Iterable
+from typing import Any, Optional, Union
 
 import numba as nb
 import numpy as np
@@ -72,7 +73,7 @@ class ADMMSLIM(NeighbourRec):
     Recommendations are improved with Alternating Direction Method of Multipliers.
     """
 
-    def _get_ann_infer_params(self) -> Dict[str, Any]:
+    def _get_ann_infer_params(self) -> dict[str, Any]:
         return {
             "features_col": None,
         }
@@ -246,7 +247,7 @@ class ADMMSLIM(NeighbourRec):
         self._clear_model_temp_view("filter_seen_num_seen")
         return output
 
-    def _init_matrix(self, size: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _init_matrix(self, size: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Matrix initialization"""
         if self.seed is not None:
             np.random.seed(self.seed)

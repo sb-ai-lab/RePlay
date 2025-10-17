@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Optional, Union
 
 import joblib
 import matplotlib.pyplot as plt
@@ -251,7 +251,7 @@ class Deep(nn.Module):
     Deep model based on https://arxiv.org/abs/1606.07792
     """
 
-    def __init__(self, input_dim: int, out_dim: int, hidden_layers: List[int], deep_dropout: float):
+    def __init__(self, input_dim: int, out_dim: int, hidden_layers: list[int], deep_dropout: float):
         super().__init__()
         model = []
         last_size = input_dim
@@ -314,7 +314,7 @@ class WideDeep(nn.Module):
         self,
         dim_head: int,
         deep_out_dim: int,
-        hidden_layers: List[int],
+        hidden_layers: list[int],
         size_wide_features: int,
         size_continuous_features: int,
         size_cat_features: int,
@@ -435,10 +435,10 @@ class NeuralTS(HybridRecommender):
 
     def __init__(
         self,
-        user_cols: Dict[str, List[str]] = {"continuous_cols": [], "cat_embed_cols": [], "wide_cols": []},
-        item_cols: Dict[str, List[str]] = {"continuous_cols": [], "cat_embed_cols": [], "wide_cols": []},
-        embedding_sizes: List[int] = [32, 32, 64],
-        hidden_layers: List[int] = [32, 20],
+        user_cols: dict[str, list[str]] = {"continuous_cols": [], "cat_embed_cols": [], "wide_cols": []},
+        item_cols: dict[str, list[str]] = {"continuous_cols": [], "cat_embed_cols": [], "wide_cols": []},
+        embedding_sizes: list[int] = [32, 32, 64],
+        hidden_layers: list[int] = [32, 20],
         wide_out_dim: int = 1,
         deep_out_dim: int = 20,
         head_dropout: float = 0.8,
@@ -617,7 +617,7 @@ class NeuralTS(HybridRecommender):
 
     def _data_loader(
         self, idx, log_train, transform_user_features, transform_item_features, list_items, train=False
-    ) -> Union[Tuple[UserDatasetWithReset, DataLoader], DataLoader]:
+    ) -> Union[tuple[UserDatasetWithReset, DataLoader], DataLoader]:
         if train:
             train_dataset = UserDatasetWithReset(
                 idx=idx,

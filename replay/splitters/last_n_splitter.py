@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional, Tuple
+from typing import Literal, Optional
 
 import numpy as np
 import pandas as pd
@@ -240,7 +240,7 @@ class LastNSplitter(Splitter):
 
         return interactions
 
-    def _partial_split_interactions(self, interactions: DataFrameLike, n: int) -> Tuple[DataFrameLike, DataFrameLike]:
+    def _partial_split_interactions(self, interactions: DataFrameLike, n: int) -> tuple[DataFrameLike, DataFrameLike]:
         res = self._add_time_partition(interactions)
         if isinstance(interactions, SparkDataFrame):
             return self._partial_split_interactions_spark(res, n)
@@ -250,7 +250,7 @@ class LastNSplitter(Splitter):
 
     def _partial_split_interactions_pandas(
         self, interactions: PandasDataFrame, n: int
-    ) -> Tuple[PandasDataFrame, PandasDataFrame]:
+    ) -> tuple[PandasDataFrame, PandasDataFrame]:
         interactions["count"] = interactions.groupby(self.divide_column, sort=False)[self.divide_column].transform(len)
         interactions["is_test"] = interactions["row_num"] > (interactions["count"] - float(n))
         if self.session_id_column:
@@ -263,7 +263,7 @@ class LastNSplitter(Splitter):
 
     def _partial_split_interactions_spark(
         self, interactions: SparkDataFrame, n: int
-    ) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    ) -> tuple[SparkDataFrame, SparkDataFrame]:
         interactions = interactions.withColumn(
             "count",
             sf.count(self.timestamp_column).over(Window.partitionBy(self.divide_column)),
@@ -281,7 +281,7 @@ class LastNSplitter(Splitter):
 
     def _partial_split_interactions_polars(
         self, interactions: PolarsDataFrame, n: int
-    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+    ) -> tuple[PolarsDataFrame, PolarsDataFrame]:
         interactions = interactions.with_columns(
             pl.col(self.timestamp_column).count().over(self.divide_column).alias("count")
         )
@@ -296,7 +296,7 @@ class LastNSplitter(Splitter):
 
     def _partial_split_timedelta(
         self, interactions: DataFrameLike, timedelta: int
-    ) -> Tuple[DataFrameLike, DataFrameLike]:
+    ) -> tuple[DataFrameLike, DataFrameLike]:
         if isinstance(interactions, SparkDataFrame):
             return self._partial_split_timedelta_spark(interactions, timedelta)
         if isinstance(interactions, PandasDataFrame):
@@ -305,7 +305,7 @@ class LastNSplitter(Splitter):
 
     def _partial_split_timedelta_pandas(
         self, interactions: PandasDataFrame, timedelta: int
-    ) -> Tuple[PandasDataFrame, PandasDataFrame]:
+    ) -> tuple[PandasDataFrame, PandasDataFrame]:
         res = interactions.copy(deep=True)
         res["diff_timestamp"] = (
             res.groupby(self.divide_column)[self.timestamp_column].transform(max) - res[self.timestamp_column]
@@ -321,7 +321,7 @@ class LastNSplitter(Splitter):
 
     def _partial_split_timedelta_spark(
         self, interactions: SparkDataFrame, timedelta: int
-    ) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    ) -> tuple[SparkDataFrame, SparkDataFrame]:
         inter_with_max_time = interactions.withColumn(
             "max_timestamp",
             sf.max(self.timestamp_column).over(Window.partitionBy(self.divide_column)),
@@ -343,7 +343,7 @@ class LastNSplitter(Splitter):
 
     def _partial_split_timedelta_polars(
         self, interactions: PolarsDataFrame, timedelta: int
-    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+    ) -> tuple[PolarsDataFrame, PolarsDataFrame]:
         res = interactions.with_columns(
             (pl.col(self.timestamp_column).max().over(self.divide_column) - pl.col(self.timestamp_column)).alias(
                 "diff_timestamp"
@@ -358,7 +358,7 @@ class LastNSplitter(Splitter):
 
         return train, test
 
-    def _core_split(self, interactions: DataFrameLike) -> List[DataFrameLike]:
+    def _core_split(self, interactions: DataFrameLike) -> list[DataFrameLike]:
         if self.strategy == "timedelta":
             interactions = self._to_unix_timestamp(interactions)
         train, test = getattr(self, "_partial_split_" + self.strategy)(interactions, self.N)

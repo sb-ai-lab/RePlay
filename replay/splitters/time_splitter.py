@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Union
 
 import polars as pl
 
@@ -150,7 +150,7 @@ class TimeSplitter(Splitter):
 
     def _partial_split(
         self, interactions: DataFrameLike, threshold: Union[datetime, str, int]
-    ) -> Tuple[DataFrameLike, DataFrameLike]:
+    ) -> tuple[DataFrameLike, DataFrameLike]:
         if isinstance(threshold, str):
             threshold = datetime.strptime(threshold, self.time_column_format)
 
@@ -166,7 +166,7 @@ class TimeSplitter(Splitter):
 
     def _partial_split_pandas(
         self, interactions: PandasDataFrame, threshold: Union[datetime, str, int]
-    ) -> Tuple[PandasDataFrame, PandasDataFrame]:
+    ) -> tuple[PandasDataFrame, PandasDataFrame]:
         res = interactions.copy(deep=True)
         if isinstance(threshold, float):
             res.sort_values(self.timestamp_column, inplace=True)
@@ -186,7 +186,7 @@ class TimeSplitter(Splitter):
 
     def _partial_split_spark(
         self, interactions: SparkDataFrame, threshold: Union[datetime, str, int]
-    ) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    ) -> tuple[SparkDataFrame, SparkDataFrame]:
         if isinstance(threshold, float):
             dates = interactions.select(self.timestamp_column).withColumn(
                 "_row_number_by_ts", sf.row_number().over(Window.orderBy(self.timestamp_column))
@@ -208,7 +208,7 @@ class TimeSplitter(Splitter):
 
     def _partial_split_polars(
         self, interactions: PolarsDataFrame, threshold: Union[datetime, str, int]
-    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+    ) -> tuple[PolarsDataFrame, PolarsDataFrame]:
         if isinstance(threshold, float):
             test_start = int(len(interactions) * (1 - threshold)) + 1
 
@@ -225,5 +225,5 @@ class TimeSplitter(Splitter):
 
         return train, test
 
-    def _core_split(self, interactions: DataFrameLike) -> List[DataFrameLike]:
+    def _core_split(self, interactions: DataFrameLike) -> list[DataFrameLike]:
         return self._partial_split(interactions, self.time_threshold)

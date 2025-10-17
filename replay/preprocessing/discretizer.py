@@ -2,8 +2,9 @@ import abc
 import json
 import os
 import warnings
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Dict, List, Literal, Sequence
+from typing import Literal
 
 import numpy as np
 import polars as pl
@@ -114,7 +115,7 @@ class GreedyDiscretizingRule(BaseDiscretizingRule):
         max_bin: int,
         total_cnt: int,
         min_data_in_bin: int,
-    ) -> List[float]:
+    ) -> list[float]:
         """
         Computes bound for bins.
 
@@ -363,7 +364,7 @@ Set 'keep' or 'skip' for processing NaN."
     @classmethod
     def load(cls, path: str) -> "GreedyDiscretizingRule":
         base_path = Path(path).with_suffix(".replay").resolve()
-        with open(base_path / "init_args.json", "r") as file:
+        with open(base_path / "init_args.json") as file:
             discretizer_rule_dict = json.loads(file.read())
 
         discretizer_rule = cls(**discretizer_rule_dict["init_args"])
@@ -590,7 +591,7 @@ Set 'keep' or 'skip' for processing NaN."
     @classmethod
     def load(cls, path: str) -> "QuantileDiscretizingRule":
         base_path = Path(path).with_suffix(".replay").resolve()
-        with open(base_path / "init_args.json", "r") as file:
+        with open(base_path / "init_args.json") as file:
             discretizer_rule_dict = json.loads(file.read())
 
         discretizer_rule = cls(**discretizer_rule_dict["init_args"])
@@ -655,7 +656,7 @@ class Discretizer:
         """
         return self.fit(df).transform(df)
 
-    def set_handle_invalid(self, handle_invalid_rules: Dict[str, HandleInvalidStrategies]) -> None:
+    def set_handle_invalid(self, handle_invalid_rules: dict[str, HandleInvalidStrategies]) -> None:
         """
         Modify handle_invalid strategy on already fitted Discretizer.
 
@@ -704,13 +705,13 @@ class Discretizer:
     @classmethod
     def load(cls, path: str) -> "Discretizer":
         base_path = Path(path).with_suffix(".replay").resolve()
-        with open(base_path / "init_args.json", "r") as file:
+        with open(base_path / "init_args.json") as file:
             discretizer_dict = json.loads(file.read())
         rules = []
         for root, dirs, files in os.walk(str(base_path) + "/rules/"):
             for d in dirs:
                 if d.split(".")[0] in discretizer_dict["rule_names"]:
-                    with open(root + d + "/init_args.json", "r") as file:
+                    with open(root + d + "/init_args.json") as file:
                         discretizer_rule_dict = json.loads(file.read())
                     rules.append(globals()[discretizer_rule_dict["_class_name"]].load(root + d))
 

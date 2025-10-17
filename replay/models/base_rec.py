@@ -13,8 +13,9 @@ Base abstract classes:
 
 import warnings
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from os.path import join
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -55,14 +56,14 @@ class IsSavable(ABC):
 
     @property
     @abstractmethod
-    def _init_args(self) -> Dict:
+    def _init_args(self) -> dict:
         """
         Dictionary of the model attributes passed during model initialization.
         Used for model saving and loading
         """
 
     @property
-    def _dataframes(self) -> Dict:
+    def _dataframes(self) -> dict:
         """
         Dictionary of the model dataframes required for inference.
         Used for model saving and loading
@@ -508,7 +509,7 @@ class BaseRecommender(IsSavable, IsOptimizible, RecommenderCommons, ABC):
             or None if `file_path` is provided
         """
         if dataset is not None:
-            interactions, query_features, item_features, pairs = [
+            interactions, query_features, item_features, pairs = (
                 convert2spark(df)
                 for df in [
                     dataset.interactions,
@@ -516,7 +517,7 @@ class BaseRecommender(IsSavable, IsOptimizible, RecommenderCommons, ABC):
                     dataset.item_features,
                     pairs,
                 ]
-            ]
+            )
             if set(pairs.columns) != {self.item_column, self.query_column}:
                 msg = "pairs must be a dataframe with columns strictly [user_idx, item_idx]"
                 raise ValueError(msg)
@@ -590,7 +591,7 @@ class BaseRecommender(IsSavable, IsOptimizible, RecommenderCommons, ABC):
 
     def _get_features_wrap(
         self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
-    ) -> Optional[Tuple[SparkDataFrame, int]]:
+    ) -> Optional[tuple[SparkDataFrame, int]]:
         if self.query_column not in ids.columns and self.item_column not in ids.columns:
             msg = f"{self.query_column} or {self.item_column} missing"
             raise ValueError(msg)
@@ -599,7 +600,7 @@ class BaseRecommender(IsSavable, IsOptimizible, RecommenderCommons, ABC):
 
     def _get_features(
         self, ids: SparkDataFrame, features: Optional[SparkDataFrame]  # noqa: ARG002
-    ) -> Tuple[Optional[SparkDataFrame], Optional[int]]:
+    ) -> tuple[Optional[SparkDataFrame], Optional[int]]:
         """
         Get embeddings from model
 
@@ -679,7 +680,7 @@ class ItemVectorModel(BaseRecommender):
     """Parent for models generating items' vector representations"""
 
     can_predict_item_to_item: bool = True
-    item_to_item_metrics: List[str] = [
+    item_to_item_metrics: list[str] = [
         "euclidean_distance_sim",
         "cosine_similarity",
         "dot_product",
@@ -899,7 +900,7 @@ class HybridRecommender(BaseRecommender, ABC):
 
     def get_features(
         self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
-    ) -> Optional[Tuple[SparkDataFrame, int]]:
+    ) -> Optional[tuple[SparkDataFrame, int]]:
         """
         Returns query or item feature vectors as a Column with type ArrayType
         If a model does not have a vector for some ids they are not present in the final result.
@@ -1026,7 +1027,7 @@ class Recommender(BaseRecommender, ABC):
             recs_file_path=recs_file_path,
         )
 
-    def get_features(self, ids: SparkDataFrame) -> Optional[Tuple[SparkDataFrame, int]]:
+    def get_features(self, ids: SparkDataFrame) -> Optional[tuple[SparkDataFrame, int]]:
         """
         Returns query or item feature vectors as a Column with type ArrayType
 

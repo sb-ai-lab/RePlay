@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, List, Union
+from typing import Union
 
 import numpy as np
 import polars as pl
@@ -62,7 +62,7 @@ class CategoricalDiversity(Metric):
 
     def __init__(
         self,
-        topk: Union[List, int],
+        topk: Union[list, int],
         query_column: str = "query_id",
         category_column: str = "category_id",
         rating_column: str = "rating",
@@ -195,7 +195,7 @@ class CategoricalDiversity(Metric):
             return self._polars_compute_per_user(recs)
         return self._polars_compute_agg(recs)
 
-    def _convert_pandas_to_dict_with_score(self, data: PandasDataFrame) -> Dict:
+    def _convert_pandas_to_dict_with_score(self, data: PandasDataFrame) -> dict:
         return (
             data.sort_values(by=self.rating_column, ascending=False)
             .groupby(self.query_column)[self.category_column]
@@ -203,7 +203,7 @@ class CategoricalDiversity(Metric):
             .to_dict()
         )
 
-    def _precalculate_unique_cats(self, recommendations: Dict) -> Dict:
+    def _precalculate_unique_cats(self, recommendations: dict) -> dict:
         """
         Precalculate unique categories for each prefix for each user.
         """
@@ -217,14 +217,14 @@ class CategoricalDiversity(Metric):
             answer[user] = unique_len
         return answer
 
-    def _dict_compute_per_user(self, precalculated_answer: Dict) -> MetricsPerUserReturnType:
+    def _dict_compute_per_user(self, precalculated_answer: dict) -> MetricsPerUserReturnType:
         distribution_per_user = defaultdict(list)
         for k in self.topk:
             for user, unique_cats in precalculated_answer.items():
                 distribution_per_user[user].append(unique_cats[min(len(unique_cats), k) - 1] / k)
         return self._aggregate_results_per_user(distribution_per_user)
 
-    def _dict_compute_mean(self, precalculated_answer: Dict) -> MetricsMeanReturnType:
+    def _dict_compute_mean(self, precalculated_answer: dict) -> MetricsMeanReturnType:
         distribution_list = []
         for unique_cats in precalculated_answer.values():
             metrics_per_user = []
@@ -238,7 +238,7 @@ class CategoricalDiversity(Metric):
         metrics = [self._mode.cpu(distribution[:, k]) for k in range(distribution.shape[1])]
         return self._aggregate_results(metrics)
 
-    def _dict_call(self, precalculated_answer: Dict) -> MetricsReturnType:
+    def _dict_call(self, precalculated_answer: dict) -> MetricsReturnType:
         """
         Calculating metrics in dict format.
         """
@@ -247,5 +247,5 @@ class CategoricalDiversity(Metric):
         return self._dict_compute_mean(precalculated_answer)
 
     @staticmethod
-    def _get_metric_value_by_user(ks: List[int], *args: List) -> List[float]:  # pragma: no cover
+    def _get_metric_value_by_user(ks: list[int], *args: list) -> list[float]:  # pragma: no cover
         pass

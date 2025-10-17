@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 from math import floor
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import psutil
 
@@ -113,7 +113,7 @@ class Borg:
     This class allows to share objects between instances.
     """
 
-    _shared_state: Dict[str, Any] = {}
+    _shared_state: dict[str, Any] = {}
 
     def __init__(self):
         self.__dict__ = self._shared_state

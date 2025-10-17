@@ -1,17 +1,8 @@
+from collections import OrderedDict
+from collections.abc import ItemsView, Iterable, Iterator, KeysView, Mapping, Sequence, ValuesView
 from typing import (
-    Dict,
-    ItemsView,
-    Iterable,
-    Iterator,
-    KeysView,
-    List,
-    Mapping,
     Optional,
-    OrderedDict,
-    Sequence,
-    Set,
     Union,
-    ValuesView,
 )
 
 import torch
@@ -20,7 +11,7 @@ from replay.data import FeatureHint, FeatureSource, FeatureType
 
 # Alias
 TensorMap = Mapping[str, torch.Tensor]
-MutableTensorMap = Dict[str, torch.Tensor]
+MutableTensorMap = dict[str, torch.Tensor]
 
 
 class TensorFeatureSource:
@@ -79,7 +70,7 @@ class TensorFeatureInfo:
         feature_type: FeatureType,
         is_seq: bool = False,
         feature_hint: Optional[FeatureHint] = None,
-        feature_sources: Optional[List[TensorFeatureSource]] = None,
+        feature_sources: Optional[list[TensorFeatureSource]] = None,
         cardinality: Optional[int] = None,
         padding_value: int = 0,
         embedding_dim: Optional[int] = None,
@@ -154,13 +145,13 @@ class TensorFeatureInfo:
         self._feature_hint = hint
 
     @property
-    def feature_sources(self) -> Optional[List[TensorFeatureSource]]:
+    def feature_sources(self) -> Optional[list[TensorFeatureSource]]:
         """
         :returns: List of sources feature came from.
         """
         return self._feature_sources
 
-    def _set_feature_sources(self, sources: List[TensorFeatureSource]) -> None:
+    def _set_feature_sources(self, sources: list[TensorFeatureSource]) -> None:
         self._feature_sources = sources
 
     @property
@@ -276,7 +267,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
 
         :returns: New tensor schema of given features.
         """
-        features: Set[TensorFeatureInfo] = set()
+        features: set[TensorFeatureInfo] = set()
         for feature_name in features_to_keep:
             features.add(self._tensor_schema[feature_name])
         return TensorSchema(list(features))
@@ -432,7 +423,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
             return None
         return rating_features.item().name
 
-    def _get_object_args(self) -> Dict:
+    def _get_object_args(self) -> dict:
         """
         Returns list of features represented as dictionaries.
         """
@@ -456,7 +447,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
         return features
 
     @classmethod
-    def _create_object_by_args(cls, args: Dict) -> "TensorSchema":
+    def _create_object_by_args(cls, args: dict) -> "TensorSchema":
         features_list = []
         for feature_data in args:
             feature_data["feature_sources"] = (

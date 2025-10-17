@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import torch
@@ -94,7 +94,7 @@ class TorchRecommender(Recommender):
         self._load_model(best_checkpoint)
 
     @abstractmethod
-    def _batch_pass(self, batch, model) -> Dict[str, Any]:
+    def _batch_pass(self, batch, model) -> dict[str, Any]:
         """
         Apply model to a single batch.
 

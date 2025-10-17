@@ -1,5 +1,6 @@
 import logging
-from typing import Iterator, Optional
+from collections.abc import Iterator
+from typing import Optional
 
 import numpy as np
 

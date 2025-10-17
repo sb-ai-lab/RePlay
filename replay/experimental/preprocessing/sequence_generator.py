@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import pandas as pd
 
@@ -67,9 +67,9 @@ class SequenceGenerator:
 
     def __init__(
         self,
-        groupby_column: Union[str, List[str]],
-        orderby_column: Union[str, List[str], None] = None,
-        transform_columns: Union[None, str, List[str]] = None,
+        groupby_column: Union[str, list[str]],
+        orderby_column: Union[str, list[str], None] = None,
+        transform_columns: Union[None, str, list[str]] = None,
         len_window: int = 50,
         sequence_prefix: Optional[str] = None,
         sequence_suffix: Optional[str] = "_list",
@@ -102,7 +102,7 @@ class SequenceGenerator:
             default: ``list_len``.
         """
         self.groupby_column = groupby_column if not isinstance(groupby_column, str) else [groupby_column]
-        self.orderby_column: Union[List, Column, None]
+        self.orderby_column: Union[list, Column, None]
         if orderby_column is None:
             self.orderby_column = None
         else:
@@ -144,7 +144,7 @@ class SequenceGenerator:
         assert self.transform_columns is not None
         processed_interactions = interactions.copy(deep=True)
 
-        def seq_rolling(col: pd.Series) -> List:
+        def seq_rolling(col: pd.Series) -> list:
             return [window.to_list()[:-1] for window in col.rolling(self.len_window + 1)]
 
         for transform_col in self.transform_columns:
@@ -182,7 +182,7 @@ class SequenceGenerator:
     def _transform_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
         assert self.transform_columns is not None
         processed_interactions = interactions
-        orderby_column: Union[Column, List]
+        orderby_column: Union[Column, list]
         orderby_column = sf.lit(1) if self.orderby_column is None else self.orderby_column
 
         window = Window.partitionBy(self.groupby_column).orderBy(orderby_column).rowsBetween(-self.len_window, -1)

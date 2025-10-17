@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union
+from typing import Optional, Union
 
 import pandas as pd
 
@@ -102,10 +102,10 @@ class Experiment:
 
     def __init__(
         self,
-        metrics: List[Metric],
+        metrics: list[Metric],
         ground_truth: MetricsDataFrameLike,
         train: Optional[MetricsDataFrameLike] = None,
-        base_recommendations: Optional[Union[MetricsDataFrameLike, Dict[str, MetricsDataFrameLike]]] = None,
+        base_recommendations: Optional[Union[MetricsDataFrameLike, dict[str, MetricsDataFrameLike]]] = None,
         query_column: str = "query_id",
         item_column: str = "item_id",
         rating_column: str = "rating",

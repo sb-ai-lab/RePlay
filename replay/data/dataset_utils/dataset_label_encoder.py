@@ -6,7 +6,8 @@ Contains classes for encoding categorical data
 """
 
 import warnings
-from typing import Dict, Iterable, Iterator, Optional, Sequence, Set, Union
+from collections.abc import Iterable, Iterator, Sequence
+from typing import Optional, Union
 
 from replay.data import Dataset, FeatureHint, FeatureSchema, FeatureSource, FeatureType
 from replay.preprocessing import LabelEncoder, LabelEncodingRule, SequenceEncodingRule
@@ -45,9 +46,9 @@ class DatasetLabelEncoder:
         """
         self._handle_unknown_rule = handle_unknown_rule
         self._default_value_rule = default_value_rule
-        self._encoding_rules: Dict[str, LabelEncodingRule] = {}
+        self._encoding_rules: dict[str, LabelEncodingRule] = {}
 
-        self._features_columns: Dict[Union[FeatureHint, FeatureSource], Sequence[str]] = {}
+        self._features_columns: dict[Union[FeatureHint, FeatureSource], Sequence[str]] = {}
 
     def fit(self, dataset: Dataset) -> "DatasetLabelEncoder":
         """
@@ -161,7 +162,7 @@ class DatasetLabelEncoder:
         """
         self._check_if_initialized()
 
-        columns_set: Set[str]
+        columns_set: set[str]
         columns_set = {columns} if isinstance(columns, str) else {*columns}
 
         def get_encoding_rules() -> Iterator[LabelEncodingRule]:

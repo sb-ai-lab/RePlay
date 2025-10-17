@@ -1,7 +1,7 @@
 import abc
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Tuple, Union
+from typing import TYPE_CHECKING, Union
 
 import numpy as np
 import pandas as pd
@@ -90,7 +90,7 @@ class SequentialDataset(abc.ABC):
     @staticmethod
     def keep_common_query_ids(
         lhs: "SequentialDataset", rhs: "SequentialDataset"
-    ) -> Tuple["SequentialDataset", "SequentialDataset"]:
+    ) -> tuple["SequentialDataset", "SequentialDataset"]:
         """
         Returns `SequentialDatasets` that contain query ids from both datasets.
 
@@ -203,7 +203,7 @@ class PandasSequentialDataset(SequentialDataset):
         from replay.data.nn import TensorSchema
 
         base_path = Path(path).with_suffix(".replay").resolve()
-        with open(base_path / "init_args.json", "r") as file:
+        with open(base_path / "init_args.json") as file:
             sequential_dict = json.loads(file.read())
 
         sequences = pd.read_json(base_path / sequential_dict["init_args"]["sequences_path"])
@@ -287,7 +287,7 @@ class PolarsSequentialDataset(PandasSequentialDataset):
         from replay.data.nn import TensorSchema
 
         base_path = Path(path).with_suffix(".replay").resolve()
-        with open(base_path / "init_args.json", "r") as file:
+        with open(base_path / "init_args.json") as file:
             sequential_dict = json.loads(file.read())
 
         sequences = pl.DataFrame(pd.read_json(base_path / sequential_dict["init_args"]["sequences_path"]))

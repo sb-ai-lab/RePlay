@@ -2,7 +2,8 @@ import importlib
 import logging
 import sys
 from abc import abstractmethod
-from typing import Any, Iterable, Optional, Union
+from collections.abc import Iterable
+from typing import Any, Optional, Union
 
 from replay.data import Dataset
 from replay.models.common import RecommenderCommons

@@ -1,5 +1,5 @@
 from os.path import join
-from typing import Optional, Tuple
+from typing import Optional
 
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
@@ -148,7 +148,7 @@ class ALSWrap(Recommender, ItemVectorModel):
 
     def _get_features(
         self, ids: SparkDataFrame, features: Optional[SparkDataFrame]  # noqa: ARG002
-    ) -> Tuple[Optional[SparkDataFrame], Optional[int]]:
+    ) -> tuple[Optional[SparkDataFrame], Optional[int]]:
         entity = "user" if self.query_column in ids.columns else "item"
         entity_col = self.query_column if self.query_column in ids.columns else self.item_column
 

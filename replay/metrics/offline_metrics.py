@@ -1,5 +1,5 @@
 import warnings
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Optional, Union
 
 from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
@@ -132,7 +132,7 @@ class OfflineMetrics:
     <BLANKLINE>
     """
 
-    _metrics_call_requirement_map: Dict[str, List[str]] = {
+    _metrics_call_requirement_map: dict[str, list[str]] = {
         "HitRate": ["ground_truth"],
         "MAP": ["ground_truth"],
         "NDCG": ["ground_truth"],
@@ -147,7 +147,7 @@ class OfflineMetrics:
 
     def __init__(
         self,
-        metrics: List[Metric],
+        metrics: list[Metric],
         query_column: str = "query_id",
         item_column: str = "item_id",
         rating_column: str = "rating",
@@ -174,9 +174,9 @@ class OfflineMetrics:
         :param allow_caching: (bool): The flag for using caching to optimize calculations.
             Default: ``True``.
         """
-        self.unexpectedness_metric: List[Metric] = []
-        self.diversity_metric: List[Metric] = []
-        self.main_metrics: List[Metric] = []
+        self.unexpectedness_metric: list[Metric] = []
+        self.diversity_metric: list[Metric] = []
+        self.main_metrics: list[Metric] = []
         self._allow_caching = allow_caching
 
         for metric in metrics:
@@ -198,7 +198,7 @@ class OfflineMetrics:
         recommendations: Union[SparkDataFrame, PolarsDataFrame],
         ground_truth: Union[SparkDataFrame, PolarsDataFrame],
         train: Optional[Union[SparkDataFrame, PolarsDataFrame]],
-    ) -> Tuple[Dict[str, Union[SparkDataFrame, PolarsDataFrame]], Optional[Union[SparkDataFrame, PolarsDataFrame]]]:
+    ) -> tuple[dict[str, Union[SparkDataFrame, PolarsDataFrame]], Optional[Union[SparkDataFrame, PolarsDataFrame]]]:
         if len(self.main_metrics) == 0:
             return {}, train
         result_dict = {}
@@ -257,21 +257,21 @@ class OfflineMetrics:
 
         return result_dict, train
 
-    def _cache_dataframes(self, dataframes: Dict[str, SparkDataFrame]) -> None:
+    def _cache_dataframes(self, dataframes: dict[str, SparkDataFrame]) -> None:
         for data in dataframes.values():
             data.cache()
 
-    def _unpersist_dataframes(self, dataframes: Dict[str, SparkDataFrame]) -> None:
+    def _unpersist_dataframes(self, dataframes: dict[str, SparkDataFrame]) -> None:
         for data in dataframes.values():
             data.unpersist()
 
     def _calculate_metrics(
         self,
-        enriched_recs_dict: Dict[str, Union[SparkDataFrame, PolarsDataFrame]],
+        enriched_recs_dict: dict[str, Union[SparkDataFrame, PolarsDataFrame]],
         train: Optional[Union[SparkDataFrame, PolarsDataFrame]] = None,
         is_spark: bool = True,
     ) -> MetricsReturnType:
-        result: Dict = {}
+        result: dict = {}
         for metric in self.metrics:
             metric_args = {}
             if metric.__class__.__name__ == "Coverage" and train is not None:
@@ -295,7 +295,7 @@ class OfflineMetrics:
         recommendations: MetricsDataFrameLike,
         ground_truth: MetricsDataFrameLike,
         train: Optional[MetricsDataFrameLike],
-        base_recommendations: Optional[Union[MetricsDataFrameLike, Dict[str, MetricsDataFrameLike]]],
+        base_recommendations: Optional[Union[MetricsDataFrameLike, dict[str, MetricsDataFrameLike]]],
     ) -> None:
         types = set()
         types.add(type(recommendations))
@@ -379,8 +379,8 @@ class OfflineMetrics:
         recommendations: MetricsDataFrameLike,
         ground_truth: MetricsDataFrameLike,
         train: Optional[MetricsDataFrameLike] = None,
-        base_recommendations: Optional[Union[MetricsDataFrameLike, Dict[str, MetricsDataFrameLike]]] = None,
-    ) -> Dict[str, float]:
+        base_recommendations: Optional[Union[MetricsDataFrameLike, dict[str, MetricsDataFrameLike]]] = None,
+    ) -> dict[str, float]:
         """
         Compute metrics.
 
@@ -450,12 +450,12 @@ class OfflineMetrics:
             if is_spark and self._allow_caching:
                 self._unpersist_dataframes(enriched_recs_dict)
         else:  # Calculating metrics in dict format
-            current_map: Dict[str, Union[PandasDataFrame, Dict]] = {
+            current_map: dict[str, Union[PandasDataFrame, dict]] = {
                 "ground_truth": ground_truth,
                 "train": train,
             }
             for metric in self.metrics:
-                args_to_call: Dict[str, Union[PandasDataFrame, Dict]] = {"recommendations": recommendations}
+                args_to_call: dict[str, Union[PandasDataFrame, dict]] = {"recommendations": recommendations}
                 for data_name in self._metrics_call_requirement_map[str(metric.__class__.__name__)]:
                     args_to_call[data_name] = current_map[data_name]
                 result.update(metric(**args_to_call))

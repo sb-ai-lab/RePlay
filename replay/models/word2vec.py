@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
@@ -24,7 +24,7 @@ class Word2VecRec(ANNMixin, Recommender, ItemVectorModel):
     Trains word2vec model where items are treated as words and queries as sentences.
     """
 
-    def _get_ann_infer_params(self) -> Dict[str, Any]:
+    def _get_ann_infer_params(self) -> dict[str, Any]:
         self.index_builder.index_params.dim = self.rank
         return {
             "features_col": "query_vector",
@@ -36,7 +36,7 @@ class Word2VecRec(ANNMixin, Recommender, ItemVectorModel):
         query_vectors = query_vectors.select(self.query_column, vector_to_array("query_vector").alias("query_vector"))
         return query_vectors
 
-    def _configure_index_builder(self, interactions: SparkDataFrame) -> Dict[str, Any]:
+    def _configure_index_builder(self, interactions: SparkDataFrame) -> dict[str, Any]:
         item_vectors = self._get_item_vectors()
         item_vectors = item_vectors.select(self.item_column, vector_to_array("item_vector").alias("item_vector"))
 

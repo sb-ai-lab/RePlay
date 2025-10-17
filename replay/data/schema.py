@@ -1,18 +1,9 @@
+from collections.abc import ItemsView, Iterable, Iterator, KeysView, Mapping, Sequence, ValuesView
 from enum import Enum
 from typing import (
     Callable,
-    Dict,
-    ItemsView,
-    Iterable,
-    Iterator,
-    KeysView,
-    List,
-    Mapping,
     Optional,
-    Sequence,
-    Set,
     Union,
-    ValuesView,
 )
 
 
@@ -162,7 +153,7 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
             in original schema to keep in subset.
         :returns: new feature schema of given features.
         """
-        features: Set[FeatureInfo] = set()
+        features: set[FeatureInfo] = set()
         for feature_column in features_to_keep:
             if feature_column in self._features_schema:
                 features.add(self._features_schema[feature_column])
@@ -438,7 +429,7 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
         """
         unique_columns = set()
         duplicates = set()
-        item_query_names: Dict[FeatureHint, List[str]] = {
+        item_query_names: dict[FeatureHint, list[str]] = {
             FeatureHint.ITEM_ID: [],
             FeatureHint.QUERY_ID: [],
         }

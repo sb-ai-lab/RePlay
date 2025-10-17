@@ -1,5 +1,5 @@
+from collections import Counter
 from datetime import datetime
-from typing import Counter
 
 import pandas as pd
 import polars as pl

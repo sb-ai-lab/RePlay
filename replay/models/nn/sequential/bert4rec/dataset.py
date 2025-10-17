@@ -1,5 +1,5 @@
 import abc
-from typing import NamedTuple, Optional, Tuple, cast
+from typing import NamedTuple, Optional, cast
 
 import torch
 from torch.utils.data import Dataset as TorchDataset
@@ -295,7 +295,7 @@ def _shift_features(
     schema: TensorSchema,
     features: TensorMap,
     padding_mask: torch.BoolTensor,
-) -> Tuple[TensorMap, torch.BoolTensor, torch.BoolTensor]:
+) -> tuple[TensorMap, torch.BoolTensor, torch.BoolTensor]:
     shifted_features: MutableTensorMap = {}
     for feature_name, feature in schema.items():
         if feature.is_seq:

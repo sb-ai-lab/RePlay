@@ -1,4 +1,4 @@
-from typing import Any, List, Literal, Optional, Protocol, Tuple
+from typing import Any, Literal, Optional, Protocol
 
 import lightning
 import torch
@@ -38,9 +38,9 @@ class ValidationMetricsCallback(lightning.Callback):
 
     def __init__(
         self,
-        metrics: Optional[List[CallbackMetricName]] = None,
-        ks: Optional[List[int]] = None,
-        postprocessors: Optional[List[BasePostProcessor]] = None,
+        metrics: Optional[list[CallbackMetricName]] = None,
+        ks: Optional[list[int]] = None,
+        postprocessors: Optional[list[BasePostProcessor]] = None,
         item_count: Optional[int] = None,
     ):
         """
@@ -52,11 +52,11 @@ class ValidationMetricsCallback(lightning.Callback):
         self._metrics = metrics
         self._ks = ks
         self._item_count = item_count
-        self._metrics_builders: List[TorchMetricsBuilder] = []
-        self._dataloaders_size: List[int] = []
-        self._postprocessors: List[BasePostProcessor] = postprocessors or []
+        self._metrics_builders: list[TorchMetricsBuilder] = []
+        self._dataloaders_size: list[int] = []
+        self._postprocessors: list[BasePostProcessor] = postprocessors or []
 
-    def _get_dataloaders_size(self, dataloaders: Optional[Any]) -> List[int]:
+    def _get_dataloaders_size(self, dataloaders: Optional[Any]) -> list[int]:
         if isinstance(dataloaders, torch.utils.data.DataLoader):
             return [len(dataloaders)]
         return [len(dataloader) for dataloader in dataloaders]
@@ -85,7 +85,7 @@ class ValidationMetricsCallback(lightning.Callback):
 
     def _compute_pipeline(
         self, query_ids: torch.LongTensor, scores: torch.Tensor, ground_truth: torch.LongTensor
-    ) -> Tuple[torch.LongTensor, torch.Tensor, torch.LongTensor]:
+    ) -> tuple[torch.LongTensor, torch.Tensor, torch.LongTensor]:
         for postprocessor in self._postprocessors:
             query_ids, scores, ground_truth = postprocessor.on_validation(query_ids, scores, ground_truth)
         return query_ids, scores, ground_truth

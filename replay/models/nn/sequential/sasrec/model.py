@@ -1,6 +1,6 @@
 import abc
 import contextlib
-from typing import Any, Dict, Optional, Tuple, Union, cast
+from typing import Any, Optional, Union, cast
 
 import torch
 
@@ -212,7 +212,7 @@ class SasRecMasks:
         self,
         feature_tensor: TensorMap,
         padding_mask: torch.BoolTensor,
-    ) -> Tuple[torch.BoolTensor, torch.BoolTensor, TensorMap]:
+    ) -> tuple[torch.BoolTensor, torch.BoolTensor, TensorMap]:
         """
         :param feature_tensor: Batch of features.
         :param padding_mask: Padding mask where 0 - <PAD>, 1 otherwise.
@@ -260,7 +260,7 @@ class BaseSasRecEmbeddings(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_all_embeddings(self) -> Dict[str, torch.Tensor]:
+    def get_all_embeddings(self) -> dict[str, torch.Tensor]:
         """
         :returns: copy of all embeddings presented in a layer as a dict.
         """
@@ -366,7 +366,7 @@ class SasRecEmbeddings(torch.nn.Module, BaseSasRecEmbeddings):
         # Last one is reserved for padding, so we remove it
         return self.item_emb.weight[:-1, :]
 
-    def get_all_embeddings(self) -> Dict[str, torch.Tensor]:
+    def get_all_embeddings(self) -> dict[str, torch.Tensor]:
         """
         :returns: copy of all embeddings presented in this layer as a dict.
         """
@@ -579,7 +579,7 @@ class TiSasRecEmbeddings(torch.nn.Module, BaseSasRecEmbeddings):
         self,
         feature_tensor: TensorMap,
         padding_mask: torch.BoolTensor,
-    ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
+    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
         """
         :param feature_tensor: Batch of features.
         :param padding_mask: Padding mask where 0 - <PAD>, 1 otherwise.
@@ -628,7 +628,7 @@ class TiSasRecEmbeddings(torch.nn.Module, BaseSasRecEmbeddings):
         # Last one is reserved for padding, so we remove it
         return self.item_emb.weight[:-1, :]
 
-    def get_all_embeddings(self) -> Dict[str, torch.Tensor]:
+    def get_all_embeddings(self) -> dict[str, torch.Tensor]:
         """
         :returns: copy of all embeddings presented in this layer as a dict.
         """
@@ -674,7 +674,7 @@ class TiSasRecLayers(torch.nn.Module):
         seqs: torch.Tensor,
         attention_mask: torch.BoolTensor,
         padding_mask: torch.BoolTensor,
-        ti_embeddings: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+        ti_embeddings: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
         device: torch.device,
     ) -> torch.Tensor:
         """
@@ -734,7 +734,7 @@ class TiSasRecAttention(torch.nn.Module):
         keys: torch.LongTensor,
         time_mask: torch.LongTensor,
         attn_mask: torch.LongTensor,
-        ti_embeddings: Tuple[torch.LongTensor, torch.LongTensor, torch.LongTensor, torch.LongTensor],
+        ti_embeddings: tuple[torch.LongTensor, torch.LongTensor, torch.LongTensor, torch.LongTensor],
         device: torch.device,
     ) -> torch.Tensor:
         """

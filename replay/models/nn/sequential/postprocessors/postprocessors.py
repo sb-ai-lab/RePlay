@@ -1,4 +1,4 @@
-from typing import List, Optional, Set, Tuple, Union, cast
+from typing import Optional, Union, cast
 
 import numpy as np
 import pandas as pd
@@ -22,7 +22,7 @@ class RemoveSeenItems(BasePostProcessor):
 
     def on_validation(
         self, query_ids: torch.LongTensor, scores: torch.Tensor, ground_truth: torch.LongTensor
-    ) -> Tuple[torch.LongTensor, torch.Tensor, torch.LongTensor]:
+    ) -> tuple[torch.LongTensor, torch.Tensor, torch.LongTensor]:
         """
         Validation step.
 
@@ -36,7 +36,7 @@ class RemoveSeenItems(BasePostProcessor):
         modified_scores = self._compute_scores(query_ids, scores)
         return query_ids, modified_scores, ground_truth
 
-    def on_prediction(self, query_ids: torch.LongTensor, scores: torch.Tensor) -> Tuple[torch.LongTensor, torch.Tensor]:
+    def on_prediction(self, query_ids: torch.LongTensor, scores: torch.Tensor) -> tuple[torch.LongTensor, torch.Tensor]:
         """
         Prediction step.
 
@@ -124,13 +124,13 @@ class SampleItems(BasePostProcessor):
         self.sample_count = sample_count
         users = grouped_validation_items[user_col].to_numpy()
         items = grouped_validation_items[item_col].to_numpy()
-        self.items_list: List[Set[int]] = [set() for _ in range(users.shape[0])]
+        self.items_list: list[set[int]] = [set() for _ in range(users.shape[0])]
         for i in range(users.shape[0]):
             self.items_list[users[i]] = set(items[i])
 
     def on_validation(
         self, query_ids: torch.LongTensor, scores: torch.Tensor, ground_truth: torch.LongTensor
-    ) -> Tuple[torch.LongTensor, torch.Tensor, torch.LongTensor]:
+    ) -> tuple[torch.LongTensor, torch.Tensor, torch.LongTensor]:
         """
         Validation step.
 
@@ -143,7 +143,7 @@ class SampleItems(BasePostProcessor):
         modified_score = self._compute_score(query_ids, scores, ground_truth)
         return query_ids, modified_score, ground_truth
 
-    def on_prediction(self, query_ids: torch.LongTensor, scores: torch.Tensor) -> Tuple[torch.LongTensor, torch.Tensor]:
+    def on_prediction(self, query_ids: torch.LongTensor, scores: torch.Tensor) -> tuple[torch.LongTensor, torch.Tensor]:
         """
         Prediction step.
 
@@ -160,8 +160,8 @@ class SampleItems(BasePostProcessor):
     ) -> torch.Tensor:
         batch_size = query_ids.shape[0]
         item_ids = ground_truth.cpu().numpy() if ground_truth is not None else None
-        candidate_ids: List[torch.Tensor] = []
-        candidate_labels: List[torch.Tensor] = []
+        candidate_ids: list[torch.Tensor] = []
+        candidate_labels: list[torch.Tensor] = []
         for user in range(batch_size):
             ground_truth_items = set(item_ids[user]) if ground_truth is not None else set()
             sample, label = self._generate_samples_for_user(ground_truth_items, self.items_list[user])
@@ -183,8 +183,8 @@ class SampleItems(BasePostProcessor):
         return new_scores.reshape_as(scores)
 
     def _generate_samples_for_user(
-        self, ground_truth_items: Set[int], input_items: Set[int]
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        self, ground_truth_items: set[int], input_items: set[int]
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         negative_sample_count = self.sample_count - len(ground_truth_items)
         assert negative_sample_count > 0
 

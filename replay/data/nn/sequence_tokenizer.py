@@ -2,8 +2,9 @@ import abc
 import json
 import pickle
 import warnings
+from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Generic, List, Optional, Sequence, Set, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Generic, Optional, TypeVar, Union
 
 import numpy as np
 import polars as pl
@@ -187,7 +188,7 @@ class SequenceTokenizer:
     def _group_dataset(
         self,
         dataset: Dataset,
-    ) -> Tuple[SequenceDataFrameLike, Optional[SequenceDataFrameLike], Optional[SequenceDataFrameLike]]:
+    ) -> tuple[SequenceDataFrameLike, Optional[SequenceDataFrameLike], Optional[SequenceDataFrameLike]]:
         from replay.data.nn.utils import ensure_pandas, groupby_sequences
 
         grouped_interactions = groupby_sequences(
@@ -268,13 +269,13 @@ class SequenceTokenizer:
         tensor_schema: "TensorSchema",
         query_id_column: str,
         item_id_column: str,
-    ) -> Set[str]:
+    ) -> set[str]:
         # We need only features, which related to tensor schema, otherwise feature should
         # be ignored for efficiency reasons. The code below does feature filtering, and
         # keeps features used as a source in tensor schema.
 
         # Query and item IDs are always needed
-        features_subset: List[str] = [
+        features_subset: list[str] = [
             query_id_column,
             item_id_column,
         ]
@@ -303,7 +304,7 @@ class SequenceTokenizer:
                 msg = "All tensor features must have sources defined"
                 raise ValueError(msg)
 
-            source_tables: List[FeatureSource] = [s.source for s in feature_sources]
+            source_tables: list[FeatureSource] = [s.source for s in feature_sources]
 
             unexpected_tables = list(filter(lambda x: not isinstance(x, FeatureSource), source_tables))
             if len(unexpected_tables) > 0:
@@ -327,7 +328,7 @@ class SequenceTokenizer:
         tensor_features_to_keep: Optional[Sequence[str]] = None,
     ) -> None:
         # Check if all source columns specified in tensor schema exist in provided data frames
-        sources_for_tensors: List["TensorFeatureSource"] = []
+        sources_for_tensors: list["TensorFeatureSource"] = []
         for tensor_feature_name, tensor_feature in tensor_schema.items():
             if tensor_features_to_keep is not None and tensor_feature_name not in tensor_features_to_keep:
                 continue
@@ -421,7 +422,7 @@ class SequenceTokenizer:
 
         if not use_pickle:
             base_path = Path(path).with_suffix(".replay").resolve()
-            with open(base_path / "init_args.json", "r") as file:
+            with open(base_path / "init_args.json") as file:
                 tokenizer_dict = json.loads(file.read())
 
             # load tensor_schema, tensor_features
@@ -625,7 +626,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
         """
         :returns: processed Pandas DataFrame with all features from tensor schema.
         """
-        all_features: Dict[str, Union[np.ndarray, List[np.ndarray]]] = {}
+        all_features: dict[str, Union[np.ndarray, list[np.ndarray]]] = {}
         all_features[self._query_id_column] = self._grouped_interactions[self._query_id_column].values
 
         for tensor_feature_name in self._tensor_schema:
@@ -635,7 +636,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
 
     def _process_num_interaction_feature(
         self, tensor_feature: "TensorFeatureInfo"
-    ) -> Union[List[np.ndarray], List[List]]:
+    ) -> Union[list[np.ndarray], list[list]]:
         """
         Process numerical interaction feature.
 
@@ -656,7 +657,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
                 values.append(np.array(sequence))
         return values
 
-    def _process_num_item_feature(self, tensor_feature: "TensorFeatureInfo") -> Union[List[np.ndarray], List[List]]:
+    def _process_num_item_feature(self, tensor_feature: "TensorFeatureInfo") -> Union[list[np.ndarray], list[list]]:
         """
         Process numerical feature from item features dataset.
 
@@ -682,7 +683,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
 
         return values
 
-    def _process_num_query_feature(self, tensor_feature: "TensorFeatureInfo") -> List[np.ndarray]:
+    def _process_num_query_feature(self, tensor_feature: "TensorFeatureInfo") -> list[np.ndarray]:
         """
         Process numerical feature from query features dataset.
 
@@ -694,7 +695,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
 
     def _process_cat_interaction_feature(
         self, tensor_feature: "TensorFeatureInfo"
-    ) -> Union[List[np.ndarray], List[List]]:
+    ) -> Union[list[np.ndarray], list[list]]:
         """
         Process categorical interaction feature.
 
@@ -715,7 +716,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
                 values.append(np.array(sequence))
         return values
 
-    def _process_cat_query_feature(self, tensor_feature: "TensorFeatureInfo") -> List[np.ndarray]:
+    def _process_cat_query_feature(self, tensor_feature: "TensorFeatureInfo") -> list[np.ndarray]:
         """
         Process categorical feature from query features dataset.
 
@@ -744,7 +745,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
                 ]
         return [np.array([query_feature[i]]).reshape(-1) for i in range(len(self._grouped_interactions))]
 
-    def _process_cat_item_feature(self, tensor_feature: "TensorFeatureInfo") -> Union[List[np.ndarray], List[List]]:
+    def _process_cat_item_feature(self, tensor_feature: "TensorFeatureInfo") -> Union[list[np.ndarray], list[list]]:
         """
         Process categorical feature from item features dataset.
 
@@ -760,7 +761,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
         assert source is not None
 
         item_feature = self._item_features[source.column]
-        values: List[np.ndarray] = []
+        values: list[np.ndarray] = []
 
         for item_id_sequence in self._grouped_interactions[self._item_id_column]:
             feature_sequence = item_feature.loc[item_id_sequence].values

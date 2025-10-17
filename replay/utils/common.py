@@ -73,7 +73,7 @@ def load_from_replay(path: Union[str, Path], **kwargs) -> SavableObject:
     :param path: Path to save the object.
     """
     path = Path(path).with_suffix(".replay").resolve()
-    with open(path / "init_args.json", "r") as file:
+    with open(path / "init_args.json") as file:
         class_name = json.loads(file.read())["_class_name"]
     obj_type = globals()[class_name]
     obj = obj_type.load(path, **kwargs)

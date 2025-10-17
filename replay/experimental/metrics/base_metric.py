@@ -4,7 +4,7 @@ Base classes for quality and diversity metrics.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Union
+from typing import Optional, Union
 
 import pandas as pd
 from scipy.stats import norm
@@ -199,7 +199,7 @@ class Metric(ABC):
         ground_truth: DataFrameLike,
         k: IntOrList,
         ground_truth_users: Optional[DataFrameLike] = None,
-    ) -> Union[Dict[int, NumType], NumType]:
+    ) -> Union[dict[int, NumType], NumType]:
         """
         :param recommendations: model predictions in a
             DataFrame ``[user_idx, item_idx, relevance]``
@@ -343,7 +343,7 @@ class Metric(ABC):
         return res
 
     @staticmethod
-    def get_scala_udf(udf_name: str, params: List) -> Column:
+    def get_scala_udf(udf_name: str, params: list) -> Column:
         """
         Returns expression of calling scala UDF as column
 
@@ -378,7 +378,7 @@ class RecOnlyMetric(Metric):
         recommendations: DataFrameLike,
         k: IntOrList,
         ground_truth_users: Optional[DataFrameLike] = None,
-    ) -> Union[Dict[int, NumType], NumType]:
+    ) -> Union[dict[int, NumType], NumType]:
         """
         :param recommendations: predictions of a model,
             DataFrame  ``[user_idx, item_idx, relevance]``

@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional
 
 import polars as pl
 
@@ -62,7 +62,7 @@ class ColdUserRandomSplitter(Splitter):
 
     def _core_split_pandas(
         self, interactions: PandasDataFrame, threshold: float
-    ) -> Tuple[PandasDataFrame, PandasDataFrame]:
+    ) -> tuple[PandasDataFrame, PandasDataFrame]:
         users = PandasDataFrame(interactions[self.query_column].unique(), columns=[self.query_column])
         train_users = users.sample(frac=(1 - threshold), random_state=self.seed)
         train_users["is_test"] = False
@@ -78,7 +78,7 @@ class ColdUserRandomSplitter(Splitter):
 
     def _core_split_spark(
         self, interactions: SparkDataFrame, threshold: float
-    ) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    ) -> tuple[SparkDataFrame, SparkDataFrame]:
         users = interactions.select(self.query_column).distinct()
         train_users, _ = users.randomSplit(
             [1 - threshold, threshold],
@@ -97,7 +97,7 @@ class ColdUserRandomSplitter(Splitter):
 
     def _core_split_polars(
         self, interactions: PolarsDataFrame, threshold: float
-    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+    ) -> tuple[PolarsDataFrame, PolarsDataFrame]:
         train_users = (
             interactions.select(self.query_column)
             .unique(maintain_order=True)

@@ -1,5 +1,5 @@
 import math
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from replay.data.dataset import Dataset
 from replay.metrics import NDCG, Metric
@@ -103,7 +103,7 @@ class UCB(NonPersonalizedRecommender):
         self,
         train_dataset: Dataset,  # noqa: ARG002
         test_dataset: Dataset,  # noqa: ARG002
-        param_borders: Optional[Dict[str, List[Any]]] = None,  # noqa: ARG002
+        param_borders: Optional[dict[str, list[Any]]] = None,  # noqa: ARG002
         criterion: Metric = NDCG,  # noqa: ARG002
         k: int = 10,  # noqa: ARG002
         budget: int = 10,  # noqa: ARG002

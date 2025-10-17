@@ -1,6 +1,6 @@
 import contextlib
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 
 import torch
 import torch.nn as nn
@@ -303,7 +303,7 @@ class BertEmbedding(torch.nn.Module):
         """
         return self.cat_embeddings[self.schema.item_id_feature_name].weight
 
-    def get_all_embeddings(self) -> Dict[str, torch.Tensor]:
+    def get_all_embeddings(self) -> dict[str, torch.Tensor]:
         """
         :returns: copy of all embeddings presented in this layer as a dict.
         """

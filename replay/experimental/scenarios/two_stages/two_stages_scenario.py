@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 from replay.experimental.models import ScalaALSWrap
 from replay.experimental.preprocessing.data_preparator import ToNumericFeatureTransformer
@@ -146,16 +146,16 @@ class TwoStagesScenario(HybridRecommender):
     def __init__(
         self,
         train_splitter: Splitter = RatioSplitter(test_size=0.5),
-        first_level_models: Union[List[BaseRecommender], BaseRecommender] = ScalaALSWrap(rank=128),
+        first_level_models: Union[list[BaseRecommender], BaseRecommender] = ScalaALSWrap(rank=128),
         fallback_model: Optional[BaseRecommender] = PopRec(),
-        use_first_level_models_feat: Union[List[bool], bool] = False,
-        second_model_params: Optional[Union[Dict, str]] = None,
+        use_first_level_models_feat: Union[list[bool], bool] = False,
+        second_model_params: Optional[Union[dict, str]] = None,
         second_model_config_path: Optional[str] = None,
         num_negatives: int = 100,
         negatives_type: str = "first_level",
         use_generated_features: bool = False,
-        user_cat_features_list: Optional[List] = None,
-        item_cat_features_list: Optional[List] = None,
+        user_cat_features_list: Optional[list] = None,
+        item_cat_features_list: Optional[list] = None,
         custom_features_processor: HistoryBasedFeaturesProcessor = None,
         seed: int = 123,
     ) -> None:
@@ -326,7 +326,7 @@ class TwoStagesScenario(HybridRecommender):
         full_second_level_train_cached.unpersist()
         return full_second_level_train
 
-    def _split_data(self, log: SparkDataFrame) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    def _split_data(self, log: SparkDataFrame) -> tuple[SparkDataFrame, SparkDataFrame]:
         """Write statistics"""
         first_level_train, second_level_train = self.train_splitter.split(log)
         State().logger.debug("Log info: %s", get_log_info(log))
@@ -355,21 +355,21 @@ class TwoStagesScenario(HybridRecommender):
         Filter users and items using can_predict_cold_items and can_predict_cold_users, and predict
         """
         if not model.can_predict_cold_items:
-            log, items, item_features = [
+            log, items, item_features = (
                 self._filter_or_return(
                     dataframe=df,
                     condition=sf.col("item_idx") < self.first_level_item_len,
                 )
                 for df in [log, items, item_features]
-            ]
+            )
         if not model.can_predict_cold_users:
-            log, users, user_features = [
+            log, users, user_features = (
                 self._filter_or_return(
                     dataframe=df,
                     condition=sf.col("user_idx") < self.first_level_user_len,
                 )
                 for df in [log, users, user_features]
-            ]
+            )
 
         log_to_filter_cached = join_with_col_renaming(
             left=log_to_filter,
@@ -418,21 +418,21 @@ class TwoStagesScenario(HybridRecommender):
         Get relevance for selected user-item pairs.
         """
         if not model.can_predict_cold_items:
-            log, pairs, item_features = [
+            log, pairs, item_features = (
                 self._filter_or_return(
                     dataframe=df,
                     condition=sf.col("item_idx") < self.first_level_item_len,
                 )
                 for df in [log, pairs, item_features]
-            ]
+            )
         if not model.can_predict_cold_users:
-            log, pairs, user_features = [
+            log, pairs, user_features = (
                 self._filter_or_return(
                     dataframe=df,
                     condition=sf.col("user_idx") < self.first_level_user_len,
                 )
                 for df in [log, pairs, user_features]
-            ]
+            )
 
         return model._predict_pairs(
             pairs=pairs,
@@ -651,7 +651,7 @@ class TwoStagesScenario(HybridRecommender):
         test: DataFrameLike,
         user_features: Optional[DataFrameLike] = None,
         item_features: Optional[DataFrameLike] = None,
-        param_borders: Optional[Dict[str, List[Any]]] = None,
+        param_borders: Optional[dict[str, list[Any]]] = None,
         criterion: Metric = Precision,
         k: int = 10,
         budget: int = 10,
@@ -676,12 +676,12 @@ class TwoStagesScenario(HybridRecommender):
         test: DataFrameLike,
         user_features: Optional[DataFrameLike] = None,
         item_features: Optional[DataFrameLike] = None,
-        param_borders: Optional[List[Dict[str, List[Any]]]] = None,
+        param_borders: Optional[list[dict[str, list[Any]]]] = None,
         criterion: Metric = Precision,
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,
-    ) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    ) -> tuple[list[dict[str, Any]], Optional[dict[str, Any]]]:
         """
         Optimize first level models with optuna.
 

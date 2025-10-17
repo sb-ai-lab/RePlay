@@ -1,6 +1,6 @@
 import os
 from os.path import join
-from typing import Optional, Tuple
+from typing import Optional
 
 import numpy as np
 from scipy.sparse import csr_matrix, diags, hstack
@@ -256,7 +256,7 @@ class LightFMWrap(HybridRecommender):
 
     def _get_features(
         self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
-    ) -> Tuple[Optional[SparkDataFrame], Optional[int]]:
+    ) -> tuple[Optional[SparkDataFrame], Optional[int]]:
         """
         Get features from LightFM.
         LightFM has methods get_item_representations/get_user_representations,

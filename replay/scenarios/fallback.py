@@ -1,4 +1,5 @@
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from collections.abc import Iterable
+from typing import Any, Optional, Union
 
 from replay.data import Dataset
 from replay.metrics import NDCG, Metric
@@ -125,12 +126,12 @@ class Fallback(BaseRecommender):
         self,
         train_dataset: Dataset,
         test_dataset: Dataset,
-        param_borders: Optional[Dict[str, Dict[str, List[Any]]]] = None,
+        param_borders: Optional[dict[str, dict[str, list[Any]]]] = None,
         criterion: Metric = NDCG,
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,
-    ) -> Tuple[Dict[str, Any]]:
+    ) -> tuple[dict[str, Any]]:
         """
         Searches best parameters with optuna.
 

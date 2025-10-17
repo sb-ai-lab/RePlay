@@ -1,5 +1,3 @@
-from typing import List
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -297,7 +295,7 @@ def test_pad_sequence_raise(sequential_dataset):
         dataset._pad_sequence(torch.tensor(sequence, dtype=torch.long), -1).tolist()
 
 
-def _compare_sequence(dataset: TorchSequentialDataset, index: int, feature_name: str, expected: List[int]) -> None:
+def _compare_sequence(dataset: TorchSequentialDataset, index: int, feature_name: str, expected: list[int]) -> None:
     query_id, padding_mask, feature_sequence = dataset[index]
 
     actual_sequence_np = feature_sequence[feature_name].numpy()

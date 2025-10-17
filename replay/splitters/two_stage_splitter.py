@@ -2,7 +2,7 @@
 This splitter split data by two columns.
 """
 
-from typing import Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import polars as pl
@@ -165,7 +165,7 @@ class TwoStageSplitter(Splitter):
 
         return test_users
 
-    def _split_proportion_spark(self, interactions: SparkDataFrame) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    def _split_proportion_spark(self, interactions: SparkDataFrame) -> tuple[SparkDataFrame, SparkDataFrame]:
         counts = interactions.groupBy(self.first_divide_column).count()
         test_users = self._get_test_values(interactions).withColumn("is_test", sf.lit(True))
         if self.shuffle:
@@ -197,7 +197,7 @@ class TwoStageSplitter(Splitter):
 
         return train, test
 
-    def _split_proportion_pandas(self, interactions: PandasDataFrame) -> Tuple[PandasDataFrame, PandasDataFrame]:
+    def _split_proportion_pandas(self, interactions: PandasDataFrame) -> tuple[PandasDataFrame, PandasDataFrame]:
         counts = (
             interactions.groupby(self.first_divide_column).agg(count=(self.first_divide_column, "count")).reset_index()
         )
@@ -224,7 +224,7 @@ class TwoStageSplitter(Splitter):
 
         return train, test
 
-    def _split_proportion_polars(self, interactions: PolarsDataFrame) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+    def _split_proportion_polars(self, interactions: PolarsDataFrame) -> tuple[PolarsDataFrame, PolarsDataFrame]:
         counts = interactions.group_by(self.first_divide_column).count()
         test_users = self._get_test_values(interactions).with_columns(pl.lit(True).alias("is_test"))
         if self.shuffle:

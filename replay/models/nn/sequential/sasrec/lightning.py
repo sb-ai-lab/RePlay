@@ -1,5 +1,5 @@
 import math
-from typing import Any, Dict, Literal, Optional, Tuple, Union, cast
+from typing import Any, Literal, Optional, Union, cast
 
 import lightning
 import torch
@@ -341,7 +341,7 @@ class SasRec(lightning.LightningModule):
         positive_labels: torch.LongTensor,
         padding_mask: torch.BoolTensor,
         target_padding_mask: torch.BoolTensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.LongTensor, torch.LongTensor, int]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.LongTensor, torch.LongTensor, int]:
         assert self._loss_sample_count is not None
         n_negative_samples = self._loss_sample_count
         positive_labels = cast(
@@ -428,7 +428,7 @@ class SasRec(lightning.LightningModule):
         msg = "Not supported loss_type"
         raise NotImplementedError(msg)
 
-    def get_all_embeddings(self) -> Dict[str, torch.nn.Embedding]:
+    def get_all_embeddings(self) -> dict[str, torch.nn.Embedding]:
         """
         :returns: copy of all embeddings as a dictionary.
         """

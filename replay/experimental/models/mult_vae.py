@@ -3,7 +3,7 @@ MultVAE implementation
 (Variational Autoencoders for Collaborative Filtering)
 """
 
-from typing import Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import torch
@@ -56,7 +56,7 @@ class VAE(nn.Module):
         for layer in self.decoder:
             self.weight_init(layer)
 
-    def encode(self, batch: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def encode(self, batch: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Encode"""
         hidden = sf.normalize(batch, p=2, dim=1)
         hidden = self.dropout(hidden)
@@ -87,7 +87,7 @@ class VAE(nn.Module):
             hidden = self.activation(hidden)
         return self.decoder[-1](hidden)
 
-    def forward(self, batch: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, batch: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         :param batch: user batch
         :return: output, expectation and logarithm of variation
@@ -183,7 +183,7 @@ class MultVAE(TorchRecommender):
 
     def _get_data_loader(
         self, data: PandasDataFrame, shuffle: bool = True
-    ) -> Tuple[csr_matrix, DataLoader, np.ndarray]:
+    ) -> tuple[csr_matrix, DataLoader, np.ndarray]:
         """get data loader and matrix with data"""
         users_count = data["user_idx"].value_counts().count()
         user_idx = data["user_idx"].astype("category").cat

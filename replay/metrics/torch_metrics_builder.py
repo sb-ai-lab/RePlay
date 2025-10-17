@@ -1,6 +1,7 @@
 import abc
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Mapping, Optional, Set
+from typing import Any, Literal, Optional
 
 import numpy as np
 
@@ -19,13 +20,13 @@ MetricName = Literal[
     "coverage",
 ]
 
-DEFAULT_METRICS: List[MetricName] = [
+DEFAULT_METRICS: list[MetricName] = [
     "map",
     "ndcg",
     "recall",
 ]
 
-DEFAULT_KS: List[int] = [1, 5, 10, 20]
+DEFAULT_KS: list[int] = [1, 5, 10, 20]
 
 
 @dataclass
@@ -34,7 +35,7 @@ class _MetricRequirements:
     Stores description of metrics which need to be computed
     """
 
-    top_k: List[int]
+    top_k: list[int]
     need_recall: bool
     need_precision: bool
     need_ndcg: bool
@@ -68,14 +69,14 @@ class _MetricRequirements:
         self._metric_names = metrics
 
     @property
-    def metric_names(self) -> List[str]:
+    def metric_names(self) -> list[str]:
         """
         Getting metric names
         """
         return self._metric_names
 
     @classmethod
-    def from_metrics(cls, metrics: Set[str], top_k: List[int]) -> "_MetricRequirements":
+    def from_metrics(cls, metrics: set[str], top_k: list[int]) -> "_MetricRequirements":
         """
         Creating a class based on a given list of metrics and K values
         """
@@ -96,7 +97,7 @@ class _CoverageHelper:
     Computes coverage metric over multiple batches
     """
 
-    def __init__(self, top_k: List[int], item_count: Optional[int]) -> None:
+    def __init__(self, top_k: list[int], item_count: Optional[int]) -> None:
         """
         :param top_k: (list): Consider the highest k scores in the ranking.
         :param item_count: (optional, int): the total number of items in the dataset.
@@ -110,7 +111,7 @@ class _CoverageHelper:
         Reload the metric counter
         """
         self._train_hist = torch.zeros(self.item_count)
-        self._pred_hist: Dict[int, torch.Tensor] = {k: torch.zeros(self.item_count) for k in self._top_k}
+        self._pred_hist: dict[int, torch.Tensor] = {k: torch.zeros(self.item_count) for k in self._top_k}
 
     def _ensure_hists_on_device(self, device: torch.device) -> None:
         self._train_hist = self._train_hist.to(device)
@@ -197,8 +198,8 @@ class TorchMetricsBuilder(_MetricBuilder):
 
     def __init__(
         self,
-        metrics: List[MetricName] = DEFAULT_METRICS,
-        top_k: Optional[List[int]] = DEFAULT_KS,
+        metrics: list[MetricName] = DEFAULT_METRICS,
+        top_k: Optional[list[int]] = DEFAULT_KS,
         item_count: Optional[int] = None,
     ) -> None:
         """
@@ -331,8 +332,8 @@ class TorchMetricsBuilder(_MetricBuilder):
 
     def _compute_metrics_sum(
         self, predictions: torch.LongTensor, ground_truth: torch.LongTensor, train: Optional[torch.LongTensor]
-    ) -> List[float]:
-        result: List[float] = []
+    ) -> list[float]:
+        result: list[float] = []
 
         # Getting a tensor of the same size as predictions
         # The tensor contains information about whether the item from the prediction is present in the test set

@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional
 
 from replay.utils import DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
@@ -48,20 +48,20 @@ class RandomSplitter(Splitter):
 
     def _random_split_spark(
         self, interactions: SparkDataFrame, threshold: float
-    ) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    ) -> tuple[SparkDataFrame, SparkDataFrame]:
         train, test = interactions.randomSplit([1 - threshold, threshold], self.seed)
         return train, test
 
     def _random_split_pandas(
         self, interactions: PandasDataFrame, threshold: float
-    ) -> Tuple[PandasDataFrame, PandasDataFrame]:
+    ) -> tuple[PandasDataFrame, PandasDataFrame]:
         train = interactions.sample(frac=(1 - threshold), random_state=self.seed)
         test = interactions.drop(train.index)
         return train, test
 
     def _random_split_polars(
         self, interactions: PolarsDataFrame, threshold: float
-    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+    ) -> tuple[PolarsDataFrame, PolarsDataFrame]:
         train_size = int(len(interactions) * (1 - threshold)) + 1
         shuffled_interactions = interactions.sample(fraction=1, shuffle=True, seed=self.seed)
         train = shuffled_interactions[:train_size]

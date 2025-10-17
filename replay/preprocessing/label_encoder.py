@@ -10,8 +10,9 @@ import abc
 import json
 import os
 import warnings
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Dict, List, Literal, Mapping, Optional, Sequence, Union
+from typing import Literal, Optional, Union
 
 import polars as pl
 
@@ -162,7 +163,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
     def _make_inverse_mapping(self) -> Mapping:
         return {val: key for key, val in self.get_mapping().items()}
 
-    def _make_inverse_mapping_list(self) -> List:
+    def _make_inverse_mapping_list(self) -> list:
         inverse_mapping_list = [0 for _ in range(len(self.get_mapping()))]
         for k, value in self.get_mapping().items():
             inverse_mapping_list[value] = k
@@ -543,7 +544,7 @@ Convert type to string, integer, or float."
     @classmethod
     def load(cls, path: str) -> "LabelEncodingRule":
         base_path = Path(path).with_suffix(".replay").resolve()
-        with open(base_path / "init_args.json", "r") as file:
+        with open(base_path / "init_args.json") as file:
             encoder_rule_dict = json.loads(file.read())
 
         string_column_type = encoder_rule_dict["fitted_args"]["column_type"]
@@ -901,7 +902,7 @@ class LabelEncoder:
         """
         return self.fit(df).transform(df)
 
-    def set_handle_unknowns(self, handle_unknown_rules: Dict[str, HandleUnknownStrategies]) -> None:
+    def set_handle_unknowns(self, handle_unknown_rules: dict[str, HandleUnknownStrategies]) -> None:
         """
         Modify handle unknown strategy on already fitted encoder.
 
@@ -923,7 +924,7 @@ class LabelEncoder:
             rule = list(filter(lambda x: x.column == column, self.rules))
             rule[0].set_handle_unknown(handle_unknown)
 
-    def set_default_values(self, default_value_rules: Dict[str, Optional[Union[int, str]]]) -> None:
+    def set_default_values(self, default_value_rules: dict[str, Optional[Union[int, str]]]) -> None:
         """
         Modify handle unknown strategy on already fitted encoder.
         Default value that will fill the unknown labels
@@ -974,13 +975,13 @@ class LabelEncoder:
     @classmethod
     def load(cls, path: str) -> "LabelEncoder":
         base_path = Path(path).with_suffix(".replay").resolve()
-        with open(base_path / "init_args.json", "r") as file:
+        with open(base_path / "init_args.json") as file:
             encoder_dict = json.loads(file.read())
         rules = []
         for root, dirs, files in os.walk(str(base_path) + "/rules/"):
             for d in dirs:
                 if d.split(".")[0] in encoder_dict["rule_names"]:
-                    with open(root + d + "/init_args.json", "r") as file:
+                    with open(root + d + "/init_args.json") as file:
                         encoder_rule_dict = json.loads(file.read())
                     rules.append(globals()[encoder_rule_dict["_class_name"]].load(root + d))
 

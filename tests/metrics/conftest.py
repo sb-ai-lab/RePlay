@@ -1,6 +1,5 @@
 from os.path import dirname, join
 from random import shuffle
-from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -218,13 +217,13 @@ def encode_data(data: PandasDataFrame) -> PandasDataFrame:
     return encoder.fit_transform(data)
 
 
-def split_data(data: PandasDataFrame) -> Tuple[PandasDataFrame, PandasDataFrame]:
+def split_data(data: PandasDataFrame) -> tuple[PandasDataFrame, PandasDataFrame]:
     train, test = RatioSplitter(test_size=0.3, query_column="user_idx", divide_column="user_idx").split(data)
     return train, test
 
 
 @pytest.fixture(scope="module")
-def random_train_test_recs() -> Tuple[PandasDataFrame, PandasDataFrame, PandasDataFrame]:
+def random_train_test_recs() -> tuple[PandasDataFrame, PandasDataFrame, PandasDataFrame]:
     folder = dirname(replay.__file__)
     ml_1m = pd.read_csv(
         join(folder, "../examples/data/ml1m_ratings.dat"),

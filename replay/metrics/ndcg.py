@@ -1,5 +1,4 @@
 import math
-from typing import List
 
 from .base_metric import Metric
 
@@ -80,7 +79,7 @@ class NDCG(Metric):
     """
 
     @staticmethod
-    def _get_metric_value_by_user(ks: List[int], ground_truth: List, pred: List) -> List[float]:
+    def _get_metric_value_by_user(ks: list[int], ground_truth: list, pred: list) -> list[float]:
         if not pred or not ground_truth:
             return [0.0 for _ in ks]
         set_gt = set(ground_truth)

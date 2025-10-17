@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -205,13 +205,13 @@ class OBPOfflinePolicyLearner(BaseOfflinePolicyLearner):
 
     def optimize(
         self,
-        bandit_feedback: Dict[str, np.ndarray],
+        bandit_feedback: dict[str, np.ndarray],
         val_size: float = 0.3,
-        param_borders: Optional[Dict[str, List[Any]]] = None,
+        param_borders: Optional[dict[str, list[Any]]] = None,
         criterion: str = "ipw",
         budget: int = 10,
         new_study: bool = True,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Optimize model parameters using optuna.
         Optimization is carried out over the IPW/DR/DM scores(IPW by default).
 

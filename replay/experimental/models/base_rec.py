@@ -12,8 +12,9 @@ Base abstract classes:
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from os.path import join
-from typing import Any, Iterable, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 from numpy.random import default_rng
@@ -514,9 +515,9 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
         :return: cached dataframe with columns ``[user_idx, item_idx, relevance]``
             or None if `file_path` is provided
         """
-        log, user_features, item_features, pairs = [
+        log, user_features, item_features, pairs = (
             convert2spark(df) for df in [log, user_features, item_features, pairs]
-        ]
+        )
         if sorted(pairs.columns) != ["item_idx", "user_idx"]:
             msg = "pairs must be a dataframe with columns strictly [user_idx, item_idx]"
             raise ValueError(msg)
@@ -590,7 +591,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
     def _get_features_wrap(
         self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
-    ) -> Optional[Tuple[SparkDataFrame, int]]:
+    ) -> Optional[tuple[SparkDataFrame, int]]:
         if "user_idx" not in ids.columns and "item_idx" not in ids.columns:
             msg = "user_idx or item_idx missing"
             raise ValueError(msg)
@@ -599,7 +600,7 @@ class BaseRecommender(RecommenderCommons, IsSavable, ABC):
 
     def _get_features(
         self, ids: SparkDataFrame, features: Optional[SparkDataFrame]  # noqa: ARG002
-    ) -> Tuple[Optional[SparkDataFrame], Optional[int]]:
+    ) -> tuple[Optional[SparkDataFrame], Optional[int]]:
         """
         Get embeddings from model
 
@@ -669,7 +670,7 @@ class ItemVectorModel(BaseRecommender):
     """Parent for models generating items' vector representations"""
 
     can_predict_item_to_item: bool = True
-    item_to_item_metrics: List[str] = [
+    item_to_item_metrics: list[str] = [
         "euclidean_distance_sim",
         "cosine_similarity",
         "dot_product",
@@ -923,7 +924,7 @@ class HybridRecommender(BaseRecommender, ABC):
 
     def get_features(
         self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
-    ) -> Optional[Tuple[SparkDataFrame, int]]:
+    ) -> Optional[tuple[SparkDataFrame, int]]:
         """
         Returns user or item feature vectors as a Column with type ArrayType
         :param ids: Spark DataFrame with unique ids
@@ -1057,7 +1058,7 @@ class Recommender(BaseRecommender, ABC):
             recs_file_path=recs_file_path,
         )
 
-    def get_features(self, ids: SparkDataFrame) -> Optional[Tuple[SparkDataFrame, int]]:
+    def get_features(self, ids: SparkDataFrame) -> Optional[tuple[SparkDataFrame, int]]:
         """
         Returns user or item feature vectors as a Column with type ArrayType
 

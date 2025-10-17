@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional
 
 import polars as pl
 
@@ -100,7 +100,7 @@ class NewUsersSplitter(Splitter):
 
     def _core_split_pandas(
         self, interactions: PandasDataFrame, threshold: float
-    ) -> Tuple[PandasDataFrame, PandasDataFrame]:
+    ) -> tuple[PandasDataFrame, PandasDataFrame]:
         start_date_by_user = (
             interactions.groupby(self.query_column).agg(_start_dt_by_user=(self.timestamp_column, "min")).reset_index()
         )
@@ -134,7 +134,7 @@ class NewUsersSplitter(Splitter):
 
     def _core_split_spark(
         self, interactions: SparkDataFrame, threshold: float
-    ) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    ) -> tuple[SparkDataFrame, SparkDataFrame]:
         start_date_by_user = interactions.groupby(self.query_column).agg(
             sf.min(self.timestamp_column).alias("_start_dt_by_user")
         )
@@ -171,7 +171,7 @@ class NewUsersSplitter(Splitter):
 
     def _core_split_polars(
         self, interactions: PolarsDataFrame, threshold: float
-    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+    ) -> tuple[PolarsDataFrame, PolarsDataFrame]:
         start_date_by_user = interactions.group_by(self.query_column).agg(
             pl.col(self.timestamp_column).min().alias("_start_dt_by_user")
         )

@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple
+from typing import Optional
 
 import polars as pl
 
@@ -200,7 +200,7 @@ class RatioSplitter(Splitter):
 
     def _partial_split_fractions(
         self, interactions: DataFrameLike, ratio: float
-    ) -> Tuple[DataFrameLike, DataFrameLike]:
+    ) -> tuple[DataFrameLike, DataFrameLike]:
         res = self._add_time_partition(interactions)
         train_size = round(1 - ratio, self._precision)
 
@@ -212,7 +212,7 @@ class RatioSplitter(Splitter):
 
     def _partial_split_fractions_pandas(
         self, interactions: PandasDataFrame, train_size: float
-    ) -> Tuple[PandasDataFrame, PandasDataFrame]:
+    ) -> tuple[PandasDataFrame, PandasDataFrame]:
         interactions["count"] = interactions.groupby(self.divide_column, sort=False)[self.divide_column].transform(len)
         interactions["frac"] = (interactions["row_num"] / interactions["count"]).round(self._precision)
         if self.min_interactions_per_group is not None:
@@ -229,7 +229,7 @@ class RatioSplitter(Splitter):
 
     def _partial_split_fractions_spark(
         self, interactions: SparkDataFrame, train_size: float
-    ) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    ) -> tuple[SparkDataFrame, SparkDataFrame]:
         interactions = interactions.withColumn(
             "count", sf.count(self.timestamp_column).over(Window.partitionBy(self.divide_column))
         )
@@ -257,7 +257,7 @@ class RatioSplitter(Splitter):
 
     def _partial_split_fractions_polars(
         self, interactions: PolarsDataFrame, train_size: float
-    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+    ) -> tuple[PolarsDataFrame, PolarsDataFrame]:
         interactions = interactions.with_columns(
             pl.count(self.timestamp_column).over(pl.col(self.divide_column)).alias("count")
         )
@@ -282,7 +282,7 @@ class RatioSplitter(Splitter):
 
         return train, test
 
-    def _partial_split(self, interactions: DataFrameLike, ratio: float) -> Tuple[DataFrameLike, DataFrameLike]:
+    def _partial_split(self, interactions: DataFrameLike, ratio: float) -> tuple[DataFrameLike, DataFrameLike]:
         res = self._add_time_partition(interactions)
         if isinstance(res, SparkDataFrame):
             return self._partial_split_spark(res, ratio)
@@ -293,7 +293,7 @@ class RatioSplitter(Splitter):
 
     def _partial_split_pandas(
         self, interactions: PandasDataFrame, ratio: float
-    ) -> Tuple[PandasDataFrame, PandasDataFrame]:
+    ) -> tuple[PandasDataFrame, PandasDataFrame]:
         interactions["count"] = interactions.groupby(self.divide_column, sort=False)[self.divide_column].transform(len)
         interactions["train_size"] = interactions["count"] - (interactions["count"] * ratio).astype(int)
         if self.min_interactions_per_group is not None:
@@ -319,7 +319,7 @@ class RatioSplitter(Splitter):
 
         return train, test
 
-    def _partial_split_spark(self, interactions: SparkDataFrame, ratio: float) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    def _partial_split_spark(self, interactions: SparkDataFrame, ratio: float) -> tuple[SparkDataFrame, SparkDataFrame]:
         interactions = interactions.withColumn(
             "count", sf.count(self.timestamp_column).over(Window.partitionBy(self.divide_column))
         )
@@ -352,7 +352,7 @@ class RatioSplitter(Splitter):
 
     def _partial_split_polars(
         self, interactions: PolarsDataFrame, ratio: float
-    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+    ) -> tuple[PolarsDataFrame, PolarsDataFrame]:
         interactions = interactions.with_columns(
             pl.count(self.timestamp_column).over(self.divide_column).alias("count")
         )
@@ -385,7 +385,7 @@ class RatioSplitter(Splitter):
 
         return train, test
 
-    def _core_split(self, interactions: DataFrameLike) -> List[DataFrameLike]:
+    def _core_split(self, interactions: DataFrameLike) -> list[DataFrameLike]:
         if self.split_by_fractions:
             return self._partial_split_fractions(interactions, self.test_size)
         else:

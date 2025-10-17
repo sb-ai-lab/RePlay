@@ -1,6 +1,7 @@
 import warnings
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Mapping, Optional, Union
+from collections.abc import Mapping
+from typing import Any, Optional, Union
 
 import numpy as np
 import polars as pl
@@ -14,7 +15,7 @@ if PYSPARK_AVAILABLE:
     from pyspark.sql.types import ArrayType, DoubleType, StructType
 
 
-MetricsDataFrameLike = Union[DataFrameLike, Dict]
+MetricsDataFrameLike = Union[DataFrameLike, dict]
 MetricsMeanReturnType = Mapping[str, float]
 MetricsPerUserReturnType = Mapping[str, Mapping[Any, float]]
 MetricsReturnType = Union[MetricsMeanReturnType, MetricsPerUserReturnType]
@@ -29,7 +30,7 @@ class Metric(ABC):
 
     def __init__(
         self,
-        topk: Union[List[int], int],
+        topk: Union[list[int], int],
         query_column: str = "query_id",
         item_column: str = "item_id",
         rating_column: str = "rating",
@@ -89,7 +90,7 @@ class Metric(ABC):
         if duplicates_count:
             self._duplicate_warn()
 
-    def _check_duplicates_dict(self, recommendations: Dict) -> None:
+    def _check_duplicates_dict(self, recommendations: dict) -> None:
         for items in recommendations.values():
             items_set = set(items)
             if len(items) != len(items_set):
@@ -143,7 +144,7 @@ class Metric(ABC):
             ground_truth=ground_truth,
         )
 
-    def _convert_pandas_to_dict_with_score(self, data: PandasDataFrame) -> Dict:
+    def _convert_pandas_to_dict_with_score(self, data: PandasDataFrame) -> dict:
         return (
             data.sort_values(by=[self.rating_column, self.item_column], ascending=False, kind="stable")
             .groupby(self.query_column)[self.item_column]
@@ -151,7 +152,7 @@ class Metric(ABC):
             .to_dict()
         )
 
-    def _convert_dict_to_dict_with_score(self, data: Dict) -> Dict:
+    def _convert_dict_to_dict_with_score(self, data: dict) -> dict:
         converted_data = {}
         for user, items in data.items():
             is_sorted = True
@@ -164,10 +165,10 @@ class Metric(ABC):
             converted_data[user] = [item for item, _ in items]
         return converted_data
 
-    def _convert_pandas_to_dict_without_score(self, data: PandasDataFrame) -> Dict:
+    def _convert_pandas_to_dict_without_score(self, data: PandasDataFrame) -> dict:
         return data.groupby(self.query_column)[self.item_column].apply(list).to_dict()
 
-    def _dict_call(self, users: List, **kwargs: Dict) -> MetricsReturnType:
+    def _dict_call(self, users: list, **kwargs: dict) -> MetricsReturnType:
         """
         Calculating metrics in dict format.
         kwargs can contain different dicts (for example, ground_truth or train), it depends on the metric.
@@ -287,7 +288,7 @@ class Metric(ABC):
         )
         return self._rearrange_columns(enriched_recommendations)
 
-    def _aggregate_results_per_user(self, distribution_per_user: Dict[Any, List[float]]) -> MetricsPerUserReturnType:
+    def _aggregate_results_per_user(self, distribution_per_user: dict[Any, list[float]]) -> MetricsPerUserReturnType:
         res: MetricsPerUserReturnType = {}
         for index, val in enumerate(self.topk):
             metric_name = f"{self.__name__}@{val}"
@@ -374,7 +375,7 @@ class Metric(ABC):
 
     @staticmethod
     @abstractmethod
-    def _get_metric_value_by_user(ks: List[int], *args: List) -> List[float]:  # pragma: no cover
+    def _get_metric_value_by_user(ks: list[int], *args: list) -> list[float]:  # pragma: no cover
         """
         Metric calculation for one user.
 

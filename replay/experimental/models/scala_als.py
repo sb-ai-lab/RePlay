@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
 from replay.experimental.models.base_rec import ItemVectorModel, Recommender
 from replay.experimental.models.extensions.spark_custom_models.als_extension import ALS, ALSModel
@@ -151,7 +151,7 @@ class ALSWrap(Recommender, ItemVectorModel):
 
     def _get_features(
         self, ids: SparkDataFrame, features: Optional[SparkDataFrame]  # noqa: ARG002
-    ) -> Tuple[Optional[SparkDataFrame], Optional[int]]:
+    ) -> tuple[Optional[SparkDataFrame], Optional[int]]:
         entity = "user" if "user_idx" in ids.columns else "item"
         als_factors = getattr(self.model, f"{entity}Factors")
         als_factors = als_factors.withColumnRenamed("id", f"{entity}_idx").withColumnRenamed(
@@ -174,7 +174,7 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
 
-    def _get_ann_infer_params(self) -> Dict[str, Any]:
+    def _get_ann_infer_params(self) -> dict[str, Any]:
         self.index_builder.index_params.dim = self.rank
         return {
             "features_col": "user_factors",

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, List, Union
+from typing import Union
 
 import numpy as np
 import polars as pl
@@ -82,7 +82,7 @@ class Surprisal(Metric):
     <BLANKLINE>
     """
 
-    def _get_weights(self, train: Dict) -> Dict:
+    def _get_weights(self, train: dict) -> dict:
         n_users = len(train.keys())
         items_counter = defaultdict(set)
         for user, items in train.items():
@@ -93,7 +93,7 @@ class Surprisal(Metric):
             weights[item] = np.log2(n_users / len(users)) / np.log2(n_users)
         return weights
 
-    def _get_recommendation_weights(self, recommendations: Dict, train: Dict) -> Dict:
+    def _get_recommendation_weights(self, recommendations: dict, train: dict) -> dict:
         weights = self._get_weights(train)
         recs_with_weights = {}
         for user, items in recommendations.items():
@@ -183,7 +183,7 @@ class Surprisal(Metric):
         )
 
     @staticmethod
-    def _get_metric_value_by_user(ks: List[int], pred_item_ids: List, pred_weights: List) -> List[float]:
+    def _get_metric_value_by_user(ks: list[int], pred_item_ids: list, pred_weights: list) -> list[float]:
         if not pred_item_ids:
             return [0.0 for _ in ks]
         res = []

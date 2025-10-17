@@ -1,6 +1,6 @@
 import os
 import re
-from typing import Dict, List, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,7 @@ if PYSPARK_AVAILABLE:
     INTERACTIONS_SCHEMA = get_schema("user_idx", "item_idx", "timestamp", "relevance")
 
 
-def assertDictAlmostEqual(d1: Dict, d2: Dict) -> None:
+def assertDictAlmostEqual(d1: dict, d2: dict) -> None:
     assert set(d1.keys()) == set(d2.keys())
     for key in d1:
         assert_allclose(d1[key], d2[key])
@@ -24,7 +24,7 @@ def assertDictAlmostEqual(d1: Dict, d2: Dict) -> None:
 
 def unify_dataframe(data_frame: SparkDataFrame):
     pandas_df = data_frame.toPandas()
-    columns_to_sort_by: List[str] = []
+    columns_to_sort_by: list[str] = []
 
     if len(pandas_df) == 0:
         columns_to_sort_by = pandas_df.columns
@@ -123,7 +123,7 @@ def convert2pandas(df: Union[SparkDataFrame, PolarsDataFrame, PandasDataFrame]) 
         return df.toPandas()
 
 
-def assert_dataframelikes_equal(dataframes_list: List[DataFrameLike], same_type: bool = True):
+def assert_dataframelikes_equal(dataframes_list: list[DataFrameLike], same_type: bool = True):
     if len(dataframes_list) < 2:
         msg = "Less than 2 dataframes provided, can't compare"
         raise ValueError(msg)
