@@ -1,5 +1,6 @@
 import warnings
-from typing import Union
+from os.path import join
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -8,7 +9,11 @@ from tqdm import tqdm
 
 from replay.data.dataset import Dataset
 from replay.utils import SparkDataFrame
-from replay.utils.spark_utils import convert2spark
+from replay.utils.spark_utils import (
+    convert2spark,
+    load_pickled_from_parquet,
+    save_picklable_to_parquet,
+)
 
 from .base_rec import HybridRecommender
 
@@ -70,7 +75,9 @@ class HybridArm:
         # right-hand side of the regression
         self.b = np.zeros(d, dtype=float)
 
-    def feature_update(self, usr_features, usr_itm_features, relevances) -> tuple[np.ndarray, np.ndarray]:
+    def feature_update(
+        self, usr_features, usr_itm_features, relevances
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Function to update featurs or each Lin-UCB hand in the current model.
 
@@ -85,8 +92,13 @@ class HybridArm:
         self.A_inv = scs.linalg.inv(self.A)
         self.B += (usr_features.T).dot(usr_itm_features)
         self.b += (usr_features.T).dot(relevances)
-        delta_A_0 = np.dot(usr_itm_features.T, usr_itm_features) - self.B.T @ self.A_inv @ self.B  # noqa: N806
-        delta_b_0 = (usr_itm_features.T).dot(relevances) - (self.B.T).dot(self.A_inv.dot(self.b))
+        delta_A_0 = (
+            np.dot(usr_itm_features.T, usr_itm_features)
+            - self.B.T @ self.A_inv @ self.B
+        )  # noqa: N806
+        delta_b_0 = (usr_itm_features.T).dot(relevances) - (self.B.T).dot(
+            self.A_inv.dot(self.b)
+        )
         return delta_A_0, delta_b_0
 
 
@@ -175,8 +187,11 @@ class LinUCB(HybridRecommender):
         "alpha": {"type": "uniform", "args": [0.001, 10.0]},
     }
     _study = None  # field required for proper optuna's optimization
-    linucb_arms: list[Union[DisjointArm, HybridArm]]  # initialize only when working within fit method
+    linucb_arms: list[
+        Union[DisjointArm, HybridArm]
+    ]  # initialize only when working within fit method
     rel_matrix: np.array  # matrix with relevance scores from predict method
+    _num_items: int  # number of items/arms
 
     def __init__(
         self,
@@ -195,7 +210,7 @@ class LinUCB(HybridRecommender):
 
     @property
     def _init_args(self):
-        return {"is_hybrid": self.is_hybrid}
+        return {"is_hybrid": self.is_hybrid, "eps": self.eps, "alpha": self.alpha}
 
     def _verify_features(self, dataset: Dataset):
         if dataset.query_features is None:
@@ -230,6 +245,7 @@ class LinUCB(HybridRecommender):
         self._num_items = item_features.shape[0]
         self._user_dim_size = user_features.shape[1] - 1
         self._item_dim_size = item_features.shape[1] - 1
+        self._user_idxs_list = set(user_features[feature_schema.query_id_column].values)
 
         # now initialize an arm object for each potential arm instance
         if self.is_hybrid:
@@ -248,21 +264,30 @@ class LinUCB(HybridRecommender):
             ]
 
             for i in tqdm(range(self._num_items)):
-                B = log.loc[log[feature_schema.item_id_column] == i]  # noqa: N806
-                idxs_list = B[feature_schema.query_id_column].values
-                rel_list = B[feature_schema.interactions_rating_column].values
+                B = log.loc[
+                    (log[feature_schema.item_id_column] == i)
+                    & (log[feature_schema.query_id_column].isin(self._user_idxs_list))
+                ]  # noqa: N806
                 if not B.empty:
                     # if we have at least one user interacting with the hand i
+                    idxs_list = B[feature_schema.query_id_column].values
+                    rel_list = B[feature_schema.interactions_rating_column].values
                     cur_usrs = scs.csr_matrix(
-                        user_features.query(f"{feature_schema.query_id_column} in @idxs_list")
+                        user_features.query(
+                            f"{feature_schema.query_id_column} in @idxs_list"
+                        )
                         .drop(columns=[feature_schema.query_id_column])
                         .to_numpy()
                     )
                     cur_itm = scs.csr_matrix(
-                        item_features.iloc[i].drop(labels=[feature_schema.item_id_column]).to_numpy()
+                        item_features.iloc[i]
+                        .drop(labels=[feature_schema.item_id_column])
+                        .to_numpy()
                     )
                     usr_itm_features = scs.kron(cur_usrs, cur_itm)
-                    delta_A_0, delta_b_0 = self.linucb_arms[i].feature_update(  # noqa: N806
+                    delta_A_0, delta_b_0 = self.linucb_arms[
+                        i
+                    ].feature_update(  # noqa: N806
                         cur_usrs, usr_itm_features, rel_list
                     )
 
@@ -279,22 +304,30 @@ class LinUCB(HybridRecommender):
                 )
         else:
             self.linucb_arms = [
-                DisjointArm(arm_index=i, d=self._user_dim_size, eps=self.eps, alpha=self.alpha)
+                DisjointArm(
+                    arm_index=i, d=self._user_dim_size, eps=self.eps, alpha=self.alpha
+                )
                 for i in range(self._num_items)
             ]
 
             for i in range(self._num_items):
-                B = log.loc[log[feature_schema.item_id_column] == i]  # noqa: N806
-                idxs_list = B[feature_schema.query_id_column].values  # noqa: F841
-                rel_list = B[feature_schema.interactions_rating_column].values
+                B = log.loc[
+                    (log[feature_schema.item_id_column] == i)
+                    & (log[feature_schema.query_id_column].isin(self._user_idxs_list))
+                ]  # noqa: N806
+                # B = log.loc[log[feature_schema.item_id_column] == i]  # noqa: N806
                 if not B.empty:
                     # if we have at least one user interacting with the hand i
-                    cur_usrs = user_features.query(f"{feature_schema.query_id_column} in @idxs_list").drop(
-                        columns=[feature_schema.query_id_column]
-                    )
+                    idxs_list = B[feature_schema.query_id_column].values  # noqa: F841
+                    rel_list = B[feature_schema.interactions_rating_column].values
+                    cur_usrs = user_features.query(
+                        f"{feature_schema.query_id_column} in @idxs_list"
+                    ).drop(columns=[feature_schema.query_id_column])
                     self.linucb_arms[i].feature_update(cur_usrs.to_numpy(), rel_list)
 
-        warn_msg = "Dataset will be converted to spark after internal calculations in fit"
+        warn_msg = (
+            "Dataset will be converted to spark after internal calculations in fit"
+        )
         warnings.warn(warn_msg)
         dataset.to_spark()
 
@@ -318,8 +351,10 @@ class LinUCB(HybridRecommender):
         user_features = dataset.query_features
         item_features = dataset.item_features
         big_k = min(oversample * k, item_features.shape[0])
+        self._user_idxs_list = set(user_features[feature_schema.query_id_column].values)
 
         users = users.toPandas()
+        users = users[users[feature_schema.query_id_column].isin(self._user_idxs_list)]
         num_user_pred = users.shape[0]
         rel_matrix = np.zeros((num_user_pred, self._num_items), dtype=float)
 
@@ -329,12 +364,16 @@ class LinUCB(HybridRecommender):
             itm_idxs_list = items[feature_schema.item_id_column].values  # noqa: F841
 
             usrs_feat = scs.csr_matrix(
-                user_features.query(f"{feature_schema.query_id_column} in @usr_idxs_list")
+                user_features.query(
+                    f"{feature_schema.query_id_column} in @usr_idxs_list"
+                )
                 .drop(columns=[feature_schema.query_id_column])
                 .to_numpy()
             )
             itm_feat = scs.csr_matrix(
-                item_features.query(f"{feature_schema.item_id_column} in @itm_idxs_list")
+                item_features.query(
+                    f"{feature_schema.item_id_column} in @itm_idxs_list"
+                )
                 .drop(columns=[feature_schema.item_id_column])
                 .to_numpy()
             )
@@ -345,13 +384,19 @@ class LinUCB(HybridRecommender):
                 rel_matrix[:, i] = usrs_feat.dot(self.linucb_arms[i].theta)
                 rel_matrix[:, i] += z.dot(self.beta)
 
-                s = (usrs_feat.dot(self.linucb_arms[i].A_inv).multiply(usrs_feat)).sum(axis=1)
-                s += (z.dot(self.A_0_inv).multiply(z)).sum(axis=1)
-                M = self.A_0_inv @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv  # noqa: N806
-                s -= 2 * (z.dot(M).multiply(usrs_feat)).sum(axis=1)
-                s += (usrs_feat.dot(M.T @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv).multiply(usrs_feat)).sum(
+                s = (usrs_feat.dot(self.linucb_arms[i].A_inv).multiply(usrs_feat)).sum(
                     axis=1
                 )
+                s += (z.dot(self.A_0_inv).multiply(z)).sum(axis=1)
+                M = (
+                    self.A_0_inv @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv
+                )  # noqa: N806
+                s -= 2 * (z.dot(M).multiply(usrs_feat)).sum(axis=1)
+                s += (
+                    usrs_feat.dot(
+                        M.T @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv
+                    ).multiply(usrs_feat)
+                ).sum(axis=1)
 
                 rel_matrix[:, i] += np.array(self.eps * np.sqrt(s))[:, 0]
 
@@ -381,7 +426,12 @@ class LinUCB(HybridRecommender):
             # fill in relevance matrix
             for i in range(self._num_items):
                 rel_matrix[:, i] = (
-                    self.eps * np.sqrt((usrs_feat.dot(self.linucb_arms[i].A_inv) * usrs_feat).sum(axis=1))
+                    self.eps
+                    * np.sqrt(
+                        (usrs_feat.dot(self.linucb_arms[i].A_inv) * usrs_feat).sum(
+                            axis=1
+                        )
+                    )
                     + usrs_feat @ self.linucb_arms[i].theta
                 )
             # select top k predictions from each row (unsorted ones)
@@ -400,7 +450,50 @@ class LinUCB(HybridRecommender):
                 }
             )
 
-        warn_msg = "Dataset will be converted to spark after internal calculations in predict"
+        warn_msg = (
+            "Dataset will be converted to spark after internal calculations in predict"
+        )
         warnings.warn(warn_msg)
         dataset.to_spark()
         return convert2spark(res_df)
+
+    def _save_model(self, path: str, additional_params: Optional[dict] = None):
+        saved_params = {
+            "query_column": self.query_column,
+            "item_column": self.item_column,
+            "rating_column": self.rating_column,
+            "timestamp_column": self.timestamp_column,
+        }
+        if additional_params is not None:
+            saved_params.update(additional_params)
+        save_picklable_to_parquet(saved_params, join(path, "params.dump"))
+
+        save_picklable_to_parquet(self.linucb_arms, join(path, "linucb_arms.dump"))
+
+        if self.is_hybrid:
+            linucb_hybrid_shared_params = {
+                "A_0": self.A_0,
+                "A_0_inv": self.A_0_inv,
+                "b_0": self.b_0,
+                "beta": self.beta,
+            }
+            save_picklable_to_parquet(
+                linucb_hybrid_shared_params,
+                join(path, "linucb_hybrid_shared_params.dump"),
+            )
+
+    def _load_model(self, path: str):
+        loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
+        for param, value in loaded_params.items():
+            setattr(self, param, value)
+
+        loaded_linucb_arms = load_pickled_from_parquet(join(path, "linucb_arms.dump"))
+        self.linucb_arms = loaded_linucb_arms
+        self._num_items = len(loaded_linucb_arms)
+
+        if self.is_hybrid:
+            loaded_linucb_hybrid_shared_params = load_pickled_from_parquet(
+                join(path, "linucb_hybrid_shared_params.dump")
+            )
+            for param, value in loaded_linucb_hybrid_shared_params.items():
+                setattr(self, param, value)
