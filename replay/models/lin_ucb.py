@@ -421,15 +421,7 @@ class LinUCB(HybridRecommender):
         return convert2spark(res_df)
 
     def _save_model(self, path: str, additional_params: Optional[dict] = None):
-        saved_params = {
-            "query_column": self.query_column,
-            "item_column": self.item_column,
-            "rating_column": self.rating_column,
-            "timestamp_column": self.timestamp_column,
-        }
-        if additional_params is not None:
-            saved_params.update(additional_params)
-        save_picklable_to_parquet(saved_params, join(path, "params.dump"))
+        super()._save_model(path, additional_params)
 
         save_picklable_to_parquet(self.linucb_arms, join(path, "linucb_arms.dump"))
 
@@ -446,9 +438,7 @@ class LinUCB(HybridRecommender):
             )
 
     def _load_model(self, path: str):
-        loaded_params = load_pickled_from_parquet(join(path, "params.dump"))
-        for param, value in loaded_params.items():
-            setattr(self, param, value)
+        super()._load_model(path)
 
         loaded_linucb_arms = load_pickled_from_parquet(join(path, "linucb_arms.dump"))
         self.linucb_arms = loaded_linucb_arms
