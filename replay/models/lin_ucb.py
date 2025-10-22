@@ -75,9 +75,7 @@ class HybridArm:
         # right-hand side of the regression
         self.b = np.zeros(d, dtype=float)
 
-    def feature_update(
-        self, usr_features, usr_itm_features, relevances
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def feature_update(self, usr_features, usr_itm_features, relevances) -> tuple[np.ndarray, np.ndarray]:
         """
         Function to update featurs or each Lin-UCB hand in the current model.
 
@@ -92,13 +90,8 @@ class HybridArm:
         self.A_inv = scs.linalg.inv(self.A)
         self.B += (usr_features.T).dot(usr_itm_features)
         self.b += (usr_features.T).dot(relevances)
-        delta_A_0 = (
-            np.dot(usr_itm_features.T, usr_itm_features)
-            - self.B.T @ self.A_inv @ self.B
-        )  # noqa: N806
-        delta_b_0 = (usr_itm_features.T).dot(relevances) - (self.B.T).dot(
-            self.A_inv.dot(self.b)
-        )
+        delta_A_0 = np.dot(usr_itm_features.T, usr_itm_features) - self.B.T @ self.A_inv @ self.B  # noqa: N806
+        delta_b_0 = (usr_itm_features.T).dot(relevances) - (self.B.T).dot(self.A_inv.dot(self.b))
         return delta_A_0, delta_b_0
 
 
@@ -187,9 +180,7 @@ class LinUCB(HybridRecommender):
         "alpha": {"type": "uniform", "args": [0.001, 10.0]},
     }
     _study = None  # field required for proper optuna's optimization
-    linucb_arms: list[
-        Union[DisjointArm, HybridArm]
-    ]  # initialize only when working within fit method
+    linucb_arms: list[Union[DisjointArm, HybridArm]]  # initialize only when working within fit method
     rel_matrix: np.array  # matrix with relevance scores from predict method
     _num_items: int  # number of items/arms
 
@@ -264,30 +255,24 @@ class LinUCB(HybridRecommender):
             ]
 
             for i in tqdm(range(self._num_items)):
-                B = log.loc[
+                B = log.loc[ # noqa: N806
                     (log[feature_schema.item_id_column] == i)
                     & (log[feature_schema.query_id_column].isin(self._user_idxs_list))
-                ]  # noqa: N806
+                ]
                 if not B.empty:
                     # if we have at least one user interacting with the hand i
                     idxs_list = B[feature_schema.query_id_column].values
                     rel_list = B[feature_schema.interactions_rating_column].values
                     cur_usrs = scs.csr_matrix(
-                        user_features.query(
-                            f"{feature_schema.query_id_column} in @idxs_list"
-                        )
+                        user_features.query(f"{feature_schema.query_id_column} in @idxs_list")
                         .drop(columns=[feature_schema.query_id_column])
                         .to_numpy()
                     )
                     cur_itm = scs.csr_matrix(
-                        item_features.iloc[i]
-                        .drop(labels=[feature_schema.item_id_column])
-                        .to_numpy()
+                        item_features.iloc[i].drop(labels=[feature_schema.item_id_column]).to_numpy()
                     )
                     usr_itm_features = scs.kron(cur_usrs, cur_itm)
-                    delta_A_0, delta_b_0 = self.linucb_arms[
-                        i
-                    ].feature_update(  # noqa: N806
+                    delta_A_0, delta_b_0 = self.linucb_arms[i].feature_update(  # noqa: N806
                         cur_usrs, usr_itm_features, rel_list
                     )
 
@@ -304,30 +289,25 @@ class LinUCB(HybridRecommender):
                 )
         else:
             self.linucb_arms = [
-                DisjointArm(
-                    arm_index=i, d=self._user_dim_size, eps=self.eps, alpha=self.alpha
-                )
+                DisjointArm(arm_index=i, d=self._user_dim_size, eps=self.eps, alpha=self.alpha)
                 for i in range(self._num_items)
             ]
 
             for i in range(self._num_items):
-                B = log.loc[
+                B = log.loc[ # noqa: N806
                     (log[feature_schema.item_id_column] == i)
                     & (log[feature_schema.query_id_column].isin(self._user_idxs_list))
-                ]  # noqa: N806
-                # B = log.loc[log[feature_schema.item_id_column] == i]  # noqa: N806
+                ]
                 if not B.empty:
                     # if we have at least one user interacting with the hand i
                     idxs_list = B[feature_schema.query_id_column].values  # noqa: F841
                     rel_list = B[feature_schema.interactions_rating_column].values
-                    cur_usrs = user_features.query(
-                        f"{feature_schema.query_id_column} in @idxs_list"
-                    ).drop(columns=[feature_schema.query_id_column])
+                    cur_usrs = user_features.query(f"{feature_schema.query_id_column} in @idxs_list").drop(
+                        columns=[feature_schema.query_id_column]
+                    )
                     self.linucb_arms[i].feature_update(cur_usrs.to_numpy(), rel_list)
 
-        warn_msg = (
-            "Dataset will be converted to spark after internal calculations in fit"
-        )
+        warn_msg = "Dataset will be converted to spark after internal calculations in fit"
         warnings.warn(warn_msg)
         dataset.to_spark()
 
@@ -364,16 +344,12 @@ class LinUCB(HybridRecommender):
             itm_idxs_list = items[feature_schema.item_id_column].values  # noqa: F841
 
             usrs_feat = scs.csr_matrix(
-                user_features.query(
-                    f"{feature_schema.query_id_column} in @usr_idxs_list"
-                )
+                user_features.query(f"{feature_schema.query_id_column} in @usr_idxs_list")
                 .drop(columns=[feature_schema.query_id_column])
                 .to_numpy()
             )
             itm_feat = scs.csr_matrix(
-                item_features.query(
-                    f"{feature_schema.item_id_column} in @itm_idxs_list"
-                )
+                item_features.query(f"{feature_schema.item_id_column} in @itm_idxs_list")
                 .drop(columns=[feature_schema.item_id_column])
                 .to_numpy()
             )
@@ -384,19 +360,13 @@ class LinUCB(HybridRecommender):
                 rel_matrix[:, i] = usrs_feat.dot(self.linucb_arms[i].theta)
                 rel_matrix[:, i] += z.dot(self.beta)
 
-                s = (usrs_feat.dot(self.linucb_arms[i].A_inv).multiply(usrs_feat)).sum(
+                s = (usrs_feat.dot(self.linucb_arms[i].A_inv).multiply(usrs_feat)).sum(axis=1)
+                s += (z.dot(self.A_0_inv).multiply(z)).sum(axis=1)
+                M = self.A_0_inv @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv  # noqa: N806
+                s -= 2 * (z.dot(M).multiply(usrs_feat)).sum(axis=1)
+                s += (usrs_feat.dot(M.T @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv).multiply(usrs_feat)).sum(
                     axis=1
                 )
-                s += (z.dot(self.A_0_inv).multiply(z)).sum(axis=1)
-                M = (
-                    self.A_0_inv @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv
-                )  # noqa: N806
-                s -= 2 * (z.dot(M).multiply(usrs_feat)).sum(axis=1)
-                s += (
-                    usrs_feat.dot(
-                        M.T @ self.linucb_arms[i].B.T @ self.linucb_arms[i].A_inv
-                    ).multiply(usrs_feat)
-                ).sum(axis=1)
 
                 rel_matrix[:, i] += np.array(self.eps * np.sqrt(s))[:, 0]
 
@@ -426,12 +396,7 @@ class LinUCB(HybridRecommender):
             # fill in relevance matrix
             for i in range(self._num_items):
                 rel_matrix[:, i] = (
-                    self.eps
-                    * np.sqrt(
-                        (usrs_feat.dot(self.linucb_arms[i].A_inv) * usrs_feat).sum(
-                            axis=1
-                        )
-                    )
+                    self.eps * np.sqrt((usrs_feat.dot(self.linucb_arms[i].A_inv) * usrs_feat).sum(axis=1))
                     + usrs_feat @ self.linucb_arms[i].theta
                 )
             # select top k predictions from each row (unsorted ones)
@@ -450,9 +415,7 @@ class LinUCB(HybridRecommender):
                 }
             )
 
-        warn_msg = (
-            "Dataset will be converted to spark after internal calculations in predict"
-        )
+        warn_msg = "Dataset will be converted to spark after internal calculations in predict"
         warnings.warn(warn_msg)
         dataset.to_spark()
         return convert2spark(res_df)
