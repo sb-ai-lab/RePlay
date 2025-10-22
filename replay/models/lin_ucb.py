@@ -255,7 +255,7 @@ class LinUCB(HybridRecommender):
             ]
 
             for i in tqdm(range(self._num_items)):
-                B = log.loc[ # noqa: N806
+                B = log.loc[  # noqa: N806
                     (log[feature_schema.item_id_column] == i)
                     & (log[feature_schema.query_id_column].isin(self._user_idxs_list))
                 ]
@@ -294,7 +294,7 @@ class LinUCB(HybridRecommender):
             ]
 
             for i in range(self._num_items):
-                B = log.loc[ # noqa: N806
+                B = log.loc[  # noqa: N806
                     (log[feature_schema.item_id_column] == i)
                     & (log[feature_schema.query_id_column].isin(self._user_idxs_list))
                 ]
