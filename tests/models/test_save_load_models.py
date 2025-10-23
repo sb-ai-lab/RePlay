@@ -13,6 +13,7 @@ from replay.models import (
     CatPopRec,
     ClusterRec,
     ItemKNN,
+    LinUCB,
     PopRec,
     QueryPopRec,
     RandomRec,
@@ -41,6 +42,23 @@ def user_features(spark):
     return spark.createDataFrame([(1, 20.0, -3.0, 1), (2, 30.0, 4.0, 0), (3, 40.0, 0.0, 1)]).toDF(
         "user_idx", "age", "mood", "gender"
     )
+
+
+@pytest.fixture(scope="module")
+def item_features(spark):
+    return spark.createDataFrame(
+        data=[
+            (0, 4.0, 5.0),
+            (1, 5.0, 4.0),
+            (2, 2.0, 3.0),
+            (3, 3.0, -1.0),
+            (4, 4.0, 3.0),
+            (5, 3.0, -1.0),
+            (6, 1.0, 2.0),
+            (7, 3.0, 1.0),
+            (8, 1.0, -1.0),
+        ],
+    ).toDF("item_idx", "item_feature_1", "item_feature_2")
 
 
 @pytest.fixture(scope="module")
@@ -177,6 +195,20 @@ def test_cat_poprec(cat_tree, cat_log, requested_cats, tmp_path):
 def test_wilson_ucb(model, log_unary, tmp_path):
     path = (tmp_path / "model").resolve()
     dataset = create_dataset(log_unary)
+    model.fit(dataset)
+    base_pred = model.predict(dataset, 5)
+    save(model, path)
+    loaded_model = load(path)
+    new_pred = loaded_model.predict(dataset, 5)
+    sparkDataFrameEqual(base_pred, new_pred)
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize("is_hybrid", [False, True], ids=["disjoint", "hybrid"])
+def test_linucb(log_unary, user_features, item_features, is_hybrid, tmp_path):
+    path = (tmp_path / "linucb").resolve()
+    dataset = create_dataset(log_unary, user_features, item_features)
+    model = LinUCB(eps=-10.0, alpha=1.0, is_hybrid=is_hybrid)
     model.fit(dataset)
     base_pred = model.predict(dataset, 5)
     save(model, path)
