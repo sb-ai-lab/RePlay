@@ -450,8 +450,8 @@ class SequenceTokenizer:
         else:
             warnings.warn(
                 "with `use_pickle` equals to `True` will be deprecated in future versions",
-                DeprecationWarning, 
-                stacklevel=2
+                DeprecationWarning,
+                stacklevel=2,
             )
             with open(path, "rb") as file:
                 tokenizer = pickle.load(file)
@@ -500,8 +500,8 @@ class SequenceTokenizer:
         else:
             warnings.warn(
                 "with `use_pickle` equals to `True` will be deprecated in future versions",
-                DeprecationWarning, 
-                stacklevel=2
+                DeprecationWarning,
+                stacklevel=2,
             )
             with open(path, "wb") as file:
                 pickle.dump(self, file)

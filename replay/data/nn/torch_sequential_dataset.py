@@ -1,6 +1,6 @@
+import warnings
 from collections.abc import Generator, Sequence
 from typing import TYPE_CHECKING, NamedTuple, Optional, Union, cast
-import warnings
 
 import numpy as np
 import torch
@@ -52,8 +52,8 @@ class TorchSequentialDataset(TorchDataset):
             warnings.warn(
                 "`padding_value` parameter will be removed in future versions. "
                 "Instead, you should specify `padding_value` for each column in TensorSchema",
-                DeprecationWarning, 
-                stacklevel=2
+                DeprecationWarning,
+                stacklevel=2,
             )
         else:
             padding_value = 0
