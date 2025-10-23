@@ -14,13 +14,27 @@ from replay.nn.transform.template import make_default_sasrec_transforms
     params=[
         (CE, {"ignore_index": 40}),
         (CESampled, {"ignore_index": 40}),
+        (CESampled, {"ignore_index": 40, "negative_labels_ignore_index": 0}),
         (BCE, {}),
         (BCESampled, {}),
         (LogOutCE, {"ignore_index": 40, "cardinality": 40}),
         (LogInCE, {"cardinality": 40}),
+        (LogInCE, {"cardinality": 40, "negative_labels_ignore_index": 0}),
         (LogInCESampled, {}),
+        (LogInCESampled, {"negative_labels_ignore_index": 0}),
     ],
-    ids=["CE", "CE sampled", "BCE", "BCE sampled", "LogOutCE", "LogInCE", "LogInCESampled"],
+    ids=[
+        "CE",
+        "CE sampled",
+        "CE sampled w/ negative ignore index",
+        "BCE",
+        "BCE sampled",
+        "LogOutCE",
+        "LogInCE",
+        "LogInCE w/ negative ignore index",
+        "LogInCESampled",
+        "LogInCESampled w/ negative ignore index",
+    ],
 )
 def sasrec_parametrized(request, tensor_schema):
     loss_cls, kwargs = request.param
