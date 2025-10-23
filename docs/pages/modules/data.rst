@@ -147,7 +147,7 @@ See the full example in `examples/09_sasrec_example.ipynb`.
 
         metadata = {
             "user_id": {},
-            "item_id": {"shape": 50, "padding": 51},
+            "item_id": {"shape": 50, "padding": 50},
         }
         transforms = make_default_sasrec_transforms(tensor_schema, query_column="user_id")
         parquet_datamodule = ParquetModule(
