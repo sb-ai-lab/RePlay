@@ -15,7 +15,6 @@ from replay.data import Dataset, FeatureHint, FeatureSchema, FeatureSource, Feat
 from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.preprocessing import LabelEncoder, LabelEncodingRule
 from replay.preprocessing.label_encoder import HandleUnknownStrategies
-from replay.utils import deprecation_warning
 
 if TYPE_CHECKING:
     from .schema import TensorFeatureInfo, TensorFeatureSource, TensorSchema
@@ -406,7 +405,6 @@ class SequenceTokenizer:
             tensor_feature._set_cardinality(dataset_feature.cardinality)
 
     @classmethod
-    @deprecation_warning("with `use_pickle` equals to `True` will be deprecated in future versions")
     def load(cls, path: str, use_pickle: bool = False, **kwargs) -> "SequenceTokenizer":
         """
         Load tokenizer object from the given path.
@@ -450,12 +448,16 @@ class SequenceTokenizer:
             tokenizer._encoder._features_columns = encoder_features_columns
             tokenizer._encoder._encoding_rules = tokenizer_dict["encoder"]["encoding_rules"]
         else:
+            warnings.warn(
+                "with `use_pickle` equals to `True` will be deprecated in future versions",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             with open(path, "rb") as file:
                 tokenizer = pickle.load(file)
 
         return tokenizer
 
-    @deprecation_warning("with `use_pickle` equals to `True` will be deprecated in future versions")
     def save(self, path: str, use_pickle: bool = False) -> None:
         """
         Save the tokenizer to the given path.
@@ -496,6 +498,11 @@ class SequenceTokenizer:
             with open(base_path / "init_args.json", "w+") as file:
                 json.dump(tokenizer_dict, file)
         else:
+            warnings.warn(
+                "with `use_pickle` equals to `True` will be deprecated in future versions",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             with open(path, "wb") as file:
                 pickle.dump(self, file)
 

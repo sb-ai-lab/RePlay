@@ -25,6 +25,12 @@ else:
 
 
 @pytest.mark.torch
+def test_padding_deprecation(sequential_dataset: SequentialDataset):
+    with pytest.warns(DeprecationWarning):
+        _sd = TorchSequentialDataset(sequential_dataset, max_sequence_length=3, padding_value=1)
+
+
+@pytest.mark.torch
 def test_can_get_padded_sequence(sequential_dataset: SequentialDataset):
     sd = TorchSequentialDataset(sequential_dataset, max_sequence_length=3)
 

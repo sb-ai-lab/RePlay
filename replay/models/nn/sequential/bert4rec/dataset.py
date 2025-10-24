@@ -12,7 +12,6 @@ from replay.data.nn import (
     TorchSequentialDataset,
     TorchSequentialValidationDataset,
 )
-from replay.utils import deprecation_warning
 
 
 class Bert4RecTrainingBatch(NamedTuple):
@@ -89,10 +88,6 @@ class Bert4RecTrainingDataset(TorchDataset):
     Dataset that generates samples to train BERT-like model
     """
 
-    @deprecation_warning(
-        "`padding_value` parameter will be removed in future versions. "
-        "Instead, you should specify `padding_value` for each column in TensorSchema"
-    )
     def __init__(
         self,
         sequential: SequentialDataset,
@@ -101,7 +96,7 @@ class Bert4RecTrainingDataset(TorchDataset):
         sliding_window_step: Optional[int] = None,
         label_feature_name: Optional[str] = None,
         custom_masker: Optional[Bert4RecMasker] = None,
-        padding_value: int = 0,
+        padding_value: Optional[int] = None,
     ) -> None:
         """
         :param sequential: Sequential dataset with training data.
@@ -181,15 +176,11 @@ class Bert4RecPredictionDataset(TorchDataset):
     Dataset that generates samples to infer BERT-like model
     """
 
-    @deprecation_warning(
-        "`padding_value` parameter will be removed in future versions. "
-        "Instead, you should specify `padding_value` for each column in TensorSchema"
-    )
     def __init__(
         self,
         sequential: SequentialDataset,
         max_sequence_length: int,
-        padding_value: int = 0,
+        padding_value: Optional[int] = None,
     ) -> None:
         """
         :param sequential: Sequential dataset with data to make predictions at.
@@ -239,17 +230,13 @@ class Bert4RecValidationDataset(TorchDataset):
     Dataset that generates samples to infer and validate BERT-like model
     """
 
-    @deprecation_warning(
-        "`padding_value` parameter will be removed in future versions. "
-        "Instead, you should specify `padding_value` for each column in TensorSchema"
-    )
     def __init__(
         self,
         sequential: SequentialDataset,
         ground_truth: SequentialDataset,
         train: SequentialDataset,
         max_sequence_length: int,
-        padding_value: int = 0,
+        padding_value: Optional[int] = None,
         label_feature_name: Optional[str] = None,
     ):
         """
