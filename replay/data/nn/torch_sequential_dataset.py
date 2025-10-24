@@ -1,11 +1,10 @@
+import warnings
 from collections.abc import Generator, Sequence
 from typing import TYPE_CHECKING, NamedTuple, Optional, Union, cast
 
 import numpy as np
 import torch
 from torch.utils.data import Dataset as TorchDataset
-
-from replay.utils import deprecation_warning
 
 if TYPE_CHECKING:
     from .schema import TensorFeatureInfo, TensorMap, TensorSchema
@@ -29,16 +28,12 @@ class TorchSequentialDataset(TorchDataset):
     Torch dataset for sequential recommender models
     """
 
-    @deprecation_warning(
-        "`padding_value` parameter will be removed in future versions. "
-        "Instead, you should specify `padding_value` for each column in TensorSchema"
-    )
     def __init__(
         self,
         sequential: "SequentialDataset",
         max_sequence_length: int,
         sliding_window_step: Optional[int] = None,
-        padding_value: int = 0,
+        padding_value: Optional[int] = None,
     ) -> None:
         """
         :param sequential: sequential dataset
@@ -53,6 +48,15 @@ class TorchSequentialDataset(TorchDataset):
         self._sequential = sequential
         self._max_sequence_length = max_sequence_length
         self._sliding_window_step = sliding_window_step
+        if padding_value is not None:
+            warnings.warn(
+                "`padding_value` parameter will be removed in future versions. "
+                "Instead, you should specify `padding_value` for each column in TensorSchema",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        else:
+            padding_value = 0
         self._padding_value = padding_value
         self._index2sequence_map = self._build_index2sequence_map()
 
@@ -177,17 +181,13 @@ class TorchSequentialValidationDataset(TorchDataset):
     Torch dataset for sequential recommender models that additionally stores ground truth
     """
 
-    @deprecation_warning(
-        "`padding_value` parameter will be removed in future versions. "
-        "Instead, you should specify `padding_value` for each column in TensorSchema"
-    )
     def __init__(
         self,
         sequential: "SequentialDataset",
         ground_truth: "SequentialDataset",
         train: "SequentialDataset",
         max_sequence_length: int,
-        padding_value: int = 0,
+        padding_value: Optional[int] = None,
         sliding_window_step: Optional[int] = None,
         label_feature_name: Optional[str] = None,
     ):
