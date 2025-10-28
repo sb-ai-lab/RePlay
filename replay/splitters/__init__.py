@@ -11,3 +11,4 @@ from .random_splitter import RandomSplitter
 from .ratio_splitter import RatioSplitter
 from .time_splitter import TimeSplitter
 from .two_stage_splitter import TwoStageSplitter
+from .random_target_next_n_splitter import RandomTargetNextNSplitter
