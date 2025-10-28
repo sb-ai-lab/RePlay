@@ -4,7 +4,7 @@ Select or remove data by some criteria
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Callable, Literal, Optional, Tuple, Union
+from typing import Callable, Literal, Optional, Tuple, Union, List
 from uuid import uuid4
 
 import numpy as np
@@ -1092,23 +1092,16 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
         )
 
 
-def _check_columns_consistency(
+def _check_col_present(
     target: DataFrameLike,
     reference: DataFrameLike,
-    mode: Literal["items", "users", "both"],
-    query_column: str,
-    item_column: str,
+    columns_to_process: List[str],
 ) -> None:
     target_columns = set(target.columns)
     reference_columns = set(reference.columns)
-
-    if mode in {"items", "both"}:
-        if item_column not in target_columns or item_column not in reference_columns:
-            raise KeyError(f"Column '{item_column}' must be in both dataframes")
-
-    if mode in {"users", "both"}:
-        if query_column not in target_columns or query_column not in reference_columns:
-            raise KeyError(f"Column '{query_column}' must be in both dataframes")
+    for column in columns_to_process:
+        if column not in target_columns or column not in reference_columns:
+            raise KeyError(f"Column '{column}' must be in both dataframes")
 
 
 def _filter_cold_pandas(
@@ -1118,13 +1111,18 @@ def _filter_cold_pandas(
     query_column: str,
     item_column: str,
 ) -> PandasDataFrame:
-    _check_columns_consistency(target, reference, mode, query_column, item_column)
-    if mode in {"items", "both"}:
-        allowed_items = reference[item_column].drop_duplicates()
-        target = target[target[item_column].isin(allowed_items)]
-    if mode in {"users", "both"}:
-        allowed_users = reference[query_column].drop_duplicates()
-        target = target[target[query_column].isin(allowed_users)]
+    if mode == "both":
+        columns_to_process = [query_column, item_column]
+    elif mode == "items":
+        columns_to_process = [item_column]
+    elif mode == "users":
+        columns_to_process = [query_column]
+    
+    _check_col_present(target, reference, columns_to_process)
+    
+    for column in columns_to_process:
+        allowed_values = reference[column].drop_duplicates()
+        target = target[target[column].isin(allowed_values)]
     return target
 
 
@@ -1135,13 +1133,18 @@ def _filter_cold_polars(
     query_column: str,
     item_column: str,
 ) -> PolarsDataFrame:
-    _check_columns_consistency(target, reference, mode, query_column, item_column)
-    if mode in {"items", "both"}:
-        allowed_items = reference.select(item_column).unique()
-        target = target.join(allowed_items, on=item_column, how="semi")
-    if mode in {"users", "both"}:
-        allowed_users = reference.select(query_column).unique()
-        target = target.join(allowed_users, on=query_column, how="semi")
+    if mode == "both":
+        columns_to_process = [query_column, item_column]
+    elif mode == "items":
+        columns_to_process = [item_column]
+    elif mode == "users":
+        columns_to_process = [query_column]
+
+    _check_col_present(target, reference, columns_to_process)
+
+    for column in columns_to_process:
+        allowed_values = reference.select(column).unique()
+        target = target.join(allowed_values, on=column, how="semi")
     return target
 
 
@@ -1152,13 +1155,18 @@ def _filter_cold_spark(
     query_column: str,
     item_column: str,
 ) -> SparkDataFrame:
-    _check_columns_consistency(target, reference, mode, query_column, item_column)
-    if mode in {"items", "both"}:
-        allowed_items = reference.select(item_column).distinct()
-        target = target.join(allowed_items, on=item_column, how="left_semi")
-    if mode in {"users", "both"}:
-        allowed_users = reference.select(query_column).distinct()
-        target = target.join(allowed_users, on=query_column, how="left_semi")
+    if mode == "both":
+        columns_to_process = [query_column, item_column]
+    elif mode == "items":
+        columns_to_process = [item_column]
+    elif mode == "users":
+        columns_to_process = [query_column]
+
+    _check_col_present(target, reference, columns_to_process)
+
+    for column in columns_to_process:
+        allowed_values = reference.select(column).distinct()
+        target = target.join(allowed_values, on=column, how="left_semi")
     return target
 
 

@@ -118,15 +118,17 @@ class RandomTargetNextNSplitter(Splitter):
         interactions: PandasDataFrame,
     ) -> Tuple[PandasDataFrame, PandasDataFrame]:
         df = interactions.sort_values([self.query_column, self.timestamp_column])
-        df["_rn"] = df.groupby(self.query_column, sort=False).cumcount()
+        df["_event_rank"] = df.groupby(self.query_column, sort=False).cumcount()
 
-        counts = df.groupby(self.query_column, sort=False)["_rn"].max() + 1
+        counts = df.groupby(self.query_column, sort=False)["_event_rank"].max() + 1
         r_values = self._sample_cuts(counts.values)
         r_map = dict(zip(counts.index, r_values))
-        df["_r"] = df[self.query_column].map(r_map)
+        df["_cut_index"] = df[self.query_column].map(r_map)
 
-        input_mask = df["_rn"] < df["_r"]
-        target_mask = (df["_rn"] >= df["_r"]) & (df["_rn"] < df["_r"] + self.N)
+        input_mask = df["_event_rank"] < df["_cut_index"]
+        target_mask = (df["_event_rank"] >= df["_cut_index"]) & (
+            df["_event_rank"] < df["_cut_index"] + self.N
+        )
 
         input_df = df.loc[input_mask, interactions.columns]
         target_df = df.loc[target_mask, interactions.columns]
@@ -138,7 +140,7 @@ class RandomTargetNextNSplitter(Splitter):
         interactions: PolarsDataFrame,
     ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
         df = interactions.sort([self.query_column, self.timestamp_column]).with_columns(
-            pl.cum_count().over(self.query_column).alias("_rn")
+            pl.cum_count().over(self.query_column).alias("_event_rank")
         )
 
         counts = df.group_by(self.query_column).agg(pl.len().alias("_cnt"))
@@ -146,13 +148,13 @@ class RandomTargetNextNSplitter(Splitter):
         cnts = counts.get_column("_cnt").to_numpy()
 
         r_values = self._sample_cuts(cnts)
-        r_map = pl.DataFrame({self.query_column: users, "_r": r_values})
+        r_map = pl.DataFrame({self.query_column: users, "_cut_index": r_values})
 
         df = df.join(r_map, on=self.query_column, how="left")
 
-        input_mask = pl.col("_rn") < pl.col("_r")
-        target_mask = (pl.col("_rn") >= pl.col("_r")) & (
-            pl.col("_rn") < pl.col("_r") + self.N
+        input_mask = pl.col("_event_rank") < pl.col("_cut_index")
+        target_mask = (pl.col("_event_rank") >= pl.col("_cut_index")) & (
+            pl.col("_event_rank") < pl.col("_cut_index") + self.N
         )
 
         input_df = df.filter(input_mask).select(interactions.columns)
@@ -165,7 +167,7 @@ class RandomTargetNextNSplitter(Splitter):
         interactions: SparkDataFrame,
     ) -> Tuple[SparkDataFrame, SparkDataFrame]:
         w = Window.partitionBy(self.query_column).orderBy(sf.col(self.timestamp_column))
-        df = interactions.withColumn("_rn", sf.row_number().over(w) - sf.lit(1))
+        df = interactions.withColumn("_event_rank", sf.row_number().over(w) - sf.lit(1))
 
         counts = (
             interactions.groupBy(self.query_column)
@@ -174,14 +176,14 @@ class RandomTargetNextNSplitter(Splitter):
         )
 
         r_per_user = counts.withColumn(
-            "_r", sf.floor(sf.rand(self.seed) * sf.col("_cnt")).cast("long")
-        ).select(self.query_column, "_r")
+            "_cut_index", sf.floor(sf.rand(self.seed) * sf.col("_cnt")).cast("long")
+        ).select(self.query_column, "_cut_index")
 
         df = df.join(r_per_user, on=self.query_column, how="left")
 
-        input_cond = sf.col("_rn") < sf.col("_r")
-        target_cond = (sf.col("_rn") >= sf.col("_r")) & (
-            sf.col("_rn") < sf.col("_r") + sf.lit(self.N)
+        input_cond = sf.col("_event_rank") < sf.col("_cut_index")
+        target_cond = (sf.col("_event_rank") >= sf.col("_cut_index")) & (
+            sf.col("_event_rank") < sf.col("_cut_index") + sf.lit(self.N)
         )
 
         input_df = df.where(input_cond).select(*interactions.columns)
