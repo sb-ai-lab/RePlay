@@ -15,6 +15,13 @@ if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
 
 
+def _ensure_columns_match(df, ref_cols, index: int, check_columns: bool) -> None:
+    if check_columns and set(df.columns) != set(ref_cols):
+        raise ValueError(
+            f"Columns mismatch in dataframe #{index}: {sorted(df.columns)} != {sorted(ref_cols)}"
+        )
+
+
 def _merge_subsets_pandas(
     dfs: Sequence[PandasDataFrame],
     columns: Optional[Sequence[str]],
@@ -29,13 +36,14 @@ def _merge_subsets_pandas(
 
     aligned: List[PandasDataFrame] = []
     for i, df in enumerate(dfs):
-        if check_columns and set(df.columns) != set(ref_cols):
-            raise ValueError(f"Columns mismatch in dataframe #{i}: {sorted(df.columns)} != {sorted(ref_cols)}")
+        _ensure_columns_match(df, ref_cols, i, check_columns)
         aligned.append(df[ref_cols])
 
     merged = pd.concat(aligned, axis=0, ignore_index=True)
 
-    dup_subset = ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
+    dup_subset = (
+        ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
+    )
     dup_mask = merged.duplicated(subset=dup_subset, keep="first")
     dup_count = int(dup_mask.sum())
 
@@ -46,7 +54,9 @@ def _merge_subsets_pandas(
                 f"Found {dup_count} duplicate rows on subset {dup_subset}. Sample:\n{sample}"
             )
         if on_duplicate == "drop":
-            merged = merged.drop_duplicates(subset=dup_subset, keep="first").reset_index(drop=True)
+            merged = merged.drop_duplicates(
+                subset=dup_subset, keep="first"
+            ).reset_index(drop=True)
 
     return merged
 
@@ -65,13 +75,14 @@ def _merge_subsets_polars(
 
     aligned: List[PolarsDataFrame] = []
     for i, df in enumerate(dfs):
-        if check_columns and set(df.columns) != set(ref_cols):
-            raise ValueError(f"Columns mismatch in dataframe #{i}: {sorted(df.columns)} != {sorted(ref_cols)}")
+        _ensure_columns_match(df, ref_cols, i, check_columns)
         aligned.append(df.select(ref_cols))
 
     merged = pl.concat(aligned, how="vertical")
 
-    dup_subset = ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
+    dup_subset = (
+        ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
+    )
     dup_mask = merged.is_duplicated(subset=dup_subset)
     dup_count = int(dup_mask.sum())
 
@@ -82,6 +93,7 @@ def _merge_subsets_polars(
             merged = merged.unique(subset=dup_subset, keep="first", maintain_order=True)
 
     return merged
+
 
 def _merge_subsets_spark(
     dfs: Sequence[SparkDataFrame],
@@ -98,12 +110,13 @@ def _merge_subsets_spark(
 
     merged = None
     for i, df in enumerate(dfs):
-        if check_columns and set(df.columns) != set(ref_cols):
-            raise ValueError(f"Columns mismatch in dataframe #{i}: {sorted(df.columns)} != {sorted(ref_cols)}")
+        _ensure_columns_match(df, ref_cols, i, check_columns)
         part = df.select(*ref_cols)
         merged = part if merged is None else merged.unionByName(part)
 
-    dup_subset = ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
+    dup_subset = (
+        ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
+    )
     if on_duplicate in ("error", "drop"):
         dup_groups = merged.groupBy(*dup_subset).count().filter(sf.col("count") > 1)
         has_dups = dup_groups.limit(1).count() > 0
@@ -171,19 +184,27 @@ def merge_subsets(
 
     if isinstance(first, PandasDataFrame):
         return _merge_subsets_pandas(
-            dfs, columns=columns, check_columns=check_columns,
-            subset_for_duplicates=subset_for_duplicates, on_duplicate=on_duplicate
+            dfs,
+            columns=columns,
+            check_columns=check_columns,
+            subset_for_duplicates=subset_for_duplicates,
+            on_duplicate=on_duplicate,
         )
     if isinstance(first, PolarsDataFrame):
         return _merge_subsets_polars(
-            dfs, columns=columns, check_columns=check_columns,
-            subset_for_duplicates=subset_for_duplicates, on_duplicate=on_duplicate
+            dfs,
+            columns=columns,
+            check_columns=check_columns,
+            subset_for_duplicates=subset_for_duplicates,
+            on_duplicate=on_duplicate,
         )
     if isinstance(first, SparkDataFrame):
         return _merge_subsets_spark(
-            dfs, columns=columns, check_columns=check_columns,
-            subset_for_duplicates=subset_for_duplicates, on_duplicate=on_duplicate
+            dfs,
+            columns=columns,
+            check_columns=check_columns,
+            subset_for_duplicates=subset_for_duplicates,
+            on_duplicate=on_duplicate,
         )
 
     raise NotImplementedError(f"Unsupported data frame type: {type(first)}")
-
