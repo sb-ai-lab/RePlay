@@ -1092,21 +1092,37 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
         )
 
 
+def _check_columns_consistency(
+    target: DataFrameLike,
+    reference: DataFrameLike,
+    mode: Literal["items", "users", "both"],
+    query_column: str,
+    item_column: str,
+) -> None:
+    target_columns = set(target.columns)
+    reference_columns = set(reference.columns)
+
+    if mode in {"items", "both"}:
+        if item_column not in target_columns or item_column not in reference_columns:
+            raise KeyError(f"Column '{item_column}' must be in both dataframes")
+
+    if mode in {"users", "both"}:
+        if query_column not in target_columns or query_column not in reference_columns:
+            raise KeyError(f"Column '{query_column}' must be in both dataframes")
+
+
 def _filter_cold_pandas(
     target: PandasDataFrame,
     reference: PandasDataFrame,
     mode: Literal["items", "users", "both"],
     query_column: str,
-    item_column: str
+    item_column: str,
 ) -> PandasDataFrame:
+    _check_columns_consistency(target, reference, mode, query_column, item_column)
     if mode in {"items", "both"}:
-        if item_column not in target.columns or item_column not in reference.columns:
-            raise KeyError(f"Column '{item_column}' must be in both dataframes")
         allowed_items = reference[item_column].drop_duplicates()
         target = target[target[item_column].isin(allowed_items)]
     if mode in {"users", "both"}:
-        if query_column not in target.columns or query_column not in reference.columns:
-            raise KeyError(f"Column '{query_column}' must be in both dataframes")
         allowed_users = reference[query_column].drop_duplicates()
         target = target[target[query_column].isin(allowed_users)]
     return target
@@ -1117,16 +1133,13 @@ def _filter_cold_polars(
     reference: PolarsDataFrame,
     mode: Literal["items", "users", "both"],
     query_column: str,
-    item_column: str
+    item_column: str,
 ) -> PolarsDataFrame:
+    _check_columns_consistency(target, reference, mode, query_column, item_column)
     if mode in {"items", "both"}:
-        if item_column not in target.columns or item_column not in reference.columns:
-            raise KeyError(f"Column '{item_column}' must be in both dataframes")
         allowed_items = reference.select(item_column).unique()
         target = target.join(allowed_items, on=item_column, how="semi")
     if mode in {"users", "both"}:
-        if query_column not in target.columns or query_column not in reference.columns:
-            raise KeyError(f"Column '{query_column}' must be in both dataframes")
         allowed_users = reference.select(query_column).unique()
         target = target.join(allowed_users, on=query_column, how="semi")
     return target
@@ -1137,16 +1150,13 @@ def _filter_cold_spark(
     reference: SparkDataFrame,
     mode: Literal["items", "users", "both"],
     query_column: str,
-    item_column: str
+    item_column: str,
 ) -> SparkDataFrame:
+    _check_columns_consistency(target, reference, mode, query_column, item_column)
     if mode in {"items", "both"}:
-        if item_column not in target.columns or item_column not in reference.columns:
-            raise KeyError(f"Column '{item_column}' must be in both dataframes")
         allowed_items = reference.select(item_column).distinct()
         target = target.join(allowed_items, on=item_column, how="left_semi")
     if mode in {"users", "both"}:
-        if query_column not in target.columns or query_column not in reference.columns:
-            raise KeyError(f"Column '{query_column}' must be in both dataframes")
         allowed_users = reference.select(query_column).distinct()
         target = target.join(allowed_users, on=query_column, how="left_semi")
     return target
@@ -1203,15 +1213,27 @@ def filter_cold(
 
     if isinstance(target, PandasDataFrame):
         return _filter_cold_pandas(
-            target, reference, mode, query_column, item_column,
+            target,
+            reference,
+            mode,
+            query_column,
+            item_column,
         )
     if isinstance(target, PolarsDataFrame):
         return _filter_cold_polars(
-            target, reference, mode, query_column, item_column,
+            target,
+            reference,
+            mode,
+            query_column,
+            item_column,
         )
     if isinstance(target, SparkDataFrame):
         return _filter_cold_spark(
-            target, reference, mode, query_column, item_column,
+            target,
+            reference,
+            mode,
+            query_column,
+            item_column,
         )
-        
+
     raise NotImplementedError(f"Unsupported data frame type: {type(target)}")
