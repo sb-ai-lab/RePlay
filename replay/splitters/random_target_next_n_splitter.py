@@ -40,7 +40,7 @@ class RandomTargetNextNSplitter(Splitter):
     >>> dataset = pd.DataFrame(data, columns=columns)
     >>> dataset["timestamp"] = pd.to_datetime(dataset["timestamp"], format="%d-%m-%Y")
     >>> splitter = RandomTargetNextNSplitter(
-    ...     N=2,
+    ...     n=2,
     ...     divide_column="query_id",
     ...     seed=42,
     ...     query_column="query_id",
