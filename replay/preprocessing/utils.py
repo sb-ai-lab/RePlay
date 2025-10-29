@@ -17,9 +17,8 @@ if PYSPARK_AVAILABLE:
 
 def _ensure_columns_match(df, ref_cols, index: int, check_columns: bool) -> None:
     if check_columns and set(df.columns) != set(ref_cols):
-        raise ValueError(
-            f"Columns mismatch in dataframe #{index}: {sorted(df.columns)} != {sorted(ref_cols)}"
-        )
+        msg = f"Columns mismatch in dataframe #{index}: {sorted(df.columns)} != {sorted(ref_cols)}"
+        raise ValueError(msg)
 
 
 def _merge_subsets_pandas(
@@ -38,19 +37,16 @@ def _merge_subsets_pandas(
 
     merged = pd.concat(aligned, axis=0, ignore_index=True)
 
-    dup_subset = (
-        ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
-    )
+    dup_subset = ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
     dup_mask = merged.duplicated(subset=dup_subset, keep="first")
     dup_count = int(dup_mask.sum())
 
     if dup_count > 0:
         if on_duplicate == "error":
-            raise ValueError(f"Found {dup_count} duplicate rows on subset {dup_subset}")
+            msg = f"Found {dup_count} duplicate rows on subset {dup_subset}"
+            raise ValueError(msg)
         if on_duplicate == "drop":
-            merged = merged.drop_duplicates(
-                subset=dup_subset, keep="first"
-            ).reset_index(drop=True)
+            merged = merged.drop_duplicates(subset=dup_subset, keep="first").reset_index(drop=True)
 
     return merged
 
@@ -71,15 +67,14 @@ def _merge_subsets_polars(
 
     merged = pl.concat(aligned, how="vertical")
 
-    dup_subset = (
-        ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
-    )
+    dup_subset = ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
     dup_mask = merged.is_duplicated(subset=dup_subset)
     dup_count = int(dup_mask.sum())
 
     if dup_count > 0:
         if on_duplicate == "error":
-            raise ValueError(f"Found {dup_count} duplicate rows on subset {dup_subset}")
+            msg = f"Found {dup_count} duplicate rows on subset {dup_subset}"
+            raise ValueError(msg)
         if on_duplicate == "drop":
             merged = merged.unique(subset=dup_subset, keep="first", maintain_order=True)
 
@@ -101,19 +96,11 @@ def _merge_subsets_spark(
         part = df.select(*ref_cols)
         merged = part if merged is None else merged.unionByName(part)
 
-    dup_subset = (
-        ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
-    )
+    dup_subset = ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
     if on_duplicate == "error":
-        if (
-            merged.groupBy(*dup_subset)
-            .count()
-            .filter(sf.col("count") > 1)
-            .limit(1)
-            .count()
-            > 0
-        ):
-            raise ValueError(f"Found duplicate rows on subset {dup_subset}")
+        if merged.groupBy(*dup_subset).count().filter(sf.col("count") > 1).limit(1).count() > 0:
+            msg = f"Found duplicate rows on subset {dup_subset}"
+            raise ValueError(msg)
     if on_duplicate == "drop":
         merged = merged.dropDuplicates(dup_subset)
 
@@ -162,11 +149,13 @@ def merge_subsets(
         If inputs are of different dataframe types.
     """
     if not dfs:
-        raise ValueError("At least one dataframe is required")
+        msg = "At least one dataframe is required"
+        raise ValueError(msg)
 
     first = dfs[0]
     if any(not isinstance(df, type(first)) for df in dfs):
-        raise TypeError("All input dataframes must be of the same type")
+        msg = "All input dataframes must be of the same type"
+        raise TypeError(msg)
 
     if isinstance(first, PandasDataFrame):
         return _merge_subsets_pandas(
@@ -193,4 +182,5 @@ def merge_subsets(
             on_duplicate=on_duplicate,
         )
 
-    raise NotImplementedError(f"Unsupported data frame type: {type(first)}")
+    msg = f"Unsupported data frame type: {type(first)}"
+    raise NotImplementedError(msg)

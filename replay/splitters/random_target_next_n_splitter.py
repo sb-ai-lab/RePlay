@@ -110,7 +110,8 @@ class RandomTargetNextNSplitter(Splitter):
         )
         self.N = int(N)
         if self.N < 1:
-            raise ValueError("N must be >= 1")
+            msg = "N must be >= 1"
+            raise ValueError(msg)
         self.divide_column = divide_column
         self.seed = seed
 
@@ -145,9 +146,9 @@ class RandomTargetNextNSplitter(Splitter):
         self,
         interactions: PolarsDataFrame,
     ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
-        df = interactions.sort(
-            [self.divide_column, self.timestamp_column]
-        ).with_columns(pl.cum_count().over(self.divide_column).alias("_event_rank"))
+        df = interactions.sort([self.divide_column, self.timestamp_column]).with_columns(
+            pl.cum_count().over(self.divide_column).alias("_event_rank")
+        )
 
         counts = df.group_by(self.divide_column).agg(pl.len().alias("_cnt"))
         users = counts.get_column(self.divide_column).to_list()
@@ -160,9 +161,7 @@ class RandomTargetNextNSplitter(Splitter):
 
         df = df.filter(pl.col("_event_rank") < (pl.col("_cut_index") + self.N))
 
-        df = df.with_columns(
-            (pl.col("_event_rank") >= pl.col("_cut_index")).alias("is_test")
-        )
+        df = df.with_columns((pl.col("_event_rank") >= pl.col("_cut_index")).alias("is_test"))
         if self.session_id_column:
             df = self._recalculate_with_session_id_column(df)
 
@@ -175,20 +174,14 @@ class RandomTargetNextNSplitter(Splitter):
         self,
         interactions: SparkDataFrame,
     ) -> Tuple[SparkDataFrame, SparkDataFrame]:
-        w = Window.partitionBy(self.divide_column).orderBy(
-            sf.col(self.timestamp_column)
-        )
+        w = Window.partitionBy(self.divide_column).orderBy(sf.col(self.timestamp_column))
         df = interactions.withColumn("_event_rank", sf.row_number().over(w) - sf.lit(1))
 
-        counts = (
-            interactions.groupBy(self.divide_column)
-            .count()
-            .withColumnRenamed("count", "_cnt")
-        )
+        counts = interactions.groupBy(self.divide_column).count().withColumnRenamed("count", "_cnt")
 
-        r_per_user = counts.withColumn(
-            "_cut_index", sf.floor(sf.rand(self.seed) * sf.col("_cnt")).cast("long")
-        ).select(self.divide_column, "_cut_index")
+        r_per_user = counts.withColumn("_cut_index", sf.floor(sf.rand(self.seed) * sf.col("_cnt")).cast("long")).select(
+            self.divide_column, "_cut_index"
+        )
 
         df = df.join(r_per_user, on=self.divide_column, how="left")
 
@@ -203,18 +196,15 @@ class RandomTargetNextNSplitter(Splitter):
 
         return train, test
 
-    def _partial_split(
-        self, interactions: DataFrameLike
-    ) -> Tuple[DataFrameLike, DataFrameLike]:
+    def _partial_split(self, interactions: DataFrameLike) -> Tuple[DataFrameLike, DataFrameLike]:
         if isinstance(interactions, PandasDataFrame):
             return self._partial_split_pandas(interactions)
         if isinstance(interactions, PolarsDataFrame):
             return self._partial_split_polars(interactions)
         if isinstance(interactions, SparkDataFrame):
             return self._partial_split_spark(interactions)
-        raise NotImplementedError(f"{self} is not implemented for {type(interactions)}")
+        msg = f"{self} is not implemented for {type(interactions)}"
+        raise NotImplementedError(msg)
 
-    def _core_split(
-        self, interactions: DataFrameLike
-    ) -> Tuple[DataFrameLike, DataFrameLike]:
+    def _core_split(self, interactions: DataFrameLike) -> Tuple[DataFrameLike, DataFrameLike]:
         return self._partial_split(interactions)

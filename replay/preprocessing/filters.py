@@ -1101,7 +1101,8 @@ def _check_col_present(
     reference_columns = set(reference.columns)
     for column in columns_to_process:
         if column not in target_columns or column not in reference_columns:
-            raise KeyError(f"Column '{column}' must be in both dataframes")
+            msg = f"Column '{column}' must be in both dataframes"
+            raise KeyError(msg)
 
 
 def _filter_cold_pandas(
@@ -1184,7 +1185,8 @@ def filter_cold(
     if mode not in {"items", "users", "both"}:
         raise ValueError("mode must be 'items' | 'users' | 'both'")
     if not isinstance(target, type(reference)):
-        raise TypeError("Target and reference must be of the same type")
+        msg = "Target and reference must be of the same type"
+        raise TypeError(msg)
 
     if mode == "both":
         columns_to_process = [query_column, item_column]
@@ -1213,4 +1215,5 @@ def filter_cold(
             reference,
             columns_to_process,
         )
-    raise NotImplementedError(f"Unsupported data frame type: {type(target)}")
+    msg = f"Unsupported data frame type: {type(target)}"
+    raise NotImplementedError(msg)
