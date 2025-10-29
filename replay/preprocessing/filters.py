@@ -1183,7 +1183,8 @@ def filter_cold(
         If the input dataframe type is not supported.
     """
     if mode not in {"items", "users", "both"}:
-        raise ValueError("mode must be 'items' | 'users' | 'both'")
+        msg = "mode must be 'items' | 'users' | 'both'"
+        raise ValueError(msg)
     if not isinstance(target, type(reference)):
         msg = "Target and reference must be of the same type"
         raise TypeError(msg)

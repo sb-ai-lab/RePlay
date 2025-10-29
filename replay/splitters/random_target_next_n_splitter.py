@@ -22,7 +22,7 @@ class RandomTargetNextNSplitter(Splitter):
     """
     Split interactions by a random target window of the next N interactions per user.
     For each user, a random cut index is sampled and the target part consists of
-    the next ``N`` interactions starting from this cut; the train part contains
+    the next ``n`` interactions starting from this cut; the train part contains
     all interactions before the cut. Interactions after the target window are
     discarded.
 
@@ -50,7 +50,7 @@ class RandomTargetNextNSplitter(Splitter):
     """
 
     _init_arg_names = [
-        "N",
+        "n",
         "divide_column",
         "seed",
         "drop_cold_users",
@@ -64,7 +64,7 @@ class RandomTargetNextNSplitter(Splitter):
 
     def __init__(
         self,
-        N: int = 1,
+        n: int = 1,
         divide_column: str = "query_id",
         seed: Optional[int] = None,
         query_column: str = "query_id",
@@ -76,7 +76,7 @@ class RandomTargetNextNSplitter(Splitter):
         session_id_processing_strategy: str = "test",
     ):
         """
-        :param N: Number of target interactions per user (size of the window).
+        :param n: Number of target interactions per user (size of the window).
             For each user a random cut index is sampled, and the next ``N``
             interactions starting from the cut form the test set.
         :param divide_column: Name of the column used to group interactions
@@ -108,9 +108,9 @@ class RandomTargetNextNSplitter(Splitter):
             session_id_column=session_id_column,
             session_id_processing_strategy=session_id_processing_strategy,
         )
-        self.N = int(N)
-        if self.N < 1:
-            msg = "N must be >= 1"
+        self.n = int(n)
+        if self.n < 1:
+            msg = "n must be >= 1"
             raise ValueError(msg)
         self.divide_column = divide_column
         self.seed = seed
@@ -131,7 +131,7 @@ class RandomTargetNextNSplitter(Splitter):
         r_map = dict(zip(counts.index, r_values))
         df["_cut_index"] = df[self.divide_column].map(r_map)
 
-        df = df[df["_event_rank"] < df["_cut_index"] + self.N]
+        df = df[df["_event_rank"] < df["_cut_index"] + self.n]
 
         df["is_test"] = df["_event_rank"] >= df["_cut_index"]
         if self.session_id_column:
@@ -159,7 +159,7 @@ class RandomTargetNextNSplitter(Splitter):
 
         df = df.join(r_map, on=self.divide_column, how="left")
 
-        df = df.filter(pl.col("_event_rank") < (pl.col("_cut_index") + self.N))
+        df = df.filter(pl.col("_event_rank") < (pl.col("_cut_index") + self.n))
 
         df = df.with_columns((pl.col("_event_rank") >= pl.col("_cut_index")).alias("is_test"))
         if self.session_id_column:
@@ -185,7 +185,7 @@ class RandomTargetNextNSplitter(Splitter):
 
         df = df.join(r_per_user, on=self.divide_column, how="left")
 
-        df = df.where(sf.col("_event_rank") < (sf.col("_cut_index") + sf.lit(self.N)))
+        df = df.where(sf.col("_event_rank") < (sf.col("_cut_index") + sf.lit(self.n)))
 
         df = df.withColumn("is_test", sf.col("_event_rank") >= sf.col("_cut_index"))
         if self.session_id_column:
