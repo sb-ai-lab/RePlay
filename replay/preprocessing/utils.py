@@ -1,7 +1,7 @@
-from typing import Literal, List, Optional, Sequence
+from typing import List, Literal, Optional, Sequence
 
-import polars as pl
 import pandas as pd
+import polars as pl
 
 from replay.utils import (
     PYSPARK_AVAILABLE,

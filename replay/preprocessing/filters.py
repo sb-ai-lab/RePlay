@@ -4,7 +4,7 @@ Select or remove data by some criteria
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Callable, Literal, Optional, Tuple, Union, List
+from typing import Callable, List, Literal, Optional, Tuple, Union
 from uuid import uuid4
 
 import numpy as np
