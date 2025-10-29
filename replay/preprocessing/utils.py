@@ -29,9 +29,6 @@ def _merge_subsets_pandas(
     subset_for_duplicates: Optional[Sequence[str]],
     on_duplicate: Literal["error", "drop", "ignore"],
 ) -> PandasDataFrame:
-    if not dfs:
-        raise ValueError("At least one dataframe is required")
-
     ref_cols = list(dfs[0].columns) if columns is None else list(columns)
 
     aligned: List[PandasDataFrame] = []
@@ -49,10 +46,7 @@ def _merge_subsets_pandas(
 
     if dup_count > 0:
         if on_duplicate == "error":
-            sample = merged.loc[dup_mask, dup_subset].head(5)
-            raise ValueError(
-                f"Found {dup_count} duplicate rows on subset {dup_subset}. Sample:\n{sample}"
-            )
+            raise ValueError(f"Found {dup_count} duplicate rows on subset {dup_subset}")
         if on_duplicate == "drop":
             merged = merged.drop_duplicates(
                 subset=dup_subset, keep="first"
@@ -68,9 +62,6 @@ def _merge_subsets_polars(
     subset_for_duplicates: Optional[Sequence[str]],
     on_duplicate: Literal["error", "drop", "ignore"],
 ) -> PolarsDataFrame:
-    if not dfs:
-        raise ValueError("At least one dataframe is required")
-
     ref_cols = list(dfs[0].columns) if columns is None else list(columns)
 
     aligned: List[PolarsDataFrame] = []
@@ -97,15 +88,11 @@ def _merge_subsets_polars(
 
 def _merge_subsets_spark(
     dfs: Sequence[SparkDataFrame],
-    *,
     columns: Optional[Sequence[str]],
     check_columns: bool,
     subset_for_duplicates: Optional[Sequence[str]],
     on_duplicate: Literal["error", "drop", "ignore"],
 ) -> SparkDataFrame:
-    if not dfs:
-        raise ValueError("At least one dataframe is required")
-
     ref_cols = list(dfs[0].columns) if columns is None else list(columns)
 
     merged = None
@@ -117,63 +104,62 @@ def _merge_subsets_spark(
     dup_subset = (
         ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
     )
-    if on_duplicate in ("error", "drop"):
-        dup_groups = merged.groupBy(*dup_subset).count().filter(sf.col("count") > 1)
-        has_dups = dup_groups.limit(1).count() > 0
-        if has_dups and on_duplicate == "error":
+    if on_duplicate == "error":
+        if (
+            merged.groupBy(*dup_subset)
+            .count()
+            .filter(sf.col("count") > 1)
+            .limit(1)
+            .count()
+            > 0
+        ):
             raise ValueError(f"Found duplicate rows on subset {dup_subset}")
-        if has_dups and on_duplicate == "drop":
-            merged = merged.dropDuplicates(dup_subset)
+    if on_duplicate == "drop":
+        merged = merged.dropDuplicates(dup_subset)
 
     return merged
 
 
 def merge_subsets(
-    *dfs: DataFrameLike,
+    dfs: Sequence[DataFrameLike],
     columns: Optional[Sequence[str]] = None,
     check_columns: bool = True,
     subset_for_duplicates: Optional[Sequence[str]] = None,
     on_duplicate: Literal["error", "drop", "ignore"] = "error",
 ) -> DataFrameLike:
-    """
-    Vertically concatenate multiple datasets of the same backend with column alignment
-    and optional duplicate control.
+    """Merge multiple dataframes of the same backend into a single one.
 
-    The function accepts pandas, Polars, or Spark DataFrames, but all inputs must
-    belong to the same backend type. Columns are aligned to the order given by
-    ``columns`` (or by the first dataframe if ``columns`` is None). Duplicate rows
-    can be handled according to ``on_duplicate``.
+    All inputs must be of the same dataframe type (pandas/Polars/Spark). Before
+    concatenation, each dataframe is aligned to a common set of columns: either
+    the provided ``columns`` or the columns of the first dataframe. Duplicate
+    rows are handled according to ``on_duplicate``.
 
     Parameters
     ----------
-    dfs : DataFrameLike
-        One or more dataframes to concatenate.
-    columns : Sequence[str] | None, default None
-        Explicit column order/subset to use. If None, the columns of the first
-        dataframe define the order.
-    check_columns : bool, default True
-        Validate that every dataframe has exactly the same set of columns as the
-        reference set (defined by ``columns`` or the first dataframe).
-    subset_for_duplicates : Sequence[str] | None, default None
-        Columns to use for duplicate detection. If None, all columns are used.
-    on_duplicate : {"error", "drop", "ignore"}, default "error"
-        Duplicate handling policy: raise an error, drop duplicates keeping the
-        first occurrence, or ignore them.
+    dfs : Sequence[DataFrameLike]
+        Dataframes to merge.
+    columns : Optional[Sequence[str]]
+        Columns to align to. If ``None``, columns of the first dataframe are used.
+    check_columns : bool
+        Whether to validate that all inputs have the same column set.
+    subset_for_duplicates : Optional[Sequence[str]]
+        Columns subset used to detect duplicates. If ``None``, all aligned columns
+        are used.
+    on_duplicate : {"error", "drop", "ignore"}
+        How to handle duplicates: raise an error, drop them, or ignore.
 
     Returns
     -------
     DataFrameLike
-        Concatenated dataframe of the same backend type as the inputs.
+        Merged dataframe of the same backend as the inputs.
 
     Raises
     ------
     ValueError
-        If no dataframes are provided or column sets do not match when
-        ``check_columns`` is True.
+        If ``dfs`` is empty, if duplicates are found with ``on_duplicate='error'``,
+        or if column sets differ when validation is enabled.
     TypeError
-        If inputs are not all of the same backend type.
-    NotImplementedError
-        If the dataframe backend is not supported.
+        If inputs are of different dataframe types.
     """
     if not dfs:
         raise ValueError("At least one dataframe is required")

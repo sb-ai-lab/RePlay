@@ -1107,21 +1107,10 @@ def _check_col_present(
 def _filter_cold_pandas(
     target: PandasDataFrame,
     reference: PandasDataFrame,
-    mode: Literal["items", "users", "both"],
-    query_column: str,
-    item_column: str,
+    columns_to_process: List[str],
 ) -> PandasDataFrame:
-    if mode == "both":
-        columns_to_process = [query_column, item_column]
-    elif mode == "items":
-        columns_to_process = [item_column]
-    elif mode == "users":
-        columns_to_process = [query_column]
-    
-    _check_col_present(target, reference, columns_to_process)
-    
     for column in columns_to_process:
-        allowed_values = reference[column].drop_duplicates()
+        allowed_values = reference[column].unique()
         target = target[target[column].isin(allowed_values)]
     return target
 
@@ -1129,19 +1118,8 @@ def _filter_cold_pandas(
 def _filter_cold_polars(
     target: PolarsDataFrame,
     reference: PolarsDataFrame,
-    mode: Literal["items", "users", "both"],
-    query_column: str,
-    item_column: str,
+    columns_to_process: List[str],
 ) -> PolarsDataFrame:
-    if mode == "both":
-        columns_to_process = [query_column, item_column]
-    elif mode == "items":
-        columns_to_process = [item_column]
-    elif mode == "users":
-        columns_to_process = [query_column]
-
-    _check_col_present(target, reference, columns_to_process)
-
     for column in columns_to_process:
         allowed_values = reference.select(column).unique()
         target = target.join(allowed_values, on=column, how="semi")
@@ -1151,19 +1129,8 @@ def _filter_cold_polars(
 def _filter_cold_spark(
     target: SparkDataFrame,
     reference: SparkDataFrame,
-    mode: Literal["items", "users", "both"],
-    query_column: str,
-    item_column: str,
+    columns_to_process: List[str],
 ) -> SparkDataFrame:
-    if mode == "both":
-        columns_to_process = [query_column, item_column]
-    elif mode == "items":
-        columns_to_process = [item_column]
-    elif mode == "users":
-        columns_to_process = [query_column]
-
-    _check_col_present(target, reference, columns_to_process)
-
     for column in columns_to_process:
         allowed_values = reference.select(column).distinct()
         target = target.join(allowed_values, on=column, how="left_semi")
@@ -1176,7 +1143,7 @@ def filter_cold(
     mode: Literal["items", "users", "both"] = "items",
     query_column: str = "query_id",
     item_column: str = "item_id",
-):
+) -> DataFrameLike:
     """
     Filter rows in ``target`` keeping only users/items that exist in ``reference``.
 
@@ -1219,29 +1186,31 @@ def filter_cold(
     if not isinstance(target, type(reference)):
         raise TypeError("Target and reference must be of the same type")
 
+    if mode == "both":
+        columns_to_process = [query_column, item_column]
+    elif mode == "items":
+        columns_to_process = [item_column]
+    elif mode == "users":
+        columns_to_process = [query_column]
+
+    _check_col_present(target, reference, columns_to_process)
+
     if isinstance(target, PandasDataFrame):
         return _filter_cold_pandas(
             target,
             reference,
-            mode,
-            query_column,
-            item_column,
+            columns_to_process,
         )
     if isinstance(target, PolarsDataFrame):
         return _filter_cold_polars(
             target,
             reference,
-            mode,
-            query_column,
-            item_column,
+            columns_to_process,
         )
     if isinstance(target, SparkDataFrame):
         return _filter_cold_spark(
             target,
             reference,
-            mode,
-            query_column,
-            item_column,
+            columns_to_process,
         )
-
     raise NotImplementedError(f"Unsupported data frame type: {type(target)}")
