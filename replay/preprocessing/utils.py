@@ -17,7 +17,9 @@ if PYSPARK_AVAILABLE:
 
 def _ensure_columns_match(df, ref_cols, index: int, check_columns: bool) -> None:
     if check_columns and set(df.columns) != set(ref_cols):
-        raise ValueError(f"Columns mismatch in dataframe #{index}: {sorted(df.columns)} != {sorted(ref_cols)}")
+        raise ValueError(
+            f"Columns mismatch in dataframe #{index}: {sorted(df.columns)} != {sorted(ref_cols)}"
+        )
 
 
 def _merge_subsets_pandas(
@@ -36,7 +38,9 @@ def _merge_subsets_pandas(
 
     merged = pd.concat(aligned, axis=0, ignore_index=True)
 
-    dup_subset = ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
+    dup_subset = (
+        ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
+    )
     dup_mask = merged.duplicated(subset=dup_subset, keep="first")
     dup_count = int(dup_mask.sum())
 
@@ -44,7 +48,9 @@ def _merge_subsets_pandas(
         if on_duplicate == "error":
             raise ValueError(f"Found {dup_count} duplicate rows on subset {dup_subset}")
         if on_duplicate == "drop":
-            merged = merged.drop_duplicates(subset=dup_subset, keep="first").reset_index(drop=True)
+            merged = merged.drop_duplicates(
+                subset=dup_subset, keep="first"
+            ).reset_index(drop=True)
 
     return merged
 
@@ -65,7 +71,9 @@ def _merge_subsets_polars(
 
     merged = pl.concat(aligned, how="vertical")
 
-    dup_subset = ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
+    dup_subset = (
+        ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
+    )
     dup_mask = merged.is_duplicated(subset=dup_subset)
     dup_count = int(dup_mask.sum())
 
@@ -93,9 +101,18 @@ def _merge_subsets_spark(
         part = df.select(*ref_cols)
         merged = part if merged is None else merged.unionByName(part)
 
-    dup_subset = ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
+    dup_subset = (
+        ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
+    )
     if on_duplicate == "error":
-        if merged.groupBy(*dup_subset).count().filter(sf.col("count") > 1).limit(1).count() > 0:
+        if (
+            merged.groupBy(*dup_subset)
+            .count()
+            .filter(sf.col("count") > 1)
+            .limit(1)
+            .count()
+            > 0
+        ):
             raise ValueError(f"Found duplicate rows on subset {dup_subset}")
     if on_duplicate == "drop":
         merged = merged.dropDuplicates(dup_subset)
