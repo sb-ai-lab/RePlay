@@ -10,7 +10,12 @@ from replay.utils import (
     SparkDataFrame,
 )
 
-from typing import List, Literal, Optional, Sequence
+from typing import (
+    List,
+    Literal,
+    Optional,
+    Sequence,
+)
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
