@@ -8,7 +8,7 @@ from .k_folds import KFolds
 from .last_n_splitter import LastNSplitter
 from .new_users_splitter import NewUsersSplitter
 from .random_splitter import RandomSplitter
-from .random_target_next_n_splitter import RandomTargetNextNSplitter
+from .random_next_n_splitter import RandomNextNSplitter
 from .ratio_splitter import RatioSplitter
 from .time_splitter import TimeSplitter
 from .two_stage_splitter import TwoStageSplitter
