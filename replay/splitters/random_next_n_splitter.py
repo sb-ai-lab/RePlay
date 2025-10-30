@@ -1,10 +1,8 @@
 from typing import Optional, Tuple
 
 import numpy as np
-import polars as pl
 
 from replay.utils import (
-    PYSPARK_AVAILABLE,
     DataFrameLike,
     PandasDataFrame,
     PolarsDataFrame,
@@ -12,10 +10,6 @@ from replay.utils import (
 )
 
 from .base_splitter import Splitter
-
-if PYSPARK_AVAILABLE:
-    import pyspark.sql.functions as sf
-    from pyspark.sql import Window
 
 
 class RandomNextNSplitter(Splitter):
