@@ -1,5 +1,7 @@
+from enum import unique
 from typing import List, Literal, Optional, Sequence
 
+import logging
 import pandas as pd
 import polars as pl
 
@@ -37,6 +39,9 @@ def _merge_subsets_pandas(
 
     merged = pd.concat(aligned, axis=0, ignore_index=True)
 
+    if on_duplicate == "ignore":
+        return merged
+
     dup_subset = ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
     dup_mask = merged.duplicated(subset=dup_subset, keep="first")
     dup_count = int(dup_mask.sum())
@@ -47,6 +52,9 @@ def _merge_subsets_pandas(
             raise ValueError(msg)
         if on_duplicate == "drop":
             merged = merged.drop_duplicates(subset=dup_subset, keep="first").reset_index(drop=True)
+            logging.getLogger("replay").warning(
+                f"Found {dup_count} duplicate rows on subset {dup_subset} and dropped them"
+            )
 
     return merged
 
@@ -67,6 +75,9 @@ def _merge_subsets_polars(
 
     merged = pl.concat(aligned, how="vertical")
 
+    if on_duplicate == "ignore":
+        return merged
+
     dup_subset = ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
     dup_mask = merged.is_duplicated(subset=dup_subset)
     dup_count = int(dup_mask.sum())
@@ -77,6 +88,9 @@ def _merge_subsets_polars(
             raise ValueError(msg)
         if on_duplicate == "drop":
             merged = merged.unique(subset=dup_subset, keep="first", maintain_order=True)
+            logging.getLogger("replay").warning(
+                f"Found {dup_count} duplicate rows on subset {dup_subset} and dropped them"
+            )
 
     return merged
 
@@ -96,12 +110,19 @@ def _merge_subsets_spark(
         part = df.select(*ref_cols)
         merged = part if merged is None else merged.unionByName(part)
 
+    if on_duplicate == "ignore":
+        return merged
+
     dup_subset = ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
     if on_duplicate == "error" and merged.groupBy(*dup_subset).count().filter(sf.col("count") > 1).limit(1).count() > 0:
         msg = f"Found duplicate rows on subset {dup_subset}"
         raise ValueError(msg)
     if on_duplicate == "drop":
-        merged = merged.dropDuplicates(dup_subset)
+        unique = merged.dropDuplicates(dup_subset)
+        logging.getLogger("replay").warning(
+            f"Found {merged.count() - unique.count()} duplicate rows on subset {dup_subset} and dropped them"
+        )
+        merged = unique
 
     return merged
 
