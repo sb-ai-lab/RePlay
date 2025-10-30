@@ -1,4 +1,11 @@
 import logging
+from typing import (
+    List,
+    Literal,
+    Optional,
+    Sequence,
+)
+
 import pandas as pd
 import polars as pl
 
@@ -8,13 +15,6 @@ from replay.utils import (
     PolarsDataFrame,
     PYSPARK_AVAILABLE,
     SparkDataFrame,
-)
-
-from typing import (
-    List,
-    Literal,
-    Optional,
-    Sequence,
 )
 
 if PYSPARK_AVAILABLE:
