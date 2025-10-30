@@ -182,7 +182,7 @@ class InteractionEntriesFilter(_BaseFilter):
         non_agg_column: str,
         min_inter: Optional[int] = None,
         max_inter: Optional[int] = None,
-    ) -> tuple[PandasDataFrame, int, int]:
+    ) -> Tuple[PandasDataFrame, int, int]:
         filtered_interactions = interactions.copy(deep=True)
 
         filtered_interactions["count"] = filtered_interactions.groupby(agg_column, sort=False)[
@@ -207,7 +207,7 @@ class InteractionEntriesFilter(_BaseFilter):
         non_agg_column: str,
         min_inter: Optional[int] = None,
         max_inter: Optional[int] = None,
-    ) -> tuple[SparkDataFrame, int, int]:
+    ) -> Tuple[SparkDataFrame, int, int]:
         filtered_interactions = interactions.withColumn(
             "count", sf.count(non_agg_column).over(Window.partitionBy(agg_column))
         )
@@ -233,7 +233,7 @@ class InteractionEntriesFilter(_BaseFilter):
         non_agg_column: str,
         min_inter: Optional[int] = None,
         max_inter: Optional[int] = None,
-    ) -> tuple[PolarsDataFrame, int, int]:
+    ) -> Tuple[PolarsDataFrame, int, int]:
         filtered_interactions = interactions.with_columns(
             pl.col(non_agg_column).count().over(pl.col(agg_column)).alias("count")
         )
@@ -1216,5 +1216,5 @@ def filter_cold(
             reference,
             columns_to_process,
         )
-
-    raise NotImplementedError(f"Unsupported data frame type: {type(target)}")
+    msg = f"Unsupported data frame type: {type(target)}"
+    raise NotImplementedError(msg)
