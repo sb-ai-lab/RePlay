@@ -2,8 +2,6 @@ import logging
 import pandas as pd
 import polars as pl
 
-from typing import List, Literal, Optional, Sequence
-
 from replay.utils import (
     DataFrameLike,
     PandasDataFrame,
@@ -11,6 +9,8 @@ from replay.utils import (
     PYSPARK_AVAILABLE,
     SparkDataFrame,
 )
+
+from typing import List, Literal, Optional, Sequence
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
