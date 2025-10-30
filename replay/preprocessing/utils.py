@@ -10,10 +10,10 @@ import pandas as pd
 import polars as pl
 
 from replay.utils import (
+    PYSPARK_AVAILABLE,
     DataFrameLike,
     PandasDataFrame,
     PolarsDataFrame,
-    PYSPARK_AVAILABLE,
     SparkDataFrame,
 )
 

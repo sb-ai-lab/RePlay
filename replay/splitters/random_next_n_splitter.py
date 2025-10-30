@@ -70,9 +70,9 @@ class RandomNextNSplitter(Splitter):
         session_id_processing_strategy: str = "test",
     ):
         """
-        :param n: Number of target interactions per user (size of the window).
-            For each user a random cut index is sampled, and the next ``N``
-            interactions starting from the cut form the test set.
+        :param n: Optional window size. If None, the test set contains all interactions
+            from the cut to the end; otherwise the next ``n`` interactions. Must be >= 1.
+            Default: 1.
         :param divide_column: Name of the column used to group interactions
             for random cut sampling, default: ``query_id``.
         :param seed: Random seed used to sample cut indices, default: ``None``.
@@ -102,8 +102,8 @@ class RandomNextNSplitter(Splitter):
             session_id_column=session_id_column,
             session_id_processing_strategy=session_id_processing_strategy,
         )
-        self.n = int(n)
-        if self.n < 1:
+        self.n = n
+        if self.n is not None and self.n < 1:
             msg = "n must be >= 1"
             raise ValueError(msg)
         self.divide_column = divide_column
@@ -125,7 +125,8 @@ class RandomNextNSplitter(Splitter):
         r_map = dict(zip(counts.index, r_values))
         df["_cut_index"] = df[self.divide_column].map(r_map)
 
-        df = df[df["_event_rank"] < df["_cut_index"] + self.n]
+        if self.n is not None:
+            df = df[df["_event_rank"] < df["_cut_index"] + self.n]
 
         df["is_test"] = df["_event_rank"] >= df["_cut_index"]
         if self.session_id_column:
