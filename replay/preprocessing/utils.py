@@ -1,8 +1,8 @@
 import logging
-from typing import List, Literal, Optional, Sequence
-
 import pandas as pd
 import polars as pl
+
+from typing import List, Literal, Optional, Sequence
 
 from replay.utils import (
     DataFrameLike,
