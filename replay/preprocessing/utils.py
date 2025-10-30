@@ -1,6 +1,6 @@
+import logging
 from typing import List, Literal, Optional, Sequence
 
-import logging
 import pandas as pd
 import polars as pl
 
