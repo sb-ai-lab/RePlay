@@ -58,7 +58,7 @@ class RandomNextNSplitter(Splitter):
 
     def __init__(
         self,
-        N: Optional[int] = 1, # noqa: N803
+        N: Optional[int] = 1,  # noqa: N803
         divide_column: str = "query_id",
         seed: Optional[int] = None,
         query_column: str = "query_id",
