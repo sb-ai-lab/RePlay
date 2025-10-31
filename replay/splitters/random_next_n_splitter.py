@@ -16,7 +16,7 @@ class RandomNextNSplitter(Splitter):
     """
     Split interactions by a random position in the user sequence.
     For each user, a random cut index is sampled and the target part consists of
-    the next ``n`` interactions starting from this cut; the train part contains
+    the next ``N`` interactions starting from this cut; the train part contains
     all interactions before the cut. Interactions after the target window are
     discarded.
 
@@ -34,7 +34,7 @@ class RandomNextNSplitter(Splitter):
     >>> dataset = pd.DataFrame(data, columns=columns)
     >>> dataset["timestamp"] = pd.to_datetime(dataset["timestamp"], format="%d-%m-%Y")
     >>> splitter = RandomNextNSplitter(
-    ...     n=2,
+    ...     N=2,
     ...     divide_column="query_id",
     ...     seed=42,
     ...     query_column="query_id",
@@ -44,7 +44,7 @@ class RandomNextNSplitter(Splitter):
     """
 
     _init_arg_names = [
-        "n",
+        "N",
         "divide_column",
         "seed",
         "drop_cold_users",
@@ -58,7 +58,7 @@ class RandomNextNSplitter(Splitter):
 
     def __init__(
         self,
-        n: Optional[int] = 1,
+        N: Optional[int] = 1,
         divide_column: str = "query_id",
         seed: Optional[int] = None,
         query_column: str = "query_id",
@@ -70,8 +70,8 @@ class RandomNextNSplitter(Splitter):
         session_id_processing_strategy: str = "test",
     ):
         """
-        :param n: Optional window size. If None, the test set contains all interactions
-            from the cut to the end; otherwise the next ``n`` interactions. Must be >= 1.
+        :param N: Optional window size. If None, the test set contains all interactions
+            from the cut to the end; otherwise the next ``N`` interactions. Must be >= 1.
             Default: 1.
         :param divide_column: Name of the column used to group interactions
             for random cut sampling, default: ``query_id``.
@@ -102,9 +102,9 @@ class RandomNextNSplitter(Splitter):
             session_id_column=session_id_column,
             session_id_processing_strategy=session_id_processing_strategy,
         )
-        self.n = n
-        if self.n is not None and self.n < 1:
-            msg = "n must be >= 1"
+        self.N = N
+        if self.N is not None and self.N < 1:
+            msg = "N must be >= 1"
             raise ValueError(msg)
         self.divide_column = divide_column
         self.seed = seed
@@ -125,8 +125,8 @@ class RandomNextNSplitter(Splitter):
         r_map = dict(zip(counts.index, r_values))
         df["_cut_index"] = df[self.divide_column].map(r_map)
 
-        if self.n is not None:
-            df = df[df["_event_rank"] < df["_cut_index"] + self.n]
+        if self.N is not None:
+            df = df[df["_event_rank"] < df["_cut_index"] + self.N]
 
         df["is_test"] = df["_event_rank"] >= df["_cut_index"]
         if self.session_id_column:
