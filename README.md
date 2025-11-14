@@ -1,5 +1,5 @@
 <img src="docs/images/replay_logo_color.svg" height="50"/>
-<br>
+
 
 [![GitHub License](https://img.shields.io/github/license/sb-ai-lab/RePlay)](https://github.com/sb-ai-lab/RePlay/blob/main/LICENSE)
 [![PyPI - Version](https://img.shields.io/pypi/v/replay-rec)](https://pypi.org/project/replay-rec)
