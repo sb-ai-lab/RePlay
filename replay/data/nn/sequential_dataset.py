@@ -110,7 +110,9 @@ class SequentialDataset(abc.ABC):
 
         sequential_dict = {}
         sequential_dict["_class_name"] = self.__class__.__name__
-        self._sequences.reset_index().to_parquet(base_path / "sequences.parquet", engine="fastparquet")
+
+        df = SequentialDataset._convert_array_to_list(self._sequences)
+        df.reset_index().to_parquet(base_path / "sequences.parquet", engine="fastparquet")
         sequential_dict["init_args"] = {
             "tensor_schema": self._tensor_schema._get_object_args(),
             "query_id_column": self._query_id_column,
@@ -121,11 +123,13 @@ class SequentialDataset(abc.ABC):
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(sequential_dict, file)
 
-    def _cast_arrays_in_columns(self, df: PandasDataFrame) -> PandasDataFrame:
-        for column in df.select_dtypes(include="object").columns:
-            if isinstance(df[column].iloc[0], np.ndarray):
-                df[column] = df[column].apply(lambda x: x.tolist())
-        return df
+    @staticmethod
+    def _convert_array_to_list(df):
+        return df.map(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+
+    @staticmethod
+    def _convert_list_to_array(df):
+        return df.map(lambda x: np.array(x) if isinstance(x, list) else x)
 
 
 class PandasSequentialDataset(SequentialDataset):
@@ -155,8 +159,7 @@ class PandasSequentialDataset(SequentialDataset):
         if sequences.index.name != query_id_column:
             sequences = sequences.set_index(query_id_column)
 
-        sequences = self._cast_arrays_in_columns(sequences)
-        self._sequences = sequences
+        self._sequences = SequentialDataset._convert_list_to_array(sequences)
 
     def __len__(self) -> int:
         return len(self._sequences)
@@ -265,10 +268,11 @@ class PolarsSequentialDataset(PandasSequentialDataset):
 
     def _convert_polars_to_pandas(self, df: PolarsDataFrame) -> PandasDataFrame:
         pandas_df = PandasDataFrame(df.to_dict(as_series=False))
-        pandas_df = self._cast_arrays_in_columns(pandas_df)
+        pandas_df = SequentialDataset._convert_list_to_array(pandas_df)
         return pandas_df
 
     def _convert_pandas_to_polars(self, df: PandasDataFrame) -> PolarsDataFrame:
+        df = SequentialDataset._convert_array_to_list(df)
         return pl.from_dict(df.to_dict("list"))
 
     @classmethod
