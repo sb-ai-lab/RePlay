@@ -1,0 +1,226 @@
+import pandas as pd
+import polars as pl
+import pytest
+
+from replay.splitters import RandomNextNSplitter
+from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
+
+
+@pytest.fixture(scope="module")
+def pandas_dataframe_test():
+    columns = ["user_id", "item_id", "timestamp", "session_id"]
+    data = [
+        (1, 1, "01-01-2020", 1),
+        (1, 2, "02-01-2020", 1),
+        (1, 3, "03-01-2020", 1),
+        (1, 4, "04-01-2020", 1),
+        (1, 5, "05-01-2020", 1),
+        (2, 1, "06-01-2020", 2),
+        (2, 2, "07-01-2020", 2),
+        (2, 3, "08-01-2020", 2),
+        (2, 9, "09-01-2020", 2),
+        (2, 10, "10-01-2020", 2),
+        (3, 1, "01-01-2020", 3),
+        (3, 5, "02-01-2020", 3),
+        (3, 3, "03-01-2020", 3),
+        (3, 1, "04-01-2020", 3),
+        (3, 2, "05-01-2020", 3),
+    ]
+
+    df = pd.DataFrame(data, columns=columns)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], format="%d-%m-%Y")
+    return df
+
+
+@pytest.fixture(scope="module")
+def polars_dataframe_test(pandas_dataframe_test):
+    return pl.from_pandas(pandas_dataframe_test)
+
+
+@pytest.fixture(scope="module")
+def spark_dataframe_test(spark, pandas_dataframe_test):
+    sdf = spark.createDataFrame(
+        pandas_dataframe_test.assign(timestamp=pandas_dataframe_test["timestamp"].dt.strftime("%d-%m-%Y"))
+    )
+    return sdf.withColumn("timestamp", sf.to_date("timestamp", "dd-MM-yyyy"))
+
+
+@pytest.fixture(scope="module")
+def numpy_not_supported(pandas_dataframe_test):
+    return pandas_dataframe_test.to_numpy()
+
+
+SEED = 1234
+
+
+@pytest.mark.parametrize(
+    "dataset_type",
+    [
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
+    ],
+)
+def test_basic_split_n1(dataset_type, request):
+    data = request.getfixturevalue(dataset_type)
+    splitter = RandomNextNSplitter(
+        N=1,
+        divide_column="user_id",
+        seed=SEED,
+        query_column="user_id",
+        item_column="item_id",
+        timestamp_column="timestamp",
+    )
+    train, test = splitter.split(data)
+
+    if not isinstance(data, SparkDataFrame):
+        num_groups = (
+            len(pd.unique(data["user_id"]))
+            if isinstance(data, pd.DataFrame)
+            else data.select("user_id").unique().height
+        )
+        assert (test.shape[0] if isinstance(test, pd.DataFrame) else test.height) == num_groups
+
+        cols = list(data.columns)
+        if isinstance(data, pd.DataFrame):
+            overlap = pd.merge(train, test, on=cols, how="inner")
+            assert overlap.shape[0] == 0
+        else:
+            overlap = train.join(test, on=cols, how="inner")
+            assert overlap.height == 0
+    else:
+        num_groups = data.select("user_id").distinct().count()
+        assert test.count() == num_groups
+        assert train.intersect(test).count() == 0
+
+
+@pytest.mark.parametrize(
+    "dataset_type",
+    [
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
+    ],
+)
+def test_n_none_keeps_all(dataset_type, request):
+    data = request.getfixturevalue(dataset_type)
+    splitter = RandomNextNSplitter(
+        N=None,
+        divide_column="user_id",
+        seed=SEED,
+        query_column="user_id",
+        item_column="item_id",
+        timestamp_column="timestamp",
+    )
+    train, test = splitter.split(data)
+
+    if not isinstance(data, SparkDataFrame):
+        assert (train.shape[0] + test.shape[0]) == (data.shape[0] if isinstance(data, pd.DataFrame) else data.height)
+    else:
+        assert (train.count() + test.count()) == data.count()
+
+
+@pytest.mark.core
+def test_invalid_n_raises():
+    with pytest.raises(ValueError):
+        RandomNextNSplitter(N=0)
+
+
+@pytest.mark.core
+def test_not_implemented_dataframe(numpy_not_supported):
+    with pytest.raises(NotImplementedError):
+        RandomNextNSplitter(N=1).split(numpy_not_supported)
+
+
+@pytest.mark.parametrize(
+    "dataset_type",
+    [
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
+    ],
+)
+def test_reproducibility_seed_non_spark(dataset_type, request):
+    data = request.getfixturevalue(dataset_type)
+    splitter_a = RandomNextNSplitter(
+        N=2,
+        divide_column="user_id",
+        seed=SEED,
+        query_column="user_id",
+        item_column="item_id",
+        timestamp_column="timestamp",
+    )
+    splitter_b = RandomNextNSplitter(
+        N=2,
+        divide_column="user_id",
+        seed=SEED,
+        query_column="user_id",
+        item_column="item_id",
+        timestamp_column="timestamp",
+    )
+    splitter_c = RandomNextNSplitter(
+        N=2,
+        divide_column="user_id",
+        seed=SEED + 1,
+        query_column="user_id",
+        item_column="item_id",
+        timestamp_column="timestamp",
+    )
+    train_a, test_a = splitter_a.split(data)
+    train_b, test_b = splitter_b.split(data)
+    train_c, test_c = splitter_c.split(data)
+
+    if isinstance(data, pd.DataFrame):
+        assert train_a.equals(train_b)
+        assert test_a.equals(test_b)
+
+        assert not (train_a.equals(train_c) and test_a.equals(test_c))
+    else:
+        assert train_a.equals(train_b)
+        assert test_a.equals(test_b)
+        assert not (train_a.equals(train_c) and test_a.equals(test_c))
+
+
+@pytest.mark.parametrize(
+    "dataset_type",
+    [
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
+    ],
+)
+def test_with_session_ids(dataset_type, request):
+    data = request.getfixturevalue(dataset_type)
+
+    splitter_train = RandomNextNSplitter(
+        N=1,
+        divide_column="user_id",
+        seed=SEED,
+        query_column="user_id",
+        item_column="item_id",
+        timestamp_column="timestamp",
+        session_id_column="session_id",
+        session_id_processing_strategy="train",
+    )
+    splitter_test = RandomNextNSplitter(
+        N=1,
+        divide_column="user_id",
+        seed=SEED,
+        query_column="user_id",
+        item_column="item_id",
+        timestamp_column="timestamp",
+        session_id_column="session_id",
+        session_id_processing_strategy="test",
+    )
+
+    train_train, test_train = splitter_train.split(data)
+    train_test, test_test = splitter_test.split(data)
+
+    if not isinstance(data, SparkDataFrame):
+        assert (test_train.shape[0] if isinstance(test_train, pd.DataFrame) else test_train.height) == 0
+        assert (train_test.shape[0] if isinstance(train_test, pd.DataFrame) else train_test.height) == 0
+    else:
+        assert test_train.count() == 0
+        assert train_test.count() == 0
