@@ -83,7 +83,7 @@ def _merge_subsets_polars(
         return merged
 
     dup_subset = ref_cols if subset_for_duplicates is None else list(subset_for_duplicates)
-    dup_mask = merged.is_duplicated(subset=dup_subset)
+    dup_mask = merged.select(dup_subset).is_duplicated()
     dup_count = int(dup_mask.sum())
 
     if dup_count > 0:
