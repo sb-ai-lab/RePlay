@@ -1,8 +1,8 @@
 from typing import Optional, Tuple
 
 import numpy as np
-import polars as pl
 import pandas as pd
+import polars as pl
 
 from replay.utils import (
     PYSPARK_AVAILABLE,

@@ -25,7 +25,7 @@ def test_mixed_types_raise_typeerror():
 @pytest.mark.core
 def test_unsupported_type_raises_notimplemented():
     with pytest.raises(NotImplementedError, match="Unsupported data frame type"):
-        merge_subsets([42]) 
+        merge_subsets([42])
 
 
 @pytest.mark.core
@@ -39,7 +39,7 @@ def test_pandas_ignore_duplicates():
 @pytest.mark.core
 def test_pandas_error_on_duplicates():
     df1 = pd.DataFrame({"a": [1], "b": ["x"]})
-    df2 = pd.DataFrame({"a": [1], "b": ["x"]})  
+    df2 = pd.DataFrame({"a": [1], "b": ["x"]})
     with pytest.raises(ValueError, match=r"Found 1 duplicate rows"):
         merge_subsets([df1, df2], on_duplicate="error")
 
@@ -58,7 +58,7 @@ def test_pandas_drop_duplicates_logs(caplog):
 @pytest.mark.core
 def test_pandas_subset_for_duplicates():
     df1 = pd.DataFrame({"a": [1, 2], "b": ["x", "y"]})
-    df2 = pd.DataFrame({"a": [2, 2], "b": ["z", "w"]})  
+    df2 = pd.DataFrame({"a": [2, 2], "b": ["z", "w"]})
     with pytest.raises(ValueError, match="duplicate"):
         merge_subsets([df1, df2], on_duplicate="error", subset_for_duplicates=["a"])
 
@@ -66,7 +66,7 @@ def test_pandas_subset_for_duplicates():
 @pytest.mark.core
 def test_pandas_check_columns_and_alignment():
     df1 = pd.DataFrame({"a": [1], "b": [2]})
-    df2 = pd.DataFrame({"b": [3], "a": [4]})  
+    df2 = pd.DataFrame({"b": [3], "a": [4]})
     res = merge_subsets([df1, df2], check_columns=True)
     assert list(res.columns) == ["a", "b"]
     pd.testing.assert_frame_equal(res, pd.DataFrame({"a": [1, 4], "b": [2, 3]}))
@@ -75,7 +75,7 @@ def test_pandas_check_columns_and_alignment():
 @pytest.mark.core
 def test_pandas_columns_mismatch_raises():
     df1 = pd.DataFrame({"a": [1], "b": [2]})
-    df2 = pd.DataFrame({"a": [3], "c": [4]})  
+    df2 = pd.DataFrame({"a": [3], "c": [4]})
     with pytest.raises(ValueError, match="Columns mismatch"):
         merge_subsets([df1, df2], check_columns=True)
 
@@ -210,4 +210,3 @@ def test_spark_columns_param_select_subset_when_not_checking(spark):
     res = merge_subsets([df1, df2], columns=["a", "b"], check_columns=False, on_duplicate="ignore")
     assert res.columns == ["a", "b"]
     assert res.count() == 2
-    

@@ -215,8 +215,8 @@ def test_with_session_ids(dataset_type, request):
         session_id_processing_strategy="test",
     )
 
-    train_train, test_train = splitter_train.split(data)
-    train_test, test_test = splitter_test.split(data)
+    _, test_train = splitter_train.split(data)
+    train_test, _ = splitter_test.split(data)
 
     if not isinstance(data, SparkDataFrame):
         assert (test_train.shape[0] if isinstance(test_train, pd.DataFrame) else test_train.height) == 0
