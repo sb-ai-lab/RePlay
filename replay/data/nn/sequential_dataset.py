@@ -110,16 +110,26 @@ class SequentialDataset(abc.ABC):
 
         sequential_dict = {}
         sequential_dict["_class_name"] = self.__class__.__name__
-        self._sequences.reset_index().to_json(base_path / "sequences.json")
+
+        df = SequentialDataset._convert_array_to_list(self._sequences)
+        df.reset_index().to_parquet(base_path / "sequences.parquet")
         sequential_dict["init_args"] = {
             "tensor_schema": self._tensor_schema._get_object_args(),
             "query_id_column": self._query_id_column,
             "item_id_column": self._item_id_column,
-            "sequences_path": "sequences.json",
+            "sequences_path": "sequences.parquet",
         }
 
         with open(base_path / "init_args.json", "w+") as file:
             json.dump(sequential_dict, file)
+
+    @staticmethod
+    def _convert_array_to_list(df):
+        return df.map(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+
+    @staticmethod
+    def _convert_list_to_array(df):
+        return df.map(lambda x: np.array(x) if isinstance(x, list) else x)
 
 
 class PandasSequentialDataset(SequentialDataset):
@@ -149,7 +159,7 @@ class PandasSequentialDataset(SequentialDataset):
         if sequences.index.name != query_id_column:
             sequences = sequences.set_index(query_id_column)
 
-        self._sequences = sequences
+        self._sequences = SequentialDataset._convert_list_to_array(sequences)
 
     def __len__(self) -> int:
         return len(self._sequences)
@@ -206,7 +216,8 @@ class PandasSequentialDataset(SequentialDataset):
         with open(base_path / "init_args.json") as file:
             sequential_dict = json.loads(file.read())
 
-        sequences = pd.read_json(base_path / sequential_dict["init_args"]["sequences_path"])
+        sequences = pd.read_parquet(base_path / sequential_dict["init_args"]["sequences_path"])
+        sequences = cls._convert_array_to_list(sequences)
         dataset = cls(
             tensor_schema=TensorSchema._create_object_by_args(sequential_dict["init_args"]["tensor_schema"]),
             query_id_column=sequential_dict["init_args"]["query_id_column"],
@@ -258,18 +269,11 @@ class PolarsSequentialDataset(PandasSequentialDataset):
 
     def _convert_polars_to_pandas(self, df: PolarsDataFrame) -> PandasDataFrame:
         pandas_df = PandasDataFrame(df.to_dict(as_series=False))
-
-        for column in pandas_df.select_dtypes(include="object").columns:
-            if isinstance(pandas_df[column].iloc[0], list):
-                pandas_df[column] = pandas_df[column].apply(lambda x: np.array(x))
-
+        pandas_df = SequentialDataset._convert_list_to_array(pandas_df)
         return pandas_df
 
     def _convert_pandas_to_polars(self, df: PandasDataFrame) -> PolarsDataFrame:
-        for column in df.select_dtypes(include="object").columns:
-            if isinstance(df[column].iloc[0], np.ndarray):
-                df[column] = df[column].apply(lambda x: x.tolist())
-
+        df = SequentialDataset._convert_array_to_list(df)
         return pl.from_dict(df.to_dict("list"))
 
     @classmethod
@@ -290,7 +294,7 @@ class PolarsSequentialDataset(PandasSequentialDataset):
         with open(base_path / "init_args.json") as file:
             sequential_dict = json.loads(file.read())
 
-        sequences = pl.DataFrame(pd.read_json(base_path / sequential_dict["init_args"]["sequences_path"]))
+        sequences = pl.from_pandas(pd.read_parquet(base_path / sequential_dict["init_args"]["sequences_path"]))
         dataset = cls(
             tensor_schema=TensorSchema._create_object_by_args(sequential_dict["init_args"]["tensor_schema"]),
             query_id_column=sequential_dict["init_args"]["query_id_column"],
