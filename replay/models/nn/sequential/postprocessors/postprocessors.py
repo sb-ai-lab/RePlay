@@ -70,7 +70,7 @@ class RemoveSeenItems(BasePostProcessor):
             _scores = scores.clone()
             _scores.view(-1)[flat_item_ids_on_device] = value
         else:
-            _scores = scores.flatten()
+            _scores = scores.flatten().clone()
             _scores[flat_item_ids_on_device] = value
             _scores = _scores.reshape_as(scores)
         return _scores
