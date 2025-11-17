@@ -51,7 +51,7 @@ class RemoveSeenItems(BasePostProcessor):
 
     def _compute_scores(self, query_ids: torch.LongTensor, scores: torch.Tensor) -> torch.Tensor:
         flat_seen_item_ids = self._get_flat_seen_item_ids(query_ids)
-        return self._fill_item_ids(scores, flat_seen_item_ids, -np.inf)
+        return self._fill_item_ids(scores.clone(), flat_seen_item_ids, -np.inf)
 
     def _fill_item_ids(
         self,
