@@ -224,3 +224,35 @@ def test_with_session_ids(dataset_type, request):
     else:
         assert test_train.count() == 0
         assert train_test.count() == 0
+
+
+@pytest.mark.parametrize(
+    "dataset_type",
+    [
+        pytest.param("spark_dataframe_test", marks=pytest.mark.spark),
+        pytest.param("pandas_dataframe_test", marks=pytest.mark.core),
+        pytest.param("polars_dataframe_test", marks=pytest.mark.core),
+    ],
+)
+def test_repeated_calls_same_results(dataset_type, request):
+    data = request.getfixturevalue(dataset_type)
+    splitter = RandomNextNSplitter(
+        N=2,
+        divide_column="user_id",
+        seed=SEED,
+        query_column="user_id",
+        item_column="item_id",
+        timestamp_column="timestamp",
+    )
+
+    train_1, test_1 = splitter.split(data)
+    train_2, test_2 = splitter.split(data)
+
+    if not isinstance(data, SparkDataFrame):
+        assert train_1.equals(train_2)
+        assert test_1.equals(test_2)
+    else:
+        assert train_1.exceptAll(train_2).count() == 0
+        assert train_2.exceptAll(train_1).count() == 0
+        assert test_1.exceptAll(test_2).count() == 0
+        assert test_2.exceptAll(test_1).count() == 0
