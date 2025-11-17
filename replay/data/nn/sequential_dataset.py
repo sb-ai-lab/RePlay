@@ -294,9 +294,7 @@ class PolarsSequentialDataset(PandasSequentialDataset):
         with open(base_path / "init_args.json") as file:
             sequential_dict = json.loads(file.read())
 
-        sequences = pl.from_pandas(
-            pd.read_parquet(base_path / sequential_dict["init_args"]["sequences_path"])
-        )
+        sequences = pl.from_pandas(pd.read_parquet(base_path / sequential_dict["init_args"]["sequences_path"]))
         dataset = cls(
             tensor_schema=TensorSchema._create_object_by_args(sequential_dict["init_args"]["tensor_schema"]),
             query_id_column=sequential_dict["init_args"]["query_id_column"],
