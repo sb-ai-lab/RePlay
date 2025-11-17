@@ -11,6 +11,13 @@ ___________________
     :members:
 
 
+Utils
+___________________
+
+.. automodule:: replay.preprocessing.utils
+    :members:
+
+
 CSRConverter
 ___________________
 Convert input data to csr sparse matrix.

@@ -51,3 +51,8 @@ ColdUserRandomSplitter
 ------------------------
 .. autoclass:: replay.splitters.cold_user_random_splitter.ColdUserRandomSplitter
    :special-members: __init__
+
+RandomNextNSplitter
+--------------------
+.. autoclass:: replay.splitters.random_next_n_splitter.RandomNextNSplitter
+   :special-members: __init__
