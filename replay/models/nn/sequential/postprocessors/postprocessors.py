@@ -51,7 +51,7 @@ class RemoveSeenItems(BasePostProcessor):
 
     def _compute_scores(self, query_ids: torch.LongTensor, scores: torch.Tensor) -> torch.Tensor:
         flat_seen_item_ids = self._get_flat_seen_item_ids(query_ids)
-        return self._fill_item_ids(scores, flat_seen_item_ids, -np.inf)
+        return self._fill_item_ids(scores.clone(), flat_seen_item_ids, -np.inf)
 
     def _fill_item_ids(
         self,
@@ -66,14 +66,14 @@ class RemoveSeenItems(BasePostProcessor):
             assert item_count
             _scores = torch.full((scores.shape[0], item_count), -float("inf")).to(scores.device)
             _scores[:, self._candidates] = torch.reshape(scores, _scores[:, self._candidates].shape)
+            scores = _scores
         if scores.is_contiguous():
-            _scores = scores.clone()
-            _scores.view(-1)[flat_item_ids_on_device] = value
+            scores.view(-1)[flat_item_ids_on_device] = value
         else:
-            _scores = scores.flatten().clone()
-            _scores[flat_item_ids_on_device] = value
-            _scores = _scores.reshape_as(scores)
-        return _scores
+            flat_scores = scores.flatten()
+            flat_scores[flat_item_ids_on_device] = value
+            scores = flat_scores.reshape(scores.shape)
+        return scores
 
     def _get_flat_seen_item_ids(self, query_ids: torch.LongTensor) -> torch.LongTensor:
         query_ids_np = query_ids.flatten().cpu().numpy()
