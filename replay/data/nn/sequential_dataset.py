@@ -112,7 +112,7 @@ class SequentialDataset(abc.ABC):
         sequential_dict["_class_name"] = self.__class__.__name__
 
         df = SequentialDataset._convert_array_to_list(self._sequences)
-        df.reset_index().to_parquet(base_path / "sequences.parquet", engine="fastparquet")
+        df.reset_index().to_parquet(base_path / "sequences.parquet")
         sequential_dict["init_args"] = {
             "tensor_schema": self._tensor_schema._get_object_args(),
             "query_id_column": self._query_id_column,
@@ -216,7 +216,8 @@ class PandasSequentialDataset(SequentialDataset):
         with open(base_path / "init_args.json") as file:
             sequential_dict = json.loads(file.read())
 
-        sequences = pd.read_parquet(base_path / sequential_dict["init_args"]["sequences_path"], engine="fastparquet")
+        sequences = pd.read_parquet(base_path / sequential_dict["init_args"]["sequences_path"])
+        sequences = cls._convert_array_to_list(sequences)
         dataset = cls(
             tensor_schema=TensorSchema._create_object_by_args(sequential_dict["init_args"]["tensor_schema"]),
             query_id_column=sequential_dict["init_args"]["query_id_column"],
@@ -294,7 +295,7 @@ class PolarsSequentialDataset(PandasSequentialDataset):
             sequential_dict = json.loads(file.read())
 
         sequences = pl.from_pandas(
-            pd.read_parquet(base_path / sequential_dict["init_args"]["sequences_path"], engine="fastparquet")
+            pd.read_parquet(base_path / sequential_dict["init_args"]["sequences_path"])
         )
         dataset = cls(
             tensor_schema=TensorSchema._create_object_by_args(sequential_dict["init_args"]["tensor_schema"]),
