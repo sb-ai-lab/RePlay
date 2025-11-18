@@ -1,8 +1,11 @@
 from typing import Optional, Tuple
 
 import numpy as np
+import pandas as pd
+import polars as pl
 
 from replay.utils import (
+    PYSPARK_AVAILABLE,
     DataFrameLike,
     PandasDataFrame,
     PolarsDataFrame,
@@ -10,6 +13,10 @@ from replay.utils import (
 )
 
 from .base_splitter import Splitter
+
+if PYSPARK_AVAILABLE:
+    import pyspark.sql.functions as sf
+    from pyspark.sql import Window
 
 
 class RandomNextNSplitter(Splitter):
@@ -120,10 +127,9 @@ class RandomNextNSplitter(Splitter):
         df = interactions.sort_values([self.divide_column, self.timestamp_column])
         df["_event_rank"] = df.groupby(self.divide_column, sort=False).cumcount()
 
-        counts = df.groupby(self.divide_column, sort=False)["_event_rank"].max() + 1
-        r_values = self._sample_cuts(counts.values)
-        r_map = dict(zip(counts.index, r_values))
-        df["_cut_index"] = df[self.divide_column].map(r_map)
+        counts = df.groupby(self.divide_column, sort=False).size()
+        cuts = pd.Series(self._sample_cuts(counts.values), index=counts.index)
+        df["_cut_index"] = df[self.divide_column].map(cuts)
 
         if self.N is not None:
             df = df[df["_event_rank"] < df["_cut_index"] + self.N]
@@ -137,15 +143,76 @@ class RandomNextNSplitter(Splitter):
 
         return train, test
 
+    def _partial_split_polars(
+        self,
+        interactions: PolarsDataFrame,
+    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+        df = interactions.sort([self.divide_column, self.timestamp_column]).with_columns(
+            (pl.col(self.divide_column).cum_count().over(self.divide_column) - 1).alias("_event_rank")
+        )
+
+        counts = df.group_by(self.divide_column).len()
+        r_values = self._sample_cuts(counts["len"].to_numpy())
+        cuts_df = pl.DataFrame(
+            {
+                self.divide_column: counts[self.divide_column],
+                "_cut_index": r_values,
+            }
+        )
+        df = df.join(cuts_df, on=self.divide_column, how="left")
+
+        if self.N is not None:
+            df = df.filter(pl.col("_event_rank") < pl.col("_cut_index") + self.N)
+
+        df = df.with_columns((pl.col("_event_rank") >= pl.col("_cut_index")).alias("is_test"))
+        if self.session_id_column:
+            df = self._recalculate_with_session_id_column(df)
+
+        train = df.filter(~pl.col("is_test")).select(interactions.columns)
+        test = df.filter(pl.col("is_test")).select(interactions.columns)
+
+        return train, test
+
+    def _partial_split_spark(
+        self,
+        interactions: SparkDataFrame,
+    ) -> Tuple[SparkDataFrame, SparkDataFrame]:
+        w = Window.partitionBy(self.divide_column).orderBy(self.timestamp_column)
+        df = interactions.withColumn("_event_rank", sf.row_number().over(w) - sf.lit(1))
+
+        counts = df.groupBy(self.divide_column).agg(sf.count(sf.lit(1)).alias("_count"))
+        seed_lit = sf.lit(self.seed) if self.seed is not None else sf.lit(0)
+        cuts = counts.select(
+            self.divide_column,
+            sf.pmod(
+                sf.xxhash64(sf.col(self.divide_column), seed_lit).cast("long"),
+                sf.col("_count").cast("long"),
+            )
+            .cast("long")
+            .alias("_cut_index"),
+        )
+
+        df = df.join(cuts, on=self.divide_column, how="left")
+
+        if self.N is not None:
+            df = df.filter(sf.col("_event_rank") < sf.col("_cut_index") + sf.lit(self.N))
+
+        df = df.withColumn("is_test", sf.col("_event_rank") >= sf.col("_cut_index"))
+        if self.session_id_column:
+            df = self._recalculate_with_session_id_column(df)
+
+        train = df.filter(~sf.col("is_test")).select(interactions.columns)
+        test = df.filter(sf.col("is_test")).select(interactions.columns)
+
+        return train, test
+
     def _partial_split(self, interactions: DataFrameLike) -> Tuple[DataFrameLike, DataFrameLike]:
         if isinstance(interactions, PandasDataFrame):
             return self._partial_split_pandas(interactions)
         if isinstance(interactions, PolarsDataFrame):
-            msg = f"{self} is not implemented for {type(interactions)}"
-            raise NotImplementedError(msg)
+            return self._partial_split_polars(interactions)
         if isinstance(interactions, SparkDataFrame):
-            msg = f"{self} is not implemented for {type(interactions)}"
-            raise NotImplementedError(msg)
+            return self._partial_split_spark(interactions)
         msg = f"{self} is not implemented for {type(interactions)}"
         raise NotImplementedError(msg)
 
