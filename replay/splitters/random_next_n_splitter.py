@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional, tuple
 
 import numpy as np
 import pandas as pd
@@ -123,7 +123,7 @@ class RandomNextNSplitter(Splitter):
     def _partial_split_pandas(
         self,
         interactions: PandasDataFrame,
-    ) -> Tuple[PandasDataFrame, PandasDataFrame]:
+    ) -> tuple[PandasDataFrame, PandasDataFrame]:
         df = interactions.sort_values([self.divide_column, self.timestamp_column])
         df["_event_rank"] = df.groupby(self.divide_column, sort=False).cumcount()
 
@@ -146,7 +146,7 @@ class RandomNextNSplitter(Splitter):
     def _partial_split_polars(
         self,
         interactions: PolarsDataFrame,
-    ) -> Tuple[PolarsDataFrame, PolarsDataFrame]:
+    ) -> tuple[PolarsDataFrame, PolarsDataFrame]:
         df = interactions.sort([self.divide_column, self.timestamp_column]).with_columns(
             (pl.col(self.divide_column).cum_count().over(self.divide_column) - 1).alias("_event_rank")
         )
@@ -176,7 +176,7 @@ class RandomNextNSplitter(Splitter):
     def _partial_split_spark(
         self,
         interactions: SparkDataFrame,
-    ) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    ) -> tuple[SparkDataFrame, SparkDataFrame]:
         w = Window.partitionBy(self.divide_column).orderBy(self.timestamp_column)
         df = interactions.withColumn("_event_rank", sf.row_number().over(w) - sf.lit(1))
 
@@ -206,7 +206,7 @@ class RandomNextNSplitter(Splitter):
 
         return train, test
 
-    def _partial_split(self, interactions: DataFrameLike) -> Tuple[DataFrameLike, DataFrameLike]:
+    def _partial_split(self, interactions: DataFrameLike) -> tuple[DataFrameLike, DataFrameLike]:
         if isinstance(interactions, PandasDataFrame):
             return self._partial_split_pandas(interactions)
         if isinstance(interactions, PolarsDataFrame):
@@ -216,5 +216,5 @@ class RandomNextNSplitter(Splitter):
         msg = f"{self} is not implemented for {type(interactions)}"
         raise NotImplementedError(msg)
 
-    def _core_split(self, interactions: DataFrameLike) -> Tuple[DataFrameLike, DataFrameLike]:
+    def _core_split(self, interactions: DataFrameLike) -> tuple[DataFrameLike, DataFrameLike]:
         return self._partial_split(interactions)

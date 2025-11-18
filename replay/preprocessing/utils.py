@@ -1,6 +1,5 @@
 import logging
 from typing import (
-    List,
     Literal,
     Optional,
     Sequence,
@@ -36,7 +35,7 @@ def _merge_subsets_pandas(
 ) -> PandasDataFrame:
     ref_cols = list(dfs[0].columns) if columns is None else list(columns)
 
-    aligned: List[PandasDataFrame] = []
+    aligned: list[PandasDataFrame] = []
     for i, df in enumerate(dfs):
         _ensure_columns_match(df, ref_cols, i, check_columns)
         aligned.append(df[ref_cols])
@@ -72,7 +71,7 @@ def _merge_subsets_polars(
 ) -> PolarsDataFrame:
     ref_cols = list(dfs[0].columns) if columns is None else list(columns)
 
-    aligned: List[PolarsDataFrame] = []
+    aligned: list[PolarsDataFrame] = []
     for i, df in enumerate(dfs):
         _ensure_columns_match(df, ref_cols, i, check_columns)
         aligned.append(df.select(ref_cols))
