@@ -92,21 +92,12 @@ def test_basic_split_n1(dataset_type, request):
                 train_len = int(train_counts.get(user_id, 0))
                 assert 0 <= train_len <= (original_len - 1)
         else:
-            original_counts = (
-                data.group_by("user_id")
-                .count()
-                .rename({"count": "orig_count"})
-            )
-            train_counts = (
-                train.group_by("user_id")
-                .count()
-                .rename({"count": "train_count"})
-            )
+            original_counts = data.group_by("user_id").count().rename({"count": "orig_count"})
+            train_counts = train.group_by("user_id").count().rename({"count": "train_count"})
             joined = original_counts.join(train_counts, on="user_id", how="left")
             joined = joined.with_columns(pl.col("train_count").fill_null(0))
             violations = joined.filter(
-                (pl.col("train_count") < 0)
-                | (pl.col("train_count") > (pl.col("orig_count") - 1))
+                (pl.col("train_count") < 0) | (pl.col("train_count") > (pl.col("orig_count") - 1))
             )
             assert violations.height == 0
 
@@ -118,7 +109,6 @@ def test_basic_split_n1(dataset_type, request):
             overlap = train.join(test, on=cols, how="inner")
             assert overlap.height == 0
     else:
-        
         num_users_data = data.select("user_id").distinct().count()
         num_users_test = test.select("user_id").distinct().count()
         assert num_users_test == num_users_data
@@ -127,8 +117,7 @@ def test_basic_split_n1(dataset_type, request):
         train_counts = train.groupBy("user_id").count().withColumnRenamed("count", "train_count")
         joined = original_counts.join(train_counts, on="user_id", how="left").fillna({"train_count": 0})
         violations = joined.filter(
-            (sf.col("train_count") < sf.lit(0))
-            | (sf.col("train_count") > (sf.col("orig_count") - sf.lit(1)))
+            (sf.col("train_count") < sf.lit(0)) | (sf.col("train_count") > (sf.col("orig_count") - sf.lit(1)))
         )
         assert violations.count() == 0
 

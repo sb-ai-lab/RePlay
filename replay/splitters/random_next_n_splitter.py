@@ -187,7 +187,9 @@ class RandomNextNSplitter(Splitter):
             sf.pmod(
                 sf.xxhash64(sf.col(self.divide_column), seed_lit).cast("long"),
                 sf.col("_count").cast("long"),
-            ).cast("long").alias("_cut_index"),
+            )
+            .cast("long")
+            .alias("_cut_index"),
         )
 
         df = df.join(cuts, on=self.divide_column, how="left")
