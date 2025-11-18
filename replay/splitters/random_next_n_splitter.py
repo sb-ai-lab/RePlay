@@ -128,8 +128,8 @@ class RandomNextNSplitter(Splitter):
         df["_event_rank"] = df.groupby(self.divide_column, sort=False).cumcount()
 
         counts = df.groupby(self.divide_column, sort=False).size()
-        cuts = pd.Series(self._sample_cuts(counts.values), index=counts.index, name="_cut_index")
-        df = df.join(cuts, on=self.divide_column)
+        cuts = pd.Series(self._sample_cuts(counts.values), index=counts.index)
+        df["_cut_index"] = df[self.divide_column].map(cuts)
 
         if self.N is not None:
             df = df[df["_event_rank"] < df["_cut_index"] + self.N]
@@ -187,7 +187,7 @@ class RandomNextNSplitter(Splitter):
             sf.pmod(
                 sf.xxhash64(sf.col(self.divide_column), seed_lit).cast("long"),
                 sf.col("_count").cast("long"),
-            ).alias("_cut_index"),
+            ).cast("long").alias("_cut_index"),
         )
 
         df = df.join(cuts, on=self.divide_column, how="left")

@@ -11,16 +11,17 @@ splitters can be composed and combined with auxiliary
 utilities from RePlay (see :doc:`/pages/modules/preprocessing`) to obtain
 different data partitioning schemes.
 
-As proposed in `the paper <https://arxiv.org/pdf/2507.16289>`_, advanced data‑splitting
-schemes — Global Temporal Split (GTS) with last interaction as the target
-and GTS with a random interaction as the target, can be implemented in RePlay
-by composing :class:`replay.splitters.time_splitter.TimeSplitter` with either
-:class:`replay.splitters.last_n_splitter.LastNSplitter` (e.g., ``N=1``) or
-:class:`replay.splitters.random_next_n_splitter.RandomNextNSplitter` (e.g., ``N=1``).
+As proposed in the paper `Time to Split: Exploring Data Splitting Strategies for Offline
+Evaluation of Sequential Recommenders (RecSys'25) <https://arxiv.org/pdf/2507.16289>`_, 
+advanced data‑splitting schemes — Global Temporal Split (GTS) 
+with last interaction as the target and GTS with a random interaction as the target,
+can be implemented in RePlay by composing :class:`~replay.splitters.time_splitter.TimeSplitter` 
+with either :class:`~replay.splitters.last_n_splitter.LastNSplitter` (e.g., ``N=1``) 
+or :class:`~replay.splitters.random_next_n_splitter.RandomNextNSplitter` (e.g., ``N=1``).
 These pipelines can be complemented with auxiliary utilities, such as cold‑start
-filtering via :func:`replay.preprocessing.filters.filter_cold` (see
-:mod:`replay.preprocessing.filters` and :doc:`/pages/modules/preprocessing`) and
-dataset merging via :func:`replay.preprocessing.utils.merge_subsets`.
+filtering via :func:`~replay.preprocessing.filters.filter_cold` (see
+:mod:`~replay.preprocessing.filters` and :doc:`/pages/modules/preprocessing`) and
+dataset merging via :func:`~replay.preprocessing.utils.merge_subsets`.
 For an end‑to‑end illustration, see ``examples/04_splitters.ipynb``.
 
 Splits are returned with ``split`` method.
