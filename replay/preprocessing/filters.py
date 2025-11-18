@@ -4,7 +4,7 @@ Select or remove data by some criteria
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Callable, List, Literal, Optional, Tuple, Union
+from typing import Callable, Literal, Optional, Union
 from uuid import uuid4
 
 import numpy as np
@@ -182,7 +182,7 @@ class InteractionEntriesFilter(_BaseFilter):
         non_agg_column: str,
         min_inter: Optional[int] = None,
         max_inter: Optional[int] = None,
-    ) -> Tuple[PandasDataFrame, int, int]:
+    ) -> tuple[PandasDataFrame, int, int]:
         filtered_interactions = interactions.copy(deep=True)
 
         filtered_interactions["count"] = filtered_interactions.groupby(agg_column, sort=False)[
@@ -207,7 +207,7 @@ class InteractionEntriesFilter(_BaseFilter):
         non_agg_column: str,
         min_inter: Optional[int] = None,
         max_inter: Optional[int] = None,
-    ) -> Tuple[SparkDataFrame, int, int]:
+    ) -> tuple[SparkDataFrame, int, int]:
         filtered_interactions = interactions.withColumn(
             "count", sf.count(non_agg_column).over(Window.partitionBy(agg_column))
         )
@@ -233,7 +233,7 @@ class InteractionEntriesFilter(_BaseFilter):
         non_agg_column: str,
         min_inter: Optional[int] = None,
         max_inter: Optional[int] = None,
-    ) -> Tuple[PolarsDataFrame, int, int]:
+    ) -> tuple[PolarsDataFrame, int, int]:
         filtered_interactions = interactions.with_columns(
             pl.col(non_agg_column).count().over(pl.col(agg_column)).alias("count")
         )
@@ -1095,7 +1095,7 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
 def _check_col_present(
     target: DataFrameLike,
     reference: DataFrameLike,
-    columns_to_process: List[str],
+    columns_to_process: list[str],
 ) -> None:
     target_columns = set(target.columns)
     reference_columns = set(reference.columns)
@@ -1108,7 +1108,7 @@ def _check_col_present(
 def _filter_cold_pandas(
     target: PandasDataFrame,
     reference: PandasDataFrame,
-    columns_to_process: List[str],
+    columns_to_process: list[str],
 ) -> PandasDataFrame:
     for column in columns_to_process:
         allowed_values = reference[column].unique()
@@ -1119,7 +1119,7 @@ def _filter_cold_pandas(
 def _filter_cold_polars(
     target: PolarsDataFrame,
     reference: PolarsDataFrame,
-    columns_to_process: List[str],
+    columns_to_process: list[str],
 ) -> PolarsDataFrame:
     for column in columns_to_process:
         allowed_values = reference.select(column).unique()
@@ -1130,7 +1130,7 @@ def _filter_cold_polars(
 def _filter_cold_spark(
     target: SparkDataFrame,
     reference: SparkDataFrame,
-    columns_to_process: List[str],
+    columns_to_process: list[str],
 ) -> SparkDataFrame:
     for column in columns_to_process:
         allowed_values = reference.select(column).distinct()
