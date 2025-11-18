@@ -27,6 +27,10 @@ class RandomNextNSplitter(Splitter):
     all interactions before the cut. Interactions after the target window are
     discarded.
 
+    Note: by changing the ``seed`` attribute on an existing splitter instance,
+    you can obtain different splits without recreating the object. This is useful
+    when you need to generate multiple randomized splits of the same dataset.
+
     >>> from datetime import datetime
     >>> import pandas as pd
     >>> columns = ["query_id", "item_id", "timestamp"]
