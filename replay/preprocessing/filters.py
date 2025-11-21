@@ -1090,3 +1090,131 @@ class ConsecutiveDuplicatesFilter(_BaseFilter):
             .where((sf.col(self.item_column) != sf.col(self.temporary_column)) | sf.col(self.temporary_column).isNull())
             .drop(self.temporary_column)
         )
+
+
+def _check_col_present(
+    target: DataFrameLike,
+    reference: DataFrameLike,
+    columns_to_process: list[str],
+) -> None:
+    target_columns = set(target.columns)
+    reference_columns = set(reference.columns)
+    for column in columns_to_process:
+        if column not in target_columns or column not in reference_columns:
+            msg = f"Column '{column}' must be in both dataframes"
+            raise KeyError(msg)
+
+
+def _filter_cold_pandas(
+    target: PandasDataFrame,
+    reference: PandasDataFrame,
+    columns_to_process: list[str],
+) -> PandasDataFrame:
+    for column in columns_to_process:
+        allowed_values = reference[column].unique()
+        target = target[target[column].isin(allowed_values)]
+    return target
+
+
+def _filter_cold_polars(
+    target: PolarsDataFrame,
+    reference: PolarsDataFrame,
+    columns_to_process: list[str],
+) -> PolarsDataFrame:
+    for column in columns_to_process:
+        allowed_values = reference.select(column).unique()
+        target = target.join(allowed_values, on=column, how="semi")
+    return target
+
+
+def _filter_cold_spark(
+    target: SparkDataFrame,
+    reference: SparkDataFrame,
+    columns_to_process: list[str],
+) -> SparkDataFrame:
+    for column in columns_to_process:
+        allowed_values = reference.select(column).distinct()
+        target = target.join(allowed_values, on=column, how="left_semi")
+    return target
+
+
+def filter_cold(
+    target: DataFrameLike,
+    reference: DataFrameLike,
+    mode: Literal["items", "users", "both"] = "items",
+    query_column: str = "query_id",
+    item_column: str = "item_id",
+) -> DataFrameLike:
+    """
+    Filter rows in ``target`` keeping only users/items that exist in ``reference``.
+
+    This function works with pandas, Polars and Spark DataFrames. ``target`` and
+    ``reference`` must be of the same backend type. Depending on ``mode``, it
+    removes rows whose ``item_column`` and/or ``query_column`` values are not
+    present in the corresponding columns of ``reference``.
+
+    Parameters
+    ----------
+    target : DataFrameLike
+        Dataset to be filtered (pandas/Polars/Spark).
+    reference : DataFrameLike
+        Dataset that defines the allowed universe of users/items.
+    mode : {"items", "users", "both"}, default "items"
+        What to filter: only items, only users, or both.
+    query_column : str, default "query_id"
+        Name of the user (query) column.
+    item_column : str, default "item_id"
+        Name of the item column.
+
+    Returns
+    -------
+    DataFrameLike
+        Filtered ``target`` of the same backend type as the input.
+
+    Raises
+    ------
+    ValueError
+        If ``mode`` is not one of {"items", "users", "both"}.
+    TypeError
+        If ``target`` and ``reference`` are of different backend types.
+    KeyError
+        If required columns are missing in either dataset.
+    NotImplementedError
+        If the input dataframe type is not supported.
+    """
+    if mode not in {"items", "users", "both"}:
+        msg = "mode must be 'items' | 'users' | 'both'"
+        raise ValueError(msg)
+    if not isinstance(target, type(reference)):
+        msg = "Target and reference must be of the same type"
+        raise TypeError(msg)
+
+    if mode == "both":
+        columns_to_process = [query_column, item_column]
+    elif mode == "items":
+        columns_to_process = [item_column]
+    elif mode == "users":
+        columns_to_process = [query_column]
+
+    _check_col_present(target, reference, columns_to_process)
+
+    if isinstance(target, PandasDataFrame):
+        return _filter_cold_pandas(
+            target,
+            reference,
+            columns_to_process,
+        )
+    if isinstance(target, PolarsDataFrame):
+        return _filter_cold_polars(
+            target,
+            reference,
+            columns_to_process,
+        )
+    if isinstance(target, SparkDataFrame):
+        return _filter_cold_spark(
+            target,
+            reference,
+            columns_to_process,
+        )
+    msg = f"Unsupported data frame type: {type(target)}"
+    raise NotImplementedError(msg)
