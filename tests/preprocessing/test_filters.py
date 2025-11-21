@@ -14,8 +14,14 @@ from replay.preprocessing.filters import (
     NumInteractionsFilter,
     QuantileItemsFilter,
     TimePeriodFilter,
+    filter_cold,
 )
-from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame
+from replay.utils import (
+    PYSPARK_AVAILABLE,
+    PandasDataFrame,
+    PolarsDataFrame,
+    SparkDataFrame,
+)
 from replay.utils.session_handler import get_spark_session
 
 
@@ -53,6 +59,26 @@ def interactions_polars(interactions_pandas):
 @pytest.fixture
 def interactions_not_implemented(interactions_pandas):
     return interactions_pandas.to_numpy()
+
+
+def _make_dataframes(backend, spark=None):
+    pd_target = pd.DataFrame({"user_id": [1, 1, 2, 3], "item_id": [10, 11, 12, 13]})
+    pd_ref_items = pd.DataFrame({"item_id": [10, 12]})
+    pd_ref_users = pd.DataFrame({"user_id": [1, 3]})
+
+    if backend == "pandas":
+        return pd_target, pd_ref_users, pd_ref_items
+    if backend == "polars":
+        return pl.from_pandas(pd_target), pl.from_pandas(pd_ref_users), pl.from_pandas(pd_ref_items)
+    if backend == "spark":
+        assert spark is not None
+        return (
+            spark.createDataFrame(pd_target),
+            spark.createDataFrame(pd_ref_users),
+            spark.createDataFrame(pd_ref_items),
+        )
+    msg = f"Unknown backend: {backend}"
+    raise AssertionError(msg)
 
 
 @pytest.mark.parametrize(
@@ -413,3 +439,151 @@ def test_quantile_filter_error(quantile, items_proportion):
 def test_filter_not_implemented(filter, kwargs, interactions_not_implemented):
     with pytest.raises(NotImplementedError):
         filter(**kwargs).transform(interactions_not_implemented)
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [
+        pytest.param("pandas", marks=pytest.mark.core),
+        pytest.param("polars", marks=pytest.mark.core),
+        pytest.param("spark", marks=pytest.mark.spark),
+    ],
+)
+def test_filter_cold_items(backend, request, spark=None):
+    if backend == "spark" and not PYSPARK_AVAILABLE:
+        pytest.skip("PySpark is not available")
+    if backend == "spark":
+        spark = request.getfixturevalue("spark")
+
+    target, _, ref_items = _make_dataframes(backend, spark)
+
+    result = filter_cold(
+        target=target,
+        reference=ref_items,
+        mode="items",
+        query_column="user_id",
+        item_column="item_id",
+    )
+
+    if isinstance(result, PandasDataFrame):
+        pd.testing.assert_frame_equal(
+            result.reset_index(drop=True), pd.DataFrame({"user_id": [1, 2], "item_id": [10, 12]})
+        )
+    elif isinstance(result, PolarsDataFrame):
+        assert result.equals(pl.DataFrame({"user_id": [1, 2], "item_id": [10, 12]}))
+    else:
+        rows = {(r.user_id, r.item_id) for r in result.collect()}
+        assert rows == {(1, 10), (2, 12)}
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [
+        pytest.param("pandas", marks=pytest.mark.core),
+        pytest.param("polars", marks=pytest.mark.core),
+        pytest.param("spark", marks=pytest.mark.spark),
+    ],
+)
+def test_filter_cold_users(backend, request, spark=None):
+    if backend == "spark" and not PYSPARK_AVAILABLE:
+        pytest.skip("PySpark is not available")
+    if backend == "spark":
+        spark = request.getfixturevalue("spark")
+
+    target, ref_users, _ = _make_dataframes(backend, spark)
+
+    result = filter_cold(
+        target=target,
+        reference=ref_users,
+        mode="users",
+        query_column="user_id",
+        item_column="item_id",
+    )
+
+    if isinstance(result, PandasDataFrame):
+        pd.testing.assert_frame_equal(
+            result.reset_index(drop=True), pd.DataFrame({"user_id": [1, 1, 3], "item_id": [10, 11, 13]})
+        )
+    elif isinstance(result, PolarsDataFrame):
+        assert result.equals(pl.DataFrame({"user_id": [1, 1, 3], "item_id": [10, 11, 13]}))
+    else:
+        rows = {(r.user_id, r.item_id) for r in result.collect()}
+        assert rows == {(1, 10), (1, 11), (3, 13)}
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [
+        pytest.param("pandas", marks=pytest.mark.core),
+        pytest.param("polars", marks=pytest.mark.core),
+        pytest.param("spark", marks=pytest.mark.spark),
+    ],
+)
+def test_filter_cold_both(backend, request, spark=None):
+    if backend == "spark" and not PYSPARK_AVAILABLE:
+        pytest.skip("PySpark is not available")
+    if backend == "spark":
+        spark = request.getfixturevalue("spark")
+
+    target, _, _ = _make_dataframes(backend, spark)
+
+    if backend == "pandas":
+        ref_both = pd.DataFrame({"user_id": [1, 3], "item_id": [10, 12]})
+    elif backend == "polars":
+        ref_both = pl.DataFrame({"user_id": [1, 3], "item_id": [10, 12]})
+    else:
+        ref_both = spark.createDataFrame(pd.DataFrame({"user_id": [1, 3], "item_id": [10, 12]}))
+
+    result = filter_cold(
+        target=target,
+        reference=ref_both,
+        mode="both",
+        query_column="user_id",
+        item_column="item_id",
+    )
+
+    if isinstance(result, PandasDataFrame):
+        pd.testing.assert_frame_equal(result.reset_index(drop=True), pd.DataFrame({"user_id": [1], "item_id": [10]}))
+    elif isinstance(result, PolarsDataFrame):
+        assert result.equals(pl.DataFrame({"user_id": [1], "item_id": [10]}))
+    else:
+        rows = {(r.user_id, r.item_id) for r in result.collect()}
+        assert rows == {(1, 10)}
+
+
+@pytest.mark.core
+def test_filter_cold_invalid_mode_raises():
+    target = pd.DataFrame({"user_id": [1], "item_id": [10]})
+    ref = pd.DataFrame({"user_id": [1]})
+    msg = "mode must be 'items' | 'users' | 'both'"
+    with pytest.raises(ValueError, match=msg):
+        filter_cold(target, ref, mode="invalid")
+
+
+@pytest.mark.core
+def test_filter_cold_type_mismatch_raises():
+    target = pd.DataFrame({"user_id": [1], "item_id": [10]})
+    ref = pl.DataFrame({"user_id": [1], "item_id": [10]})
+    with pytest.raises(TypeError, match="Target and reference must be of the same type"):
+        filter_cold(target, ref, mode="items")
+
+
+@pytest.mark.core
+def test_filter_cold_missing_column_raises():
+    target = pd.DataFrame({"user_id": [1], "item_id": [10]})
+    ref_missing_item = pd.DataFrame({"user_id": [1]})
+    with pytest.raises(KeyError, match="Column 'item_id' must be in both dataframes"):
+        filter_cold(target, ref_missing_item, mode="items")
+
+
+class _DummyDF:
+    def __init__(self, columns):
+        self.columns = columns
+
+
+@pytest.mark.core
+def test_filter_cold_unsupported_type_raises_notimplemented():
+    target = _DummyDF(["user_id", "item_id"])
+    ref = _DummyDF(["user_id", "item_id"])
+    with pytest.raises(NotImplementedError, match="Unsupported data frame type"):
+        filter_cold(target, ref, mode="items")

@@ -7,6 +7,7 @@ from .cold_user_random_splitter import ColdUserRandomSplitter
 from .k_folds import KFolds
 from .last_n_splitter import LastNSplitter
 from .new_users_splitter import NewUsersSplitter
+from .random_next_n_splitter import RandomNextNSplitter
 from .random_splitter import RandomSplitter
 from .ratio_splitter import RatioSplitter
 from .time_splitter import TimeSplitter
