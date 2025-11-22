@@ -52,7 +52,7 @@ class Bert4RecCompiled(BaseCompiledModel):
 
         :return: Tensor with scores.
         """
-        self._validate_predict_input(batch, candidates_to_score)
+        self._validate_predict_input(batch, candidates_to_score, "pad_mask")
 
         if isinstance(batch, Bert4RecPredictionBatch):
             warnings.warn(
