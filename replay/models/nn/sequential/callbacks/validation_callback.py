@@ -1,4 +1,4 @@
-from typing import Any, Literal, Optional, Protocol
+from typing import Any, Literal, Optional, Protocol, Union
 
 import lightning
 import torch
@@ -117,13 +117,21 @@ class ValidationMetricsCallback(lightning.Callback):
         trainer: lightning.Trainer,  # noqa: ARG002
         pl_module: lightning.LightningModule,
         outputs: torch.Tensor,
-        batch: ValidationBatch,
+        batch: Union[ValidationBatch, dict],
         batch_idx: int,
         dataloader_idx: int,
     ) -> None:
-        _, seen_scores, seen_ground_truth = self._compute_pipeline(batch.query_id, outputs, batch.ground_truth)
+        _, seen_scores, seen_ground_truth = self._compute_pipeline(
+            batch["query_id"] if isinstance(batch, dict) else batch.query_id,
+            outputs,
+            batch["ground_truth"] if isinstance(batch, dict) else batch.ground_truth,
+        )
         sampled_items = torch.topk(seen_scores, k=self._metrics_builders[dataloader_idx].max_k, dim=1).indices
-        self._metrics_builders[dataloader_idx].add_prediction(sampled_items, seen_ground_truth, batch.train)
+        self._metrics_builders[dataloader_idx].add_prediction(
+            sampled_items,
+            seen_ground_truth,
+            batch["train"] if isinstance(batch, dict) else batch.train,
+        )
 
         if batch_idx + 1 == self._dataloaders_size[dataloader_idx]:
             pl_module.log_dict(

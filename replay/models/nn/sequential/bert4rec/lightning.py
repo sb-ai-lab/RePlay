@@ -1,4 +1,5 @@
 import math
+import warnings
 from typing import Any, Literal, Optional, Union, cast
 
 import lightning
@@ -97,7 +98,7 @@ class Bert4Rec(lightning.LightningModule):
         self._vocab_size = item_count
         self.candidates_to_score = None
 
-    def training_step(self, batch: Bert4RecTrainingBatch, batch_idx: int) -> torch.Tensor:  # noqa: ARG002
+    def training_step(self, batch: Union[Bert4RecTrainingBatch, dict], batch_idx: int) -> torch.Tensor:  # noqa: ARG002
         """
         :param batch: Batch of training data.
         :param batch_idx: Batch index.
@@ -109,7 +110,7 @@ class Bert4Rec(lightning.LightningModule):
         return loss
 
     def predict_step(
-        self, batch: Bert4RecPredictionBatch, batch_idx: int, dataloader_idx: int = 0  # noqa: ARG002
+        self, batch: Union[Bert4RecPredictionBatch, dict], batch_idx: int, dataloader_idx: int = 0  # noqa: ARG002
     ) -> torch.Tensor:
         """
         :param batch (Bert4RecPredictionBatch): Batch of prediction data.
@@ -118,12 +119,23 @@ class Bert4Rec(lightning.LightningModule):
 
         :returns: Calculated scores on prediction batch.
         """
+        if isinstance(batch, Bert4RecPredictionBatch):
+            warnings.warn(
+                "`Bert4RecPredictionBatch` class will be removed in future versions. "
+                "Instead, you should use simple dictionary",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         batch = _prepare_prediction_batch(self._schema, self._model.max_len, batch)
-        return self._model_predict(batch.features, batch.padding_mask, batch.tokens_mask)
+        return self._model_predict(
+            feature_tensors=batch["inputs"],
+            padding_mask=batch["pad_mask"],
+            tokens_mask=batch["token_mask"],
+        )
 
     def predict(
         self,
-        batch: Bert4RecPredictionBatch,
+        batch: Union[Bert4RecPredictionBatch, dict],
         candidates_to_score: Optional[torch.LongTensor] = None,
     ) -> torch.Tensor:
         """
@@ -133,8 +145,20 @@ class Bert4Rec(lightning.LightningModule):
 
         :returns: Calculated scores on prediction batch.
         """
+        if isinstance(batch, Bert4RecPredictionBatch):
+            warnings.warn(
+                "`Bert4RecPredictionBatch` class will be removed in future versions. "
+                "Instead, you should use simple dictionary",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         batch = _prepare_prediction_batch(self._schema, self._model.max_len, batch)
-        return self._model_predict(batch.features, batch.padding_mask, batch.tokens_mask, candidates_to_score)
+        return self._model_predict(
+            feature_tensors=batch["inputs"],
+            padding_mask=batch["pad_mask"],
+            tokens_mask=batch["token_mask"],
+            candidates_to_score=candidates_to_score,
+        )
 
     def forward(
         self,
@@ -152,10 +176,15 @@ class Bert4Rec(lightning.LightningModule):
 
         :returns: Calculated scores.
         """
-        return self._model_predict(feature_tensors, padding_mask, tokens_mask, candidates_to_score)
+        return self._model_predict(
+            feature_tensors=feature_tensors,
+            padding_mask=padding_mask,
+            tokens_mask=tokens_mask,
+            candidates_to_score=candidates_to_score,
+        )
 
     def validation_step(
-        self, batch: Bert4RecValidationBatch, batch_idx: int, dataloader_idx: int = 0  # noqa: ARG002
+        self, batch: Union[Bert4RecValidationBatch, dict], batch_idx: int, dataloader_idx: int = 0  # noqa: ARG002
     ) -> torch.Tensor:
         """
         :param batch: Batch of prediction data.
@@ -163,7 +192,21 @@ class Bert4Rec(lightning.LightningModule):
 
         :returns: Calculated scores on validation batch.
         """
-        return self._model_predict(batch.features, batch.padding_mask, batch.tokens_mask)
+        if isinstance(batch, Bert4RecValidationBatch):
+            warnings.warn(
+                "`Bert4RecValidationBatch` class will be removed in future versions. "
+                "Instead, you should use simple dictionary",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        feature_tensors = batch["inputs"] if isinstance(batch, dict) else batch.features
+        padding_mask = batch["pad_mask"] if isinstance(batch, dict) else batch.padding_mask
+        tokens_mask = batch["token_mask"] if isinstance(batch, dict) else batch.tokens_mask
+        return self._model_predict(
+            feature_tensors=feature_tensors,
+            padding_mask=padding_mask,
+            tokens_mask=tokens_mask,
+        )
 
     def configure_optimizers(self) -> Any:
         """
@@ -189,10 +232,15 @@ class Bert4Rec(lightning.LightningModule):
             cast(Bert4RecModel, self._model.module) if isinstance(self._model, torch.nn.DataParallel) else self._model
         )
         candidates_to_score = self.candidates_to_score if candidates_to_score is None else candidates_to_score
-        scores = model.predict(feature_tensors, padding_mask, tokens_mask, candidates_to_score)
+        scores = model.predict(
+            inputs=feature_tensors,
+            pad_mask=padding_mask,
+            token_mask=tokens_mask,
+            candidates_to_score=candidates_to_score,
+        )
         return scores
 
-    def _compute_loss(self, batch: Bert4RecTrainingBatch) -> torch.Tensor:
+    def _compute_loss(self, batch: Union[Bert4RecTrainingBatch, dict]) -> torch.Tensor:
         if self._loss_type == "BCE":
             loss_func = self._compute_loss_bce if self._loss_sample_count is None else self._compute_loss_bce_sampled
         elif self._loss_type == "CE":
@@ -203,11 +251,27 @@ class Bert4Rec(lightning.LightningModule):
             msg = f"Not supported loss type: {self._loss_type}"
             raise ValueError(msg)
 
+        if isinstance(batch, Bert4RecTrainingBatch):
+            warnings.warn(
+                "`Bert4RecTrainingBatch` class will be removed in future versions. "
+                "Instead, you should use simple dictionary",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            kwargs = {
+                "inputs": batch.features,
+                "positive_labels": batch.labels,
+                "pad_mask": batch.padding_mask,
+                "token_mask": batch.tokens_mask,
+            }
+        else:
+            kwargs = batch
+
         loss = loss_func(
-            batch.features,
-            batch.labels,
-            batch.padding_mask,  # 0 - padding_idx, 1 - other tokens
-            batch.tokens_mask,  # 0 - masked token, 1 - non-masked token
+            kwargs["inputs"],
+            kwargs["positive_labels"],
+            kwargs["pad_mask"],
+            kwargs["token_mask"],
         )
 
         return loss
@@ -588,20 +652,21 @@ class Bert4Rec(lightning.LightningModule):
         self._schema.item_id_features[self._schema.item_id_feature_name]._set_cardinality(new_vocab_size)
 
 
-def _prepare_prediction_batch(
-    schema: TensorSchema, max_len: int, batch: Bert4RecPredictionBatch
-) -> Bert4RecPredictionBatch:
-    if batch.padding_mask.shape[1] > max_len:
+def _prepare_prediction_batch(schema: TensorSchema, max_len: int, batch: Union[Bert4RecPredictionBatch, dict]) -> dict:
+    seq_len = batch["pad_mask"].shape[1] if isinstance(batch, dict) else batch.padding_mask.shape[1]
+    if seq_len > max_len:
         msg = (
             f"The length of the submitted sequence "
             "must not exceed the maximum length of the sequence. "
-            f"The length of the sequence is given {batch.padding_mask.shape[1]}, "
+            f"The length of the sequence is given {seq_len}, "
             f"while the maximum length is {max_len}"
         )
         raise ValueError(msg)
 
-    if batch.padding_mask.shape[1] < max_len:
-        query_id, padding_mask, features, _ = batch
+    if seq_len < max_len:
+        query_id = batch["query_id"] if isinstance(batch, dict) else batch.query_id
+        padding_mask = batch["pad_mask"] if isinstance(batch, dict) else batch.padding_mask
+        features = (batch["inputs"] if isinstance(batch, dict) else batch.features).copy()
         sequence_item_count = padding_mask.shape[1]
         for feature_name, feature_tensor in features.items():
             if schema[feature_name].is_cat:
@@ -618,5 +683,18 @@ def _prepare_prediction_batch(
                 ).unsqueeze(-1)
         padding_mask = torch.nn.functional.pad(padding_mask, (max_len - sequence_item_count, 0), value=0)
         shifted_features, shifted_padding_mask, tokens_mask = _shift_features(schema, features, padding_mask)
-        batch = Bert4RecPredictionBatch(query_id, shifted_padding_mask, shifted_features, tokens_mask)
+        batch = {
+            "query_id": query_id,
+            "pad_mask": shifted_padding_mask,
+            "inputs": shifted_features,
+            "token_mask": tokens_mask,
+        }
+
+    if not isinstance(batch, dict):
+        batch = {
+            "query_id": batch.query_id,
+            "pad_mask": batch.padding_mask,
+            "inputs": batch.features,
+            "token_mask": batch.tokens_mask,
+        }
     return batch

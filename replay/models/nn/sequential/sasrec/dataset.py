@@ -1,4 +1,4 @@
-from typing import NamedTuple, Optional, cast
+from typing import NamedTuple, Optional
 
 import torch
 from torch.utils.data import Dataset as TorchDataset
@@ -81,7 +81,7 @@ class SasRecTrainingDataset(TorchDataset):
     def __len__(self) -> int:
         return len(self._inner)
 
-    def __getitem__(self, index: int) -> SasRecTrainingBatch:
+    def __getitem__(self, index: int) -> dict:
         query_id, padding_mask, features = self._inner[index]
 
         assert self._label_feature_name
@@ -97,13 +97,13 @@ class SasRecTrainingDataset(TorchDataset):
 
         output_features_padding_mask = padding_mask[: -self._sequence_shift]
 
-        return SasRecTrainingBatch(
-            query_id=query_id,
-            features=output_features,
-            padding_mask=cast(torch.BoolTensor, output_features_padding_mask),
-            labels=cast(torch.LongTensor, labels),
-            labels_padding_mask=cast(torch.BoolTensor, labels_padding_mask),
-        )
+        return {
+            "query_id": query_id,
+            "feature_tensor": output_features,
+            "padding_mask": output_features_padding_mask,
+            "positive_labels": labels,
+            "target_padding_mask": labels_padding_mask,
+        }
 
 
 class SasRecPredictionBatch(NamedTuple):
@@ -143,13 +143,13 @@ class SasRecPredictionDataset(TorchDataset):
     def __len__(self) -> int:
         return len(self._inner)
 
-    def __getitem__(self, index: int) -> SasRecPredictionBatch:
+    def __getitem__(self, index: int) -> dict:
         query_id, padding_mask, features = self._inner[index]
-        return SasRecPredictionBatch(
-            query_id=query_id,
-            padding_mask=padding_mask,
-            features=features,
-        )
+        return {
+            "query_id": query_id,
+            "padding_mask": padding_mask,
+            "feature_tensor": features,
+        }
 
 
 class SasRecValidationBatch(NamedTuple):
@@ -202,12 +202,12 @@ class SasRecValidationDataset(TorchDataset):
     def __len__(self) -> int:
         return len(self._inner)
 
-    def __getitem__(self, index: int) -> SasRecValidationBatch:
+    def __getitem__(self, index: int) -> dict:
         query_id, padding_mask, features, ground_truth, train = self._inner[index]
-        return SasRecValidationBatch(
-            query_id=query_id,
-            padding_mask=padding_mask,
-            features=features,
-            ground_truth=ground_truth,
-            train=train,
-        )
+        return {
+            "query_id": query_id,
+            "padding_mask": padding_mask,
+            "feature_tensor": features,
+            "ground_truth": ground_truth,
+            "train": train,
+        }
