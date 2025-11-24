@@ -1,0 +1,225 @@
+from typing import Callable, Optional, TypedDict
+
+import torch
+from amazme.replay.data.nn import TensorMap
+
+from .base import SampledLossBase, mask_negative_logits
+
+
+class LogInCESampledOutput(TypedDict):
+    positive_logits: torch.Tensor
+    negative_logits: torch.Tensor
+    positive_labels: torch.LongTensor
+    negative_labels: torch.LongTensor
+    target_padding_mask: torch.BoolTensor
+
+
+class LogInCEBase(SampledLossBase):
+    def get_sampled_logits(
+        self,
+        model_embeddings: torch.Tensor,
+        positive_labels: torch.LongTensor,  # [batch_size, seq_len, num_positives]
+        negative_labels: torch.LongTensor,  # [num_negatives] or [batch_size, seq_len, num_negatives]
+        target_padding_mask: torch.BoolTensor,  # [batch_size, seq_len, num_positives]
+    ) -> LogInCESampledOutput:
+        ################## SHAPE CHECKING STAGE START ##################
+        batch_size, seq_len, num_positives = positive_labels.size()
+        assert target_padding_mask.size() == (batch_size, seq_len, num_positives)
+        num_negatives = negative_labels.size(-1)
+        assert negative_labels.size() == (batch_size, seq_len, num_negatives) or negative_labels.dim() == 1
+        ################## SHAPE CHECKING STAGE END ##################
+
+        # Get output embedding for every user event
+        embedding_dim = model_embeddings.size(-1)
+        assert model_embeddings.size() == (batch_size, seq_len, embedding_dim)
+
+        # [batch_size, seq_len, num_positives] -> [batch_size, seq_len]
+        masked_target_padding_mask: torch.BoolTensor = target_padding_mask.sum(-1).bool()
+        masked_batch_size = masked_target_padding_mask.sum().item()
+
+        # Apply target mask
+        # [batch_size, seq_len, emb_dim] -> [masked_batch_size, emb_dim]
+        model_embeddings = model_embeddings[masked_target_padding_mask]
+        assert model_embeddings.size() == (masked_batch_size, embedding_dim)
+
+        # [batch_size, seq_len, num_positives] -> [masked_batch_size, num_positives]
+        positive_labels = positive_labels[masked_target_padding_mask]
+        assert positive_labels.size() == (masked_batch_size, num_positives)
+
+        if negative_labels.dim() > 1:
+            # [batch_size, seq_len, num_negatives] -> [masked_batch_size, num_negatives]
+            negative_labels = negative_labels[masked_target_padding_mask]
+            assert negative_labels.size() == (masked_batch_size, num_negatives)
+
+        positive_logits = self.logits_callback(model_embeddings, positive_labels)
+        assert positive_logits.size() == (masked_batch_size, num_positives)
+
+        negative_logits = self.logits_callback(model_embeddings, negative_labels)
+        assert negative_logits.size() == (masked_batch_size, num_negatives)
+
+        # [batch_size, seq_len, num_positives] -> [masked_batch_size, num_positives]
+        target_padding_mask = target_padding_mask[masked_target_padding_mask]
+        assert target_padding_mask.size() == (masked_batch_size, num_positives)
+
+        return {
+            "positive_logits": positive_logits,
+            "negative_logits": negative_logits,
+            "positive_labels": positive_labels,
+            "negative_labels": negative_labels,
+            "target_padding_mask": target_padding_mask,
+        }
+
+
+class LogInCE(LogInCEBase):
+    def __init__(
+        self,
+        vocab_size: int,
+        explicit_negatives_padding_value: Optional[int] = None,
+        log_epsilon: float = 1e-6,
+        clamp_border: float = 100.0,
+    ):
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.explicit_negatives_padding_value = explicit_negatives_padding_value
+        self.log_epsilon = log_epsilon
+        self.clamp_border = clamp_border
+        self._logits_callback = None
+
+    @property
+    def logits_callback(self) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+        if self._logits_callback is None:
+            msg = "The callback for getting logits is not defined"
+            raise AttributeError(msg)
+        return self._logits_callback
+
+    @logits_callback.setter
+    def logits_callback(self, func: Optional[Callable]) -> None:
+        self._logits_callback = func
+
+    def forward(
+        self,
+        model_embeddings: torch.Tensor,
+        feature_tensors: TensorMap,  # noqa: ARG002
+        positive_labels: torch.LongTensor,
+        negative_labels: torch.LongTensor,
+        padding_mask: torch.BoolTensor,
+        target_padding_mask: torch.BoolTensor,
+    ) -> torch.Tensor:
+        negative_labels = torch.arange(
+            self.vocab_size,
+            dtype=torch.long,
+            device=padding_mask.device,
+        )
+        sampled = self.get_sampled_logits(
+            model_embeddings,
+            positive_labels,
+            negative_labels,
+            target_padding_mask,
+        )
+        positive_logits = sampled["positive_logits"]  # [masked_batch_size, num_positives]
+        negative_logits = sampled["negative_logits"]  # [masked_batch_size, num_negatives]
+        positive_labels = sampled["positive_labels"]  # [masked_batch_size, num_positives]
+        negative_labels = sampled["negative_labels"]  # [masked_batch_size, num_negatives] or [num_negatives]
+        target_padding_mask = sampled["target_padding_mask"]  # [masked_batch_size, num_positives]
+
+        # [masked_batch_size, num_negatives] - assign low values to some negative logits
+        negative_logits = mask_negative_logits(
+            negative_logits,
+            negative_labels,
+            positive_labels,
+            self.explicit_negatives_padding_value,
+        )
+
+        max_values = torch.max(
+            positive_logits.max(-1, keepdim=True).values,
+            negative_logits.max(-1, keepdim=True).values,
+        )  # [masked_batch_size, 1]
+        positive_logits = positive_logits - max_values
+        negative_logits = negative_logits - max_values
+
+        positive_logits = torch.exp(positive_logits)
+        positive_logits = positive_logits * target_padding_mask
+        # [masked_batch_size, num_positives] -> [masked_batch_size]
+        positive_logits = positive_logits.sum(-1)
+
+        negative_logits = torch.exp(negative_logits)
+        # [masked_batch_size, num_negatives] -> [masked_batch_size]
+        negative_logits = negative_logits.sum(-1)
+
+        probabilities = positive_logits / (positive_logits + negative_logits)
+        loss = -torch.clamp(torch.log(probabilities + self.log_epsilon), -self.clamp_border, self.clamp_border)
+        return loss.mean()
+
+
+class LogInCESampled(LogInCEBase):
+    def __init__(
+        self,
+        explicit_negatives_padding_value: Optional[int] = None,
+        log_epsilon: float = 1e-6,
+        clamp_border: float = 100.0,
+    ):
+        super().__init__()
+        self.explicit_negatives_padding_value = explicit_negatives_padding_value
+        self.log_epsilon = log_epsilon
+        self.clamp_border = clamp_border
+        self._logits_callback = None
+
+    @property
+    def logits_callback(self) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+        if self._logits_callback is None:
+            msg = "The callback for getting logits is not defined"
+            raise AttributeError(msg)
+        return self._logits_callback
+
+    @logits_callback.setter
+    def logits_callback(self, func: Optional[Callable]) -> None:
+        self._logits_callback = func
+
+    def forward(
+        self,
+        model_embeddings: torch.Tensor,
+        feature_tensors: TensorMap,  # noqa: ARG002
+        positive_labels: torch.LongTensor,
+        negative_labels: torch.LongTensor,
+        padding_mask: torch.BoolTensor,  # noqa: ARG002
+        target_padding_mask: torch.BoolTensor,
+    ) -> torch.Tensor:
+        sampled = self.get_sampled_logits(
+            model_embeddings,
+            positive_labels,
+            negative_labels,
+            target_padding_mask,
+        )
+        positive_logits = sampled["positive_logits"]  # [masked_batch_size, num_positives]
+        negative_logits = sampled["negative_logits"]  # [masked_batch_size, num_negatives]
+        positive_labels = sampled["positive_labels"]  # [masked_batch_size, num_positives]
+        negative_labels = sampled["negative_labels"]  # [masked_batch_size, num_negatives] or [num_negatives]
+        target_padding_mask = sampled["target_padding_mask"]  # [masked_batch_size, num_positives]
+
+        # [masked_batch_size, num_negatives] - assign low values to some negative logits
+        negative_logits = mask_negative_logits(
+            negative_logits,
+            negative_labels,
+            positive_labels,
+            self.explicit_negatives_padding_value,
+        )
+
+        max_values = torch.max(
+            positive_logits.max(-1, keepdim=True).values,
+            negative_logits.max(-1, keepdim=True).values,
+        )  # [masked_batch_size, 1]
+        positive_logits = positive_logits - max_values
+        negative_logits = negative_logits - max_values
+
+        positive_logits = torch.exp(positive_logits)
+        positive_logits = positive_logits * target_padding_mask
+        # [masked_batch_size, num_positives] -> [masked_batch_size]
+        positive_logits = positive_logits.sum(-1)
+
+        negative_logits = torch.exp(negative_logits)
+        # [masked_batch_size, num_negatives] -> [masked_batch_size]
+        negative_logits = negative_logits.sum(-1)
+
+        probabilities = positive_logits / (positive_logits + negative_logits)
+        loss = -torch.clamp(torch.log(probabilities + self.log_epsilon), -self.clamp_border, self.clamp_border)
+        return loss.mean()
