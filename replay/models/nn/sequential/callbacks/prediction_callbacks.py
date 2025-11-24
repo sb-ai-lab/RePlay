@@ -1,4 +1,5 @@
 import abc
+import inspect
 from typing import Generic, Optional, Protocol, TypeVar, Union, cast
 
 import lightning
@@ -275,7 +276,9 @@ class QueryEmbeddingsPredictionCallback(lightning.Callback):
     ) -> None:
         if isinstance(batch, dict):
             modified_batch = {
-                k: v for k, v in batch.items() if k in pl_module._model.get_query_embeddings.__code__.co_varnames
+                k: v
+                for k, v in batch.items()
+                if k in inspect.signature(pl_module._model.get_query_embeddings).parameters
             }
             query_embeddings = pl_module._model.get_query_embeddings(**modified_batch)
         else:
