@@ -2,14 +2,15 @@ from collections.abc import Sequence
 from typing import Optional, Protocol, Union
 
 import torch
-from amazme.replay.data.nn import TensorMap
-from amazme.replay.models.nn.loss import LossProto
-from amazme.replay.models.nn.output import InferenceOutput, TrainOutput
-from amazme.replay.models.nn.sequential.common.agg import SequentialEmbeddingAggregatorProto
-from amazme.replay.models.nn.sequential.common.head import EmbeddingTyingHead
-from amazme.replay.models.nn.sequential.common.mask import AttentionMaskBuilderProto
-from amazme.replay.models.nn.sequential.common.normalization import NormalizerProto
-from amazme.replay.models.nn.utils import warning_is_not_none
+
+from replay.data.nn import TensorMap
+from replay.models.nn.loss import LossProto
+from replay.models.nn.output import InferenceOutput, TrainOutput
+from replay.models.nn.sequential.common.agg import SequentialEmbeddingAggregatorProto
+from replay.models.nn.sequential.common.head import EmbeddingTyingHead
+from replay.models.nn.sequential.common.mask import AttentionMaskBuilderProto
+from replay.models.nn.sequential.common.normalization import NormalizerProto
+from replay.models.nn.utils import warning_is_not_none
 
 
 class EmbedderProto(Protocol):

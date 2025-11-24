@@ -1,7 +1,8 @@
 from typing import Callable, Optional
 
 import torch
-from amazme.replay.data.nn import TensorMap
+
+from replay.data.nn import TensorMap
 
 from .base import SampledLossBase, mask_negative_logits
 

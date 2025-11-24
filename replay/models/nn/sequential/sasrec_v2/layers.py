@@ -2,8 +2,9 @@ import contextlib
 from typing import Any, Literal
 
 import torch
-from amazme.replay.data.nn import TensorMap
-from amazme.replay.models.nn.sequential.common.ffn import PointWiseFeedForward
+
+from replay.data.nn import TensorMap
+from replay.models.nn.sequential.common.ffn import PointWiseFeedForward
 
 
 class SasRecBlock(torch.nn.Module):

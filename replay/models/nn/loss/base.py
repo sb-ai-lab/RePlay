@@ -1,7 +1,8 @@
 from typing import Callable, Optional, Protocol, TypedDict
 
 import torch
-from amazme.replay.data.nn import TensorMap
+
+from replay.data.nn import TensorMap
 
 
 class LossProto(Protocol):

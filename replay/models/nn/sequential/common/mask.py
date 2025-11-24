@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 from typing import Protocol
 
 import torch
-from amazme.replay.data.nn import TensorMap, TensorSchema
+
+from replay.data.nn import TensorMap, TensorSchema
 
 
 class AttentionMaskBuilderProto(Protocol):
