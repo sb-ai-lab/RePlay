@@ -24,10 +24,24 @@ class SasRecTrainingBatch(NamedTuple):
     labels: torch.LongTensor
     labels_padding_mask: torch.BoolTensor
 
+    def convert_to_dict(self) -> dict:
+        return {
+            "query_id": self.query_id,
+            "feature_tensor": self.features,
+            "padding_mask": self.padding_mask,
+            "positive_labels": self.labels,
+            "target_padding_mask": self.labels_padding_mask,
+        }
+
 
 class SasRecTrainingDataset(TorchDataset):
     """
-    Dataset that generates samples to train SasRec-like model
+    Dataset that generates samples to train SasRec model.
+
+    As a result of the dataset iteration, a dictionary is formed.
+    The keys in the dictionary match the names of the arguments in the model's `forward` function.
+    There are also additional keys needed to calculate losses - 'positive_labels`, `target_padding_mask`.
+    The `query_id` key is required for possible debugging and calling additional lightning callbacks.
     """
 
     def __init__(
@@ -116,10 +130,21 @@ class SasRecPredictionBatch(NamedTuple):
     padding_mask: torch.BoolTensor
     features: TensorMap
 
+    def convert_to_dict(self) -> dict:
+        return {
+            "query_id": self.query_id,
+            "feature_tensor": self.features,
+            "padding_mask": self.padding_mask,
+        }
+
 
 class SasRecPredictionDataset(TorchDataset):
     """
-    Dataset that generates samples to infer SasRec-like model
+    Dataset that generates samples to infer SasRec model
+
+    As a result of the dataset iteration, a dictionary is formed.
+    The keys in the dictionary match the names of the arguments in the model's `forward` function.
+    The `query_id` key is required for possible debugging and calling additional lightning callbacks.
     """
 
     def __init__(
@@ -164,10 +189,24 @@ class SasRecValidationBatch(NamedTuple):
     ground_truth: torch.LongTensor
     train: torch.LongTensor
 
+    def convert_to_dict(self) -> dict:
+        return {
+            "query_id": self.query_id,
+            "feature_tensor": self.features,
+            "padding_mask": self.padding_mask,
+            "ground_truth": self.ground_truth,
+            "train": self.train,
+        }
+
 
 class SasRecValidationDataset(TorchDataset):
     """
-    Dataset that generates samples to infer and validate SasRec-like model
+    Dataset that generates samples to infer and validate SasRec model.
+
+    As a result of the dataset iteration, a dictionary is formed.
+    The keys in the dictionary match the names of the arguments in the model's `forward` function.
+    The `query_id` key is required for possible debugging and calling additional lightning callbacks.
+    Keys 'ground_truth` and `train` keys are required for metrics calculation on validation stage.
     """
 
     def __init__(

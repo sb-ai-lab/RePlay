@@ -126,6 +126,7 @@ class Bert4Rec(lightning.LightningModule):
                 DeprecationWarning,
                 stacklevel=2,
             )
+            batch = batch.convert_to_dict()
         batch = _prepare_prediction_batch(self._schema, self._model.max_len, batch)
         return self._model_predict(
             feature_tensors=batch["inputs"],
@@ -152,6 +153,8 @@ class Bert4Rec(lightning.LightningModule):
                 DeprecationWarning,
                 stacklevel=2,
             )
+            batch = batch.convert_to_dict()
+
         batch = _prepare_prediction_batch(self._schema, self._model.max_len, batch)
         return self._model_predict(
             feature_tensors=batch["inputs"],
@@ -199,13 +202,12 @@ class Bert4Rec(lightning.LightningModule):
                 DeprecationWarning,
                 stacklevel=2,
             )
-        feature_tensors = batch["inputs"] if isinstance(batch, dict) else batch.features
-        padding_mask = batch["pad_mask"] if isinstance(batch, dict) else batch.padding_mask
-        tokens_mask = batch["token_mask"] if isinstance(batch, dict) else batch.tokens_mask
+            batch = batch.convert_to_dict()
+
         return self._model_predict(
-            feature_tensors=feature_tensors,
-            padding_mask=padding_mask,
-            tokens_mask=tokens_mask,
+            feature_tensors=batch["inputs"],
+            padding_mask=batch["pad_mask"],
+            tokens_mask=batch["token_mask"],
         )
 
     def configure_optimizers(self) -> Any:
@@ -258,20 +260,13 @@ class Bert4Rec(lightning.LightningModule):
                 DeprecationWarning,
                 stacklevel=2,
             )
-            kwargs = {
-                "inputs": batch.features,
-                "positive_labels": batch.labels,
-                "pad_mask": batch.padding_mask,
-                "token_mask": batch.tokens_mask,
-            }
-        else:
-            kwargs = batch
+            batch = batch.convert_to_dict()
 
         loss = loss_func(
-            kwargs["inputs"],
-            kwargs["positive_labels"],
-            kwargs["pad_mask"],
-            kwargs["token_mask"],
+            batch["inputs"],
+            batch["positive_labels"],
+            batch["pad_mask"],
+            batch["token_mask"],
         )
 
         return loss
@@ -652,8 +647,8 @@ class Bert4Rec(lightning.LightningModule):
         self._schema.item_id_features[self._schema.item_id_feature_name]._set_cardinality(new_vocab_size)
 
 
-def _prepare_prediction_batch(schema: TensorSchema, max_len: int, batch: Union[Bert4RecPredictionBatch, dict]) -> dict:
-    seq_len = batch["pad_mask"].shape[1] if isinstance(batch, dict) else batch.padding_mask.shape[1]
+def _prepare_prediction_batch(schema: TensorSchema, max_len: int, batch: dict) -> dict:
+    seq_len = batch["pad_mask"].shape[1]
     if seq_len > max_len:
         msg = (
             f"The length of the submitted sequence "
@@ -664,9 +659,8 @@ def _prepare_prediction_batch(schema: TensorSchema, max_len: int, batch: Union[B
         raise ValueError(msg)
 
     if seq_len < max_len:
-        query_id = batch["query_id"] if isinstance(batch, dict) else batch.query_id
-        padding_mask = batch["pad_mask"] if isinstance(batch, dict) else batch.padding_mask
-        features = (batch["inputs"] if isinstance(batch, dict) else batch.features).copy()
+        padding_mask = batch["pad_mask"]
+        features = batch["inputs"].copy()
         sequence_item_count = padding_mask.shape[1]
         for feature_name, feature_tensor in features.items():
             if schema[feature_name].is_cat:
@@ -683,18 +677,8 @@ def _prepare_prediction_batch(schema: TensorSchema, max_len: int, batch: Union[B
                 ).unsqueeze(-1)
         padding_mask = torch.nn.functional.pad(padding_mask, (max_len - sequence_item_count, 0), value=0)
         shifted_features, shifted_padding_mask, tokens_mask = _shift_features(schema, features, padding_mask)
-        batch = {
-            "query_id": query_id,
-            "pad_mask": shifted_padding_mask,
-            "inputs": shifted_features,
-            "token_mask": tokens_mask,
-        }
 
-    if not isinstance(batch, dict):
-        batch = {
-            "query_id": batch.query_id,
-            "pad_mask": batch.padding_mask,
-            "inputs": batch.features,
-            "token_mask": batch.tokens_mask,
-        }
+        batch["pad_mask"] = shifted_padding_mask
+        batch["inputs"] = shifted_features
+        batch["token_mask"] = tokens_mask
     return batch

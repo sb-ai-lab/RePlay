@@ -118,7 +118,7 @@ class BaseCompiledModel:
         )
         if self._batch_size != -1 and input_batch_size != self._batch_size:
             msg = (
-                f"The batch is smaller then defined batch_size={self._batch_size}. "
+                f"The batch is smaller than defined batch_size={self._batch_size}. "
                 "It is impossible to infer the model with dynamic batch size in ``mode`` = ``batch``. "
                 "Use ``mode`` = ``dynamic_batch_size``."
             )

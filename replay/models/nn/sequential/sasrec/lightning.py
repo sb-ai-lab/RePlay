@@ -131,11 +131,12 @@ class SasRec(lightning.LightningModule):
         """
         if isinstance(batch, SasRecPredictionBatch):
             warnings.warn(
-                "`Bert4RecPredictionBatch` class will be removed in future versions. "
+                "`SasRecPredictionBatch` class will be removed in future versions. "
                 "Instead, you should use simple dictionary",
                 DeprecationWarning,
                 stacklevel=2,
             )
+            batch = batch.convert_to_dict()
         batch = _prepare_prediction_batch(self._schema, self._model.max_len, batch)
         return self._model_predict(
             feature_tensors=batch["feature_tensor"],
@@ -161,6 +162,7 @@ class SasRec(lightning.LightningModule):
                 DeprecationWarning,
                 stacklevel=2,
             )
+            batch = batch.convert_to_dict()
         batch = _prepare_prediction_batch(self._schema, self._model.max_len, batch)
         return self._model_predict(
             feature_tensors=batch["feature_tensor"],
@@ -203,12 +205,11 @@ class SasRec(lightning.LightningModule):
                 DeprecationWarning,
                 stacklevel=2,
             )
-        feature_tensors = batch["feature_tensor"] if isinstance(batch, dict) else batch.features
-        padding_mask = batch["padding_mask"] if isinstance(batch, dict) else batch.padding_mask
+            batch = batch.convert_to_dict()
 
         return self._model_predict(
-            feature_tensors=feature_tensors,
-            padding_mask=padding_mask,
+            feature_tensors=batch["feature_tensor"],
+            padding_mask=batch["padding_mask"],
         )
 
     def configure_optimizers(self) -> Any:
@@ -257,20 +258,13 @@ class SasRec(lightning.LightningModule):
                 DeprecationWarning,
                 stacklevel=2,
             )
-            kwargs = {
-                "feature_tensor": batch.features,
-                "positive_labels": batch.labels,
-                "padding_mask": batch.padding_mask,
-                "target_padding_mask": batch.labels_padding_mask,
-            }
-        else:
-            kwargs = batch
+            batch = batch.convert_to_dict()
 
         loss = loss_func(
-            kwargs["feature_tensor"],
-            kwargs["positive_labels"],
-            kwargs["padding_mask"],
-            kwargs["target_padding_mask"],
+            batch["feature_tensor"],
+            batch["positive_labels"],
+            batch["padding_mask"],
+            batch["target_padding_mask"],
         )
         return loss
 
@@ -623,9 +617,9 @@ class SasRec(lightning.LightningModule):
 def _prepare_prediction_batch(
     schema: TensorSchema,
     max_len: int,
-    batch: Union[SasRecPredictionBatch, dict],
+    batch: dict,
 ) -> dict:
-    seq_len = batch["padding_mask"].shape[1] if isinstance(batch, dict) else batch.padding_mask.shape[1]
+    seq_len = batch["padding_mask"].shape[1]
     if seq_len > max_len:
         msg = (
             "The length of the submitted sequence "
@@ -636,9 +630,8 @@ def _prepare_prediction_batch(
         raise ValueError(msg)
 
     if seq_len < max_len:
-        query_id = batch["query_id"] if isinstance(batch, dict) else batch.query_id
-        padding_mask = batch["padding_mask"] if isinstance(batch, dict) else batch.padding_mask
-        features = (batch["feature_tensor"] if isinstance(batch, dict) else batch.features).copy()
+        padding_mask = batch["padding_mask"]
+        features = batch["feature_tensor"].copy()
         sequence_item_count = padding_mask.shape[1]
         for feature_name, feature_tensor in features.items():
             if schema[feature_name].is_cat:
@@ -652,16 +645,7 @@ def _prepare_prediction_batch(
                     value=0,
                 ).unsqueeze(-1)
         padding_mask = torch.nn.functional.pad(padding_mask, (max_len - sequence_item_count, 0), value=0)
-        batch = {
-            "query_id": query_id,
-            "padding_mask": padding_mask,
-            "feature_tensor": features,
-        }
+        batch["padding_mask"] = padding_mask
+        batch["feature_tensor"] = features
 
-    if not isinstance(batch, dict):
-        batch = {
-            "query_id": batch.query_id,
-            "padding_mask": batch.padding_mask,
-            "feature_tensor": batch.features,
-        }
     return batch

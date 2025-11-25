@@ -34,6 +34,9 @@ class ValidationMetricsCallback(lightning.Callback):
 
     If multiple validation/testing dataloaders are used,
     the suffix of the metric name will contain the serial number of the dataloader.
+
+    For the callback to work correctly, the batch must contain the `query_id` and `ground_truth` keys.
+    If you want to calculate the coverage or novelty metrics then the batch must additionally contain the `train` key.
     """
 
     def __init__(
@@ -95,7 +98,7 @@ class ValidationMetricsCallback(lightning.Callback):
         trainer: lightning.Trainer,
         pl_module: lightning.LightningModule,
         outputs: torch.Tensor,
-        batch: ValidationBatch,
+        batch: Union[ValidationBatch, dict],
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
@@ -106,7 +109,7 @@ class ValidationMetricsCallback(lightning.Callback):
         trainer: lightning.Trainer,
         pl_module: lightning.LightningModule,
         outputs: torch.Tensor,
-        batch: ValidationBatch,
+        batch: Union[ValidationBatch, dict],
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:  # pragma: no cover
@@ -130,7 +133,7 @@ class ValidationMetricsCallback(lightning.Callback):
         self._metrics_builders[dataloader_idx].add_prediction(
             sampled_items,
             seen_ground_truth,
-            batch["train"] if isinstance(batch, dict) else batch.train,
+            batch.get("train") if isinstance(batch, dict) else batch.train,
         )
 
         if batch_idx + 1 == self._dataloaders_size[dataloader_idx]:
