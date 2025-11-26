@@ -61,6 +61,7 @@ class SasRecCompiled(BaseCompiledModel):
                 DeprecationWarning,
                 stacklevel=2,
             )
+            batch = batch.convert_to_dict()
 
         batch = _prepare_prediction_batch(self._schema, self._max_seq_len, batch)
         model_inputs = {
