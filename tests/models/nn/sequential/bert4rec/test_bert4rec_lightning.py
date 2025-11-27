@@ -39,6 +39,32 @@ def test_training_bert4rec_with_different_losses(
 
 
 @pytest.mark.torch
+def test_deprecated_bert4rec_pipeline(
+    item_user_sequential_dataset,
+    deprecated_train_bert_loader,
+    deprecated_val_bert_loader,
+    deprecated_pred_bert_loader,
+):
+    trainer = L.Trainer(max_epochs=1)
+    model = Bert4Rec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        max_seq_len=5,
+        hidden_size=64,
+    )
+    with pytest.deprecated_call():
+        trainer.fit(model, deprecated_train_bert_loader, deprecated_val_bert_loader)
+
+    with pytest.deprecated_call():
+        _ = trainer.predict(model, deprecated_pred_bert_loader)
+
+    with pytest.deprecated_call():
+        for batch in deprecated_pred_bert_loader:
+            _ = model.predict(
+                batch,
+            )
+
+
+@pytest.mark.torch
 def test_init_bert4rec_with_invalid_loss_type(item_user_sequential_dataset):
     with pytest.raises(NotImplementedError) as exc:
         Bert4Rec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_type="")

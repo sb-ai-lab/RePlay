@@ -39,18 +39,18 @@ def test_sasrec_datasets_length(sequential_dataset):
 def test_sasrec_training_dataset_getitem(sequential_dataset):
     batch = SasRecTrainingDataset(sequential_dataset, 8, label_feature_name="item_id")[0]
 
-    assert batch.query_id.item() == 0
-    assert all(batch.padding_mask == torch.tensor([0, 0, 0, 0, 0, 0, 0, 1], dtype=torch.bool))
-    assert all(batch.labels_padding_mask == torch.tensor([0, 0, 0, 0, 0, 0, 1, 1], dtype=torch.bool))
-    assert all(batch.labels == torch.tensor([-1, -1, -1, -1, -1, -1, 0, 1], dtype=torch.long))
+    assert batch["query_id"].item() == 0
+    assert all(batch["padding_mask"] == torch.tensor([0, 0, 0, 0, 0, 0, 0, 1], dtype=torch.bool))
+    assert all(batch["target_padding_mask"] == torch.tensor([0, 0, 0, 0, 0, 0, 1, 1], dtype=torch.bool))
+    assert all(batch["positive_labels"] == torch.tensor([-1, -1, -1, -1, -1, -1, 0, 1], dtype=torch.long))
 
 
 @pytest.mark.torch
 def test_sasrec_prediction_dataset_getitem(sequential_dataset):
     batch = SasRecPredictionDataset(sequential_dataset, 8)[1]
 
-    assert batch.query_id.item() == 1
-    assert all(batch.padding_mask == torch.tensor([0, 0, 0, 0, 0, 1, 1, 1], dtype=torch.bool))
+    assert batch["query_id"].item() == 1
+    assert all(batch["padding_mask"] == torch.tensor([0, 0, 0, 0, 0, 1, 1, 1], dtype=torch.bool))
 
 
 @pytest.mark.torch
@@ -59,7 +59,7 @@ def test_sasrec_validation_dataset_getitem(sequential_dataset):
         sequential_dataset, sequential_dataset, sequential_dataset, 8, label_feature_name="item_id"
     )[2]
 
-    assert batch.query_id.item() == 2
-    assert all(batch.padding_mask == torch.tensor([0, 0, 0, 0, 0, 0, 0, 1], dtype=torch.bool))
-    assert all(batch.ground_truth == torch.tensor([1, -1, -1, -1, -1, -1], dtype=torch.long))
-    assert all(batch.train == torch.tensor([1, -2, -2, -2, -2, -2], dtype=torch.long))
+    assert batch["query_id"].item() == 2
+    assert all(batch["padding_mask"] == torch.tensor([0, 0, 0, 0, 0, 0, 0, 1], dtype=torch.bool))
+    assert all(batch["ground_truth"] == torch.tensor([1, -1, -1, -1, -1, -1], dtype=torch.long))
+    assert all(batch["train"] == torch.tensor([1, -2, -2, -2, -2, -2], dtype=torch.long))

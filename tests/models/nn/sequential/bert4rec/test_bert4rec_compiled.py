@@ -5,10 +5,7 @@ import pytest
 from replay.utils import OPENVINO_AVAILABLE, TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
-    from replay.models.nn.sequential.bert4rec import (
-        Bert4Rec,
-        Bert4RecPredictionDataset,
-    )
+    from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionBatch, Bert4RecPredictionDataset
 
 if OPENVINO_AVAILABLE:
     from replay.models.nn.sequential.compiled import Bert4RecCompiled
@@ -71,7 +68,75 @@ def test_prediction_optimized_bert4rec(
             scores = opt_model.predict(batch=batch, candidates_to_score=candidates)
         else:
             scores = opt_model.predict(batch=batch)
-        assert scores.shape == (batch.padding_mask.shape[0], score_size)
+        assert scores.shape == (batch["pad_mask"].shape[0], score_size)
+
+
+@pytest.mark.conditional
+@pytest.mark.parametrize(
+    "num_candidates, candidates",
+    [
+        (1, torch.LongTensor([1])),
+        (4, torch.LongTensor([1, 2, 3, 4])),
+        (6, torch.LongTensor([0, 1, 2, 3, 4, 5])),
+        (None, None),
+        (-1, torch.LongTensor([1])),
+        (-1, torch.LongTensor([1, 2, 3, 4])),
+        (-1, torch.LongTensor([0, 1, 2, 3, 4, 5])),
+    ],
+)
+@pytest.mark.parametrize(
+    "mode, batch_size",
+    [
+        ("one_query", 1),
+        ("batch", 2),
+        ("dynamic_batch_size", 2),
+        ("dynamic_batch_size", 3),
+    ],
+)
+def test_deprecated_prediction_optimized_bert4rec(
+    item_user_sequential_dataset, deprecated_train_bert_loader, num_candidates, candidates, mode, batch_size, tmp_path
+):
+    class DeprecatedBert4RecPredictionDataset(Bert4RecPredictionDataset):
+        def __getitem__(self, index: int) -> dict:
+            res = super().__getitem__(index)
+            return Bert4RecPredictionBatch(
+                query_id=res["query_id"],
+                padding_mask=res["pad_mask"],
+                features=res["inputs"],
+                tokens_mask=res["token_mask"],
+            )
+
+    pred = DeprecatedBert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred_bert4rec_loader = torch.utils.data.DataLoader(pred, batch_size=batch_size)
+    cardinality = item_user_sequential_dataset.schema["item_id"].cardinality
+
+    model = Bert4Rec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        max_seq_len=5,
+        hidden_size=64,
+    )
+
+    trainer = L.Trainer(max_epochs=1)
+    with pytest.deprecated_call():
+        trainer.fit(model, deprecated_train_bert_loader)
+    trainer.save_checkpoint(tmp_path / "test.ckpt")
+
+    opt_model = Bert4RecCompiled.compile(
+        model=(tmp_path / "test.ckpt"),
+        mode=mode,
+        batch_size=batch_size if mode != "dynamic_batch_size" else None,
+        num_candidates_to_score=num_candidates,
+    )
+
+    score_size = candidates.shape[0] if candidates is not None else cardinality
+
+    with pytest.deprecated_call():
+        for batch in pred_bert4rec_loader:
+            if candidates is not None:
+                scores = opt_model.predict(batch=batch, candidates_to_score=candidates)
+            else:
+                scores = opt_model.predict(batch=batch)
+            assert scores.shape == (batch.padding_mask.shape[0], score_size)
 
 
 @pytest.mark.conditional

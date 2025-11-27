@@ -101,17 +101,24 @@ class BaseCompiledModel:
             )
             raise ValueError(msg)
 
-    def _valilade_predict_input(self, batch: Any, candidates_to_score: Optional[torch.LongTensor] = None) -> None:
+    def _validate_predict_input(
+        self,
+        batch: Any,
+        candidates_to_score: Optional[torch.LongTensor] = None,
+        padding_mask_key_name: str = "padding_mask",
+    ) -> None:
         if self._num_candidates_to_score is None and candidates_to_score is not None:
             msg = (
                 "If ``num_candidates_to_score`` is None, "
                 "it is impossible to infer the model with passed ``candidates_to_score``."
             )
             raise ValueError(msg)
-
-        if self._batch_size != -1 and batch.padding_mask.shape[0] != self._batch_size:
+        input_batch_size = (
+            batch[padding_mask_key_name].shape[0] if isinstance(batch, dict) else batch.padding_mask.shape[0]
+        )
+        if self._batch_size != -1 and input_batch_size != self._batch_size:
             msg = (
-                f"The batch is smaller then defined batch_size={self._batch_size}. "
+                f"The batch is smaller than defined batch_size={self._batch_size}. "
                 "It is impossible to infer the model with dynamic batch size in ``mode`` = ``batch``. "
                 "Use ``mode`` = ``dynamic_batch_size``."
             )

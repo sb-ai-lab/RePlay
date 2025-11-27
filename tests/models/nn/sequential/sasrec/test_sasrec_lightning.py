@@ -41,6 +41,32 @@ def test_training_sasrec_with_different_losses(
 
 
 @pytest.mark.torch
+def test_deprecated_sasrec_pipeline(
+    item_user_sequential_dataset,
+    deprecated_train_sasrec_loader,
+    deprecated_val_sasrec_loader,
+    deprecated_pred_sasrec_loader,
+):
+    trainer = L.Trainer(max_epochs=1)
+    model = SasRec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        max_seq_len=5,
+        hidden_size=64,
+    )
+    with pytest.deprecated_call():
+        trainer.fit(model, deprecated_train_sasrec_loader, deprecated_val_sasrec_loader)
+
+    with pytest.deprecated_call():
+        _ = trainer.predict(model, deprecated_pred_sasrec_loader)
+
+    with pytest.deprecated_call():
+        for batch in deprecated_pred_sasrec_loader:
+            _ = model.predict(
+                batch,
+            )
+
+
+@pytest.mark.torch
 @pytest.mark.parametrize(
     "sce_n_buckets, sce_bucket_size_x, sce_bucket_size_y, sce_mix_x",
     [
