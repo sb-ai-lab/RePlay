@@ -1,4 +1,5 @@
 import contextlib
+import warnings
 from collections.abc import Sequence
 from typing import Literal, Optional, Union
 
@@ -8,13 +9,27 @@ from replay.data.nn.schema import TensorFeatureInfo, TensorMap, TensorSchema
 
 
 class SequentialEmbedder(torch.nn.Module):
+    """
+    The embedding generation class for all types of features given into the sequential models.
+    """
+
     def __init__(
         self,
         schema: TensorSchema,
-        embed_size: int,
-        categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
         excluded_features: Optional[list[str]] = None,
+        categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
     ):
+        """
+        :param schema: TensorSchema containing meta information about all the features
+            for which you need to generate an embedding.
+        :param excluded_features: A list containing the names of features
+            for which you do not need to generate an embedding.
+            Fragments from this list are expected to be contained in `schema`.
+            Default: `None`.
+        :param categorical_list_feature_aggregation_method: Mode to aggregate tokens
+            in token item representation (categorical list only). One of {`sum`, `mean`, `max`}
+            Default: `"sum"`.
+        """
         super().__init__()
         self.excluded_features = excluded_features or []
         feature_embedders = {}
@@ -25,26 +40,17 @@ class SequentialEmbedder(torch.nn.Module):
             if not tensor_info.is_seq:
                 msg = f"Non-sequential features is not yet supported. Got {feature_name}"
                 raise NotImplementedError(msg)
-            if tensor_info.is_cat:  # categorical feature
+            if tensor_info.is_cat:
                 feature_embedders[feature_name] = CategoricalEmbedding(
                     tensor_info,
                     categorical_list_feature_aggregation_method,
                 )
-            elif tensor_info.is_num:  # numerical feature
-                feature_embedders[feature_name] = NumericalEmbedding(
-                    tensor_info,
-                    embed_size,
-                )
             else:
-                msg = (
-                    "Preprocess only cat, num, cat_list, num_list features. "
-                    f"Got {feature_name}: is_cat={tensor_info.is_cat}, is_num={tensor_info.is_num}"
-                )
-                raise ValueError(msg)
+                feature_embedders[feature_name] = NumericalEmbedding(tensor_info)
 
         self.feature_names = list(feature_embedders.keys())
         if not feature_embedders:
-            msg = "Expected to have at least 1 feature name including item_id"
+            msg = "Expected to have at least one feature name to generate embedding."
             raise ValueError(msg)
         self.feature_embedders: dict[str, Union[CategoricalEmbedding, NumericalEmbedding]] = torch.nn.ModuleDict(
             feature_embedders
@@ -57,6 +63,15 @@ class SequentialEmbedder(torch.nn.Module):
                 torch.nn.init.xavier_normal_(param.data)
 
     def forward(self, feature_tensor: TensorMap, feature_names: Optional[Sequence[str]] = None) -> TensorMap:
+        """
+        :param feature_tensor: a dictionary of tensors to generate embedding.
+            It is expected that the keys from this dictionary match the names of the features in the given `schema`.
+        :param feature_names: A custom list of features for which embeddings need to be generated.
+            It is expected that the values from this list match the names of the features in the given `schema`.
+            Default: `None`. This means that the names of the features from the `schema` will be used.
+
+        :returns: a dictionary with tensors that contains embeddings.
+        """
         return {
             feature_name: self.feature_embedders[feature_name](feature_tensor[feature_name])
             for feature_name in (feature_names or self.feature_names)
@@ -64,55 +79,93 @@ class SequentialEmbedder(torch.nn.Module):
 
     @property
     def embeddings_dim(self) -> dict[str, int]:
+        """
+        Returns the embedding dimensions for each of the features in the `schema`.
+        """
         return {name: emb.embedding_dim for name, emb in self.feature_embedders.items()}
 
-    def get_weights(self, feature_name: str, indices: Optional[torch.LongTensor] = None) -> torch.Tensor:
-        if indices is not None:
-            return self.feature_embedders[feature_name](indices)
-        return self.feature_embedders[feature_name].weight
-
     def get_item_weights(self, indices: Optional[torch.LongTensor] = None) -> torch.Tensor:
-        return self.get_weights(self._item_feature_name, indices)
+        """
+        Getting the embedding weights for a feature that matches the `item_id`.
+        It is expected that embeddings for this feature will definitely exist.
+        Note: the row corresponding to the padding will be excluded from the returned weights.
+        """
+        if indices is None:
+            return self.feature_embedders[self._item_feature_name].weight
+        return self.feature_embedders[self._item_feature_name](indices)
 
 
 class CategoricalEmbedding(torch.nn.Module):
     """
-    Categorical feature embedding.
+    The embedding generation class for categorical features.
+    It supports working with single features for each event in sequence, as well as several (categorical list).
     """
 
     def __init__(
         self,
-        feature: TensorFeatureInfo,
+        feature_info: TensorFeatureInfo,
         categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
     ) -> None:
         """
-        :param feature: Categorical tensor feature.
+        :param feature_info: Meta information about the feature.
         :param categorical_list_feature_aggregation_method: Mode to aggregate tokens
             in token item representation (categorical list only). One of {`sum`, `mean`, `max`}
             Default: ``"sum"``.
         """
         super().__init__()
-        assert feature.cardinality
-        assert feature.embedding_dim
-        if feature.is_list:
+        assert feature_info.cardinality
+        assert feature_info.embedding_dim
+
+        self._expect_padding_value_setted = True
+        if feature_info.cardinality - 1 != feature_info.padding_value:
+            self._expect_padding_value_setted = False
+            msg = (
+                f"The padding value={feature_info.padding_value} is set for the feature={feature_info.name}. "
+                f"The expected padding value for this feature should be {feature_info.cardinality - 1}. "
+                "Keep this in mind when getting the weights via the `weight` property, "
+                "because the weights are returned there without padding row. "
+                "Therefore, during the IDs scores generating, "
+                "all the IDs that greater than the padding value should be increased by 1."
+            )
+            warnings.warn(msg, stacklevel=2)
+
+        if feature_info.is_list:
             self.emb = torch.nn.EmbeddingBag(
-                feature.cardinality + 1,
-                feature.embedding_dim,
-                padding_idx=feature.padding_value,
+                feature_info.cardinality,
+                feature_info.embedding_dim,
+                padding_idx=feature_info.padding_value,
                 mode=categorical_list_feature_aggregation_method,
             )
             self._get_embeddings = self._get_cat_list_embeddings
         else:
             self.emb = torch.nn.Embedding(
-                feature.cardinality + 1,
-                feature.embedding_dim,
-                padding_idx=feature.padding_value,
+                feature_info.cardinality,
+                feature_info.embedding_dim,
+                padding_idx=feature_info.padding_value,
             )
             self._get_embeddings = self._get_cat_embeddings
 
     @property
     def weight(self) -> torch.Tensor:
-        return self.emb.weight
+        """
+        Returns the weights of the embedding layer,
+        excluding the row that corresponds to the padding.
+        """
+        if not self._expect_padding_value_setted:
+            msg = (
+                "The weights are returned there do not contain padding row. "
+                "Therefore, during the IDs scores generating, "
+                "all the IDs that greater than the padding value should be increased by 1."
+            )
+            warnings.warn(msg, stacklevel=2)
+
+        mask_without_padding = torch.ones(
+            size=(self.emb.weight.size(0),),
+            dtype=torch.bool,
+            device=self.emb.weight.device,
+        )
+        mask_without_padding[self.emb.padding_idx].zero_()
+        return self.emb.weight[mask_without_padding]
 
     def forward(self, indices: torch.LongTensor) -> torch.Tensor:
         """
@@ -124,6 +177,7 @@ class CategoricalEmbedding(torch.nn.Module):
 
     @property
     def embedding_dim(self) -> int:
+        """Embedding dimension after applying the layer"""
         return self.emb.embedding_dim
 
     def _get_cat_embeddings(self, indices: torch.LongTensor) -> torch.Tensor:
@@ -140,65 +194,77 @@ class CategoricalEmbedding(torch.nn.Module):
 
         :returns: Embeddings for specific items.
         """
-        source_size = indices.size()
-        if indices.dim() >= 3:
+        assert indices.dim() >= 2
+
+        embeddings: torch.Tensor
+        if indices.dim() == 2:
+            embeddings: torch.Tensor = self.emb(indices)
+        else:
+            source_size = indices.size()
             indices = indices.view(-1, source_size[-1])
-        embeddings: torch.Tensor = self.emb(indices)
-        embeddings = embeddings.view(*source_size[:-1], -1)
+            embeddings = self.emb(indices)
+            embeddings = embeddings.view(*source_size[:-1], -1)
         return embeddings
 
 
 class NumericalEmbedding(torch.nn.Module):
     """
-    Numerical feature embedding.
+    The embedding generation class for numerical features.
+    It supports working with single features for each event in sequence, as well as several (numerical list).
+
+    Note: if the `embedding_dim` for an incoming feature matches its last dimension (`tensor_dim`),
+    then transformation will not be applied.
     """
 
-    def __init__(self, feature: TensorFeatureInfo, embed_size: int) -> None:
+    def __init__(self, feature_info: TensorFeatureInfo) -> None:
         """
-        :param feature: Numerical tensor feature.
-        :param embed_size: Output embedding dim.
+        :param feature_info: Meta information about the feature.
         """
         super().__init__()
-        assert feature.tensor_dim
-        if feature.is_list:
-            self._get_embeddings = self._get_num_list_embeddings
-            self._embedding_dim = feature.tensor_dim
+        assert feature_info.tensor_dim
+        assert feature_info.embedding_dim
+        self._tensor_dim = feature_info.tensor_dim
+        self._embedding_dim = feature_info.embedding_dim
+        self.linear = torch.nn.Linear(feature_info.tensor_dim, self.embedding_dim)
+
+        if feature_info.is_list:
+            if self.embedding_dim == feature_info.tensor_dim:
+                torch.nn.init.eye_(self.linear.weight.data)
+                torch.nn.init.zeros_(self.linear.bias.data)
+
+                self.linear.weight.requires_grad = False
+                self.linear.bias.requires_grad = False
         else:
-            self._get_embeddings = self._get_num_embeddings
-            self._embedding_dim = embed_size
-        self.linear = torch.nn.Linear(feature.tensor_dim, embed_size)
+            assert feature_info.tensor_dim == 1
+            self.linear = torch.nn.Linear(feature_info.tensor_dim, self.embedding_dim)
 
     @property
     def weight(self) -> torch.Tensor:
+        """
+        Returns the weight of the applied layer.
+        If `embedding_dim` matches `tensor_dim`, then the identity matrix will be returned.
+        """
         return self.linear.weight
 
     def forward(self, values: torch.FloatTensor) -> torch.Tensor:
         """
-        :param values: feature values.
+        Numerical embedding forward pass.
+        Note: if the `embedding_dim` for an incoming feature matches its last dimension (`tensor_dim`),
+        then transformation will not be applied.
 
+        :param values: feature values.
         :returns: Embeddings for specific items.
         """
-        embeddings = self._get_embeddings(values)
-        return embeddings
+        if values.dim() <= 2:
+            values = values.unsqueeze(-1).contiguous()
+
+        assert values.dim() >= 3
+        assert values.size(-1) == self._tensor_dim
+        if self._tensor_dim != self._embedding_dim:
+            return self.linear(values)
+        return values
 
     @property
     def embedding_dim(self) -> int:
+        """Embedding dimension after applying the layer"""
         return self._embedding_dim
-
-    def _get_num_embeddings(self, values: torch.FloatTensor) -> torch.Tensor:
-        """
-        :param values: feature values.
-
-        :returns: Embeddings for specific items.
-        """
-        if values.dim() == 2:
-            values = values.unsqueeze(-1).contiguous()
-        return self.linear(values)
-
-    def _get_num_list_embeddings(self, values: torch.FloatTensor) -> torch.Tensor:
-        """
-        :param values: embedding values.
-
-        :returns: Embeddings for specific items.
-        """
-        return values

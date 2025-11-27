@@ -62,14 +62,8 @@ class BCE(torch.nn.Module):
 
 
 class BCESampled(SampledLossBase):
-    def __init__(
-        self,
-        explicit_negatives_padding_value: Optional[int] = None,
-        log_epsilon: float = 1e-6,
-        clamp_border: float = 100.0,
-    ):
+    def __init__(self, log_epsilon: float = 1e-6, clamp_border: float = 100.0):
         super().__init__()
-        self.explicit_negatives_padding_value = explicit_negatives_padding_value
         self.log_epsilon = log_epsilon
         self.clamp_border = clamp_border
         self._logits_callback = None
@@ -110,7 +104,6 @@ class BCESampled(SampledLossBase):
             negative_logits,
             negative_labels,
             positive_labels,
-            self.explicit_negatives_padding_value,
         )
 
         positive_prob = torch.sigmoid(positive_logits)

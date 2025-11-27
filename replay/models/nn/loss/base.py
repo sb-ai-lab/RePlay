@@ -6,6 +6,8 @@ from replay.data.nn import TensorMap
 
 
 class LossProto(Protocol):
+    """Class-protocol for working with losses inside models"""
+
     @property
     def logits_callback(self) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]: ...
 
@@ -24,6 +26,8 @@ class LossProto(Protocol):
 
 
 class SampledLossOutput(TypedDict):
+    """A class containing result of the `get_sampled_logits` function in sampled losses"""
+
     positive_logits: torch.Tensor
     negative_logits: torch.Tensor
     positive_labels: torch.LongTensor
@@ -31,6 +35,8 @@ class SampledLossOutput(TypedDict):
 
 
 class SampledLossBase(torch.nn.Module):
+    """The base class for calculating sampled losses"""
+
     @property
     def logits_callback(self) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
         raise NotImplementedError()
@@ -42,6 +48,29 @@ class SampledLossBase(torch.nn.Module):
         negative_labels: torch.LongTensor,  # [num_negatives] or [batch_size, seq_len, num_negatives]
         target_padding_mask: torch.BoolTensor,  # [batch_size, seq_len, num_positives]
     ) -> SampledLossOutput:
+        """
+        The function of calculating positive and negative logits.
+        Based on the embeddingы from the model, positive and negative labels.
+
+        The function supports the calculation of logits for the case of multi-positive labels
+        (there are several labels for each position in the sequence).
+
+        :param model_embeddings: Embeddings from the model. This is usually the last hidden state.
+            Expected shape: (batch_size, sequence_length, embedding_dim)
+        :param positive_labels: a tensor containing labels with positive events.
+            Expected shape: (batch_size, sequence_length, num_positives)
+        :param negative_labels: a tensor containing labels with negative events.
+            Expected shape:
+                - (batch_size, sequence_length, num_negatives)
+                - (num_negatives) - a case where the same negative events are used for the entire batch
+        :param target_padding_mask: Padding mask for targets.
+            It is used to determine the "reality" of an event.
+            If the value is `False`, it means that the event will not be taken into account when calculating the logits.
+            Expected shape: (batch_size, sequence_length, num_positives)
+
+        :returns: SampledLossOutput. A dictionary containing positive and negative logits with labels.
+        """
+
         initial_positive_labels = positive_labels
         ################## SHAPE CHECKING STAGE START ##################
         batch_size, seq_len, num_positives = positive_labels.size()
@@ -108,36 +137,26 @@ class SampledLossBase(torch.nn.Module):
         }
 
 
-def weight_loss_with_sample_weight(
-    feature_tensors: TensorMap,
-    target_padding_mask: torch.BoolTensor,
-    loss: torch.Tensor,
-    sample_weight_feature_name: Optional[str] = None,
-) -> torch.FloatTensor:
-    if sample_weight_feature_name is not None:
-        sample_weight = feature_tensors[sample_weight_feature_name]
-        sample_weight = sample_weight[target_padding_mask]
-        weighted_loss = (loss * sample_weight).mean()
-        return weighted_loss
-    return loss
-
-
 def mask_negative_logits(
     negative_logits: torch.Tensor,
     negative_labels: torch.LongTensor,
     positive_labels: torch.LongTensor,
-    explicit_negatives_padding_value: Optional[int] = None,
 ) -> torch.Tensor:
-    """Assign very low values to logits according to masking rules
-    negative_logits: [masked_batch_size, num_negatives]
-    negative_labels: [masked_batch_size, num_negatives] or [num_negatives]
-    positive_labels: [masked_batch_size, num_positives]
     """
+    Assign very small values in negative logits
+    for those positions in which positive labels equal to negative ones.
 
-    if explicit_negatives_padding_value is not None:
-        # [masked_batch_size, num_negatives] or [batch_size, seq_len, num_negatives] - get mask for padding values
-        mask = (negative_labels == explicit_negatives_padding_value) * 1e9
-        negative_logits -= mask
+    :param negative_logits: Embeddings from the model. This is usually the last hidden state.
+        Expected shape: (masked_batch_size, num_negatives)
+    :param negative_labels: a tensor containing labels with negative events.
+        Expected shape:
+            - (masked_batch_size, num_negatives)
+            - (num_negatives) - a case where the same negative events are used for the entire batch
+    :param positive_labels: a tensor containing labels with positive events.
+        Expected shape: (masked_batch_size, num_positives)
+
+    :returns: Negative logits with modified elements in those places where positive labels equal to negative ones.
+    """
 
     if negative_labels.dim() > 1:  # explicit_negatives
         # [masked_batch_size, num_negatives] -> [masked_batch_size, 1, num_negatives]

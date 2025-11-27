@@ -4,23 +4,14 @@ import torch
 
 from replay.data.nn import TensorMap
 
-from .base import SampledLossBase, mask_negative_logits, weight_loss_with_sample_weight
+from .base import SampledLossBase, mask_negative_logits
 
 
 class CE(torch.nn.Module):
-    def __init__(
-        self,
-        padding_idx: int,
-        sample_weight_feature_name: Optional[str] = None,
-    ):
+    def __init__(self, padding_idx: int):
         super().__init__()
         self.padding_idx = padding_idx
-        self.sample_weight_feature_name = sample_weight_feature_name
-        reduction = "none" if self.sample_weight_feature_name is not None else "mean"
-        self._loss = torch.nn.CrossEntropyLoss(
-            ignore_index=padding_idx,
-            reduction=reduction,
-        )
+        self._loss = torch.nn.CrossEntropyLoss(ignore_index=padding_idx)
         self._logits_callback = None
 
     @property
@@ -37,12 +28,15 @@ class CE(torch.nn.Module):
     def forward(
         self,
         model_embeddings: torch.Tensor,
-        feature_tensors: TensorMap,
+        feature_tensors: TensorMap,  # noqa: ARG002
         positive_labels: torch.LongTensor,
         negative_labels: torch.LongTensor,  # noqa: ARG002
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
+        if positive_labels.size(-1) != 1:
+            msg = "The case of multi-positive labels is not supported in the CE loss"
+            raise NotImplementedError(msg)
         logits: torch.Tensor = self.logits_callback(model_embeddings)  # [batch_size, seq_len, vocab_size]
         labels = positive_labels.masked_fill(
             mask=(~target_padding_mask), value=self.padding_idx
@@ -53,33 +47,14 @@ class CE(torch.nn.Module):
         # [batch_size, seq_len, 1] -> [batch_size * seq_len]
         labels_flat: torch.LongTensor = labels.view(-1)
         loss = self._loss(logits_flat, labels_flat)
-        loss = weight_loss_with_sample_weight(
-            feature_tensors,
-            target_padding_mask,
-            loss,
-            self.sample_weight_feature_name,
-        )
         return loss
 
 
 class CESampled(SampledLossBase):
-    def __init__(
-        self,
-        padding_idx: int,
-        explicit_negatives_padding_value: Optional[int] = None,
-        sample_weight_feature_name: Optional[str] = None,
-    ):
+    def __init__(self, padding_idx: int):
         super().__init__()
         self.padding_idx = padding_idx
-        self.explicit_negatives_padding_value = explicit_negatives_padding_value
-        self.sample_weight_feature_name = sample_weight_feature_name
-
-        reduction = "none" if self.sample_weight_feature_name is not None else "mean"
-        self._loss = torch.nn.CrossEntropyLoss(
-            ignore_index=self.padding_idx,
-            reduction=reduction,
-        )
-
+        self._loss = torch.nn.CrossEntropyLoss(ignore_index=self.padding_idx)
         self._logits_callback = None
 
     @property
@@ -96,13 +71,12 @@ class CESampled(SampledLossBase):
     def forward(
         self,
         model_embeddings: torch.Tensor,
-        feature_tensors: TensorMap,
+        feature_tensors: TensorMap,  # noqa: ARG002
         positive_labels: torch.LongTensor,
         negative_labels: torch.LongTensor,
         padding_mask: torch.BoolTensor,
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
-        initial_target_padding_mask = target_padding_mask
         sampled = self.get_sampled_logits(
             model_embeddings,
             positive_labels,
@@ -119,7 +93,6 @@ class CESampled(SampledLossBase):
             negative_logits,
             negative_labels,
             positive_labels,
-            self.explicit_negatives_padding_value,
         )
         # [masked_batch_size, 1 + num_negatives] - all logits
         logits = torch.cat((positive_logits, negative_logits), dim=-1)
@@ -127,10 +100,4 @@ class CESampled(SampledLossBase):
         target = torch.zeros(positive_logits.size(0), dtype=torch.long, device=padding_mask.device)
         # [masked_batch_size] - loss for all recommendation points
         loss = self._loss(logits, target)
-        loss = weight_loss_with_sample_weight(
-            feature_tensors,
-            initial_target_padding_mask,
-            loss,
-            self.sample_weight_feature_name,
-        )
         return loss

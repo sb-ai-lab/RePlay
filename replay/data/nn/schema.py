@@ -89,7 +89,8 @@ class TensorFeatureInfo:
         :param cardinality: cardinality of categorical feature, required for ids columns,
             optional for others,
             default: ``None``.
-        :param padding_value: value to pad sequences to desired length
+        :param padding_value: value to pad sequences to desired length.
+            It is recommended to set the padding value for categorical features in `cardinality` - 1.
         :param embedding_dim: embedding dimensions of categorical feature,
             default: ``None``.
         :param tensor_dim: tensor dimensions of numerical feature,

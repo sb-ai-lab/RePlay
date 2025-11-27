@@ -4,29 +4,15 @@ import torch
 
 from replay.data.nn import TensorMap
 
-from .base import SampledLossBase, mask_negative_logits, weight_loss_with_sample_weight
+from .base import SampledLossBase, mask_negative_logits
 
 
 class LogOutCE(SampledLossBase):
-    def __init__(
-        self,
-        vocab_size: int,
-        padding_idx: int,
-        explicit_negatives_padding_value: Optional[int] = None,
-        sample_weight_feature_name: Optional[str] = None,
-    ):
+    def __init__(self, vocab_size: int, padding_idx: int):
         super().__init__()
         self.vocab_size = vocab_size
         self.padding_idx = padding_idx
-        self.explicit_negatives_padding_value = explicit_negatives_padding_value
-        self.sample_weight_feature_name = sample_weight_feature_name
-
-        reduction = "none" if self.sample_weight_feature_name else "mean"
-        self._loss = torch.nn.CrossEntropyLoss(
-            ignore_index=self.padding_idx,
-            reduction=reduction,
-        )
-
+        self._loss = torch.nn.CrossEntropyLoss(ignore_index=self.padding_idx)
         self._logits_callback = None
 
     @property
@@ -43,7 +29,7 @@ class LogOutCE(SampledLossBase):
     def forward(
         self,
         model_embeddings: torch.Tensor,
-        feature_tensors: TensorMap,
+        feature_tensors: TensorMap,  # noqa: ARG002
         positive_labels: torch.LongTensor,
         negative_labels: torch.LongTensor,
         padding_mask: torch.BoolTensor,
@@ -79,7 +65,6 @@ class LogOutCE(SampledLossBase):
             logits,
             negative_labels,
             positive_labels,
-            self.explicit_negatives_padding_value,
         )
 
         # [masked_batch_size, num_negatives] -> [masked_batch_size, 1, num_negatives]
@@ -99,10 +84,4 @@ class LogOutCE(SampledLossBase):
         target = torch.zeros(logits.size(0), dtype=torch.long, device=padding_mask.device)
         # [masked_batch_size] - loss for all recommendation points
         loss = self._loss(logits, target)
-        loss = weight_loss_with_sample_weight(
-            feature_tensors,
-            initial_target_padding_mask,
-            loss,
-            self.sample_weight_feature_name,
-        )
         return loss

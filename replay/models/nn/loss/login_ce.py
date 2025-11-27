@@ -23,6 +23,28 @@ class LogInCEBase(SampledLossBase):
         negative_labels: torch.LongTensor,  # [num_negatives] or [batch_size, seq_len, num_negatives]
         target_padding_mask: torch.BoolTensor,  # [batch_size, seq_len, num_positives]
     ) -> LogInCESampledOutput:
+        """
+        The function of calculating positive and negative logits.
+        Based on the embeddingы from the model, positive and negative labels.
+
+        The function supports the calculation of logits for the case of multi-positive labels
+        (there are several labels for each position in the sequence).
+
+        :param model_embeddings: Embeddings from the model. This is usually the last hidden state.
+            Expected shape: (batch_size, sequence_length, embedding_dim)
+        :param positive_labels: a tensor containing labels with positive events.
+            Expected shape: (batch_size, sequence_length, num_positives)
+        :param negative_labels: a tensor containing labels with negative events.
+            Expected shape:
+                - (batch_size, sequence_length, num_negatives)
+                - (num_negatives) - a case where the same negative events are used for the entire batch
+        :param target_padding_mask: Padding mask for targets.
+            It is used to determine the "reality" of an event.
+            If the value is `False`, it means that the event will not be taken into account when calculating the logits.
+            Expected shape: (batch_size, sequence_length, num_positives)
+
+        :returns: LogInCESampledOutput. A dictionary containing positive and negative logits with labels.
+        """
         ################## SHAPE CHECKING STAGE START ##################
         batch_size, seq_len, num_positives = positive_labels.size()
         assert target_padding_mask.size() == (batch_size, seq_len, num_positives)
@@ -75,13 +97,11 @@ class LogInCE(LogInCEBase):
     def __init__(
         self,
         vocab_size: int,
-        explicit_negatives_padding_value: Optional[int] = None,
         log_epsilon: float = 1e-6,
         clamp_border: float = 100.0,
     ):
         super().__init__()
         self.vocab_size = vocab_size
-        self.explicit_negatives_padding_value = explicit_negatives_padding_value
         self.log_epsilon = log_epsilon
         self.clamp_border = clamp_border
         self._logits_callback = None
@@ -128,7 +148,6 @@ class LogInCE(LogInCEBase):
             negative_logits,
             negative_labels,
             positive_labels,
-            self.explicit_negatives_padding_value,
         )
 
         max_values = torch.max(
@@ -153,14 +172,8 @@ class LogInCE(LogInCEBase):
 
 
 class LogInCESampled(LogInCEBase):
-    def __init__(
-        self,
-        explicit_negatives_padding_value: Optional[int] = None,
-        log_epsilon: float = 1e-6,
-        clamp_border: float = 100.0,
-    ):
+    def __init__(self, log_epsilon: float = 1e-6, clamp_border: float = 100.0):
         super().__init__()
-        self.explicit_negatives_padding_value = explicit_negatives_padding_value
         self.log_epsilon = log_epsilon
         self.clamp_border = clamp_border
         self._logits_callback = None
@@ -202,7 +215,6 @@ class LogInCESampled(LogInCEBase):
             negative_logits,
             negative_labels,
             positive_labels,
-            self.explicit_negatives_padding_value,
         )
 
         max_values = torch.max(
