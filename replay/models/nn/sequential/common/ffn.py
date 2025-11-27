@@ -6,8 +6,6 @@ import torch
 from replay.data.nn import TensorMap
 from replay.models.nn.utils import create_activation
 
-from .normalization import RMSNorm
-
 
 class PointWiseFeedForward(torch.nn.Module):
     """
@@ -99,26 +97,37 @@ class SwiGLU(torch.nn.Module):
 
 
 class SwiGLUEncoder(torch.nn.Module):
-    def __init__(
-        self,
-        embed_size: int,
-    ) -> None:
+    """
+    MLP block consists of SwiGLU Feed-Forward network followed by a RMSNorm layer with skip connection.
+
+    RMSNorm paper: https://arxiv.org/pdf/1910.07467.
+    """
+
+    def __init__(self, embedding_dim: int) -> None:
+        """
+        :param embedding_dim: Dimension of the input features.
+        """
         super().__init__()
-        self.resnet_block1 = SwiGLU(embed_size)
-        self.layernorm1 = RMSNorm(embed_size)
-        self.resnet_block2 = SwiGLU(embed_size)
-        self.layernorm2 = RMSNorm(embed_size)
+        self.sw1 = SwiGLU(embedding_dim)
+        self.norm1 = torch.nn.RMSNorm(embedding_dim)
+        self.sw2 = SwiGLU(embedding_dim)
+        self.norm2 = torch.nn.RMSNorm(embedding_dim)
 
     def reset_parameters(self) -> None:
-        for _, param in self.named_parameters():
-            with contextlib.suppress(ValueError):
-                torch.nn.init.xavier_normal_(param.data)
+        self.sw1.reset_parameters()
+        self.sw2.reset_parameters()
+        self.norm1.reset_parameters()
+        self.norm2.reset_parameters()
 
     def forward(
         self,
         feature_tensors: TensorMap,  # noqa: ARG002
         input_embeddings: torch.Tensor,
     ) -> torch.Tensor:
-        x = self.layernorm1(self.resnet_block1(input_embeddings) + input_embeddings)
-        x = self.layernorm2(self.resnet_block2(x) + x)
+        """
+        :param input_embeddings: Input tensor of shape (batch_size, sequence_length, embedding_dim).
+        :returns: torch.Tensor: Output tensor after processing through the MLP.
+        """
+        x = self.norm1(self.sw1(input_embeddings) + input_embeddings)
+        x = self.norm2(self.sw2(x) + x)
         return x

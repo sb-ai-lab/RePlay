@@ -10,7 +10,6 @@ class SasRecEmbeddingAggregator(torch.nn.Module):
     def __init__(
         self,
         embedding_aggregator: SequentialEmbeddingAggregatorProto,
-        embedding_dim: int,
         max_len: int,
         dropout: float,
     ) -> None:
@@ -21,7 +20,7 @@ class SasRecEmbeddingAggregator(torch.nn.Module):
         """
         super().__init__()
         self.embedding_aggregator = embedding_aggregator
-        self.pe = torch.nn.Embedding(max_len, embedding_dim)
+        self.pe = torch.nn.Embedding(max_len, self.embedding_aggregator.embedding_dim)
         self.dropout = torch.nn.Dropout(p=dropout)
 
     def reset_parameters(self) -> None:

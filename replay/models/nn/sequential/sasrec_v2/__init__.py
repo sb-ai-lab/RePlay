@@ -1,14 +1,10 @@
 from .agg import SasRecEmbeddingAggregator
-from .dataset import SasRecPredictionDataset, SasRecTrainingDataset, SasRecValidationDataset
-from .layers import SasRecBlock
+from .builder import SasRecBuilder
 from .model import SasRec, SasRecBase
 
 __all__ = [
     "SasRec",
     "SasRecBase",
-    "SasRecBlock",
+    "SasRecBuilder",
     "SasRecEmbeddingAggregator",
-    "SasRecPredictionDataset",
-    "SasRecTrainingDataset",
-    "SasRecValidationDataset",
 ]

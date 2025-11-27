@@ -51,7 +51,7 @@ class SasRecBuilder:
     def default(
         self,
         tensor_schema: TensorSchema,
-        hidden_size: int = 192,
+        embedding_dim: int = 192,
         head_count: int = 4,
         block_count: int = 2,
         seq_len: int = 50,
@@ -63,9 +63,9 @@ class SasRecBuilder:
         from replay.models.nn.sequential.common.agg import SumAggregator
         from replay.models.nn.sequential.common.embedding import SequentialEmbedder
         from replay.models.nn.sequential.common.mask import DefaultAttentionMaskBuilder
+        from replay.models.nn.sequential.common.transformer import TransformerLayer
 
         from .agg import SasRecEmbeddingAggregator
-        from .layers import SasRecBlock
 
         excluded_features = [
             tensor_schema.query_id_feature_name,
@@ -76,7 +76,6 @@ class SasRecBuilder:
         self.embedder(
             SequentialEmbedder(
                 tensor_schema,
-                hidden_size,
                 categorical_list_feature_aggregation_method=categorical_list_feature_aggregation_method,
                 excluded_features=excluded_features,
             )
@@ -85,14 +84,13 @@ class SasRecBuilder:
 
         self.embedding_aggregator(
             SasRecEmbeddingAggregator(
-                SumAggregator(hidden_size),
-                hidden_size,
+                SumAggregator(embedding_dim),
                 seq_len,
                 dropout,
             )
         )
-        self.encoder(SasRecBlock(hidden_size, head_count, block_count, dropout, "relu"))
-        self.output_normalization(torch.nn.LayerNorm(hidden_size))
+        self.encoder(TransformerLayer(embedding_dim, head_count, block_count, dropout, "relu"))
+        self.output_normalization(torch.nn.LayerNorm(embedding_dim))
         self.loss(CE(padding_value=tensor_schema.item_id_features.item().padding_value))
         return self
 
