@@ -138,7 +138,6 @@ class SasRec(torch.nn.Module):
         :param embedder: An object of a class that performs the logic of
             generating embeddings from an input set of tensors.
         :param embedding_aggregator: An object of a class that performs the logic of aggregating multiple embeddings.\n
-            For example, it can be a ``sum``, a ``mean``, or a ``concatenation``.
         :param attn_mask_builder: An object of a class that performs the logic of
             generating an attention mask based on the features and padding mask given to the model.
         :param encoder: An object of a class that performs the logic of generating
@@ -148,7 +147,7 @@ class SasRec(torch.nn.Module):
             normalization of the hidden state obtained from the encoder.\n
             For example, it can be a ``torch.nn.LayerNorm`` or ``torch.nn.RMSNorm``.
         :param loss: An object of a class that performs loss calculation
-            based on hidden states from the model, positive and negative labels.
+            based on hidden states from the model, positive and optionally negative labels.
         """
         super().__init__()
         self.body = SasRecBody(
@@ -282,8 +281,9 @@ class SasRec(torch.nn.Module):
         :param padding_mask: A mask of shape ``(batch_size, sequence_length)``
             indicating which elements within ``key`` to ignore for the purpose of attention (i.e. treat as "padding").
             ``False`` value indicates that the corresponding ``key`` value will be ignored.
-        :param candidates_to_score: a tensor containing IDs for which you need to get logits at the inference stage.\n
-            **Note:** that you must take into account the padding value when creating the tensor.\n
+        :param candidates_to_score: a tensor containing item IDs
+            for which you need to get logits at the inference stage.\n
+            **Note:** you must take into account the padding value when creating the tensor.\n
             The tensor participates in calculations only on the inference stage.
             You don't have to submit an argument at training stage,
             but if it is submitted, then no effect will be provided.\n
@@ -298,7 +298,7 @@ class SasRec(torch.nn.Module):
             but if it is submitted, then no effect will be provided.\n
             Default: ``None``.
         :param target_padding_mask: A mask of shape ``(batch_size, sequence_length, num_positives)``
-            indicating elements to ignore during loss calculation.
+            indicating elements from ``positive_labels`` to ignore during loss calculation.
             ``False`` value indicates that the corresponding value will be ignored.\n
             You don't have to submit an argument at inference stage,
             but if it is submitted, then no effect will be provided.\n

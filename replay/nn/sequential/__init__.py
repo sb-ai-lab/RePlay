@@ -7,3 +7,7 @@ from .sasrec import (
     SasRecBody,
     SasRecTransformerLayer,
 )
+from .twotower import (
+    TwoTower,
+    TwoTowerBody,
+)
