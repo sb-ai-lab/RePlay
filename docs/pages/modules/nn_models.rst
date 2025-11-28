@@ -39,6 +39,45 @@ _________________________
 .. autoclass:: replay.models.nn.sequential.sasrec_v2.SasRecEmbeddingAggregator
    :members: __init__, forward
 
+Losses
+======
+BCE
+___
+.. autoclass:: replay.models.nn.loss.BCE
+   :members: __init__, forward
+
+BCESampled
+__________
+.. autoclass:: replay.models.nn.loss.BCESampled
+   :members: __init__, forward
+
+CE
+___
+.. autoclass:: replay.models.nn.loss.CE
+   :members: __init__, forward
+
+CESampled
+__________
+.. autoclass:: replay.models.nn.loss.CESampled
+   :members: __init__, forward
+
+LogInCE
+_______
+.. autoclass:: replay.models.nn.loss.LogInCE
+   :members: __init__, forward
+
+LogInCESampled
+______________
+.. autoclass:: replay.models.nn.loss.LogInCESampled
+   :members: __init__, forward
+
+LogOutCE
+________
+.. autoclass:: replay.models.nn.loss.LogOutCE
+   :members: __init__, forward
+
+
+
 Bert4Rec
 ========
 

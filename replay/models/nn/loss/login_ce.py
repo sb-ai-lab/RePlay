@@ -98,21 +98,27 @@ class LogInCE(LogInCEBase):
     LogInCE (Log InfoNCE) loss (modification of  Information Noise-Contrastive Estimation loss).
 
     The loss supports the calculation of logits for the case of multi-positive labels
-        (there are several labels for each position in the sequence).
+    (there are several labels for each position in the sequence).
 
-        .. math::
+    .. math::
 
-            L_{\text{InfoNCE}} = - \log \frac{\sum_{p \in P} \exp(\mathrm{sim}(q, p))}
-            {\sum_{p \in P} \exp(\mathrm{sim}(q, p))
-            + \sum_{n \in N} \exp(\mathrm{sim}(q, n))}.
+        L_{\\text{InfoNCE}} = -\\log \\frac{\\sum_{p \\in P} \\exp(\\mathrm{sim}(q, p))}{\\sum_{p \\in P} \\exp(\\mathrm{sim}(q, p)) + \\sum_{n \\in N} \\exp(\\mathrm{sim}(q, n))}.
 
     """
+
     def __init__(
         self,
         vocab_size: int,
         log_epsilon: float = 1e-6,
         clamp_border: float = 100.0,
     ):
+        """
+        :param vocab_size: number of unique items in vocabulary (catalog).
+        :param log_epsilon: correction to avoid zero in the logarithm during loss calculating.
+            Default: 1e-6.
+        :param clamp_border: upper bound for clamping loss tensor, lower bound will be setted to -`clamp_border`.
+            Default: 100.0.
+        """
         super().__init__()
         self.vocab_size = vocab_size
         self.log_epsilon = log_epsilon
@@ -141,15 +147,16 @@ class LogInCE(LogInCEBase):
     ) -> torch.Tensor:
         """
         Forward pass for LogInCE.
+
         Note: At forward pass, the whole catalog of items is used as negatives.
         Next, negative logits, corresponding to positions where negative labels
-                                        coincide with positive ones, are masked.
+        coincide with positive ones, are masked.
 
         :param model_embeddings: model output of shape (batch_size, sequence_length, embedding_dim).
-        :param positive_labels: ground truth labels of positive events 
-                of shape (batch_size, sequence_length, num_positives).
-        :param target_padding_mask: padding mask corresponding for `positive_labels` 
-                of shape (batch_size, sequence_length, num_positives).
+        :param positive_labels: ground truth labels of positive events
+            of shape (batch_size, sequence_length, num_positives).
+        :param target_padding_mask: padding mask corresponding for `positive_labels`
+            of shape (batch_size, sequence_length, num_positives).
         :return: computed loss value.
         """
         all_negative_labels = torch.arange(
@@ -202,15 +209,22 @@ class LogInCESampled(LogInCEBase):
     Sampled version of LogInCE (Log InfoNCE) loss (with negative sampling items).
 
     The loss supports the calculation of logits for the case of multi-positive labels
-        (there are several labels for each position in the sequence).
+    (there are several labels for each position in the sequence).
 
-        .. math::
+    .. math::
 
-            L_{\text{InfoNCE}} = - \log \frac{\sum_{p \in P} \exp(\mathrm{sim}(q, p))}
-            {\sum_{p \in P} \exp(\mathrm{sim}(q, p))
-            + \sum_{n \in N_sampled} \exp(\mathrm{sim}(q, n))}.
+        L_{\\text{InfoNCE}} = -\\log \\frac{\\sum_{p \\in P} \\exp(\\mathrm{sim}(q, p))}{\\sum_{p \\in P} 
+        \\exp(\\mathrm{sim}(q, p)) + \\sum_{n \\in N_{\\text{sampled}}} \\exp(\\mathrm{sim}(q, n))}.
+
     """
+
     def __init__(self, log_epsilon: float = 1e-6, clamp_border: float = 100.0):
+        """
+        :param log_epsilon: correction to avoid zero in the logarithm during loss calculating.
+            Default: 1e-6.
+        :param clamp_border: upper bound for clamping loss tensor, lower bound will be setted to -`clamp_border`.
+            Default: 100.0.
+        """
         super().__init__()
         self.log_epsilon = log_epsilon
         self.clamp_border = clamp_border
@@ -236,6 +250,17 @@ class LogInCESampled(LogInCEBase):
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
+        """
+        Forward pass for LogInCESampled.
+
+        :param model_embeddings: model output of shape (batch_size, sequence_length, embedding_dim).
+        :param positive_labels: ground truth labels of positive events
+            of shape (batch_size, sequence_length, num_positives).
+        :param negative_labels: labels of sampled negative events of shape (num_negatives).
+        :param target_padding_mask: padding mask corresponding for `positive_labels`
+            of shape (batch_size, sequence_length, num_positives).
+        :return: computed loss value.
+        """
         sampled = self.get_sampled_logits(
             model_embeddings,
             positive_labels,

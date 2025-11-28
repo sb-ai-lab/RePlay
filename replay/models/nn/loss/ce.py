@@ -59,9 +59,11 @@ class CE(torch.nn.Module):
     ) -> torch.Tensor:
         """
         :param model_embeddings: model output of shape (batch_size, sequence_length, embedding_dim).
-        :param positive_labels: ground truth labels of shape (batch_size, sequence_length, 1).
-        :param target_padding_mask: padding mask for `positive_labels` of shape (batch_size, sequence_length, 1).
-        :return: loss value.
+        :param positive_labels: ground truth labels of positive events
+            of shape (batch_size, sequence_length, num_positives).
+        :param target_padding_mask: padding mask corresponding for `positive_labels`
+            of shape (batch_size, sequence_length, num_positives).
+        :return: computed loss value.
         """
         if positive_labels.size(-1) != 1:
             msg = "The case of multi-positive labels is not supported in the CE loss"
@@ -81,7 +83,7 @@ class CE(torch.nn.Module):
 
 class CESampled(SampledLossBase):
     """
-    Sampled Cross-Entropy loss (Cross-Entropy with negative sampling), 
+    Sampled Cross-Entropy loss (Cross-Entropy with negative sampling),
     calculated between one positive item and K negatively sampled items.
 
     The loss supports the calculation of logits for the case of multi-positive labels
@@ -102,10 +104,10 @@ class CESampled(SampledLossBase):
         """
         Getter method for the logits computation function.
         Method for logits computation from the model head should be setted as this function
-                                                                after the loss initialization.
+            after the loss initialization.
         The function is expected to receive a tensor of output model embeddings
-                    and a tensor of item embeddings optionally, and to return a logits tensor.
-        :return: callable function
+            and a tensor of item embeddings optionally, and to return a logits tensor.
+        :return: callable function.
         """
         if self._logits_callback is None:
             msg = "The callback for getting logits is not defined"
@@ -117,9 +119,9 @@ class CESampled(SampledLossBase):
         """
         Setter method for the logits computation function.
         Method for logits computation from the model head should be setted as this function
-                                                                after the loss initialization.
+            after the loss initialization.
         The function is expected to receive a tensor of output model embeddings
-                    and a tensor of item embeddings optionally, and to return a logits tensor.
+            and a tensor of item embeddings optionally, and to return a logits tensor.
         :param func: callable function.
         """
         self._logits_callback = func
@@ -135,9 +137,11 @@ class CESampled(SampledLossBase):
     ) -> torch.Tensor:
         """
         :param model_embeddings: model output of shape (batch_size, sequence_length, embedding_dim).
-        :param positive_labels: ground truth labels of positive events of shape (batch_size, sequence_length, num_positives).
+        :param positive_labels: ground truth labels of positive events
+            of shape (batch_size, sequence_length, num_positives).
         :param negative_labels: labels of sampled negative events of shape (num_negatives).
-        :param target_padding_mask: padding mask corresponding for `positive_labels` of shape (batch_size, sequence_length, num_positives).
+        :param target_padding_mask: padding mask corresponding for `positive_labels`
+            of shape (batch_size, sequence_length, num_positives).
         :return: computed loss value.
         """
         sampled = self.get_sampled_logits(

@@ -10,7 +10,8 @@ from .base import SampledLossBase, mask_negative_logits
 class BCE(torch.nn.Module):
     """
     Pointwise Binary Cross-Entropy loss.
-    """    
+    """
+
     def __init__(self):
         super().__init__()
         self._loss = torch.nn.BCEWithLogitsLoss(reduction="sum")
@@ -18,8 +19,7 @@ class BCE(torch.nn.Module):
 
     @property
     def logits_callback(self) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
-        """
-        """
+        """ """
         if self._logits_callback is None:
             msg = "The callback for getting logits is not defined"
             raise AttributeError(msg)
@@ -27,8 +27,7 @@ class BCE(torch.nn.Module):
 
     @logits_callback.setter
     def logits_callback(self, func: Optional[Callable]) -> None:
-        """
-        """
+        """ """
         self._logits_callback = func
 
     def forward(
@@ -42,10 +41,11 @@ class BCE(torch.nn.Module):
     ) -> torch.Tensor:
         """
         :param model_embeddings: model output of shape (batch_size, sequence_length, embedding_dim).
-        :param positive_labels: ground truth labels of shape (batch_size, sequence_length, num_positives).
-        :param target_padding_mask: padding mask for `positive_labels`
-                                             of shape (batch_size, sequence_length, num_positives).
-        :return: loss value.
+        :param positive_labels: ground truth labels of positive events
+            of shape (batch_size, sequence_length, num_positives).
+        :param target_padding_mask: padding mask corresponding for `positive_labels`
+            of shape (batch_size, sequence_length, num_positives).
+        :return: computed loss value.
         """
         logits = self.logits_callback(model_embeddings)
 
@@ -78,8 +78,15 @@ class BCE(torch.nn.Module):
 class BCESampled(SampledLossBase):
     """
     Pointwise Binary Cross-Entropy loss with negative sampling.
-    """  
+    """
+
     def __init__(self, log_epsilon: float = 1e-6, clamp_border: float = 100.0):
+        """
+        :param log_epsilon: correction to avoid zero in the logarithm during loss calculating.
+            Default: 1e-6.
+        :param clamp_border: upper bound for clamping loss tensor, lower bound will be setted to -`clamp_border`.
+            Default: 100.0.
+        """
         super().__init__()
         self.log_epsilon = log_epsilon
         self.clamp_border = clamp_border
@@ -107,9 +114,11 @@ class BCESampled(SampledLossBase):
     ) -> torch.Tensor:
         """
         :param model_embeddings: model output of shape (batch_size, sequence_length, embedding_dim).
-        :param positive_labels: ground truth labels of positive events of shape (batch_size, sequence_length, num_positives).
+        :param positive_labels: ground truth labels of positive events
+            of shape (batch_size, sequence_length, num_positives).
         :param negative_labels: labels of sampled negative events of shape (num_negatives).
-        :param target_padding_mask: padding mask corresponding for `positive_labels` of shape (batch_size, sequence_length, 1).
+        :param target_padding_mask: padding mask corresponding for `positive_labels`
+            of shape (batch_size, sequence_length, 1).
         :return: computed loss value.
         """
         sampled = self.get_sampled_logits(
