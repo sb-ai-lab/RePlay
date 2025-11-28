@@ -86,9 +86,13 @@ class SequentialEmbedder(torch.nn.Module):
 
     def get_item_weights(self, indices: Optional[torch.LongTensor] = None) -> torch.Tensor:
         """
-        Getting the embedding weights for a feature that matches the `item_id`.
+        Getting the embedding weights for a feature that matches the item id feature
+        with the name specified in the tensor schema.
         It is expected that embeddings for this feature will definitely exist.
         Note: the row corresponding to the padding will be excluded from the returned weights.
+
+        :param indices: Items indices.
+        :returns: Embeddings for specific items.
         """
         if indices is None:
             return self.feature_embedders[self._item_feature_name].weight

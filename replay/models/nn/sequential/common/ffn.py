@@ -9,7 +9,7 @@ from replay.models.nn.utils import create_activation
 
 class PointWiseFeedForward(torch.nn.Module):
     """
-    Point wise feed forward network layer
+    Point wise feed forward network layer.
 
     Link: https://arxiv.org/pdf/1808.09781.pdf
     """
@@ -41,7 +41,7 @@ class PointWiseFeedForward(torch.nn.Module):
 
     def forward(self, input_embeddings: torch.LongTensor) -> torch.LongTensor:
         """
-        :param inputs: Query feature vector.
+        :param input_embeddings: Query feature tensor.
 
         :returns: Output tensors.
         """
@@ -65,7 +65,7 @@ class SwiGLU(torch.nn.Module):
     def __init__(self, embedding_dim: int, hidden_dim: int):
         """
         :param embedding_dim: Dimension of the input features.
-        :param hidden_dim: Dimension of hidden layer.
+        :param hidden_dim: Dimension of hidden layer. Typically, it equals 2``embedding_dim``.
         """
         super().__init__()
         # Intermediate projection layers

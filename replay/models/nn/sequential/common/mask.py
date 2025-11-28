@@ -23,10 +23,9 @@ class AttentionMaskBuilderBase(ABC):
         padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
         """
-        :param feature_tensor: Batch of features.
+        :param feature_tensor: dict of features tensors.
         :param padding_mask: Padding mask where 0 - <PAD>, 1 otherwise.
-
-        :returns: Float attention mask, where `-inf` for <PAD>, 0 otherwise of shape (B * num_heads, L, L)
+        :returns: Float attention mask of shape (B * num_heads, L, L), where `-inf` for <PAD>, 0 otherwise.
         """
         attention_mask = self._get_attention_mask(feature_tensor)
 
@@ -59,14 +58,19 @@ class AttentionMaskBuilderBase(ABC):
 
 
 class DefaultAttentionMaskBuilder(AttentionMaskBuilderBase):
+    """
+    Constructs a float lower-triangular attenstion mask
+        of shape (``batch_size`` * ``num_heads, ``sequence_length``,``sequence_length``), where `-inf` for <PAD>, 0 otherwise.
+    """
+
     def __init__(
         self,
         schema: TensorSchema,
         num_heads: int,
     ) -> None:
         """
-        :param schema: Tensor schema of features.
-        :param num_heads: number of attention heads
+        :param schema: Tensor schema of features for getting name of item id feature.
+        :param num_heads: Number of attention heads.
         """
         super().__init__(num_heads)
         assert schema.item_id_feature_name

@@ -8,7 +8,6 @@ import torch.nn.functional as f
 from replay.data.nn import TensorMap
 
 from .ffn import SwiGLU
-from .normalization import RMSNorm
 
 
 class MultiHeadDifferentialAttention(torch.nn.Module):
@@ -191,10 +190,10 @@ class DiffTransformerBlock(torch.nn.Module):
         :param lambda_init: Initial value for lambda.
         """
         super().__init__()
-        self.attn_norm = RMSNorm(embedding_dim)
+        self.attn_norm = torch.nn.RMSNorm(embedding_dim)
         self.attn = MultiHeadDifferentialAttention(embedding_dim, num_heads, lambda_init, vdim=2 * embedding_dim)
-        self.ff_norm = RMSNorm(embedding_dim)
-        self.ff = SwiGLU(embedding_dim)
+        self.ff_norm =  torch.nn.RMSNorm(embedding_dim)
+        self.ff = SwiGLU(embedding_dim, 2*embedding_dim)
 
     def reset_parameters(self) -> None:
         self.attn_norm.reset_parameters()
