@@ -54,9 +54,9 @@ class SasRec(lightning.LightningModule):
             Default: ``False``.
         :param time_span: Time span value.
             Default: ``256``.
-        :param loss_type: Loss type. Possible values: ``"CE"``, ``"BCE"``, ``"SCE"``.
+        :param loss_type: Loss type.
             Default: ``CE``.
-        :param loss_sample_count (Optional[int]): Sample count to calculate loss.
+        :param loss_sample_count: Sample count to calculate loss.
             Suitable for ``"CE"`` and ``"BCE"`` loss functions.
             Default: ``None``.
         :param negative_sampling_strategy: Negative sampling strategy to calculate loss on sampled negatives.

@@ -40,19 +40,30 @@ ___________________
 
 To get more info on how to choose base model, please see this  :doc:`page </pages/useful_data/algorithm_selection>`.
 
+
+Neural Networks recommenders
+____________________________
+Neural Networks recommenders are Lightning-compatible. They can be trained using a Trainer from Lightning module.
+
+..  toctree::
+    :caption: Contents:
+    
+    nn_models
+
 Recommender interface
 ____________________________
 
 Recommender
 ````````````
 .. autoclass:: replay.models.Recommender
-    :members:
+    :members: fit, fit_predict, get_features, predict, predict_pairs
 
 BaseRecommender
 ````````````````
 .. autoclass:: replay.models.base_rec.BaseRecommender
     :members: optimize
     :noindex: optimize
+
 
 Distributed models
 __________________
@@ -346,88 +357,3 @@ implicit (Experimental)
 ````````````````````````````
 .. autoclass:: replay.experimental.models.ImplicitWrap
     :special-members: __init__
-
-
-Neural Networks recommenders
-____________________________
-Neural Networks recommenders are Lightning-compatible. They can be trained using a Trainer from Lightning module.
-
-Bert4Rec
-````````
-.. autoclass:: replay.models.nn.Bert4Rec
-   :members: __init__, predict
-
-SasRec
-``````
-.. autoclass:: replay.models.nn.SasRec
-   :members: __init__, predict
-
-Compiled sequential models
-```````````````````````````
-Sequential models like SasRec and Bert4Rec can be converted to ONNX format for fast inference on CPU.
-
-SasRecCompiled
-~~~~~~~~~~~~~~
-
-.. autoclass:: replay.models.nn.sequential.compiled.SasRecCompiled
-   :members: compile, predict
-
-Bert4RecCompiled
-~~~~~~~~~~~~~~~~
-.. autoclass:: replay.models.nn.sequential.compiled.Bert4RecCompiled
-   :members: compile, predict
-
-Features for easy training and validation with Lightning
-________________________________________________________
-Replay provides Callbacks and Postprocessors to make the model training and validation process as convenient as possible.
-
-During training:
-
-You can define the list of validation metrics and the model is determined to be the best and is saved if the metric
-updates its value during validation.
-
-During inference:
-
-You can get the recommendations in four formats: PySpark DataFrame, Pandas DataFrame, Polars DataFrame, PyTorch tensors. Each of the types corresponds a callback.
-You can filter the results using postprocessors strategy.
-
-For a better understanding, you should look at examples of using neural network models.
-
-Callbacks
-``````````
-ValidationMetricsCallback
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.. autoclass:: replay.models.nn.sequential.callbacks.ValidationMetricsCallback
-   :members: __init__
-
-SparkPredictionCallback
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.. autoclass:: replay.models.nn.sequential.callbacks.SparkPredictionCallback
-   :members: __init__, get_result
-
-PandasPredictionCallback
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.. autoclass:: replay.models.nn.sequential.callbacks.PandasPredictionCallback
-   :members: __init__, get_result
-
-TorchPredictionCallback
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.. autoclass:: replay.models.nn.sequential.callbacks.TorchPredictionCallback
-   :members: __init__, get_result
-
-QueryEmbeddingsPredictionCallback
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.. autoclass:: replay.models.nn.sequential.callbacks.QueryEmbeddingsPredictionCallback
-   :members: __init__, get_result
-
-Postprocessors
-```````````````
-RemoveSeenItems
-~~~~~~~~~~~~~~~~
-.. autoclass:: replay.models.nn.sequential.postprocessors.postprocessors.RemoveSeenItems
-   :members: __init__
-
-SampleItems
-~~~~~~~~~~~~
-.. autoclass:: replay.models.nn.sequential.postprocessors.postprocessors.SampleItems
-   :members: __init__

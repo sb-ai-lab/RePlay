@@ -9,19 +9,26 @@ from .output import InferenceOutput, TrainOutput
 
 
 class LightingModule(lightning.LightningModule):
+    """
+    A universal wrapper class above the PyTorch model for working with Lightning library.\n
+    Pay attention to the format of the ``forward`` function's return value.
+    """
+
     def __init__(
         self,
         model: torch.nn.Module,
         optimizer_factory: Optional[OptimizerFactory] = None,
         lr_scheduler_factory: Optional[LRSchedulerFactory] = None,
-    ):
+    ) -> None:
         """
-        Args:
-            model (torch.nn.Module): initialized model.
-            optimizer_factory (Optional[OptimizerFactory]): Optimizer factory.
-                Default: ``None``.
-            lr_scheduler_factory (Optional[LRSchedulerFactory]): Learning rate schedule factory.
-                Default: ``None``.
+        :param model: Initialized model.\n
+            Expected result of the model's ``forward`` function
+            is an object of the ``TrainOutput`` class after training stage
+            and ``InferenceOutput`` after inference stage.
+        :param optimizer_factory: Optimizer factory.
+            Default: ``None``.
+        :param lr_scheduler_factory: Learning rate schedule factory.
+            Default: ``None``.
         """
         super().__init__()
         self.save_hyperparameters(ignore=["model"])
@@ -32,6 +39,18 @@ class LightingModule(lightning.LightningModule):
         self.candidates_to_score = None
 
     def forward(self, batch: dict) -> Union[TrainOutput, InferenceOutput]:
+        """
+        Implementation of the forward function.
+
+        :param batch: A dictionary containing all the necessary information to run the forward function on the model.
+            The dictionary keys must match the names of the arguments in the model's forward function.
+            Keys that do not match the arguments of the model's forward function are filtered out.
+            If the model supports calculating logits for custom candidates on the inference stage,
+            then you can submit them inside the batch or using the ``candidates_to_score`` field.
+        :returns: During training, the model will return an object
+            of the ``TrainOutput`` container class or its successor.
+            At the inference stage, the ``InferenceOutput`` class or its successor will be returned.
+        """
         if "candidates_to_score" not in batch and self.candidates_to_score is not None and not self.training:
             batch["candidates_to_score"] = self.candidates_to_score
         # select only args for model.forward
@@ -77,16 +96,15 @@ class LightingModule(lightning.LightningModule):
         return [optimizer], [lr_scheduler]
 
     @property
-    def candidates_to_score(self) -> Union[torch.LongTensor, None]:
+    def candidates_to_score(self) -> Optional[torch.LongTensor]:
         """
-        Returns tensor of item ids to calculate scores.
+        :getter: Returns a tensor containing the candidate IDs.
+            The tendor will be used during the inference stage of the model.\n
+            If the parameter was not previously set, ``None`` will be returned.
+        :setter: A one-dimensional tensor containing candidate IDs is expected.
         """
         return self._candidates_to_score
 
     @candidates_to_score.setter
     def candidates_to_score(self, candidates: Optional[torch.LongTensor] = None) -> None:
-        """
-        Sets tensor of item ids to calculate scores.
-        :param candidates: Tensor of item ids to calculate scores.
-        """
         self._candidates_to_score = candidates
