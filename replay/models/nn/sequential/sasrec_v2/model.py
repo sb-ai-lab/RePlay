@@ -40,15 +40,37 @@ class EncoderProto(Protocol):
     def reset_parameters(self) -> None: ...
 
 
-class SasRecBase(torch.nn.Module):
+class SasRecBody(torch.nn.Module):
+    """
+    Implementation of the architecture of the SasRec model.\n
+    It can include various self-written blocks for modifying the model,
+    but the sequence of applying layers is fixed in accordance with the original architecture.
+
+    Paper: https://arxiv.org/pdf/1808.09781.
+    """
+
     def __init__(
         self,
         embedder: EmbedderProto,
-        attn_mask_builder: AttentionMaskBuilderProto,
         embedding_aggregator: SequentialEmbeddingAggregatorProto,
+        attn_mask_builder: AttentionMaskBuilderProto,
         encoder: EncoderProto,
         output_normalization: NormalizerProto,
     ):
+        """
+        :param embedder: An object of a class that performs the logic of
+            generating embeddings from an input set of tensors.
+        :param embedding_aggregator: An object of a class that performs the logic of aggregating multiple embeddings.\n
+            For example, it can be a ``sum``, a ``mean``, or a ``concatenation``.
+        :param attn_mask_builder: An object of a class that performs the logic of
+            generating an attention mask based on the features and padding mask given to the model.
+        :param encoder: An object of a class that performs the logic of generating
+            a hidden embedding representation based on
+            features, padding masks, attention mask, and aggregated embedding.
+        :param output_normalization: An object of a class that performs the logic of
+            normalization of the hidden state obtained from the encoder.\n
+            For example, it can be a ``torch.nn.LayerNorm`` or ``torch.nn.RMSNorm``.
+        """
         super().__init__()
         self.embedder = embedder
         self.attn_mask_builder = attn_mask_builder
@@ -67,6 +89,14 @@ class SasRecBase(torch.nn.Module):
         feature_tensors: TensorMap,
         padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
+        """
+        :param feature_tensors: a dictionary of tensors to generate embeddings.
+        :param padding_mask: A mask of shape (``batch_size``, ``sequence_length``)
+            indicating which elements within ``key`` to ignore for the purpose of attention (i.e. treat as "padding").
+            ``False`` value indicates that the corresponding ``key`` value will be ignored.
+        :returns: The final hidden state.\n
+            Expected shape: (``batch_size``, ``sequence_length``, ``embedding_dim``)
+        """
         embeddings = self.embedder(feature_tensors)
         agg_emb: torch.Tensor = self.embedding_aggregator(embeddings)
         assert agg_emb.dim() == 3
@@ -86,20 +116,42 @@ class SasRecBase(torch.nn.Module):
 
 
 class SasRec(torch.nn.Module):
+    """
+    A model using the SasRec architecture as a hidden state generator.
+    The hidden states are multiplied by the item embeddings,
+    resulting in logits for each of the items.
+    """
+
     def __init__(
         self,
         embedder: EmbedderProto,
-        attn_mask_builder: AttentionMaskBuilderProto,
         embedding_aggregator: SequentialEmbeddingAggregatorProto,
+        attn_mask_builder: AttentionMaskBuilderProto,
         encoder: EncoderProto,
         output_normalization: NormalizerProto,
         loss: LossProto,
     ):
+        """
+        :param embedder: An object of a class that performs the logic of
+            generating embeddings from an input set of tensors.
+        :param embedding_aggregator: An object of a class that performs the logic of aggregating multiple embeddings.\n
+            For example, it can be a ``sum``, a ``mean``, or a ``concatenation``.
+        :param attn_mask_builder: An object of a class that performs the logic of
+            generating an attention mask based on the features and padding mask given to the model.
+        :param encoder: An object of a class that performs the logic of generating
+            a hidden embedding representation based on
+            features, padding masks, attention mask, and aggregated embedding.
+        :param output_normalization: An object of a class that performs the logic of
+            normalization of the hidden state obtained from the encoder.\n
+            For example, it can be a ``torch.nn.LayerNorm`` or ``torch.nn.RMSNorm``.
+        :param loss: An object of a class that performs loss calculation
+            based on hidden states from the model, positive and negative labels.
+        """
         super().__init__()
-        self.body = SasRecBase(
+        self.body = SasRecBody(
             embedder=embedder,
-            attn_mask_builder=attn_mask_builder,
             embedding_aggregator=embedding_aggregator,
+            attn_mask_builder=attn_mask_builder,
             encoder=encoder,
             output_normalization=output_normalization,
         )
@@ -172,6 +224,36 @@ class SasRec(torch.nn.Module):
         negative_labels: Optional[torch.LongTensor] = None,
         target_padding_mask: Optional[torch.BoolTensor] = None,
     ) -> Union[TrainOutput, InferenceOutput]:
+        """
+        :param feature_tensors: a dictionary of tensors to generate embeddings.
+        :param padding_mask: A mask of shape (``batch_size``, ``sequence_length``)
+            indicating which elements within ``key`` to ignore for the purpose of attention (i.e. treat as "padding").
+            ``False`` value indicates that the corresponding ``key`` value will be ignored.
+        :param candidates_to_score: a tensor containing IDs for which you need to get logits at the inference stage.
+            Please note that you must take into account the padding value when creating the tensor.\n
+            The tensor participates in calculations only on the inference stage.
+            You don't have to submit an argument at training stage,
+            but if it is submitted, then no effect will be provided.\n
+            Default: ``None``.
+        :param positive_labels: a tensor containing positive labels for calculating the loss.\n
+            You don't have to submit an argument at inference stage,
+            but if it is submitted, then no effect will be provided.\n
+            Default: ``None``.
+        :param negative_labels: a tensor containing negative labels for calculating the loss.
+            Before run make sure that your loss supports calculations with negative labels.\n
+            You don't have to submit an argument at inference stage,
+            but if it is submitted, then no effect will be provided.\n
+            Default: ``None``.
+        :param target_padding_mask: A mask of shape (``batch_size``, ``sequence_length``, ``num_positives``)
+            indicating which elements to ignore during loss calculation.
+            ``False`` value indicates that the corresponding value will be ignored.\n
+            You don't have to submit an argument at inference stage,
+            but if it is submitted, then no effect will be provided.\n
+            Default: ``None``.
+        :returns: During training, the model will return an object
+            of the ``TrainOutput`` container class.
+            At the inference stage, the ``InferenceOutput`` class will be returned.
+        """
         if self.training:
             all(
                 map(

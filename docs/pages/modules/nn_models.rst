@@ -15,6 +15,30 @@ _______________
 .. autoclass:: replay.models.nn.InferenceOutput
    :members:
 
+
+SasRec
+========
+
+SasRec
+__________
+.. autoclass:: replay.models.nn.sequential.sasrec_v2.SasRec
+   :members: __init__, forward
+
+SasRecBuilder
+_____________
+.. autoclass:: replay.models.nn.sequential.sasrec_v2.SasRecBuilder
+   :members: embedder, attn_mask_builder, embedding_aggregator, encoder, output_normalization, loss, default, build
+
+SasRecBody
+__________
+.. autoclass:: replay.models.nn.sequential.sasrec_v2.SasRecBody
+   :members: __init__, forward
+
+SasRecEmbeddingAggregator
+_________________________
+.. autoclass:: replay.models.nn.sequential.sasrec_v2.SasRecEmbeddingAggregator
+   :members: __init__, forward
+
 Bert4Rec
 ========
 

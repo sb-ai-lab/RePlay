@@ -7,20 +7,25 @@ from replay.models.nn.sequential.common.agg import SequentialEmbeddingAggregator
 
 
 class SasRecEmbeddingAggregator(torch.nn.Module):
+    """
+    The layer allows you to add positional encoding to aggregated embeddings.
+    """
+
     def __init__(
         self,
         embedding_aggregator: SequentialEmbeddingAggregatorProto,
-        max_len: int,
+        max_sequence_length: int,
         dropout: float,
     ) -> None:
         """
-        :param schema Tensor schema of features.
-        :param max_len: Max length of sequence.
-        :param dropout: Dropout rate.
+        :param embedding_aggregator: An object of a class that performs the logic of aggregating multiple embeddings.\n
+            For example, it can be a ``sum``, a ``mean``, or a ``concatenation``.
+        :param max_sequence_length: Max length of sequence.
+        :param dropout: probability of an element to be zeroed.
         """
         super().__init__()
         self.embedding_aggregator = embedding_aggregator
-        self.pe = torch.nn.Embedding(max_len, self.embedding_aggregator.embedding_dim)
+        self.pe = torch.nn.Embedding(max_sequence_length, self.embedding_aggregator.embedding_dim)
         self.dropout = torch.nn.Dropout(p=dropout)
 
     def reset_parameters(self) -> None:
@@ -30,9 +35,9 @@ class SasRecEmbeddingAggregator(torch.nn.Module):
 
     def forward(self, feature_tensors: TensorMap) -> torch.Tensor:
         """
-        :param feature_tensor: Batch of features.
+        :param feature_tensors: a dictionary of tensors to pass into ``embedding_aggregator``.
 
-        :returns: Embeddings for input features.
+        :returns: Aggregated embeddings with positional encoding.
         """
         seqs: torch.Tensor = self.embedding_aggregator(feature_tensors)
         assert seqs.dim() == 3

@@ -25,10 +25,10 @@ class SequentialEmbedder(torch.nn.Module):
         :param excluded_features: A list containing the names of features
             for which you do not need to generate an embedding.
             Fragments from this list are expected to be contained in `schema`.
-            Default: `None`.
+            Default: ``None``.
         :param categorical_list_feature_aggregation_method: Mode to aggregate tokens
-            in token item representation (categorical list only). One of {`sum`, `mean`, `max`}
-            Default: `"sum"`.
+            in token item representation (categorical list only).
+            Default: ``"sum"``.
         """
         super().__init__()
         self.excluded_features = excluded_features or []
