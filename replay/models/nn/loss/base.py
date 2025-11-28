@@ -50,7 +50,7 @@ class SampledLossBase(torch.nn.Module):
     ) -> SampledLossOutput:
         """
         The function of calculating positive and negative logits.
-        Based on the embeddingы from the model, positive and negative labels.
+        Based on the embeddings from the model, positive and negative labels.
 
         The function supports the calculation of logits for the case of multi-positive labels
         (there are several labels for each position in the sequence).

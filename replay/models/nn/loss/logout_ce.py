@@ -8,6 +8,19 @@ from .base import SampledLossBase, mask_negative_logits
 
 
 class LogOutCE(SampledLossBase):
+    """
+    LogOutCE loss (InfoNCE, Information Noise-Contrastive Estimation loss).
+
+    The loss supports the calculation of logits for the case of multi-positive labels
+        (there are several labels for each position in the sequence).
+
+        .. math::
+
+            L_{\text{InfoNCE}} = - \sum_{p \in P} \log \frac{ \exp(\mathrm{sim}(q, p))}
+            {\exp(\mathrm{sim}(q, p))
+            + \sum_{n \in N} \exp(\mathrm{sim}(q, n))}.
+
+    """
     def __init__(self, vocab_size: int, padding_idx: int):
         super().__init__()
         self.vocab_size = vocab_size

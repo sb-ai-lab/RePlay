@@ -24,7 +24,7 @@ class LogInCEBase(SampledLossBase):
         target_padding_mask: torch.BoolTensor,  # [batch_size, seq_len, num_positives]
     ) -> LogInCESampledOutput:
         """
-        The function of calculating positive and negative logits.
+        The function of calculating positive and negative logits in LogInCE losses.
         Based on the embeddingы from the model, positive and negative labels.
 
         The function supports the calculation of logits for the case of multi-positive labels
@@ -94,6 +94,19 @@ class LogInCEBase(SampledLossBase):
 
 
 class LogInCE(LogInCEBase):
+    """
+    LogInCE (Log InfoNCE) loss (modification of  Information Noise-Contrastive Estimation loss).
+
+    The loss supports the calculation of logits for the case of multi-positive labels
+        (there are several labels for each position in the sequence).
+
+        .. math::
+
+            L_{\text{InfoNCE}} = - \log \frac{\sum_{p \in P} \exp(\mathrm{sim}(q, p))}
+            {\sum_{p \in P} \exp(\mathrm{sim}(q, p))
+            + \sum_{n \in N} \exp(\mathrm{sim}(q, n))}.
+
+    """
     def __init__(
         self,
         vocab_size: int,
@@ -122,31 +135,44 @@ class LogInCE(LogInCEBase):
         model_embeddings: torch.Tensor,
         feature_tensors: TensorMap,  # noqa: ARG002
         positive_labels: torch.LongTensor,
-        negative_labels: torch.LongTensor,
-        padding_mask: torch.BoolTensor,
+        negative_labels: torch.LongTensor,  # noqa: ARG002
+        padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
-        negative_labels = torch.arange(
+        """
+        Forward pass for LogInCE.
+        Note: At forward pass, the whole catalog of items is used as negatives.
+        Next, negative logits, corresponding to positions where negative labels
+                                        coincide with positive ones, are masked.
+
+        :param model_embeddings: model output of shape (batch_size, sequence_length, embedding_dim).
+        :param positive_labels: ground truth labels of positive events 
+                of shape (batch_size, sequence_length, num_positives).
+        :param target_padding_mask: padding mask corresponding for `positive_labels` 
+                of shape (batch_size, sequence_length, num_positives).
+        :return: computed loss value.
+        """
+        all_negative_labels = torch.arange(
             self.vocab_size,
             dtype=torch.long,
-            device=padding_mask.device,
+            device=positive_labels.device,
         )
         sampled = self.get_sampled_logits(
             model_embeddings,
             positive_labels,
-            negative_labels,
+            all_negative_labels,
             target_padding_mask,
         )
         positive_logits = sampled["positive_logits"]  # [masked_batch_size, num_positives]
         negative_logits = sampled["negative_logits"]  # [masked_batch_size, num_negatives]
         positive_labels = sampled["positive_labels"]  # [masked_batch_size, num_positives]
-        negative_labels = sampled["negative_labels"]  # [masked_batch_size, num_negatives] or [num_negatives]
+        all_negative_labels = sampled["negative_labels"]  # [masked_batch_size, num_negatives] or [num_negatives]
         target_padding_mask = sampled["target_padding_mask"]  # [masked_batch_size, num_positives]
 
         # [masked_batch_size, num_negatives] - assign low values to some negative logits
         negative_logits = mask_negative_logits(
             negative_logits,
-            negative_labels,
+            all_negative_labels,
             positive_labels,
         )
 
@@ -172,6 +198,18 @@ class LogInCE(LogInCEBase):
 
 
 class LogInCESampled(LogInCEBase):
+    """
+    Sampled version of LogInCE (Log InfoNCE) loss (with negative sampling items).
+
+    The loss supports the calculation of logits for the case of multi-positive labels
+        (there are several labels for each position in the sequence).
+
+        .. math::
+
+            L_{\text{InfoNCE}} = - \log \frac{\sum_{p \in P} \exp(\mathrm{sim}(q, p))}
+            {\sum_{p \in P} \exp(\mathrm{sim}(q, p))
+            + \sum_{n \in N_sampled} \exp(\mathrm{sim}(q, n))}.
+    """
     def __init__(self, log_epsilon: float = 1e-6, clamp_border: float = 100.0):
         super().__init__()
         self.log_epsilon = log_epsilon

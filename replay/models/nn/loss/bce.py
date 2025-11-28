@@ -8,6 +8,9 @@ from .base import SampledLossBase, mask_negative_logits
 
 
 class BCE(torch.nn.Module):
+    """
+    Pointwise Binary Cross-Entropy loss.
+    """    
     def __init__(self):
         super().__init__()
         self._loss = torch.nn.BCEWithLogitsLoss(reduction="sum")
@@ -15,6 +18,8 @@ class BCE(torch.nn.Module):
 
     @property
     def logits_callback(self) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+        """
+        """
         if self._logits_callback is None:
             msg = "The callback for getting logits is not defined"
             raise AttributeError(msg)
@@ -22,6 +27,8 @@ class BCE(torch.nn.Module):
 
     @logits_callback.setter
     def logits_callback(self, func: Optional[Callable]) -> None:
+        """
+        """
         self._logits_callback = func
 
     def forward(
@@ -33,6 +40,13 @@ class BCE(torch.nn.Module):
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
+        """
+        :param model_embeddings: model output of shape (batch_size, sequence_length, embedding_dim).
+        :param positive_labels: ground truth labels of shape (batch_size, sequence_length, num_positives).
+        :param target_padding_mask: padding mask for `positive_labels`
+                                             of shape (batch_size, sequence_length, num_positives).
+        :return: loss value.
+        """
         logits = self.logits_callback(model_embeddings)
 
         # [batch_size, seq_len, num_positives] -> [batch_size, seq_len]
@@ -62,6 +76,9 @@ class BCE(torch.nn.Module):
 
 
 class BCESampled(SampledLossBase):
+    """
+    Pointwise Binary Cross-Entropy loss with negative sampling.
+    """  
     def __init__(self, log_epsilon: float = 1e-6, clamp_border: float = 100.0):
         super().__init__()
         self.log_epsilon = log_epsilon
@@ -88,13 +105,20 @@ class BCESampled(SampledLossBase):
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
+        """
+        :param model_embeddings: model output of shape (batch_size, sequence_length, embedding_dim).
+        :param positive_labels: ground truth labels of positive events of shape (batch_size, sequence_length, num_positives).
+        :param negative_labels: labels of sampled negative events of shape (num_negatives).
+        :param target_padding_mask: padding mask corresponding for `positive_labels` of shape (batch_size, sequence_length, 1).
+        :return: computed loss value.
+        """
         sampled = self.get_sampled_logits(
             model_embeddings,
             positive_labels,
             negative_labels,
             target_padding_mask,
         )
-        positive_logits = sampled["positive_logits"]  # [masked_batch_size, 1]
+        positive_logits = sampled["positive_logits"]  # [masked_batch_size, num_positives]
         negative_logits = sampled["negative_logits"]  # [masked_batch_size, num_negatives]
         positive_labels = sampled["positive_labels"]  # [masked_batch_size, num_positives]
         negative_labels = sampled["negative_labels"]  # [masked_batch_size, num_negatives] or [num_negatives]
