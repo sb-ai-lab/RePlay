@@ -25,23 +25,22 @@ class LogInCEBase(SampledLossBase):
     ) -> LogInCESampledOutput:
         """
         The function of calculating positive and negative logits in LogInCE losses.
-        Based on the embeddingы from the model, positive and negative labels.
+        Based on the embeddings from the model, positive and negative labels.
 
         The function supports the calculation of logits for the case of multi-positive labels
         (there are several labels for each position in the sequence).
 
         :param model_embeddings: Embeddings from the model. This is usually the last hidden state.
-            Expected shape: (batch_size, sequence_length, embedding_dim)
+            Expected shape: ``(batch_size, sequence_length, embedding_dim)``
         :param positive_labels: a tensor containing labels with positive events.
-            Expected shape: (batch_size, sequence_length, num_positives)
+            Expected shape: ``(batch_size, sequence_length, num_positives)``
         :param negative_labels: a tensor containing labels with negative events.
             Expected shape:
-                - (batch_size, sequence_length, num_negatives)
-                - (num_negatives) - a case where the same negative events are used for the entire batch
-        :param target_padding_mask: Padding mask for targets.
-            It is used to determine the "reality" of an event.
-            If the value is `False`, it means that the event will not be taken into account when calculating the logits.
-            Expected shape: (batch_size, sequence_length, num_positives)
+                - ``(batch_size, sequence_length, num_negatives)``.
+                - ``(num_negatives)`` - a case where the same negative events are used for the entire batch.
+        :param target_padding_mask: Padding mask for ``positive_labels`` (targets).
+            ``False`` value indicates that the corresponding ``key`` value will be ignored.
+            Expected shape: ``(batch_size, sequence_length, num_positives)``
 
         :returns: LogInCESampledOutput. A dictionary containing positive and negative logits with labels.
         """
@@ -95,17 +94,19 @@ class LogInCEBase(SampledLossBase):
 
 class LogInCE(LogInCEBase):
     """
-    LogInCE (Log InfoNCE) loss (modification of  Information Noise-Contrastive Estimation loss).
-
-    The loss supports the calculation of logits for the case of multi-positive labels
-    (there are several labels for each position in the sequence).
+    LogInCE loss (Log InfoNCE, modification of  Information Noise-Contrastive Estimation loss).
 
     .. math::
 
         L_{\\text{InfoNCE}} = -\\log \\frac{\\sum_{p \\in P}
         \\exp(\\mathrm{sim}(q, p))}{\\sum_{p \\in P}
-        \\exp(\\mathrm{sim}(q, p)) + \\sum_{n \\in N} \\exp(\\mathrm{sim}(q, n))}.
+        \\exp(\\mathrm{sim}(q, p)) + \\sum_{n \\in N} \\exp(\\mathrm{sim}(q, n))},
 
+    where q -- query embedding, P -- set of positive logits, N -- set of negative logits,
+    :math:`sim(\\cdot, \\cdot)` -- similaruty function.
+
+    The loss supports the calculation of logits for the case of multi-positive labels
+    (there are several labels for each position in the sequence).
     """
 
     def __init__(
@@ -129,6 +130,27 @@ class LogInCE(LogInCEBase):
 
     @property
     def logits_callback(self) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+        """
+        Property for calling a function for the logits computation.\n
+
+        This function is expected to receive model's last hidden state
+                    and optionally item IDs, and return a logits tensor.
+
+        It is expected that the corresponding head model method will be used as this function,
+        for example, the ``get_logits`` method of the ``SasRec`` class.
+
+        :return: callable function.
+
+        Example:
+            The __init__ method of SasRec class contains the following code:
+                >>> self.loss = loss
+                >>> self.loss.logits_callback = self.get_logits
+            So, the calling of get_logits in loss object
+            >>> loss.get_logits(model_embeddings, candidates_to_score)
+            gives the same result as calling
+            >>> self.get_logits(model_embeddings, candidates_to_score)
+
+        """
         if self._logits_callback is None:
             msg = "The callback for getting logits is not defined"
             raise AttributeError(msg)
@@ -148,8 +170,7 @@ class LogInCE(LogInCEBase):
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
         """
-        Forward pass for LogInCE.
-
+        forward(model_embeddings, positive_labels, target_padding_mask)
         **Note**: At forward pass, the whole catalog of items is used as negatives.
         Next, negative logits, corresponding to positions where negative labels
         coincide with positive ones, are masked.
@@ -210,14 +231,17 @@ class LogInCESampled(LogInCEBase):
     """
     Sampled version of LogInCE (Log InfoNCE) loss (with negative sampling items).
 
-    The loss supports the calculation of logits for the case of multi-positive labels
-    (there are several labels for each position in the sequence).
-
     .. math::
 
         L_{\\text{InfoNCE}} = -\\log \\frac{\\sum_{p \\in P} \\exp(\\mathrm{sim}(q, p))}{\\sum_{p \\in P}
-        \\exp(\\mathrm{sim}(q, p)) + \\sum_{n \\in N_{\\text{sampled}}} \\exp(\\mathrm{sim}(q, n))}.
+        \\exp(\\mathrm{sim}(q, p)) + \\sum_{n \\in N_{\\text{sampled}}} \\exp(\\mathrm{sim}(q, n))},
 
+    where q -- query embedding, P -- set of positive logits, :math:`N_sampled` -- set of negative logits,
+    :math:`sim(\\cdot, \\cdot)` -- similaruty function.\n
+    Same as ``LogInCE``, the difference in the set of negatives.
+
+    The loss supports the calculation of logits for the case of multi-positive labels
+    (there are several labels for each position in the sequence).
     """
 
     def __init__(self, log_epsilon: float = 1e-6, clamp_border: float = 100.0):
@@ -234,6 +258,27 @@ class LogInCESampled(LogInCEBase):
 
     @property
     def logits_callback(self) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+        """
+        Property for calling a function for the logits computation.\n
+
+        This function is expected to receive model's last hidden state
+                    and optionally item IDs, and return a logits tensor.
+
+        It is expected that the corresponding head model method will be used as this function,
+        for example, the ``get_logits`` method of the ``SasRec`` class.
+
+        :return: callable function.
+
+        Example:
+            The __init__ method of SasRec class contains the following code:
+                >>> self.loss = loss
+                >>> self.loss.logits_callback = self.get_logits
+            So, the calling of get_logits in loss object
+            >>> loss.get_logits(model_embeddings, candidates_to_score)
+            gives the same result as calling
+            >>> self.get_logits(model_embeddings, candidates_to_score)
+
+        """
         if self._logits_callback is None:
             msg = "The callback for getting logits is not defined"
             raise AttributeError(msg)
@@ -253,14 +298,13 @@ class LogInCESampled(LogInCEBase):
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
         """
-        Forward pass for LogInCESampled.
-
-        :param model_embeddings: model output of shape (batch_size, sequence_length, embedding_dim).
-        :param positive_labels: ground truth labels of positive events
-            of shape (batch_size, sequence_length, num_positives).
+        forward(model_embeddings, positive_labels, negative_labels, target_padding_mask)
+        :param model_embeddings: model output of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param positive_labels: labels of positive events
+            of shape ``(batch_size, sequence_length, num_positives)``.
         :param negative_labels: labels of sampled negative events of shape (num_negatives).
-        :param target_padding_mask: padding mask corresponding for `positive_labels`
-            of shape (batch_size, sequence_length, num_positives).
+        :param target_padding_mask: padding mask corresponding for ``positive_labels``
+            of shape ``(batch_size, sequence_length, num_positives)``
         :return: computed loss value.
         """
         sampled = self.get_sampled_logits(

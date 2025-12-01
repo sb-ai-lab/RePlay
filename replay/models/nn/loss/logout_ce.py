@@ -11,23 +11,23 @@ class LogOutCE(torch.nn.Module):
     """
     LogOutCE loss (InfoNCE, Information Noise-Contrastive Estimation loss).
 
-    The loss supports the calculation of logits for the case of multi-positive labels
-        (there are several labels for each position in the sequence).
-
         .. math::
 
             L_{\\text{InfoNCE}} = - \\sum_{p \\in P} \\log \\frac{ \\exp(\\mathrm{sim}(q, p))}
             {\\exp(\\mathrm{sim}(q, p))
             + \\sum_{n \\in N} \\exp(\\mathrm{sim}(q, n))}.
 
+    where q -- query embedding, P -- set of positive logits, N -- set of negative logits,
+    :math:`sim(\\cdot, \\cdot)` -- similaruty function.\n
+
+    The loss supports the calculation of logits for the case of multi-positive labels
+    (there are several labels for each position in the sequence).
     """
 
     def __init__(self, vocab_size: int, padding_idx: int):
         """
-        :param log_epsilon: correction to avoid zero in the logarithm during loss calculating.
-            Default: 1e-6.
-        :param clamp_border: upper bound for clamping loss value, lower bound will be setted to -`clamp_border`.
-            Default: 100.0.
+        :param vocab_size: number of unique items in vocabulary (catalog).
+        :param padding_idx: padding id for label to be ignored during loss calculation.
         """
         super().__init__()
         self.vocab_size = vocab_size
@@ -37,6 +37,27 @@ class LogOutCE(torch.nn.Module):
 
     @property
     def logits_callback(self) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+        """
+        Property for calling a function for the logits computation.\n
+
+        This function is expected to receive model's last hidden state
+                    and optionally item IDs, and return a logits tensor.
+
+        It is expected that the corresponding head model method will be used as this function,
+        for example, the ``get_logits`` method of the ``SasRec`` class.
+
+        :return: callable function.
+
+        Example:
+            The __init__ method of SasRec class contains the following code:
+                >>> self.loss = loss
+                >>> self.loss.logits_callback = self.get_logits
+            So, the calling of get_logits in loss object
+            >>> loss.get_logits(model_embeddings, candidates_to_score)
+            gives the same result as calling
+            >>> self.get_logits(model_embeddings, candidates_to_score)
+
+        """
         if self._logits_callback is None:
             msg = "The callback for getting logits is not defined"
             raise AttributeError(msg)
@@ -56,15 +77,15 @@ class LogOutCE(torch.nn.Module):
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
         """
-        Forward pass for LogInCE.
-        Note: At forward pass, the whole catalog of items is used as negatives.
+        forward(model_embeddings, positive_labels, target_padding_mask)
+        **Note**: At forward pass, the whole catalog of items is used as negatives.
         Next, negative logits, corresponding to positions where negative labels
         coincide with positive ones, are masked.
 
-        :param model_embeddings: model output of shape (batch_size, sequence_length, embedding_dim).
+        :param model_embeddings: model output of shape ``(batch_size, sequence_length, embedding_dim)``.
         :param positive_labels: ground truth labels of positive events
             of shape (batch_size, sequence_length, num_positives).
-        :param target_padding_mask: padding mask corresponding for `positive_labels`
+        :param target_padding_mask: padding mask corresponding for ``positive_labels``
             of shape (batch_size, sequence_length, num_positives).
         :return: computed loss value.
         """

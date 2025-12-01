@@ -36,6 +36,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx_enum_extend",
     "myst_parser",
+    # "sphinx.ext.autosectionlabel",
 ]
 source_suffix = [".rst", ".md"]
 
