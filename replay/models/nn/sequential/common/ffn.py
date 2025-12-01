@@ -65,12 +65,9 @@ class SwiGLU(torch.nn.Module):
     def __init__(self, embedding_dim: int, hidden_dim: int):
         """
         :param embedding_dim: Dimension of the input features.
-        :param hidden_dim: Dimension of hidden layer.\n
-            According to the original source, it is recommended to set the size of the hidden layer as
-
-            .. math::
-
-                2 * \\text{embedding_dim}
+        :param hidden_dim: Dimension of hidden layer.
+            According to the original source,
+            it is recommended to set the size of the hidden layer as :math:`2 \\cdot \\text{embedding_dim}`.
         """
         super().__init__()
         # Intermediate projection layers

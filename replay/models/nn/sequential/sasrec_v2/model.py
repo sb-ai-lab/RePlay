@@ -229,7 +229,7 @@ class SasRec(torch.nn.Module):
         :param padding_mask: A mask of shape ``(batch_size, sequence_length)``
             indicating which elements within ``key`` to ignore for the purpose of attention (i.e. treat as "padding").
             ``False`` value indicates that the corresponding ``key`` value will be ignored.
-        :param candidates_to_score: a tensor containing IDs for which you need to get logits at the inference stage.
+        :param candidates_to_score: a tensor containing IDs for which you need to get logits at the inference stage.\n
             **Note:** that you must take into account the padding value when creating the tensor.\n
             The tensor participates in calculations only on the inference stage.
             You don't have to submit an argument at training stage,
@@ -239,7 +239,7 @@ class SasRec(torch.nn.Module):
             You don't have to submit an argument at inference stage,
             but if it is submitted, then no effect will be provided.\n
             Default: ``None``.
-        :param negative_labels: a tensor containing negative labels for calculating the loss.
+        :param negative_labels: a tensor containing negative labels for calculating the loss.\n
             **Note:** Before run make sure that your loss supports calculations with negative labels.\n
             You don't have to submit an argument at inference stage,
             but if it is submitted, then no effect will be provided.\n

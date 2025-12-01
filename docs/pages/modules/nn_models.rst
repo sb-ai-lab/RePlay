@@ -192,7 +192,6 @@ Model Building Blocks
 ======================
 Building blocks for neural network models.
 
-Use them for constructing SasRec or TwoTower model in non default way via corresponding building classes.
 
 Embedders
 _________
