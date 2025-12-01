@@ -24,7 +24,7 @@ class PointWiseFeedForward(torch.nn.Module):
         :param embedding_dim: Dimension of the input features.
         :param dropout: probability of an element to be zeroed.
         :param activation: the name of the activation function.
-            Possible values are ``"relu"``, ``"gelu"``.
+            Default: ``"gelu"``.
         """
         super().__init__()
 
@@ -65,7 +65,12 @@ class SwiGLU(torch.nn.Module):
     def __init__(self, embedding_dim: int, hidden_dim: int):
         """
         :param embedding_dim: Dimension of the input features.
-        :param hidden_dim: Dimension of hidden layer. Typically, it equals 2``embedding_dim``.
+        :param hidden_dim: Dimension of hidden layer.\n
+            According to the original source, it is recommended to set the size of the hidden layer as
+
+            .. math::
+
+                2 * \\text{embedding_dim}
         """
         super().__init__()
         # Intermediate projection layers
@@ -86,9 +91,9 @@ class SwiGLU(torch.nn.Module):
         """
         Forward pass for SwiGLU.
 
-        :param input_embeddings: Input tensor of shape (batch_size, sequence_length, embedding_dim).
+        :param input_embeddings: Input tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
 
-        :returns: Tensor. Output tensor of shape (batch_size, sequence_length, embedding_dim) after applying SwiGLU.
+        :returns: Output tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
         """
         # Apply the gates
         activation = torch.nn.functional.silu(self.WG(input_embeddings))  # Activation part
@@ -125,8 +130,8 @@ class SwiGLUEncoder(torch.nn.Module):
         input_embeddings: torch.Tensor,
     ) -> torch.Tensor:
         """
-        :param input_embeddings: Input tensor of shape (batch_size, sequence_length, embedding_dim).
-        :returns: torch.Tensor: Output tensor after processing through the MLP.
+        :param input_embeddings: Input tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :returns: Output tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
         """
         x = self.norm1(self.sw1(input_embeddings) + input_embeddings)
         x = self.norm2(self.sw2(x) + x)

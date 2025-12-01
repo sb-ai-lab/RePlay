@@ -39,45 +39,6 @@ _________________________
 .. autoclass:: replay.models.nn.sequential.sasrec_v2.SasRecEmbeddingAggregator
    :members: __init__, forward
 
-Losses
-======
-BCE
-___
-.. autoclass:: replay.models.nn.loss.BCE
-   :members: __init__, forward
-
-BCESampled
-__________
-.. autoclass:: replay.models.nn.loss.BCESampled
-   :members: __init__, forward
-
-CE
-___
-.. autoclass:: replay.models.nn.loss.CE
-   :members: __init__, forward
-
-CESampled
-__________
-.. autoclass:: replay.models.nn.loss.CESampled
-   :members: __init__, forward
-
-LogInCE
-_______
-.. autoclass:: replay.models.nn.loss.LogInCE
-   :members: __init__, forward
-
-LogInCESampled
-______________
-.. autoclass:: replay.models.nn.loss.LogInCESampled
-   :members: __init__, forward
-
-LogOutCE
-________
-.. autoclass:: replay.models.nn.loss.LogOutCE
-   :members: __init__, forward
-
-
-
 Bert4Rec
 ========
 
@@ -179,12 +140,55 @@ ________________
    :members: compile, predict
 
 
-Common building blocks
+Losses
+======
+BCE
+___
+.. autoclass:: replay.models.nn.loss.BCE
+   :members: forward
+
+BCESampled
+__________
+.. autoclass:: replay.models.nn.loss.BCESampled
+   :members: __init__, forward
+
+CE
+___
+.. autoclass:: replay.models.nn.loss.CE
+   :members: __init__, forward
+
+CESampled
+__________
+.. autoclass:: replay.models.nn.loss.CESampled
+   :members: __init__, forward
+
+LogInCE
+_______
+.. autoclass:: replay.models.nn.loss.LogInCE
+   :members: __init__, forward
+
+LogInCESampled
+______________
+.. autoclass:: replay.models.nn.loss.LogInCESampled
+   :members: __init__, forward
+
+LogOutCE
+________
+.. autoclass:: replay.models.nn.loss.LogOutCE
+   :members: __init__, forward
+
+
+Build Your Own Model
 ======================
 Building blocks for neural network models.
 
 Embedders
 _________
+
+SequentialEmbedder
+``````````````````
+.. autoclass:: replay.models.nn.sequential.common.embedding.SequentialEmbedder
+   :members: __init__, forward, embeddings_dim, get_item_weights
 
 CategoricalEmbedding
 ````````````````````
@@ -195,11 +199,6 @@ NumericalEmbedding
 ``````````````````
 .. autoclass:: replay.models.nn.sequential.common.embedding.NumericalEmbedding
    :members: __init__, forward, embedding_dim, weight
-
-SequentialEmbedder
-``````````````````
-.. autoclass:: replay.models.nn.sequential.common.embedding.SequentialEmbedder
-   :members: __init__, forward, embeddings_dim, get_item_weights
 
 
 Embedding Aggregators
@@ -222,6 +221,11 @@ _____________________
 PointWiseFeedForward
 ````````````````````
 .. autoclass:: replay.models.nn.sequential.common.ffn.PointWiseFeedForward
+   :members: __init__, forward
+
+SwiGLU
+`````````````
+.. autoclass:: replay.models.nn.sequential.common.ffn.SwiGLU
    :members: __init__, forward
 
 SwiGLUEncoder
@@ -259,7 +263,7 @@ _________________
 EmbeddingTyingHead
 ``````````````````
 .. autoclass:: replay.models.nn.sequential.common.head.EmbeddingTyingHead
-   :members: __init__, forward
+   :members: forward
 
 
 Easy training and validation with Lightning

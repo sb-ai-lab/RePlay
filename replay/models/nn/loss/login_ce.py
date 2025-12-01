@@ -102,7 +102,9 @@ class LogInCE(LogInCEBase):
 
     .. math::
 
-        L_{\\text{InfoNCE}} = -\\log \\frac{\\sum_{p \\in P} \\exp(\\mathrm{sim}(q, p))}{\\sum_{p \\in P} \\exp(\\mathrm{sim}(q, p)) + \\sum_{n \\in N} \\exp(\\mathrm{sim}(q, n))}.
+        L_{\\text{InfoNCE}} = -\\log \\frac{\\sum_{p \\in P}
+        \\exp(\\mathrm{sim}(q, p))}{\\sum_{p \\in P}
+        \\exp(\\mathrm{sim}(q, p)) + \\sum_{n \\in N} \\exp(\\mathrm{sim}(q, n))}.
 
     """
 
@@ -213,7 +215,7 @@ class LogInCESampled(LogInCEBase):
 
     .. math::
 
-        L_{\\text{InfoNCE}} = -\\log \\frac{\\sum_{p \\in P} \\exp(\\mathrm{sim}(q, p))}{\\sum_{p \\in P} 
+        L_{\\text{InfoNCE}} = -\\log \\frac{\\sum_{p \\in P} \\exp(\\mathrm{sim}(q, p))}{\\sum_{p \\in P}
         \\exp(\\mathrm{sim}(q, p)) + \\sum_{n \\in N_{\\text{sampled}}} \\exp(\\mathrm{sim}(q, n))}.
 
     """

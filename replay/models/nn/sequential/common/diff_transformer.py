@@ -29,7 +29,7 @@ class MultiHeadDifferentialAttention(torch.nn.Module):
         vdim: Optional[int] = None,
     ):
         """
-        :param embedding_dim: Total dimension of the model. Must be divisible by num_heads.
+        :param embedding_dim: Total dimension of the model. Must be divisible by ``num_heads``.
         :param num_heads: Number of parallel attention heads.
         :param lambda_init: Initial value for lambda.
         :param bias: If specified, adds bias to input / output projection layers. Default: ``False``.
@@ -80,13 +80,13 @@ class MultiHeadDifferentialAttention(torch.nn.Module):
         """
         Forward pass for Multi-Head Differential Attention.
 
-        :param query: Query sequence of shape (batch_size, sequence_length, embedding_dim).
-        :param key: Key sequence of shape (batch_size, sequence_length, embedding_dim).
-        :param value: Value sequence of shape (batch_size, sequence_length, embedding_dim).
-        :param attn_mask: attention mask, where -inf for PAD, 0 otherwise.
-            Possible shapes:
-             - (batch_size * num_heads, sequence_length, sequence_length)
-             - (batch_size, num_heads, sequence_length, sequence_length)
+        :param query: Query sequence of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param key: Key sequence of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param value: Value sequence of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param attn_mask: attention mask, where ``-inf`` for ``PAD``, ``0`` - otherwise.\n
+            Possible shapes:\n
+            1. ``(batch_size * num_heads, sequence_length, sequence_length)``
+            2. ``(batch_size, num_heads, sequence_length, sequence_length)``
         :returns: torch.Tensor: Output tensor after applying differential attention.
         """
         batch_size, seq_len, _ = value.shape
@@ -185,15 +185,15 @@ class DiffTransformerBlock(torch.nn.Module):
 
     def __init__(self, embedding_dim: int, num_heads: int, lambda_init: float):
         """
-        :param embedding_dim: Total dimension of the model. Must be divisible by num_heads.
+        :param embedding_dim: Total dimension of the model. Must be divisible by ``num_heads``.
         :param num_heads: Number of parallel attention heads.
         :param lambda_init: Initial value for lambda.
         """
         super().__init__()
         self.attn_norm = torch.nn.RMSNorm(embedding_dim)
         self.attn = MultiHeadDifferentialAttention(embedding_dim, num_heads, lambda_init, vdim=2 * embedding_dim)
-        self.ff_norm =  torch.nn.RMSNorm(embedding_dim)
-        self.ff = SwiGLU(embedding_dim, 2*embedding_dim)
+        self.ff_norm = torch.nn.RMSNorm(embedding_dim)
+        self.ff = SwiGLU(embedding_dim, 2 * embedding_dim)
 
     def reset_parameters(self) -> None:
         self.attn_norm.reset_parameters()
@@ -209,12 +209,12 @@ class DiffTransformerBlock(torch.nn.Module):
         """
         Forward pass for a single differential transformer block.
 
-        :param input_embeddings: Input tensor of shape (batch_size, sequence_length, embedding_dim).
-        :param attention_mask: Causal-like mask for attention pattern, where -inf for PAD, 0 otherwise.
-            Possible shapes:
-            - (batch_size * num_heads, sequence_length, sequence_length)
-            - (batch_size, num_heads, sequence_length, sequence_length)
-        :returns: torch.Tensor: Output tensor after processing through the block.
+        :param input_embeddings: Input tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param attention_mask: Causal-like mask for attention pattern, where ``-inf`` for ``PAD``, ``0`` - otherwise.\n
+            Possible shapes:\n
+            1. ``(batch_size * num_heads, sequence_length, sequence_length)``
+            2. ``(batch_size, num_heads, sequence_length, sequence_length)``
+        :returns: Output tensor after processing through the block.
         """
         # Apply Multi-Head Differential Attention with residual connection
         attent_emb = self.attn(
@@ -236,8 +236,8 @@ class DiffTransformerLayer(torch.nn.Module):
     Stacked blocks of the DiffTransformer Architecture.
     Single block consists of Multi-Head Differential Attention followed by a SwiGLU Feed-Forward Network.
 
-    Paper: https://arxiv.org/pdf/2410.05258
-    Code:  https://github.com/nanowell/Differential-Transformer-PyTorch/blob/main/DiffTransformer.py
+    Paper: https://arxiv.org/pdf/2410.05258\n
+    Reference:  https://github.com/nanowell/Differential-Transformer-PyTorch/blob/main/DiffTransformer.py
     """
 
     def __init__(
@@ -276,12 +276,13 @@ class DiffTransformerLayer(torch.nn.Module):
         attention_mask: torch.FloatTensor,
     ) -> torch.Tensor:
         """
-        :param input_embeddings: Input tensor of shape (batch_size, sequence_length, embedding_dim).
-        :param attention_mask: Causal-like mask for attention pattern, where -inf for PAD, 0 otherwise.
-            Possible shapes:
-            - (batch_size * num_heads, sequence_length, sequence_length)
-            - (batch_size, num_heads, sequence_length, sequence_length)
-        :returns: torch.Tensor: Output tensor after processing through the layer.
+        forward(input_embeddings, attention_mask)
+        :param input_embeddings: Input tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param attention_mask: Causal-like mask for attention pattern, where ``-inf`` for ``PAD``, ``0`` - otherwise.\n
+            Possible shapes:\n
+            1. ``(batch_size * num_heads, sequence_length, sequence_length)``
+            2. ``(batch_size, num_heads, sequence_length, sequence_length)``
+        :returns: Output tensor after processing through the layer.
         """
         seqs = input_embeddings
         for layer in self.layers:

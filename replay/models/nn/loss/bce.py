@@ -113,6 +113,7 @@ class BCESampled(SampledLossBase):
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
         """
+        forward(model_embeddings, positive_labels, negative_labels, target_padding_mask)
         :param model_embeddings: model output of shape (batch_size, sequence_length, embedding_dim).
         :param positive_labels: ground truth labels of positive events
             of shape (batch_size, sequence_length, num_positives).
