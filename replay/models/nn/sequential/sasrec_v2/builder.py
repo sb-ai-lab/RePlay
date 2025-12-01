@@ -130,7 +130,7 @@ class SasRecBuilder:
 
         self.embedder(
             SequentialEmbedder(
-                tensor_schema,
+                schema=tensor_schema,
                 categorical_list_feature_aggregation_method=categorical_list_feature_aggregation_method,
                 excluded_features=excluded_features,
             )

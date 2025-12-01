@@ -237,7 +237,7 @@ class DiffTransformerLayer(torch.nn.Module):
     Single block consists of Multi-Head Differential Attention followed by a SwiGLU Feed-Forward Network.
 
     Paper: https://arxiv.org/pdf/2410.05258\n
-    Reference:  https://github.com/nanowell/Differential-Transformer-PyTorch/blob/main/DiffTransformer.py
+    Reference: https://github.com/nanowell/Differential-Transformer-PyTorch/blob/main/DiffTransformer.py
     """
 
     def __init__(

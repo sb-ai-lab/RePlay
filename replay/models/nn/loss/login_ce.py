@@ -117,9 +117,9 @@ class LogInCE(LogInCEBase):
         """
         :param vocab_size: number of unique items in vocabulary (catalog).
         :param log_epsilon: correction to avoid zero in the logarithm during loss calculating.
-            Default: 1e-6.
-        :param clamp_border: upper bound for clamping loss tensor, lower bound will be setted to -`clamp_border`.
-            Default: 100.0.
+            Default: ``1e-6``.
+        :param clamp_border: upper bound for clamping loss tensor, lower bound will be setted to ``-clamp_border``.
+            Default: ``100.0``.
         """
         super().__init__()
         self.vocab_size = vocab_size
@@ -150,14 +150,14 @@ class LogInCE(LogInCEBase):
         """
         Forward pass for LogInCE.
 
-        Note: At forward pass, the whole catalog of items is used as negatives.
+        **Note**: At forward pass, the whole catalog of items is used as negatives.
         Next, negative logits, corresponding to positions where negative labels
         coincide with positive ones, are masked.
 
-        :param model_embeddings: model output of shape (batch_size, sequence_length, embedding_dim).
+        :param model_embeddings: model output of shape ``(batch_size, sequence_length, embedding_dim)``.
         :param positive_labels: ground truth labels of positive events
             of shape (batch_size, sequence_length, num_positives).
-        :param target_padding_mask: padding mask corresponding for `positive_labels`
+        :param target_padding_mask: padding mask corresponding for ``positive_labels``
             of shape (batch_size, sequence_length, num_positives).
         :return: computed loss value.
         """
