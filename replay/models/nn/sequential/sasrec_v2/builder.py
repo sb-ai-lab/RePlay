@@ -135,16 +135,26 @@ class SasRecBuilder:
                 excluded_features=excluded_features,
             )
         )
-        self.attn_mask_builder(DefaultAttentionMaskBuilder(tensor_schema, head_count))
+        self.attn_mask_builder(
+            DefaultAttentionMaskBuilder(reference_feature_name=tensor_schema.item_id_feature_name, num_heads=head_count)
+        )
 
         self.embedding_aggregator(
             SasRecEmbeddingAggregator(
-                SumAggregator(embedding_dim),
-                max_sequence_length,
-                dropout,
+                embedding_aggregator=SumAggregator(embedding_dim=embedding_dim),
+                max_sequence_length=max_sequence_length,
+                dropout=dropout,
             )
         )
-        self.encoder(TransformerLayer(embedding_dim, head_count, block_count, dropout, "relu"))
+        self.encoder(
+            TransformerLayer(
+                embedding_dim=embedding_dim,
+                num_heads=head_count,
+                num_blocks=block_count,
+                dropout=dropout,
+                activation="relu",
+            )
+        )
         self.output_normalization(torch.nn.LayerNorm(embedding_dim))
         self.loss(CE(padding_value=tensor_schema.item_id_features.item().padding_value))
         return self

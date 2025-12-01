@@ -130,6 +130,7 @@ class SwiGLUEncoder(torch.nn.Module):
         input_embeddings: torch.Tensor,
     ) -> torch.Tensor:
         """
+        forward(input_embeddings)
         :param input_embeddings: Input tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
         :returns: Output tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
         """
