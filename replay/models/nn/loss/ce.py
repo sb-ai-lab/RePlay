@@ -92,7 +92,7 @@ class CESampled(SampledLossBase):
 
     def __init__(self, padding_idx: int):
         """
-        :param padding_idx: :param padding_idx: padding id for label to be ignored during loss calculation.
+        :param padding_idx: padding id for label to be ignored during loss calculation.
         """
         super().__init__()
         self.padding_idx = padding_idx
