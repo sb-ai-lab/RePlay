@@ -75,7 +75,7 @@ class SasRecBuilder:
     def loss(self, loss: LossProto) -> "SasRecBuilder":
         """
         :param loss: An object of a class that performs loss calculation
-            based on hidden states from the model, positive and negative labels.
+            based on hidden states from the model, positive and optionally negative labels.
         """
         self._loss = loss
         return self
@@ -107,7 +107,7 @@ class SasRecBuilder:
             Default: ``0.3``.
         :param excluded_features: A list containing the names of features
             for which you do not need to generate an embedding.
-            Fragments from this list are expected to be contained in `schema`.
+            Fragments from this list are expected to be contained in ``schema``.
             Default: ``None``.
         :param categorical_list_feature_aggregation_method: Mode to aggregate tokens
             in token item representation (categorical list only).

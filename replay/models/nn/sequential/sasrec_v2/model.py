@@ -69,7 +69,7 @@ class SasRecBody(torch.nn.Module):
             features, padding masks, attention mask, and aggregated embedding.
         :param output_normalization: An object of a class that performs the logic of
             normalization of the hidden state obtained from the encoder.\n
-            For example, it can be a ``torch.nn.LayerNorm`` or ``torch.nn.RMSNorm``.
+            For example, it may be a ``torch.nn.LayerNorm`` or ``torch.nn.RMSNorm``.
         """
         super().__init__()
         self.embedder = embedder
@@ -91,11 +91,11 @@ class SasRecBody(torch.nn.Module):
     ) -> torch.Tensor:
         """
         :param feature_tensors: a dictionary of tensors to generate embeddings.
-        :param padding_mask: A mask of shape (``batch_size``, ``sequence_length``)
+        :param padding_mask: A mask of shape ``(batch_size, sequence_length)``
             indicating which elements within ``key`` to ignore for the purpose of attention (i.e. treat as "padding").
             ``False`` value indicates that the corresponding ``key`` value will be ignored.
         :returns: The final hidden state.\n
-            Expected shape: (``batch_size``, ``sequence_length``, ``embedding_dim``)
+            Expected shape: ``(batch_size, sequence_length, embedding_dim)``
         """
         embeddings = self.embedder(feature_tensors)
         agg_emb: torch.Tensor = self.embedding_aggregator(embeddings)
@@ -226,11 +226,11 @@ class SasRec(torch.nn.Module):
     ) -> Union[TrainOutput, InferenceOutput]:
         """
         :param feature_tensors: a dictionary of tensors to generate embeddings.
-        :param padding_mask: A mask of shape (``batch_size``, ``sequence_length``)
+        :param padding_mask: A mask of shape ``(batch_size, sequence_length)``
             indicating which elements within ``key`` to ignore for the purpose of attention (i.e. treat as "padding").
             ``False`` value indicates that the corresponding ``key`` value will be ignored.
         :param candidates_to_score: a tensor containing IDs for which you need to get logits at the inference stage.
-            Please note that you must take into account the padding value when creating the tensor.\n
+            **Note:** that you must take into account the padding value when creating the tensor.\n
             The tensor participates in calculations only on the inference stage.
             You don't have to submit an argument at training stage,
             but if it is submitted, then no effect will be provided.\n
@@ -240,12 +240,12 @@ class SasRec(torch.nn.Module):
             but if it is submitted, then no effect will be provided.\n
             Default: ``None``.
         :param negative_labels: a tensor containing negative labels for calculating the loss.
-            Before run make sure that your loss supports calculations with negative labels.\n
+            **Note:** Before run make sure that your loss supports calculations with negative labels.\n
             You don't have to submit an argument at inference stage,
             but if it is submitted, then no effect will be provided.\n
             Default: ``None``.
-        :param target_padding_mask: A mask of shape (``batch_size``, ``sequence_length``, ``num_positives``)
-            indicating which elements to ignore during loss calculation.
+        :param target_padding_mask: A mask of shape ``(batch_size, sequence_length, num_positives)``
+            indicating elements to ignore during loss calculation.
             ``False`` value indicates that the corresponding value will be ignored.\n
             You don't have to submit an argument at inference stage,
             but if it is submitted, then no effect will be provided.\n
