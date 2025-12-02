@@ -2,14 +2,14 @@ import pandas as pd
 import pytest
 
 from replay.data import Dataset, FeatureHint, FeatureInfo, FeatureSchema, FeatureSource, FeatureType
-from replay.utils import TORCH_AVAILABLE
 
-if TORCH_AVAILABLE:
-    import lightning as L
-    import torch
+pytest.importorskip("torch")
 
-    from replay.data.nn import SequenceTokenizer, TensorFeatureInfo, TensorFeatureSource, TensorSchema
-    from replay.models.nn.sequential.sasrec import SasRec, SasRecTrainingDataset
+import lightning as L
+import torch
+
+from replay.data.nn import SequenceTokenizer, TensorFeatureInfo, TensorFeatureSource, TensorSchema
+from replay.models.nn.sequential.sasrec import SasRec, SasRecTrainingDataset
 
 
 @pytest.fixture(scope="module")
