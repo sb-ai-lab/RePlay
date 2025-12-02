@@ -47,19 +47,6 @@ class LogOutCE(torch.nn.Module):
         for example, the ``get_logits`` method of the ``SasRec`` class.
 
         :return: callable function.
-
-        Example:
-        The __init__ method of SasRec class contains the following code:
-
-        .. code-block::
-            self.loss = loss
-            self.loss.logits_callback = self.get_logits
-
-        So, the calling of get_logits in loss object
-        ``loss.get_logits(model_embeddings, candidates_to_score)``
-        gives the same result as calling
-        ``self.get_logits(model_embeddings, candidates_to_score)``
-
         """
         if self._logits_callback is None:
             msg = "The callback for getting logits is not defined"
