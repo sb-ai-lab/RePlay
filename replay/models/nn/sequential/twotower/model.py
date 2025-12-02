@@ -5,13 +5,13 @@ from typing import Literal, Optional, Protocol, Union
 import pandas as pd
 import torch
 
-from amazme.replay.data.nn import TensorMap, TensorSchema
-from amazme.replay.models.nn.loss import LossProto
-from amazme.replay.models.nn.output import InferenceOutput, TrainOutput
-from amazme.replay.models.nn.sequential.common.head import EmbeddingTyingHead
-from amazme.replay.models.nn.sequential.common.mask import AttentionMaskBuilderProto
-from amazme.replay.models.nn.sequential.common.normalization import NormalizerProto
-from amazme.replay.models.nn.utils import warning_is_not_none
+from replay.data.nn import TensorMap, TensorSchema
+from replay.models.nn.loss import LossProto
+from replay.models.nn.output import InferenceOutput, TrainOutput
+from replay.models.nn.sequential.common.head import EmbeddingTyingHead
+from replay.models.nn.sequential.common.mask import AttentionMaskBuilderProto
+from replay.models.nn.sequential.common.normalization import NormalizerProto
+from replay.models.nn.utils import warning_is_not_none
 
 FeatureDesc = dict[Union[str, int, float], int]
 
@@ -64,6 +64,9 @@ class ItemEncoderProto(Protocol):
 
 
 class QueryTower(torch.nn.Module):
+    """
+    Query Tower of Two-Tower model.
+    """
     def __init__(
         self,
         embedder: EmbedderProto,
@@ -73,6 +76,23 @@ class QueryTower(torch.nn.Module):
         encoder: QueryEncoderProto,
         output_normalization: NormalizerProto,
     ):
+        """
+        :param embedder: An object of a class that performs the logic of
+            generating embeddings from an input set of tensors.\n
+            An embedder with the same arguments is used for both towers, but each tower has its own instance.
+        :param feature_names: sequence of names used in query tower.
+        :param attn_mask_builder: An object of a class that performs the logic of
+            generating an attention mask based on the features and padding mask given to the model.
+        :param embedding_aggregator: An object of a class that performs 
+            the logic of aggregating multiple embeddings of query tower.
+        :param encoder: An object of a class that performs the logic of generating
+            a query hidden embedding representation based on
+            features, padding masks, attention mask, and aggregated embedding of ``query_tower_feature_names``. 
+            It's supposed to be a transformer.
+        :param output_normalization: An object of a class that performs the logic of
+            normalization of the hidden state obtained from the query encoder.\n
+            For example, it can be a ``torch.nn.LayerNorm`` or ``torch.nn.RMSNorm``.
+        """ 
         super().__init__()
         self.embedder = embedder
         self.attn_mask_builder = attn_mask_builder
@@ -91,13 +111,20 @@ class QueryTower(torch.nn.Module):
         feature_tensors: TensorMap,
         padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
+        """
+        :param feature_tensors: a dictionary of tensors to generate embeddings.
+        :param padding_mask: A mask of shape ``(batch_size, sequence_length)``
+            indicating which elements within ``key`` to ignore for the purpose of attention (i.e. treat as "padding").
+            ``False`` value indicates that the corresponding ``key`` value will be ignored.
+        :returns: The final hidden state.\n
+            Expected shape: ``(batch_size, sequence_length, embedding_dim)``
+        """
         embeddings: TensorMap = self.embedder(feature_tensors, self.feature_names)
         agg_emb: torch.Tensor = self.embedding_aggregator(embeddings)
         assert agg_emb.dim() == 3
 
         attn_mask = self.attn_mask_builder(feature_tensors, padding_mask)
-        print(attn_mask.shape)
-        print(attn_mask)
+
         hidden_state: torch.Tensor = self.encoder(
             feature_tensors=feature_tensors,
             input_embeddings=agg_emb,
@@ -111,6 +138,9 @@ class QueryTower(torch.nn.Module):
 
 
 class ItemReference:
+    """
+    Prepares a dataframe of tensors with item features that will be used for training and inference of the Item Tower.
+    """
     def __init__(self, item_reference: dict[str, dict[Union[str, int, float], int]]):
         # {feature_name: {value0: idx0, value1: idx1, ...}, ...}
         self.item_reference = item_reference
@@ -229,6 +259,11 @@ class ItemReference:
 
 
 class ItemTower(torch.nn.Module):
+    """
+    Item Tower of Two-Tower model.
+
+    Note: ItemTower loads feature tensors of all items into memory. 
+    """
     def __init__(
         self,
         schema: TensorSchema,
@@ -239,6 +274,21 @@ class ItemTower(torch.nn.Module):
         feature_mapping_path: str,
         item_reference_path: str,
     ):
+        """
+        :param schema: tensor schema object with metainformation about features.
+        :param embedder: An object of a class that performs the logic of
+            generating embeddings from an input set of tensors.\n
+            An embedder with the same arguments is used for both towers, but each tower has its own instance.
+        :param embedding_aggregator: An object of a class that performs 
+            the logic of aggregating multiple embeddings of item tower.
+        :param encoder: An object of a class that performs the logic of generating
+            an item hidden embedding representation based on
+            features and aggregated embeddings of ``item_tower_feature_names``. 
+            Item encoder uses item reference which is created based on ``item_reference_path``.
+        :param feature_names: sequence of names used in item tower.
+        :param feature_mapping_path: The path to mapping from the original IDs to the encoded ones.
+        :param item_reference_path: Path to dataframe with all items with features used in ``item_encoder`` (item "tower").
+        """
         super().__init__()
         self.embedder = embedder
         self.feature_names = feature_names
@@ -272,6 +322,15 @@ class ItemTower(torch.nn.Module):
         self,
         candidates_to_score: Optional[torch.LongTensor] = None,
     ):
+        """
+        :param candidates_to_score: IDs of items using for obtaining item embeddings from item tower.
+            If is setted to None, all item embeddings from item tower will be returned.
+            Default: None.
+        :return: item embeddings.\n
+            Expected shape:\n 
+                - ``(candidates_to_score, embedding_dim)``,
+                - ``(items_num, embedding_dim)`` if ``candidates_to_score`` is None.
+        """
         if self.training:
             self.cache = None
 
@@ -305,6 +364,12 @@ class ItemTower(torch.nn.Module):
 
 
 class TwoTowerBase(torch.nn.Module):
+    """
+    Foundation for Two-Tower model which creates query "tower" and item "tower".\n
+
+    For usage of two tower model, it should be added a forward pass with any scoring function 
+    for the hidden states of both towers, like a dot product.
+    """
     def __init__(
         self,
         schema: TensorSchema,
@@ -363,6 +428,13 @@ class ContextMergerProto(Protocol):
 
 
 class TwoTower(torch.nn.Module):
+    """
+    Implementation generic Two-Tower architecture with two independent "towers" (encoders) 
+    which encode separate inputs. In recommender systems they are typically query tower and item tower.\n
+    The output hidden states of each "tower" are fused via dot product in the model head.
+
+    Paper: https://doi.org/10.1145/3366424.3386195
+    """
     def __init__(
         self,
         schema: TensorSchema,
@@ -380,6 +452,38 @@ class TwoTower(torch.nn.Module):
         loss: LossProto,
         context_merger: Optional[ContextMergerProto] = None,
     ):
+        """
+        :param schema: tensor schema object with metainformation about features.
+        :param embedder: An object of a class that performs the logic of
+            generating embeddings from an input set of tensors.\n
+            An embedder with the same arguments is used for both towers, but each tower has its own instance.
+        :param attn_mask_builder: An object of a class that performs the logic of
+            generating an attention mask based on the features and padding mask given to the model.
+        :param query_tower_feature_names: sequence of names used in query tower.
+        :param item_tower_feature_names: sequence of names used in item tower.
+        :param query_embedding_aggregator: An object of a class that performs 
+            the logic of aggregating multiple embeddings of query tower.
+        :param item_embedding_aggregator: An object of a class that performs 
+            the logic of aggregating multiple embeddings of item tower.
+        :param query_encoder: An object of a class that performs the logic of generating
+            a query hidden embedding representation based on
+            features, padding masks, attention mask, and aggregated embedding of ``query_tower_feature_names``. 
+            It's supposed to be a transformer.
+        :param query_tower_output_normalization: An object of a class that performs the logic of
+            normalization of the hidden state obtained from the query encoder.\n
+            For example, it can be a ``torch.nn.LayerNorm`` or ``torch.nn.RMSNorm``.
+        :param item_encoder: An object of a class that performs the logic of generating
+            an item hidden embedding representation based on
+            features and aggregated embeddings of ``item_tower_feature_names``. 
+            Item encoder uses item reference which is created based on ``item_reference_path``.
+        :param feature_mapping_path: The path to mapping from the original IDs to the encoded ones.
+        :param item_reference_path: Path to dataframe with all items with features used in ``item_encoder`` (item "tower").
+        :param loss: An object of a class that performs loss calculation
+            based on hidden states from the model, positive and optionally negative labels.
+        :param context_merger: An object of class that performs fusing query encoder hidden state
+            with input feature tensors. 
+            Default: None.
+        """        
         super().__init__()
         self.body = TwoTowerBase(
             schema=schema,
@@ -410,6 +514,17 @@ class TwoTower(torch.nn.Module):
         model_embeddings: torch.Tensor,
         candidates_to_score: Optional[torch.LongTensor] = None,
     ) -> torch.Tensor:
+        """
+        Function for tying last hidden states of query "tower" and set of item embeddings from item "tower"
+        via dot product in the model head.
+
+        :param model_embeddings: last hidden state of query tower.
+        :param candidates_to_score: IDs of items to be scored. 
+            These IDs are used for obtaining item embeddings from item tower.
+            If is setted to None, all item embeddings from item tower will be used.
+            Default: None.
+        :return: logits.
+        """        
         item_embeddings: torch.Tensor = self.body.item_tower(candidates_to_score)
         logits: torch.Tensor = self.head(model_embeddings, item_embeddings)
         return logits
@@ -492,6 +607,36 @@ class TwoTower(torch.nn.Module):
         negative_labels: Optional[torch.LongTensor] = None,
         target_padding_mask: Optional[torch.BoolTensor] = None,
     ) -> Union[TrainOutput, InferenceOutput]:
+        """
+        :param feature_tensors: a dictionary of tensors to generate embeddings.
+        :param padding_mask: A mask of shape ``(batch_size, sequence_length)``
+            indicating which elements within ``key`` to ignore for the purpose of attention (i.e. treat as "padding").
+            ``False`` value indicates that the corresponding ``key`` value will be ignored.
+        :param candidates_to_score: a tensor containing item IDs for which you need to get logits at the inference stage.\n
+            **Note:** you must take into account the padding value when creating the tensor.\n
+            The tensor participates in calculations only on the inference stage.
+            You don't have to submit an argument at training stage,
+            but if it is submitted, then no effect will be provided.\n
+            Default: ``None``.
+        :param positive_labels: a tensor containing positive labels for calculating the loss.\n
+            You don't have to submit an argument at inference stage,
+            but if it is submitted, then no effect will be provided.\n
+            Default: ``None``.
+        :param negative_labels: a tensor containing negative labels for calculating the loss.\n
+            **Note:** Before run make sure that your loss supports calculations with negative labels.\n
+            You don't have to submit an argument at inference stage,
+            but if it is submitted, then no effect will be provided.\n
+            Default: ``None``.
+        :param target_padding_mask: A mask of shape ``(batch_size, sequence_length, num_positives)``
+            indicating elements from ``positive_labels`` to ignore during loss calculation.
+            ``False`` value indicates that the corresponding value will be ignored.\n
+            You don't have to submit an argument at inference stage,
+            but if it is submitted, then no effect will be provided.\n
+            Default: ``None``.
+        :returns: During training, the model will return an object
+            of the ``TrainOutput`` container class.
+            At the inference stage, the ``InferenceOutput`` class will be returned.
+        """
         if self.training:
             all(
                 map(

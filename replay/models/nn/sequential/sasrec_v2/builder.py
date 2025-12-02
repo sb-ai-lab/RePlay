@@ -18,7 +18,7 @@ from .model import (
 class SasRecBuilder:
     """
     The builder class for the SasRec model.
-    It allows you to construct a model in parts,
+    It allows to construct a model in parts,
     and also provides the opportunity to build a model from standard blocks inside the library.
     """
 

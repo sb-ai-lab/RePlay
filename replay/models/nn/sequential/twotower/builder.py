@@ -1,6 +1,8 @@
 from collections.abc import Sequence
 from typing import Optional
+
 import torch
+
 from replay.data.nn import TensorSchema
 from replay.models.nn.loss import LossProto
 from replay.models.nn.sequential.common.mask import AttentionMaskBuilderProto
@@ -17,6 +19,11 @@ from .model import (
 
 
 class TwoTowerBuilder:
+    """
+    The builder class for the TwoTower model.
+    It allows to construct a model in parts,
+    and also provides the opportunity to build a model from standard blocks inside the library.
+    """
     def __init__(self) -> None:
         self._schema = None
         self._embedder = None
