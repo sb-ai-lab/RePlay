@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.abspath(".."))
 # -- Project information -----------------------------------------------------
 
 project = "RePlay"
-copyright = "2023, Sberbank AI Laboratory"
+copyright = "2026, Sberbank AI Laboratory"
 author = "Sber AI Lab"
 
 
@@ -34,11 +34,15 @@ author = "Sber AI Lab"
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
-    "sphinx_autodoc_typehints",
     "sphinx_enum_extend",
     "myst_parser",
+    # "sphinx.ext.autosectionlabel",
 ]
 source_suffix = [".rst", ".md"]
+
+autodoc_docstring_signature = True
+autodoc_typehints = "description"
+autodoc_typehints_description_target = "documented_params"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]

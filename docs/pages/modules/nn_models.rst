@@ -139,6 +139,144 @@ ________________
 .. autoclass:: replay.models.nn.sequential.compiled.Bert4RecCompiled
    :members: compile, predict
 
+
+Losses
+======
+
+**Multi-positive labels support**
+
+   `BCE`_, `BCESampled`_, `CESampled`_, `LogInCE`_, `LogInCESampled`_, `LogOutCE`_ support the calculation of logits for the case of multi-positive labels (there are several labels for each position in the sequence).
+
+   Source: https://arxiv.org/abs/2205.04507
+
+
+
+
+BCE
+___
+.. autoclass:: replay.models.nn.loss.BCE
+   :members: forward
+
+BCESampled
+__________
+.. autoclass:: replay.models.nn.loss.BCESampled
+   :members: __init__, forward
+
+CE
+___
+.. autoclass:: replay.models.nn.loss.CE
+   :members: __init__, forward
+
+CESampled
+__________
+.. autoclass:: replay.models.nn.loss.CESampled
+   :members: __init__, forward
+
+LogInCE
+_______
+.. autoclass:: replay.models.nn.loss.LogInCE
+   :members: __init__, forward
+
+LogInCESampled
+______________
+.. autoclass:: replay.models.nn.loss.LogInCESampled
+   :members: __init__, forward
+
+LogOutCE
+________
+.. autoclass:: replay.models.nn.loss.LogOutCE
+   :members: __init__, forward
+
+
+Model Building Blocks
+======================
+Building blocks for neural network models.
+
+
+Embedders
+_________
+
+SequentialEmbedder
+``````````````````
+.. autoclass:: replay.models.nn.sequential.common.embedding.SequentialEmbedder
+   :members: __init__, forward, embeddings_dim, get_item_weights
+
+CategoricalEmbedding
+````````````````````
+.. autoclass:: replay.models.nn.sequential.common.embedding.CategoricalEmbedding
+   :members: __init__, forward, embedding_dim, weight
+
+NumericalEmbedding
+``````````````````
+.. autoclass:: replay.models.nn.sequential.common.embedding.NumericalEmbedding
+   :members: __init__, forward, embedding_dim, weight
+
+
+Embedding Aggregators
+_____________________
+
+SumAggregator
+`````````````
+.. autoclass:: replay.models.nn.sequential.common.agg.SumAggregator
+   :members: __init__, forward, embedding_dim
+
+ConcatAggregator
+````````````````
+.. autoclass:: replay.models.nn.sequential.common.agg.ConcatAggregator
+   :members: __init__, forward, embedding_dim
+
+
+Feed Forward Networks
+_____________________
+
+PointWiseFeedForward
+````````````````````
+.. autoclass:: replay.models.nn.sequential.common.ffn.PointWiseFeedForward
+   :members: __init__, forward
+
+SwiGLU
+`````````````
+.. autoclass:: replay.models.nn.sequential.common.ffn.SwiGLU
+   :members: __init__, forward
+
+SwiGLUEncoder
+`````````````
+.. autoclass:: replay.models.nn.sequential.common.ffn.SwiGLUEncoder
+   :members: __init__, forward
+
+
+Attention Masks
+_____________________
+
+DefaultAttentionMaskBuilder
+```````````````````````````
+.. autoclass:: replay.models.nn.sequential.common.mask.DefaultAttentionMaskBuilder
+   :members: __init__, __call__
+
+
+Transformer Layers
+__________________
+
+TransformerLayer
+````````````````
+.. autoclass:: replay.models.nn.sequential.common.transformer.TransformerLayer
+   :members: __init__, forward
+
+DiffTransformerLayer
+````````````````````
+.. autoclass:: replay.models.nn.sequential.common.diff_transformer.DiffTransformerLayer
+   :members: __init__, forward
+
+
+Transformer Heads
+_________________
+
+EmbeddingTyingHead
+``````````````````
+.. autoclass:: replay.models.nn.sequential.common.head.EmbeddingTyingHead
+   :members: forward
+
+
 Easy training and validation with Lightning
 ========================================================
 Replay provides Callbacks and Postprocessors to make the model training and validation process as convenient as possible.

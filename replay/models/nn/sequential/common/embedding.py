@@ -24,7 +24,7 @@ class SequentialEmbedder(torch.nn.Module):
             for which you need to generate an embedding.
         :param excluded_features: A list containing the names of features
             for which you do not need to generate an embedding.
-            Fragments from this list are expected to be contained in `schema`.
+            Fragments from this list are expected to be contained in ``schema``.
             Default: ``None``.
         :param categorical_list_feature_aggregation_method: Mode to aggregate tokens
             in token item representation (categorical list only).
@@ -65,10 +65,10 @@ class SequentialEmbedder(torch.nn.Module):
     def forward(self, feature_tensor: TensorMap, feature_names: Optional[Sequence[str]] = None) -> TensorMap:
         """
         :param feature_tensor: a dictionary of tensors to generate embedding.
-            It is expected that the keys from this dictionary match the names of the features in the given `schema`.
+            It is expected that the keys from this dictionary match the names of the features in the given ``schema``.
         :param feature_names: A custom list of features for which embeddings need to be generated.
-            It is expected that the values from this list match the names of the features in the given `schema`.
-            Default: `None`. This means that the names of the features from the `schema` will be used.
+            It is expected that the values from this list match the names of the features in the given ``schema``.\n
+            Default: ``None``. This means that the names of the features from the ``schema`` will be used.
 
         :returns: a dictionary with tensors that contains embeddings.
         """
@@ -86,9 +86,14 @@ class SequentialEmbedder(torch.nn.Module):
 
     def get_item_weights(self, indices: Optional[torch.LongTensor] = None) -> torch.Tensor:
         """
-        Getting the embedding weights for a feature that matches the `item_id`.
+        Getting the embedding weights for a feature that matches the item id feature
+        with the name specified in the ``schema``.
         It is expected that embeddings for this feature will definitely exist.
-        Note: the row corresponding to the padding will be excluded from the returned weights.
+        **Note**: the row corresponding to the padding will be excluded from the returned weights.
+        This logic will work if given ``indices`` is ``None``.
+
+        :param indices: Items indices.
+        :returns: Embeddings for specific items.
         """
         if indices is None:
             return self.feature_embedders[self._item_feature_name].weight
@@ -212,7 +217,7 @@ class NumericalEmbedding(torch.nn.Module):
     The embedding generation class for numerical features.
     It supports working with single features for each event in sequence, as well as several (numerical list).
 
-    Note: if the `embedding_dim` for an incoming feature matches its last dimension (`tensor_dim`),
+    **Note**: if the ``embedding_dim`` for an incoming feature matches its last dimension (``tensor_dim``),
     then transformation will not be applied.
     """
 
@@ -242,14 +247,14 @@ class NumericalEmbedding(torch.nn.Module):
     def weight(self) -> torch.Tensor:
         """
         Returns the weight of the applied layer.
-        If `embedding_dim` matches `tensor_dim`, then the identity matrix will be returned.
+        If ``embedding_dim`` matches ``tensor_dim``, then the identity matrix will be returned.
         """
         return self.linear.weight
 
     def forward(self, values: torch.FloatTensor) -> torch.Tensor:
         """
-        Numerical embedding forward pass.
-        Note: if the `embedding_dim` for an incoming feature matches its last dimension (`tensor_dim`),
+        Numerical embedding forward pass.\n
+        **Note**: if the ``embedding_dim`` for an incoming feature matches its last dimension (``tensor_dim``),
         then transformation will not be applied.
 
         :param values: feature values.

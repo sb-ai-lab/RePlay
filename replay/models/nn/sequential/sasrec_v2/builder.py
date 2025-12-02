@@ -75,7 +75,7 @@ class SasRecBuilder:
     def loss(self, loss: LossProto) -> "SasRecBuilder":
         """
         :param loss: An object of a class that performs loss calculation
-            based on hidden states from the model, positive and negative labels.
+            based on hidden states from the model, positive and optionally negative labels.
         """
         self._loss = loss
         return self
@@ -107,7 +107,7 @@ class SasRecBuilder:
             Default: ``0.3``.
         :param excluded_features: A list containing the names of features
             for which you do not need to generate an embedding.
-            Fragments from this list are expected to be contained in `schema`.
+            Fragments from this list are expected to be contained in ``schema``.
             Default: ``None``.
         :param categorical_list_feature_aggregation_method: Mode to aggregate tokens
             in token item representation (categorical list only).
@@ -130,21 +130,31 @@ class SasRecBuilder:
 
         self.embedder(
             SequentialEmbedder(
-                tensor_schema,
+                schema=tensor_schema,
                 categorical_list_feature_aggregation_method=categorical_list_feature_aggregation_method,
                 excluded_features=excluded_features,
             )
         )
-        self.attn_mask_builder(DefaultAttentionMaskBuilder(tensor_schema, head_count))
+        self.attn_mask_builder(
+            DefaultAttentionMaskBuilder(reference_feature_name=tensor_schema.item_id_feature_name, num_heads=head_count)
+        )
 
         self.embedding_aggregator(
             SasRecEmbeddingAggregator(
-                SumAggregator(embedding_dim),
-                max_sequence_length,
-                dropout,
+                embedding_aggregator=SumAggregator(embedding_dim=embedding_dim),
+                max_sequence_length=max_sequence_length,
+                dropout=dropout,
             )
         )
-        self.encoder(TransformerLayer(embedding_dim, head_count, block_count, dropout, "relu"))
+        self.encoder(
+            TransformerLayer(
+                embedding_dim=embedding_dim,
+                num_heads=head_count,
+                num_blocks=block_count,
+                dropout=dropout,
+                activation="relu",
+            )
+        )
         self.output_normalization(torch.nn.LayerNorm(embedding_dim))
         self.loss(CE(padding_value=tensor_schema.item_id_features.item().padding_value))
         return self
