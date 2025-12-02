@@ -96,7 +96,7 @@ class TwoTowerBuilder:
         self._context_merger = context_merger
         return self
 
-    def deafult(
+    def default(
         self,
         tensor_schema: TensorSchema,
         feature_mapping_path: str,
