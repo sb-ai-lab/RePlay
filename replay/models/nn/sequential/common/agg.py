@@ -46,7 +46,7 @@ class SumAggregator(torch.nn.Module):
         :param feature_tensors: a dictionary of tensors to sum up.
             The dimensions of all tensors in the dictionary must match.
 
-        :returns: torch.Tensor. The last dimension of the tensor is `embedding_dim`.
+        :returns: torch.Tensor. The last dimension of the tensor is ``embedding_dim``.
         """
         out = sum(feature_tensors.values())
         assert out.size(-1) == self.embedding_dim
@@ -58,8 +58,8 @@ class ConcatAggregator(torch.nn.Module):
     The class concatenates incoming embeddings by the last dimension.
 
     If you need to concatenate several embeddings,
-    then a linear layer will be applied to get the last dimension equal to `embedding_dim`.
-    If only one embedding comes to the input, then its last dimension is expected to be equal to `embedding_dim`.
+    then a linear layer will be applied to get the last dimension equal to ``embedding_dim``.\n
+    If only one embedding comes to the input, then its last dimension is expected to be equal to ``embedding_dim``.
     """
 
     def __init__(
@@ -98,7 +98,7 @@ class ConcatAggregator(torch.nn.Module):
 
         :param feature_tensors: a dictionary of tensors to concatenate.
 
-        :returns: torch.Tensor. The last dimension of the tensor is `embedding_dim`.
+        :returns: The last dimension of the tensor is ``embedding_dim``.
         """
         # To maintain determinism, we concatenate the tensors in sorted order by names.
         sorted_names = sorted(feature_tensors.keys())

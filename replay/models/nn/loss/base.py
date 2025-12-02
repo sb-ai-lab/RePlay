@@ -50,23 +50,22 @@ class SampledLossBase(torch.nn.Module):
     ) -> SampledLossOutput:
         """
         The function of calculating positive and negative logits.
-        Based on the embeddingы from the model, positive and negative labels.
+        Based on the model last hidden state, positive and negative labels.
 
         The function supports the calculation of logits for the case of multi-positive labels
         (there are several labels for each position in the sequence).
 
         :param model_embeddings: Embeddings from the model. This is usually the last hidden state.
-            Expected shape: (batch_size, sequence_length, embedding_dim)
+            Expected shape: ``(batch_size, sequence_length, embedding_dim)``
         :param positive_labels: a tensor containing labels with positive events.
-            Expected shape: (batch_size, sequence_length, num_positives)
+            Expected shape: ``(batch_size, sequence_length, num_positives)``
         :param negative_labels: a tensor containing labels with negative events.
             Expected shape:
-                - (batch_size, sequence_length, num_negatives)
-                - (num_negatives) - a case where the same negative events are used for the entire batch
-        :param target_padding_mask: Padding mask for targets.
-            It is used to determine the "reality" of an event.
-            If the value is `False`, it means that the event will not be taken into account when calculating the logits.
-            Expected shape: (batch_size, sequence_length, num_positives)
+                - ``(batch_size, sequence_length, num_negatives)``.
+                - ``(num_negatives)`` - a case where the same negative events are used for the entire batch.
+        :param target_padding_mask: Padding mask for ``positive_labels`` (targets).
+            ``False`` value indicates that the corresponding ``key`` value will be ignored.
+            Expected shape: ``(batch_size, sequence_length, num_positives)``
 
         :returns: SampledLossOutput. A dictionary containing positive and negative logits with labels.
         """
@@ -146,7 +145,7 @@ def mask_negative_logits(
     Assign very small values in negative logits
     for those positions in which positive labels equal to negative ones.
 
-    :param negative_logits: Embeddings from the model. This is usually the last hidden state.
+    :param negative_logits: Logits from the model for ``negative labels``.
         Expected shape: (masked_batch_size, num_negatives)
     :param negative_labels: a tensor containing labels with negative events.
         Expected shape:
@@ -155,7 +154,8 @@ def mask_negative_logits(
     :param positive_labels: a tensor containing labels with positive events.
         Expected shape: (masked_batch_size, num_positives)
 
-    :returns: Negative logits with modified elements in those places where positive labels equal to negative ones.
+    :returns: Negative logits with modified elements in those positions
+        where positive labels are equal to negative ones.
     """
 
     if negative_labels.dim() > 1:  # explicit_negatives

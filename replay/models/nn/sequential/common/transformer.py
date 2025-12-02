@@ -29,7 +29,7 @@ class TransformerLayer(torch.nn.Module):
         :param num_blocks: Number of Transformer blocks.
         :param dropout: probability of an element to be zeroed.
         :param activation: the name of the activation function.
-            Possible values are ``"relu"``, ``"gelu"``.
+            Default: ``"gelu"``.
         """
         super().__init__()
         self.num_blocks = num_blocks
@@ -72,14 +72,14 @@ class TransformerLayer(torch.nn.Module):
         attention_mask: torch.FloatTensor,
     ) -> torch.Tensor:
         """
-        :param input_embeddings: Input tensor of shape (batch_size, sequence_length, embedding_dim).
-        :param padding_mask: A mask of shape (batch_size, sequence_length) indicating which elements within ``key``
+        :param input_embeddings: Input tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param padding_mask: A mask of shape ``(batch_size, sequence_length)`` indicating which elements within ``key``
             to ignore for the purpose of attention (i.e. treat as "padding").
             ``False`` value indicates that the corresponding ``key`` value will be ignored.
-        :param attention_mask: Causal-like mask for attention pattern, where -inf for PAD, 0 otherwise.
-            Possible shapes:
-            - (batch_size * num_heads, sequence_length, sequence_length)
-            - (batch_size, num_heads, sequence_length, sequence_length)
+        :param attention_mask: Causal-like mask for attention pattern, where ``-inf`` for ``PAD``, ``0`` - otherwise.\n
+            Possible shapes:\n
+            1. ``(batch_size * num_heads, sequence_length, sequence_length)``\n
+            2. ``(batch_size, num_heads, sequence_length, sequence_length)``
         :returns: torch.Tensor: Output tensor after processing through the layer.
         """
         seqs = input_embeddings

@@ -8,7 +8,7 @@ from replay.models.nn.sequential.common.agg import SequentialEmbeddingAggregator
 
 class SasRecEmbeddingAggregator(torch.nn.Module):
     """
-    The layer allows you to add positional encoding to aggregated embeddings.
+    The layer for aggregating embeddings and adding positional encoding.
     """
 
     def __init__(
