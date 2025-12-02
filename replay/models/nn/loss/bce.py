@@ -36,12 +36,15 @@ class BCE(torch.nn.Module):
 
         Example:
         The __init__ method of SasRec class contains the following code:
-        >>> self.loss = loss
-        >>> self.loss.logits_callback = self.get_logits
+
+        .. code-block::
+            self.loss = loss
+            self.loss.logits_callback = self.get_logits
+
         So, the calling of get_logits in loss object
-        >>> loss.get_logits(model_embeddings, candidates_to_score)
+        ``loss.get_logits(model_embeddings, candidates_to_score)``
         gives the same result as calling
-        >>> self.get_logits(model_embeddings, candidates_to_score)
+        ``self.get_logits(model_embeddings, candidates_to_score)``
 
         """
         if self._logits_callback is None:
@@ -135,12 +138,15 @@ class BCESampled(SampledLossBase):
 
         Example:
         The __init__ method of SasRec class contains the following code:
-        >>> self.loss = loss
-        >>> self.loss.logits_callback = self.get_logits
+
+        .. code-block::
+            self.loss = loss
+            self.loss.logits_callback = self.get_logits
+
         So, the calling of get_logits in loss object
-        >>> loss.get_logits(model_embeddings, candidates_to_score)
+        ``loss.get_logits(model_embeddings, candidates_to_score)``
         gives the same result as calling
-        >>> self.get_logits(model_embeddings, candidates_to_score)
+        ``self.get_logits(model_embeddings, candidates_to_score)``
 
         """
         if self._logits_callback is None:
