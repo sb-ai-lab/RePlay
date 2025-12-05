@@ -4,6 +4,7 @@ from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
     from replay.models.nn.loss import SCEParams
+
     from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
     from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionBatch, SasRecPredictionDataset
 

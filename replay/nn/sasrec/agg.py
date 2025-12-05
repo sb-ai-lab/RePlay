@@ -1,19 +1,21 @@
 import contextlib
+from typing import TYPE_CHECKING
 
 import torch
 
-from replay.data.nn.schema import TensorMap
-from replay.models.nn.sequential.common.agg import SequentialEmbeddingAggregatorProto
+if TYPE_CHECKING:
+    from replay.data.nn.schema import TensorMap
+    from replay.nn import AggregatorProto
 
 
-class SasRecEmbeddingAggregator(torch.nn.Module):
+class SasRecAggregator(torch.nn.Module):
     """
     The layer for aggregating embeddings and adding positional encoding.
     """
 
     def __init__(
         self,
-        embedding_aggregator: SequentialEmbeddingAggregatorProto,
+        embedding_aggregator: AggregatorProto,
         max_sequence_length: int,
         dropout: float,
     ) -> None:
