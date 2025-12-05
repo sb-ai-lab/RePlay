@@ -311,27 +311,32 @@ _________
 
 ValidationMetricsCallback
 `````````````````````````
-.. autoclass:: replay.models.nn.sequential.callbacks.ValidationMetricsCallback
+.. autoclass:: replay.nn.callbacks.ValidationMetricsCallback
    :members: __init__
-
-SparkPredictionCallback
-```````````````````````
-.. autoclass:: replay.models.nn.sequential.callbacks.SparkPredictionCallback
-   :members: __init__, get_result
 
 PandasPredictionCallback
 ````````````````````````
-.. autoclass:: replay.models.nn.sequential.callbacks.PandasPredictionCallback
+.. autoclass:: replay.nn.callbacks.PandasPredictionCallback
+   :members: __init__, get_result
+
+PolarsPredictionCallback
+````````````````````````
+.. autoclass:: replay.nn.callbacks.PolarsPredictionCallback
+   :members: __init__, get_result
+
+SparkPredictionCallback
+```````````````````````
+.. autoclass:: replay.nn.callbacks.SparkPredictionCallback
    :members: __init__, get_result
 
 TorchPredictionCallback
 ```````````````````````
-.. autoclass:: replay.models.nn.sequential.callbacks.TorchPredictionCallback
+.. autoclass:: replay.nn.callbacks.TorchPredictionCallback
    :members: __init__, get_result
 
-QueryEmbeddingsPredictionCallback
+HiddenStateCallback
 `````````````````````````````````
-.. autoclass:: replay.models.nn.sequential.callbacks.QueryEmbeddingsPredictionCallback
+.. autoclass:: replay.nn.callbacks.HiddenStateCallback
    :members: __init__, get_result
 
 Postprocessors
@@ -340,9 +345,4 @@ ______________
 RemoveSeenItems
 ```````````````
 .. autoclass:: replay.models.nn.sequential.postprocessors.postprocessors.RemoveSeenItems
-   :members: __init__
-
-SampleItems
-```````````
-.. autoclass:: replay.models.nn.sequential.postprocessors.postprocessors.SampleItems
    :members: __init__

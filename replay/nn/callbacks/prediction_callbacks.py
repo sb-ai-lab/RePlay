@@ -1,12 +1,11 @@
 import abc
-import warnings
-from typing import Generic, Optional, Protocol, TypeVar, cast
+from typing import Generic, Optional, TypeVar
 
 import lightning
 import torch
 
-from replay.models.nn.sequential import Bert4Rec
 from replay.models.nn.sequential.postprocessors import BasePostProcessor
+from replay.nn import InferenceOutput, LightningModule
 from replay.utils import PYSPARK_AVAILABLE, MissingImport, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:  # pragma: no cover
@@ -17,20 +16,14 @@ else:
     SparkSession = MissingImport
 
 
-class PredictionBatch(Protocol):
-    """
-    Prediction callback batch
-    """
-
-    query_id: torch.LongTensor
-
-
 _T = TypeVar("_T")
 
 
 class BasePredictionCallback(lightning.Callback, Generic[_T]):
     """
-    Base callback for prediction stage
+    The base class for a callback that records the result at the inference stage via ``LightningModule``.
+
+    For the callback to work correctly, the batch is expected to contain the ``query_id`` key.
     """
 
     def __init__(
@@ -42,21 +35,16 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
         postprocessors: Optional[list[BasePostProcessor]] = None,
     ) -> None:
         """
-        :param top_k: Takes the highest k scores in the ranking.
-        :param query_column: query column name.
-        :param item_column: item column name.
-        :param rating_column: rating column name.
-        :param postprocessors: postprocessors to apply.
+        :param top_k: Take the ``top_k`` IDs with the highest logit values.
+        :param query_column: The name of the query column in the resulting dataframe.
+        :param item_column: The name of the item column in the resulting dataframe.
+        :param rating_column: The name of the rating column in the resulting dataframe.
+            This column will contain the ``top_k`` items with the highest logit values.
+        :param postprocessors: A list of postprocessors for modifying logits from the model.
+            For example, it can be a softmax operation to logits or set the ``-inf`` value for some IDs.
+            Default: ``None``.
         """
         super().__init__()
-
-        deprecation_msg = (
-            f"The {self.__class__.__name__} class is deprecated. "
-            "The class will be removed after 3 releases.\n"
-            "Instead of this class, you can use the similar class located in the replay.nn.callbacks module."
-        )
-        warnings.warn(deprecation_msg, DeprecationWarning, stacklevel=2)
-
         self.query_column = query_column
         self.item_column = item_column
         self.rating_column = rating_column
@@ -66,14 +54,12 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
         self._item_batches: list[torch.Tensor] = []
         self._item_scores: list[torch.Tensor] = []
 
-    def on_predict_epoch_start(
-        self, trainer: lightning.Trainer, pl_module: lightning.LightningModule  # noqa: ARG002
-    ) -> None:
+    def on_predict_epoch_start(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:  # noqa: ARG002
         self._query_batches.clear()
         self._item_batches.clear()
         self._item_scores.clear()
 
-        candidates = trainer.model.candidates_to_score if hasattr(trainer.model, "candidates_to_score") else None
+        candidates = pl_module.candidates_to_score
         for postprocessor in self._postprocessors:
             if hasattr(postprocessor, "candidates"):
                 postprocessor.candidates = candidates
@@ -81,15 +67,15 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
     def on_predict_batch_end(
         self,
         trainer: lightning.Trainer,  # noqa: ARG002
-        pl_module: lightning.LightningModule,  # noqa: ARG002
-        outputs: torch.Tensor,
-        batch: PredictionBatch,
+        pl_module: LightningModule,  # noqa: ARG002
+        outputs: InferenceOutput,
+        batch: dict,
         batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> None:
-        query_ids, scores = self._compute_pipeline(batch.query_id, outputs)
-        top_scores, top_item_ids = torch.topk(scores, k=self._top_k, dim=1)
-        self._query_batches.append(query_ids)
+        logits = self._apply_postproccesors(batch, outputs["logits"])
+        top_scores, top_item_ids = torch.topk(logits, k=self._top_k, dim=1)
+        self._query_batches.append(batch["query_id"])
         self._item_batches.append(top_item_ids)
         self._item_scores.append(top_scores)
 
@@ -104,12 +90,11 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
         )
         return prediction
 
-    def _compute_pipeline(
-        self, query_ids: torch.LongTensor, scores: torch.Tensor
-    ) -> tuple[torch.LongTensor, torch.Tensor]:
+    def _apply_postproccesors(self, batch: dict, logits: torch.Tensor) -> torch.Tensor:
+        modified_logits = logits.detach().clone()
         for postprocessor in self._postprocessors:
-            query_ids, scores = postprocessor.on_prediction(query_ids, scores)
-        return query_ids, scores
+            modified_logits = postprocessor(batch, modified_logits)
+        return modified_logits
 
     @abc.abstractmethod
     def _ids_to_result(
@@ -123,7 +108,7 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
 
 class PandasPredictionCallback(BasePredictionCallback[PandasDataFrame]):
     """
-    Callback for predition stage with pandas data frame
+    A callback that records the result of the model's forward function at the inference stage in a Pandas Dataframe.
     """
 
     def _ids_to_result(
@@ -144,7 +129,7 @@ class PandasPredictionCallback(BasePredictionCallback[PandasDataFrame]):
 
 class PolarsPredictionCallback(BasePredictionCallback[PolarsDataFrame]):
     """
-    Callback for predition stage with polars data frame
+    A callback that records the result of the model's forward function at the inference stage in a Polars Dataframe.
     """
 
     def _ids_to_result(
@@ -165,7 +150,7 @@ class PolarsPredictionCallback(BasePredictionCallback[PolarsDataFrame]):
 
 class SparkPredictionCallback(BasePredictionCallback[SparkDataFrame]):
     """
-    Callback for prediction stage with spark data frame
+    A callback that records the result of the model's forward function at the inference stage in a Spark Dataframe.
     """
 
     def __init__(
@@ -178,11 +163,15 @@ class SparkPredictionCallback(BasePredictionCallback[SparkDataFrame]):
         postprocessors: Optional[list[BasePostProcessor]] = None,
     ) -> None:
         """
-        :param top_k: Takes the highest k scores in the ranking.
-        :param query_column: query column name.
-        :param item_column: item column name.
-        :param rating_column: rating column name.
-        :param postprocessors: postprocessors to apply.
+        :param top_k: Take the ``top_k`` IDs with the highest logit values.
+        :param query_column: The name of the query column in the resulting dataframe.
+        :param item_column: The name of the item column in the resulting dataframe.
+        :param rating_column: The name of the rating column in the resulting dataframe.
+            This column will contain the ``top_k`` items with the highest logit values.
+        :param spark_session: Spark session. Required to create a Spark DataFrame.
+        :param postprocessors: A list of postprocessors for modifying logits from the model.
+            For example, it can be a softmax operation to logits or set the ``-inf`` value for some IDs.
+            Default: ``None``.
         """
         super().__init__(
             top_k=top_k,
@@ -224,7 +213,7 @@ class SparkPredictionCallback(BasePredictionCallback[SparkDataFrame]):
 
 class TorchPredictionCallback(BasePredictionCallback[tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]]):
     """
-    Callback for predition stage with tuple of tensors
+    A callback that records the result of the model's forward function at the inference stage in a PyTorch Tensors.
     """
 
     def __init__(
@@ -233,8 +222,10 @@ class TorchPredictionCallback(BasePredictionCallback[tuple[torch.LongTensor, tor
         postprocessors: Optional[list[BasePostProcessor]] = None,
     ) -> None:
         """
-        :param top_k: Takes the highest k scores in the ranking.
-        :param postprocessors: postprocessors to apply.
+        :param top_k: Take the ``top_k`` IDs with the highest logit values.
+        :param postprocessors: A list of postprocessors for modifying logits from the model.
+            For example, it can be a softmax operation to logits or set the ``-inf`` value for some IDs.
+            Default: ``None``.
         """
         super().__init__(
             top_k=top_k,
@@ -251,43 +242,45 @@ class TorchPredictionCallback(BasePredictionCallback[tuple[torch.LongTensor, tor
         item_scores: torch.Tensor,
     ) -> tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]:
         return (
-            cast(torch.LongTensor, query_ids.flatten().cpu().long()),
-            cast(torch.LongTensor, item_ids.cpu().long()),
+            query_ids.flatten().cpu().long(),
+            item_ids.cpu().long(),
             item_scores.cpu(),
         )
 
 
-class QueryEmbeddingsPredictionCallback(lightning.Callback):
+class HiddenStateCallback(lightning.Callback):
     """
-    Callback for prediction stage to get query embeddings.
+    A callback for getting any hidden state from the model.
+
+    When applying this callback,
+    it is expected that the result of the model's forward function contains the ``hidden_states`` key.
     """
 
-    def __init__(self):
+    def __init__(self, hidden_state_index: int):
+        """
+        :param hidden_state_index: It is expected that the result of the model's forward function
+            contains the ``hidden_states`` key. ``hidden_states`` key contains Tuple of PyTorch Tensors.
+            Therefore, to get a specific hidden state, you need to submit an index from this tuple.
+        """
+        self._hidden_state_index = hidden_state_index
         self._embeddings_per_batch: list[torch.Tensor] = []
 
-    def on_predict_epoch_start(
-        self, trainer: lightning.Trainer, pl_module: lightning.LightningModule  # noqa: ARG002
-    ) -> None:
+    def on_predict_epoch_start(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:  # noqa: ARG002
         self._embeddings_per_batch.clear()
 
     def on_predict_batch_end(
         self,
         trainer: lightning.Trainer,  # noqa: ARG002
-        pl_module: lightning.LightningModule,
-        outputs: torch.Tensor,  # noqa: ARG002
-        batch: PredictionBatch,
+        pl_module: LightningModule,  # noqa: ARG002
+        outputs: InferenceOutput,
+        batch: dict,  # noqa: ARG002
         batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> None:
-        args = [batch.features, batch.padding_mask]
-        if isinstance(pl_module, Bert4Rec):
-            args.append(batch.tokens_mask)
-
-        query_embeddings = pl_module._model.get_query_embeddings(*args)
-        self._embeddings_per_batch.append(query_embeddings)
+        self._embeddings_per_batch.append(outputs["hidden_states"][self._hidden_state_index].detach().cpu())
 
     def get_result(self):
         """
-        :returns: Query embeddings through all batches.
+        :returns: Hidden states through all batches.
         """
         return torch.cat(self._embeddings_per_batch)

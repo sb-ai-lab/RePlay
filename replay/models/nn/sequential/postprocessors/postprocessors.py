@@ -1,3 +1,4 @@
+import warnings
 from typing import Optional, Union, cast
 
 import numpy as np
@@ -16,6 +17,14 @@ class RemoveSeenItems(BasePostProcessor):
 
     def __init__(self, sequential: SequentialDataset) -> None:
         super().__init__()
+
+        deprecation_msg = (
+            f"The {self.__class__.__name__} class is deprecated. "
+            "The class will be removed after 3 releases.\n"
+            "Instead of this class, you can use the similar class located in the replay.nn.postprocessors module."
+        )
+        warnings.warn(deprecation_msg, DeprecationWarning, stacklevel=2)
+
         self._sequential = sequential
         self._apply_candidates = False
         self._candidates = None
@@ -120,6 +129,11 @@ class SampleItems(BasePostProcessor):
         items_list: np.ndarray,
         sample_count: int,
     ) -> None:
+        deprecation_msg = (
+            f"The {self.__class__.__name__} class is deprecated. " "The class will be removed after 3 releases."
+        )
+        warnings.warn(deprecation_msg, DeprecationWarning, stacklevel=2)
+
         self.items_set = set(items_list)
         self.sample_count = sample_count
         users = grouped_validation_items[user_col].to_numpy()

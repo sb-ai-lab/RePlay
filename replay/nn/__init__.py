@@ -11,7 +11,7 @@ from .agg import AggregatorProto, ConcatAggregator, SumAggregator
 from .embedding import CategoricalEmbedding, NumericalEmbedding, SequenceEmbedding
 from .ffn import PointWiseFeedForward, SwiGLU, SwiGLUEncoder
 from .head import EmbeddingTyingHead
-from .lightning import LightingModule
+from .lightning import LightningModule
 from .mask import AttentionMaskProto, DefaultAttentionMask
 from .normalization import NormalizerProto
 from .output import InferenceOutput, TrainOutput

@@ -8,7 +8,7 @@ from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFac
 from .output import InferenceOutput, TrainOutput
 
 
-class LightingModule(lightning.LightningModule):
+class LightningModule(lightning.LightningModule):
     """
     A universal wrapper class above the PyTorch model for working with Lightning library.\n
     Pay attention to the format of the ``forward`` function's return value.
