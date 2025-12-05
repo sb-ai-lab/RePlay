@@ -1,7 +1,7 @@
 from typing import Callable, Union
-from typing_extensions import TypeAlias
 
 import torch
+from typing_extensions import TypeAlias
 
 GeneralValue: TypeAlias = Union[torch.Tensor, "GeneralBatch"]
 GeneralBatch: TypeAlias = dict[str, GeneralValue]
