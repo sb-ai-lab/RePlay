@@ -1,4 +1,5 @@
 import pytest
+
 pytest.importorskip("torch", reason="Module 'torch' is required for ParquetDataset tests.")
 
 import itertools
