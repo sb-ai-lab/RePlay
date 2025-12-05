@@ -130,7 +130,7 @@ class SampleItems(BasePostProcessor):
         sample_count: int,
     ) -> None:
         deprecation_msg = (
-            f"The {self.__class__.__name__} class is deprecated. " "The class will be removed after 3 releases."
+            f"The {self.__class__.__name__} class is deprecated. The class will be removed after 3 releases."
         )
         warnings.warn(deprecation_msg, DeprecationWarning, stacklevel=2)
 
