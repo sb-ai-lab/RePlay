@@ -34,11 +34,11 @@ def _partitioning_length(length: int, num_replicas: int) -> int:
     length = validate_length(length)
     num_replicas = validate_num_replicas(num_replicas)
 
-    result: int = length
+    result = length
     if length % num_replicas != 0:
-        raw_per_replica: float = length / num_replicas
-        per_replica: int = ceil(raw_per_replica)
-        new_length: int = per_replica * num_replicas
+        raw_per_replica = length / num_replicas
+        per_replica = ceil(raw_per_replica)
+        new_length = per_replica * num_replicas
         assert (new_length - length) < num_replicas
         result = new_length
     assert result % num_replicas == 0
@@ -52,8 +52,8 @@ def partitioning_length(length: int, num_replicas: int) -> int:
 
 @lru_cache
 def _partitioning_per_replica(length: int, num_replicas: int) -> int:
-    full_length: int = partitioning_length(length, num_replicas)
-    result: int = full_length // num_replicas
+    full_length = partitioning_length(length, num_replicas)
+    result = full_length // num_replicas
     assert result <= length
     assert result > 0
     return result
@@ -71,15 +71,14 @@ class Partitioning:
         device: Union[torch.device, str] = DEFAULT_DEVICE,
         generator: Optional[torch.Generator] = None,
     ) -> None:
-        self.device: torch.device = torch.device(device)
-        self.generator: Optional[torch.Generator] = generator
-        self.num_replicas: int = validate_num_replicas(num_replicas)
-        self.curr_replica: int = validate_curr_replica(curr_replica, self.num_replicas)
+        self.device = torch.device(device)
+        self.generator = generator
+        self.num_replicas = validate_num_replicas(num_replicas)
+        self.curr_replica = validate_curr_replica(curr_replica, self.num_replicas)
 
     def generate_raw_indices(self, length: int) -> torch.LongTensor:
-        full_length: int = partitioning_length(length, self.num_replicas)
+        full_length = partitioning_length(length, self.num_replicas)
 
-        raw_indices: torch.LongTensor
         if self.generator is None:
             raw_indices = torch.arange(full_length, dtype=torch.int64, device=self.device)
         else:
@@ -91,22 +90,22 @@ class Partitioning:
         return raw_indices
 
     def replica_indices(self, raw_indices: torch.LongTensor) -> torch.LongTensor:
-        full_length: int = torch.numel(raw_indices)
-        slc: slice = slice(self.curr_replica, full_length, self.num_replicas)
-        replica_indices: torch.LongTensor = raw_indices[slc].clone()
+        full_length = torch.numel(raw_indices)
+        slc = slice(self.curr_replica, full_length, self.num_replicas)
+        replica_indices = raw_indices[slc].clone()
         assert torch.max(replica_indices).cpu().item() < full_length
         return replica_indices
 
     def generate(self, length: int) -> torch.LongTensor:
-        raw_indices: torch.LongTensor = self.generate_raw_indices(length)
-        full_length: int = partitioning_length(length, self.num_replicas)
+        raw_indices = self.generate_raw_indices(length)
+        full_length = partitioning_length(length, self.num_replicas)
         assert torch.numel(raw_indices) == full_length
 
-        replica_indices: torch.LongTensor = self.replica_indices(raw_indices)
-        per_replica: int = partitioning_per_replica(length, self.num_replicas)
+        replica_indices = self.replica_indices(raw_indices)
+        per_replica = partitioning_per_replica(length, self.num_replicas)
         assert torch.numel(replica_indices) == per_replica
 
-        indices: torch.LongTensor = torch.remainder(replica_indices, length)
+        indices = torch.remainder(replica_indices, length)
         assert torch.max(indices).cpu().item() < length
         assert torch.numel(indices) == per_replica
         assert indices.device == self.device

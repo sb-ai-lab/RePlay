@@ -45,16 +45,15 @@ class PartitionedIterableDataset(data.IterableDataset):
     ) -> None:
         super().__init__()
 
-        self.iterable: Iterable[NamedColumns] = iterable
+        self.iterable = iterable
 
-        self.batch_size: Optional[int] = batch_size
-        self.generator: Optional[torch.Generator] = generator
-        self.replicas_info: ReplicasInfoProtocol = replicas_info
+        self.batch_size = batch_size
+        self.generator = generator
+        self.replicas_info = replicas_info
 
     def __iter__(self) -> Iterator[Batch]:
-        partition: NamedColumns
         for partition in iter(self.iterable):
-            iterable: IterableDataset = IterableDataset(
+            iterable = IterableDataset(
                 named_columns=partition,
                 generator=self.generator,
                 batch_size=self.batch_size,

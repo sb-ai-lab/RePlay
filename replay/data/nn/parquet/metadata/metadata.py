@@ -55,9 +55,9 @@ def all_column_checks(*checks: ColumnCheck) -> ColumnCheck:
     return function
 
 
-is_array_1d: ColumnCheck = all_column_checks(make_shape_check(dim=1))
-is_array_2d: ColumnCheck = all_column_checks(make_shape_check(dim=2))
-is_number: ColumnCheck = all_column_checks(
+is_array_1d = all_column_checks(make_shape_check(dim=1))
+is_array_2d = all_column_checks(make_shape_check(dim=2))
+is_number = all_column_checks(
     make_not_check(is_array_1d),
     make_not_check(is_array_2d),
 )
@@ -74,9 +74,9 @@ def make_listing(check: ColumnCheck) -> Listing:
     return function
 
 
-get_1d_array_columns: Listing = make_listing(is_array_1d)
-get_2d_array_columns: Listing = make_listing(is_array_2d)
-get_numeric_columns: Listing = make_listing(is_number)
+get_1d_array_columns = make_listing(is_array_1d)
+get_2d_array_columns = make_listing(is_array_2d)
+get_numeric_columns = make_listing(is_number)
 
 
 def get_padding(metadata: Metadata, column_name: str) -> Any:

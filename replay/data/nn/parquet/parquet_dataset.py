@@ -152,14 +152,14 @@ class ParquetDataset(IterableDataset):
             collate_fn=collate_fn,
         )
 
-        self.do_compute_length: bool = True
+        self.do_compute_length = True
         self.cached_lengths: dict[int, int] = {}
 
     def compute_length(self) -> int:
         """
         Возвращает длину датасета в батчах фиксированного размера.
         """
-        num_replicas: int = self.replicas_info.num_replicas
+        num_replicas = self.replicas_info.num_replicas
         if num_replicas not in self.cached_lengths:
             if len(self.cached_lengths) > 0:
                 msg = "`num_replicas` changed. Unable to reuse cached length."

@@ -1,7 +1,6 @@
 from collections.abc import Iterator
 from typing import Any, Callable, Optional
 
-import pyarrow as pa
 import pyarrow.dataset as da
 import torch
 
@@ -53,15 +52,14 @@ class BatchesIterator:
     ) -> None:
         if pyarrow_kwargs is None:
             pyarrow_kwargs = {}
-        self.dataset: da.Dataset = dataset
-        self.metadata: Metadata = metadata
-        self.batch_size: int = batch_size
-        self.make_mask_name: Callable[[str], str] = make_mask_name
-        self.device: torch.device = device
-        self.pyarrow_kwargs: dict[str, Any] = pyarrow_kwargs
+        self.dataset = dataset
+        self.metadata = metadata
+        self.batch_size = batch_size
+        self.make_mask_name = make_mask_name
+        self.device = device
+        self.pyarrow_kwargs = pyarrow_kwargs
 
     def __iter__(self) -> Iterator[NamedColumns]:
-        batch: pa.RecordBatch
         for batch in self.dataset.to_batches(
             batch_size=self.batch_size,
             columns=list(self.metadata.keys()),

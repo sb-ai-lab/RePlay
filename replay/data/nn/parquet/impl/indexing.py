@@ -4,8 +4,8 @@ import torch
 
 
 def raw_get_offsets(lengths: torch.LongTensor) -> torch.LongTensor:
-    zero: torch.LongTensor = torch.zeros((1,), device=lengths.device, dtype=torch.int64)
-    cumsum: torch.LongTensor = torch.cumsum(lengths, dim=-1)
+    zero = torch.zeros((1,), device=lengths.device, dtype=torch.int64)
+    cumsum = torch.cumsum(lengths, dim=-1)
     return torch.cat([zero, cumsum])
 
 
@@ -13,7 +13,7 @@ def get_offsets(lengths: torch.LongTensor) -> torch.LongTensor:
     if lengths.ndim != 1:
         msg = f"Lengths must be strictly 1D. Got {lengths.ndim}D."
         raise ValueError(msg)
-    min_length: int = torch.min(lengths.detach()).cpu().item()
+    min_length = torch.min(lengths.detach()).cpu().item()
     if min_length < 0:
         msg = f"There is a negative length. Got {min_length}."
         raise ValueError(msg)
@@ -47,7 +47,7 @@ def raw_get_mask(
 
     assert torch.all(torch.sum(mask, dim=-1, dtype=torch.int64) == torch.minimum(last - first, length)).cpu().item()
     # We are indexing `first` (not anymore lmao) because of the data locality & tests
-    output_indices: torch.LongTensor = torch.where(mask, raw_indices, 0)
+    output_indices = torch.where(mask, raw_indices, 0)
     assert torch.all((torch.max(output_indices, dim=-1).values < last) | (last == first)).cpu().item()
     return (mask, output_indices)
 
@@ -91,11 +91,11 @@ def get_mask(
     if offsets.ndim != 1:
         msg = f"Offsets must be strictly 1D. Got {offsets.ndim}D."
         raise ValueError(msg)
-    min_index: int = torch.min(indices.detach()).cpu().item()
+    min_index = torch.min(indices.detach()).cpu().item()
     if min_index < 0:
         msg = f"Index is too small. Got {min_index}."
         raise IndexError(msg)
-    max_index: int = torch.max(indices.detach()).cpu().item()
+    max_index = torch.max(indices.detach()).cpu().item()
     if torch.numel(offsets) < max_index:
         msg = f"Index is too large. Got {max_index}."
         raise IndexError(msg)

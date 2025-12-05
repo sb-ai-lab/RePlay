@@ -52,10 +52,10 @@ class IterableDataset(data.IterableDataset):
     ) -> None:
         super().__init__()
 
-        self.named_columns: NamedColumns = named_columns
-        self.generator: Optional[torch.Generator] = generator
-        self.replicas_info: ReplicasInfoProtocol = replicas_info
-        self.batch_size: int = validate_batch_size(batch_size)
+        self.named_columns = named_columns
+        self.generator = generator
+        self.replicas_info = replicas_info
+        self.batch_size = validate_batch_size(batch_size)
 
     @property
     def device(self) -> torch.device:
@@ -70,15 +70,15 @@ class IterableDataset(data.IterableDataset):
     @property
     def length_per_replica(self) -> int:
         """Возвращает количество элементов, отведенное одной реплике."""
-        full_length: int = self.named_columns.length
-        num_replicas: int = self.replicas_info.num_replicas
+        full_length = self.named_columns.length
+        num_replicas = self.replicas_info.num_replicas
         return partitioning_per_replica(full_length, num_replicas)
 
     @property
     def length(self) -> int:
         """Возвращает общее количество батчей, доступных для текущей реплики."""
-        batch_size: int = self.batch_size
-        per_replica: int = self.length_per_replica
+        batch_size = self.batch_size
+        per_replica = self.length_per_replica
         return uniform_batch_count(per_replica, batch_size)
 
     def __len__(self) -> int:
@@ -92,13 +92,13 @@ class IterableDataset(data.IterableDataset):
         Returns:
             torch.LongTensor: Тензор с индексами.
         """
-        partitioning: Partitioning = Partitioning(
+        partitioning = Partitioning(
             curr_replica=self.replicas_info.curr_replica,
             num_replicas=self.replicas_info.num_replicas,
             device=self.named_columns.device,
             generator=self.generator,
         )
-        indices: torch.LongTensor = partitioning(self.full_length)
+        indices = partitioning(self.full_length)
         assert self.length_per_replica == torch.numel(indices)
         return indices
 
@@ -109,7 +109,7 @@ class IterableDataset(data.IterableDataset):
         Returns:
             UniformBatching: Объект партиционирования.
         """
-        batching: UniformBatching = UniformBatching(
+        batching = UniformBatching(
             length=self.length_per_replica,
             batch_size=self.batch_size,
         )
@@ -123,11 +123,9 @@ class IterableDataset(data.IterableDataset):
         Returns:
             Iterator[Batch]: Итератор, возвращающий батчи.
         """
-        batching: UniformBatching = self.get_batching()
-        indices: torch.LongTensor = self.get_indices()
+        batching = self.get_batching()
+        indices = self.get_indices()
 
-        first: int
-        last: int
         for first, last in iter(batching):
-            batch_ids: torch.LongTensor = indices[first:last]
+            batch_ids = indices[first:last]
             yield self.named_columns[batch_ids]

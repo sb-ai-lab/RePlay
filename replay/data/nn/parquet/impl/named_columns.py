@@ -25,7 +25,7 @@ def deduce_device(columns: Sequence[ColumnProtocol]) -> torch.device:
 
 def deduce_length(columns: Sequence[ColumnProtocol]) -> int:
     assert len(columns) > 0
-    length: int = columns[0].length
+    length = columns[0].length
 
     def is_correct_length(column: ColumnProtocol) -> bool:
         return column.length == length
@@ -38,9 +38,9 @@ def deduce_length(columns: Sequence[ColumnProtocol]) -> int:
 
 
 def deduce_length_device(columns: dict[str, ColumnProtocol]) -> tuple[int, torch.device]:
-    raw: list[ColumnProtocol] = [*columns.values()]
-    columns_length: int = deduce_length(raw)
-    columns_device: torch.device = deduce_device(raw)
+    raw = [*columns.values()]
+    columns_length = deduce_length(raw)
+    columns_device = deduce_device(raw)
     del raw
     return (columns_length, columns_device)
 
@@ -51,12 +51,10 @@ class NamedColumns:
         columns: dict[str, ColumnProtocol],
         make_mask_name: Callable[[str], str] = DEFAULT_MAKE_MASK_NAME,
     ) -> None:
-        self.columns_length: int
-        self.columns_device: torch.device
         self.columns_length, self.columns_device = deduce_length_device(columns)
 
-        self.columns: dict[str, ColumnProtocol] = columns
-        self.make_mask_name: Callable[[str], str] = make_mask_name
+        self.columns = columns
+        self.make_mask_name = make_mask_name
 
     @property
     def length(self) -> int:
@@ -71,7 +69,7 @@ class NamedColumns:
 
     def __getitem__(self, indices: torch.LongTensor) -> Batch:
         indices = indices.to(device=self.device)
-        result: Batch = {}
+        result = {}
         for name, column in self.columns.items():
             result[self.make_mask_name(name)], result[name] = column[indices]
         return result

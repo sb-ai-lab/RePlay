@@ -25,7 +25,7 @@ class FlatColumn:
 
     @property
     def length(self) -> int:
-        result: int = torch.numel(self.data)
+        result = torch.numel(self.data)
         if self.mask is not None:
             assert result == torch.numel(self.mask)
         return result
@@ -35,27 +35,26 @@ class FlatColumn:
 
     @property
     def device(self) -> torch.device:
-        result: int = self.data.device
+        result = self.data.device
         if self.mask is not None:
             assert result == self.mask.device
         return result
 
     def _get_mask(self, indices: torch.LongTensor) -> torch.BoolTensor:
-        mask: torch.BoolTensor
         mask = torch.ones_like(indices, dtype=torch.bool) if self.mask is None else self.mask[indices]
         return mask
 
     def __getitem__(self, indices: torch.LongTensor) -> OutputType:
         indices = indices.to(device=self.device)
-        mask: torch.BoolTensor = self._get_mask(indices)
-        output: torch.Tensor = torch.where(mask, self.data[indices], self.padding)
+        mask = self._get_mask(indices)
+        output = torch.where(mask, self.data[indices], self.padding)
         return (mask, output)
 
 
 def to_torch(array: pa.Array, device: torch.device = DEFAULT_DEVICE, padding: Any = DEFAULT_PADDING) -> OutputType:
-    dtype: torch.dtype = pyarrow_to_torch(array.type)
+    dtype = pyarrow_to_torch(array.type)
 
-    mask_torch: Optional[torch.BoolTensor] = None
+    mask_torch = None
     if array.null_count > 0:
         mask_torch = torch.asarray(
             ensure_mutable(array.is_valid().to_numpy(zero_copy_only=False)),
@@ -63,7 +62,7 @@ def to_torch(array: pa.Array, device: torch.device = DEFAULT_DEVICE, padding: An
             dtype=torch.bool,
         )
 
-    array_torch: torch.Tensor = torch.asarray(
+    array_torch = torch.asarray(
         ensure_mutable(array.fill_null(padding).to_numpy()),
         device=device,
         dtype=dtype,
@@ -77,7 +76,7 @@ def to_flat_columns(
     device: torch.device = DEFAULT_DEVICE,
     padding: Any = DEFAULT_PADDING,
 ) -> dict[str, FlatColumn]:
-    result: dict[str, FlatColumn] = {}
+    result = {}
     for column_name in get_numeric_columns(metadata):
         mask, torch_array = to_torch(data.column(column_name), device, padding)
         result[column_name] = FlatColumn(data=torch_array, mask=mask, padding=padding)
