@@ -1,42 +1,60 @@
 Universal Lighting module
-=================================================================
+=========================
 LightingModule
 ______________
-.. autoclass:: replay.models.nn.LightingModule
+.. autoclass:: replay.nn.LightingModule
    :members: __init__, forward, candidates_to_score
 
 TrainOutput
 ___________
-.. autoclass:: replay.models.nn.TrainOutput
+.. autoclass:: replay.nn.TrainOutput
    :members:
 
 InferenceOutput
 _______________
-.. autoclass:: replay.models.nn.InferenceOutput
+.. autoclass:: replay.nn.InferenceOutput
    :members:
 
 
 SasRec
-========
+======
 
 SasRec
-__________
-.. autoclass:: replay.models.nn.sequential.sasrec_v2.SasRec
+______
+.. autoclass:: replay.nn.sequential.SasRec
    :members: __init__, forward
-
-SasRecBuilder
-_____________
-.. autoclass:: replay.models.nn.sequential.sasrec_v2.SasRecBuilder
-   :members: embedder, attn_mask_builder, embedding_aggregator, encoder, output_normalization, loss, default, build
 
 SasRecBody
 __________
-.. autoclass:: replay.models.nn.sequential.sasrec_v2.SasRecBody
+.. autoclass:: replay.nn.sequential.SasRecBody
    :members: __init__, forward
 
-SasRecEmbeddingAggregator
-_________________________
-.. autoclass:: replay.models.nn.sequential.sasrec_v2.SasRecEmbeddingAggregator
+SasRecTransformerLayer
+______________________
+.. autoclass:: replay.nn.sequential.SasRecTransformerLayer
+   :members: __init__, forward
+
+SasRecAggregator
+________________
+.. autoclass:: replay.nn.sequential.SasRecAggregator
+   :members: __init__, forward
+
+MultiHead Differential Attention
+_________________________________
+
+MultiHeadDifferentialAttention
+``````````````````````````````
+.. autoclass:: replay.nn.sequential.MultiHeadDifferentialAttention
+   :members: __init__, forward
+
+DiffTransformerBlock
+````````````````````
+.. autoclass:: replay.nn.sequential.DiffTransformerBlock
+   :members: __init__, forward
+
+DiffTransformerLayer
+````````````````````
+.. autoclass:: replay.nn.sequential.DiffTransformerLayer
    :members: __init__, forward
 
 Bert4Rec
@@ -149,80 +167,89 @@ Losses
 
    Source: https://arxiv.org/abs/2205.04507
 
-
-
-
 BCE
 ___
-.. autoclass:: replay.models.nn.loss.BCE
+.. autoclass:: replay.nn.loss.BCE
    :members: forward
 
 BCESampled
 __________
-.. autoclass:: replay.models.nn.loss.BCESampled
+.. autoclass:: replay.nn.loss.BCESampled
    :members: __init__, forward
 
 CE
 ___
-.. autoclass:: replay.models.nn.loss.CE
+.. autoclass:: replay.nn.loss.CE
    :members: __init__, forward
 
 CESampled
 __________
-.. autoclass:: replay.models.nn.loss.CESampled
+.. autoclass:: replay.nn.loss.CESampled
    :members: __init__, forward
 
 LogInCE
 _______
-.. autoclass:: replay.models.nn.loss.LogInCE
+.. autoclass:: replay.nn.loss.LogInCE
    :members: __init__, forward
 
 LogInCESampled
 ______________
-.. autoclass:: replay.models.nn.loss.LogInCESampled
+.. autoclass:: replay.nn.loss.LogInCESampled
    :members: __init__, forward
 
 LogOutCE
 ________
-.. autoclass:: replay.models.nn.loss.LogOutCE
+.. autoclass:: replay.nn.loss.LogOutCE
    :members: __init__, forward
 
+Scalable Cross Entropy
+______________________
+
+SCEParams
+`````````
+.. autoclass:: replay.models.nn.loss.SCEParams
+
+ScalableCrossEntropyLoss
+````````````````````````
+.. autoclass:: replay.models.nn.loss.ScalableCrossEntropyLoss
+   :members: __init__, __call__
 
 Model Building Blocks
 ======================
 Building blocks for neural network models.
 
+Embeddings
+__________
 
-Embedders
-_________
-
-SequentialEmbedder
-``````````````````
-.. autoclass:: replay.models.nn.sequential.common.embedding.SequentialEmbedder
+SequenceEmbedding
+`````````````````
+.. autoclass:: replay.nn.SequenceEmbedding
    :members: __init__, forward, embeddings_dim, get_item_weights
 
 CategoricalEmbedding
 ````````````````````
-.. autoclass:: replay.models.nn.sequential.common.embedding.CategoricalEmbedding
+.. autoclass:: replay.nn.CategoricalEmbedding
    :members: __init__, forward, embedding_dim, weight
 
 NumericalEmbedding
 ``````````````````
-.. autoclass:: replay.models.nn.sequential.common.embedding.NumericalEmbedding
+.. autoclass:: replay.nn.NumericalEmbedding
    :members: __init__, forward, embedding_dim, weight
 
 
-Embedding Aggregators
-_____________________
+Aggregators
+___________
+The main purpose of these modules is to aggregate embeddings.
+But in general, you can use them to aggregate any type of tensors.
 
 SumAggregator
 `````````````
-.. autoclass:: replay.models.nn.sequential.common.agg.SumAggregator
+.. autoclass:: replay.nn.SumAggregator
    :members: __init__, forward, embedding_dim
 
 ConcatAggregator
 ````````````````
-.. autoclass:: replay.models.nn.sequential.common.agg.ConcatAggregator
+.. autoclass:: replay.nn.ConcatAggregator
    :members: __init__, forward, embedding_dim
 
 
@@ -231,41 +258,27 @@ _____________________
 
 PointWiseFeedForward
 ````````````````````
-.. autoclass:: replay.models.nn.sequential.common.ffn.PointWiseFeedForward
+.. autoclass:: replay.nn.PointWiseFeedForward
    :members: __init__, forward
 
 SwiGLU
 `````````````
-.. autoclass:: replay.models.nn.sequential.common.ffn.SwiGLU
+.. autoclass:: replay.nn.SwiGLU
    :members: __init__, forward
 
 SwiGLUEncoder
 `````````````
-.. autoclass:: replay.models.nn.sequential.common.ffn.SwiGLUEncoder
+.. autoclass:: replay.nn.SwiGLUEncoder
    :members: __init__, forward
 
 
 Attention Masks
-_____________________
+_______________
 
-DefaultAttentionMaskBuilder
-```````````````````````````
-.. autoclass:: replay.models.nn.sequential.common.mask.DefaultAttentionMaskBuilder
-   :members: __init__, __call__
-
-
-Transformer Layers
-__________________
-
-TransformerLayer
-````````````````
-.. autoclass:: replay.models.nn.sequential.common.transformer.TransformerLayer
-   :members: __init__, forward
-
-DiffTransformerLayer
+DefaultAttentionMask
 ````````````````````
-.. autoclass:: replay.models.nn.sequential.common.diff_transformer.DiffTransformerLayer
-   :members: __init__, forward
+.. autoclass:: replay.nn.DefaultAttentionMask
+   :members: __init__, __call__
 
 
 Transformer Heads
@@ -273,7 +286,7 @@ _________________
 
 EmbeddingTyingHead
 ``````````````````
-.. autoclass:: replay.models.nn.sequential.common.head.EmbeddingTyingHead
+.. autoclass:: replay.nn.EmbeddingTyingHead
    :members: forward
 
 

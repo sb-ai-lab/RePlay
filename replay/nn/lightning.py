@@ -1,15 +1,11 @@
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import Any, Optional, Union
 
 import lightning
+import torch
 
-from replay.models.nn.optimizer_utils import FatOptimizerFactory
+from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
 
-if TYPE_CHECKING:
-    import torch
-
-    from replay.models.nn.optimizer_utils import LRSchedulerFactory, OptimizerFactory
-
-    from .output import InferenceOutput, TrainOutput
+from .output import InferenceOutput, TrainOutput
 
 
 class LightingModule(lightning.LightningModule):

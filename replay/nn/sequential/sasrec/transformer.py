@@ -1,12 +1,10 @@
 import contextlib
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import torch
 
+from replay.data.nn import TensorMap
 from replay.nn import PointWiseFeedForward
-
-if TYPE_CHECKING:
-    from replay.data.nn import TensorMap
 
 
 class SasRecTransformerLayer(torch.nn.Module):

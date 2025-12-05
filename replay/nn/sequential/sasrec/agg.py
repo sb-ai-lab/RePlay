@@ -1,11 +1,9 @@
 import contextlib
-from typing import TYPE_CHECKING
 
 import torch
 
-if TYPE_CHECKING:
-    from replay.data.nn.schema import TensorMap
-    from replay.nn import AggregatorProto
+from replay.data.nn.schema import TensorMap
+from replay.nn import AggregatorProto
 
 
 class SasRecAggregator(torch.nn.Module):

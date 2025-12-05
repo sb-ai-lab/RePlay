@@ -1,13 +1,11 @@
 import contextlib
 import math
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 import torch
 
+from replay.data.nn import TensorMap
 from replay.nn import SwiGLU
-
-if TYPE_CHECKING:
-    from replay.data.nn import TensorMap
 
 
 class MultiHeadDifferentialAttention(torch.nn.Module):

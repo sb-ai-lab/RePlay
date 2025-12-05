@@ -1,12 +1,11 @@
 import contextlib
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import torch
 
-from .utils import create_activation
+from replay.data.nn import TensorMap
 
-if TYPE_CHECKING:
-    from replay.data.nn import TensorMap
+from .utils import create_activation
 
 
 class PointWiseFeedForward(torch.nn.Module):

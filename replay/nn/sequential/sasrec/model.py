@@ -1,16 +1,19 @@
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Literal, Optional, Protocol, Union
+from typing import Literal, Optional, Protocol, Union
 
 import torch
 
-from replay.data.nn import TensorMap
-from replay.nn import EmbeddingTyingHead, InferenceOutput, TrainOutput
+from replay.data.nn import TensorMap, TensorSchema
+from replay.nn import (
+    AggregatorProto,
+    AttentionMaskProto,
+    EmbeddingTyingHead,
+    InferenceOutput,
+    NormalizerProto,
+    TrainOutput,
+)
+from replay.nn.loss import LossProto
 from replay.nn.utils import warning_is_not_none
-
-if TYPE_CHECKING:
-    from replay.data.nn import TensorSchema
-    from replay.nn import AggregatorProto, AttentionMaskProto, NormalizerProto
-    from replay.nn.loss import LossProto
 
 
 class EmbedderProto(Protocol):
