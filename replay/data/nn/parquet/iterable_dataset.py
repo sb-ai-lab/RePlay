@@ -29,14 +29,14 @@ class IterableDataset(data.IterableDataset):
     Реплика - это идентификатор процесса, который выполняет загрузку данных.
         Определяется двумя параметрами - номер процесса внутри PyTorch и номер ноды.
 
-    Аргументы:
+    Arguments:
         named_columns (NamedColumns): Структурированные данные, представленные в виде колонок.
         batch_size (int): Размер одного батча.
         generator (Optional[torch.Generator], optional): Генератор случайных чисел для перемешивания батчей.
             Если не указан, то перемешивание будет выключено.
         replicas_info (ReplicasInfoProtocol, optional): Информация о репликах. По умолчанию DEFAULT_REPLICAS_INFO.
 
-    Атрибуты:
+    Attributes:
         named_columns (NamedColumns): Входные данные.
         generator (Optional[torch.Generator]): Генератор случайных чисел.
         replicas_info (ReplicasInfoProtocol): Информация о репликах.
@@ -59,38 +59,37 @@ class IterableDataset(data.IterableDataset):
 
     @property
     def device(self) -> torch.device:
-        """Возвращает устройство, на котором находятся данные."""
+        """Returns the device containing the dataset."""
         return self.named_columns.device
 
     @property
     def full_length(self) -> int:
-        """Возвращает общее количество элементов в `named_columns`."""
+        """Returns the total amount of elements in `named_columns`."""
         return self.named_columns.length
 
     @property
     def length_per_replica(self) -> int:
-        """Возвращает количество элементов, отведенное одной реплике."""
+        """Returns the total number of available elements per replica."""
         full_length = self.named_columns.length
         num_replicas = self.replicas_info.num_replicas
         return partitioning_per_replica(full_length, num_replicas)
 
     @property
     def length(self) -> int:
-        """Возвращает общее количество батчей, доступных для текущей реплики."""
+        """Returns the total number of batches available to the current replica."""
         batch_size = self.batch_size
         per_replica = self.length_per_replica
         return uniform_batch_count(per_replica, batch_size)
 
     def __len__(self) -> int:
-        """Возвращает количество батчей в датасете."""
+        """Returns the total number of batches in a dataset."""
         return self.length
 
     def get_indices(self) -> torch.LongTensor:
         """
-        Генерирует индексы, соответствующие данным, назначенные текущей реплике.
+        Generates indices corresponding to data assigned to current replica.
 
-        Returns:
-            torch.LongTensor: Тензор с индексами.
+        :return: tensor containing relevant indices.
         """
         partitioning = Partitioning(
             curr_replica=self.replicas_info.curr_replica,
@@ -104,10 +103,9 @@ class IterableDataset(data.IterableDataset):
 
     def get_batching(self) -> UniformBatching:
         """
-        Создает объект партиционирования, разбивающий данные на батчи.
+        Creates a partitioning object which splits data into batches.
 
-        Returns:
-            UniformBatching: Объект партиционирования.
+        :return: The partitioning object.
         """
         batching = UniformBatching(
             length=self.length_per_replica,
@@ -117,12 +115,7 @@ class IterableDataset(data.IterableDataset):
         return batching
 
     def __iter__(self) -> Iterator[Batch]:
-        """
-        Итератор по батчам данных.
-
-        Returns:
-            Iterator[Batch]: Итератор, возвращающий батчи.
-        """
+        """Batched data iterator."""
         batching = self.get_batching()
         indices = self.get_indices()
 

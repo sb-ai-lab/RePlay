@@ -12,7 +12,7 @@ from .column_protocol import OutputType
 from .utils import ensure_mutable
 
 
-class FlatColumn:
+class NumericColumn:
     def __init__(
         self,
         data: torch.Tensor,
@@ -70,14 +70,23 @@ def to_torch(array: pa.Array, device: torch.device = DEFAULT_DEVICE, padding: An
     return (mask_torch, array_torch)
 
 
-def to_flat_columns(
+def to_numeric_columns(
     data: pa.RecordBatch,
     metadata: Metadata,
     device: torch.device = DEFAULT_DEVICE,
     padding: Any = DEFAULT_PADDING,
-) -> dict[str, FlatColumn]:
+) -> dict[str, NumericColumn]:
+    """
+    Converts a PyArrow batch of data to a 
+
+    :param data: _description_
+    :param metadata: _description_
+    :param device: _description_, defaults to DEFAULT_DEVICE
+    :param padding: _description_, defaults to DEFAULT_PADDING
+    :return: _description_
+    """
     result = {}
     for column_name in get_numeric_columns(metadata):
         mask, torch_array = to_torch(data.column(column_name), device, padding)
-        result[column_name] = FlatColumn(data=torch_array, mask=mask, padding=padding)
+        result[column_name] = NumericColumn(data=torch_array, mask=mask, padding=padding)
     return result

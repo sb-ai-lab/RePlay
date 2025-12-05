@@ -1,10 +1,19 @@
-from typing import Any, Optional, Protocol
+from typing import Any, Generator, Optional, Protocol
 
 import torch.utils.data as data
 
 
+class WorkerInfoProtocol(Protocol):
+    @property
+    def id(self) -> int: ...
+
+    @property
+    def num_workers(self) -> int: ...
+
+
 class WorkerInfo:
-    def __iter__(self):
+    """Wrapper class for Torch's worker metadata."""
+    def __iter__(self) -> Generator[int]:
         yield self.id
 
     @property
@@ -28,14 +37,6 @@ class WorkerInfo:
         if wi is not None:
             return wi.num_workers
         return 1
-
-
-class WorkerInfoProtocol(Protocol):
-    @property
-    def id(self) -> int: ...
-
-    @property
-    def num_workers(self) -> int: ...
-
+    
 
 DEFAULT_WORKER_INFO: WorkerInfo = WorkerInfo()

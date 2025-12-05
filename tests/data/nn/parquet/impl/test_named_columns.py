@@ -2,7 +2,7 @@ import pytest
 import torch
 
 from replay.data.nn.parquet.impl.array_1d_column import Array1DColumn
-from replay.data.nn.parquet.impl.flat_column import FlatColumn
+from replay.data.nn.parquet.impl.numeric_column import NumericColumn
 from replay.data.nn.parquet.impl.named_columns import NamedColumns, deduce_device, deduce_length
 from replay.data.utils.batching import UniformBatching
 from tests.data.nn.parquet.conftest import BatchGenerator
@@ -21,8 +21,8 @@ def test_named_columns(a_type: torch.dtype, b_type: torch.dtype, c_type: torch.d
         "a_mask": torch.asarray([1, 1, 0, 1], dtype=torch.bool),
     }
     cols = {
-        "a": FlatColumn(data=cols_raw["a"], mask=cols_raw["a_mask"]),
-        "b": FlatColumn(data=cols_raw["b"]),
+        "a": NumericColumn(data=cols_raw["a"], mask=cols_raw["a_mask"]),
+        "b": NumericColumn(data=cols_raw["b"]),
     }
     seqs_raw: dict[str, torch.Tensor] = {
         "c": torch.asarray([0, 1, 2, 3, 4, 5], dtype=c_type),
@@ -82,8 +82,8 @@ def test_mismatching_lengths():
     with pytest.raises(RuntimeError):
         deduce_length(
             [
-                FlatColumn(torch.asarray([0, 2, -1])),
-                FlatColumn(torch.asarray([6, 4, -1, 3])),
+                NumericColumn(torch.asarray([0, 2, -1])),
+                NumericColumn(torch.asarray([6, 4, -1, 3])),
             ]
         )
 
@@ -95,8 +95,8 @@ def test_mismatching_devices(monkeypatch):
     with pytest.raises(RuntimeError) as err:
         deduce_device(
             [
-                FlatColumn(torch.asarray([0, 2, -1, 1], device="cpu")),
-                FlatColumn(torch.asarray([6, 4, -1, 3], device="cuda")),
+                NumericColumn(torch.asarray([0, 2, -1, 1], device="cpu")),
+                NumericColumn(torch.asarray([6, 4, -1, 3], device="cuda")),
             ]
         )
     assert "Columns must be all on the same device." in str(err.value)
@@ -122,8 +122,8 @@ def test_sincos_one_batch(seed: int, batch_size: int) -> None:
         shape=batch_generator.max_length,
         padding=-2,
     )
-    phase_col: FlatColumn = FlatColumn(data=batch["phase"])
-    frequency_col: FlatColumn = FlatColumn(data=batch["frequency"])
+    phase_col: NumericColumn = NumericColumn(data=batch["phase"])
+    frequency_col: NumericColumn = NumericColumn(data=batch["frequency"])
     named: NamedColumns = NamedColumns(
         {
             "sin_sin": sin_col,
@@ -164,8 +164,8 @@ def test_sincos_seq_batch(seed: int, batch_size: int, sub_batch_size: int):
         shape=batch_generator.max_length,
         padding=-2,
     )
-    phase_col: FlatColumn = FlatColumn(data=batch["phase"])
-    frequency_col: FlatColumn = FlatColumn(data=batch["frequency"])
+    phase_col: NumericColumn = NumericColumn(data=batch["phase"])
+    frequency_col: NumericColumn = NumericColumn(data=batch["frequency"])
     named: NamedColumns = NamedColumns(
         {
             "sin_sin": sin_col,

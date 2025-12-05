@@ -2,7 +2,7 @@ import pyarrow as pa
 import pytest
 import torch
 
-from replay.data.nn.parquet.impl.flat_column import FlatColumn, to_torch
+from replay.data.nn.parquet.impl.numeric_column import NumericColumn, to_torch
 from replay.data.utils.typing.dtype import torch_to_pyarrow
 
 TORCH_DTYPE_LIST: list[torch.dtype] = [
@@ -22,7 +22,7 @@ def test_column(seed: int, elem_count: int, torch_dtype: torch.dtype):
     data: torch.Tensor = torch.randint(low=-10, high=+10, size=(elem_count,), generator=gen, dtype=torch_dtype)
     array: pa.Array = pa.array(data.cpu().tolist(), type=torch_to_pyarrow(torch_dtype))
     mask, torch_array = to_torch(array)
-    column: FlatColumn = FlatColumn(data=torch_array, mask=mask)
+    column: NumericColumn = NumericColumn(data=torch_array, mask=mask)
 
     indices: torch.LongTensor = torch.randint(
         low=0,
@@ -52,7 +52,7 @@ def test_column_with_nulls(seed: int, elem_count: int, torch_dtype: torch.dtype)
     data_list = [value if not_null else None for value, not_null in iterable]
     array: pa.Array = pa.array(data_list, type=torch_to_pyarrow(torch_dtype))
     mask, torch_array = to_torch(array)
-    column: FlatColumn = FlatColumn(data=torch_array, mask=mask)
+    column: NumericColumn = NumericColumn(data=torch_array, mask=mask)
 
     indices: torch.LongTensor = torch.randint(
         low=0,

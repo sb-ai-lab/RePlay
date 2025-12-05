@@ -8,7 +8,7 @@ from hypothesis import (
 
 from replay.data.nn.parquet.impl.array_1d_column import to_array_1d_columns
 from replay.data.nn.parquet.impl.array_2d_column import to_array_2d_columns
-from replay.data.nn.parquet.impl.flat_column import to_flat_columns
+from replay.data.nn.parquet.impl.numeric_column import to_numeric_columns
 from replay.data.nn.parquet.impl.named_columns import NamedColumns
 from replay.data.utils.typing.dtype import torch_to_pyarrow
 
@@ -50,7 +50,7 @@ def test_named_columns(a_type: torch.dtype, b_type: torch.dtype, c_type: torch.d
 
     named = NamedColumns(
         columns={
-            **to_flat_columns(table, metadata),
+            **to_numeric_columns(table, metadata),
             **to_array_1d_columns(table, metadata),
             **to_array_2d_columns(table, metadata),
         }

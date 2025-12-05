@@ -20,7 +20,16 @@ def curr_replica(
     return result
 
 
+class ReplicasInfoProtocol(Protocol):
+    @property
+    def num_replicas(self) -> int: ...
+
+    @property
+    def curr_replica(self) -> int: ...
+
+
 class ReplicasInfo:
+    """Wrapper class for Torch's replica metadata."""
     def __init__(
         self,
         worker_info: WorkerInfoProtocol = DEFAULT_WORKER_INFO,
@@ -36,11 +45,3 @@ class ReplicasInfo:
     @property
     def curr_replica(self) -> int:
         return curr_replica(worker_info=self.worker_info, distributed_info=self.distributed_info)
-
-
-class ReplicasInfoProtocol(Protocol):
-    @property
-    def num_replicas(self) -> int: ...
-
-    @property
-    def curr_replica(self) -> int: ...
