@@ -1,21 +1,3 @@
-Universal Lighting module
-=========================
-LightningModule
-_______________
-.. autoclass:: replay.nn.LightningModule
-   :members: __init__, forward, candidates_to_score
-
-TrainOutput
-___________
-.. autoclass:: replay.nn.TrainOutput
-   :members:
-
-InferenceOutput
-_______________
-.. autoclass:: replay.nn.InferenceOutput
-   :members:
-
-
 SasRec
 ======
 
@@ -289,20 +271,36 @@ EmbeddingTyingHead
 .. autoclass:: replay.nn.EmbeddingTyingHead
    :members: forward
 
+Universal Lighting module
+=========================
+LightningModule
+_______________
+.. autoclass:: replay.nn.LightningModule
+   :members: __init__, forward, candidates_to_score
 
-Easy training and validation with Lightning
+TrainOutput
+___________
+.. autoclass:: replay.nn.TrainOutput
+   :members:
+
+InferenceOutput
+_______________
+.. autoclass:: replay.nn.InferenceOutput
+   :members:
+
+Easy training, validation and inference with Lightning
 ========================================================
-Replay provides Callbacks and Postprocessors to make the model training and validation process as convenient as possible.
+Replay provides Callbacks and Postprocessors to make the model training, validation and inference process as convenient as possible.
 
-During training:
+During training/validation:
 
-You can define the list of validation metrics and the model is determined to be the best and is saved if the metric
-updates its value during validation.
+   You can define the list of validation metrics and the model is determined to be the best and is saved if the metric updates its value during validation.
 
 During inference:
 
-You can get the recommendations in four formats: PySpark DataFrame, Pandas DataFrame, Polars DataFrame, PyTorch tensors. Each of the types corresponds a callback.
-You can filter the results using postprocessors strategy.
+   You can get the recommendations in the following formats: ``PySpark DataFrame``, ``Pandas DataFrame``, ``Polars DataFrame``, ``PyTorch tensors``.
+   Each of the types corresponds a callback. You can filter the results using postprocessors strategy.
+   In addition to outputting logits (scores) from the model, you can output any hidden states using ``HiddenStateCallback``.
 
 For a better understanding, you should look at examples of using neural network models.
 
@@ -335,14 +333,19 @@ TorchPredictionCallback
    :members: __init__, get_result
 
 HiddenStateCallback
-`````````````````````````````````
+```````````````````
 .. autoclass:: replay.nn.callbacks.HiddenStateCallback
    :members: __init__, get_result
 
 Postprocessors
 ______________
 
+BasePostProcessor
+`````````````````
+.. autoclass:: replay.nn.postprocessors.BasePostProcessor
+   :members: __init__, on_validation, on_prediction
+
 RemoveSeenItems
 ```````````````
-.. autoclass:: replay.models.nn.sequential.postprocessors.postprocessors.RemoveSeenItems
-   :members: __init__
+.. autoclass:: replay.nn.postprocessors.RemoveSeenItems
+   :members: __init__, on_validation, on_prediction

@@ -4,8 +4,8 @@ from typing import Generic, Optional, TypeVar
 import lightning
 import torch
 
-from replay.models.nn.sequential.postprocessors import BasePostProcessor
 from replay.nn import InferenceOutput, LightningModule
+from replay.nn.postprocessors import BasePostProcessor
 from replay.utils import PYSPARK_AVAILABLE, MissingImport, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:  # pragma: no cover
