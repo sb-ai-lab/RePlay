@@ -1,8 +1,8 @@
 Universal Lighting module
 =========================
-LightingModule
-______________
-.. autoclass:: replay.nn.LightingModule
+LightningModule
+_______________
+.. autoclass:: replay.nn.LightningModule
    :members: __init__, forward, candidates_to_score
 
 TrainOutput
