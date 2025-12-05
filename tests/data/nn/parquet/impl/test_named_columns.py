@@ -89,10 +89,11 @@ def test_mismatching_lengths():
 def test_mismatching_lengths(monkeypatch):
     monkeypatch.setattr(torch.cuda, "is_available", True)
 
-
     with pytest.raises(RuntimeError) as err:
-        deduce_device([
-            FlatColumn(torch.asarray([0, 2, -1, 1], device="cpu")),
-            FlatColumn(torch.asarray([6, 4, -1, 3], device="cuda")),
-        ])
+        deduce_device(
+            [
+                FlatColumn(torch.asarray([0, 2, -1, 1], device="cpu")),
+                FlatColumn(torch.asarray([6, 4, -1, 3], device="cuda")),
+            ]
+        )
     assert "Columns must be all on the same device." in str(err.value)

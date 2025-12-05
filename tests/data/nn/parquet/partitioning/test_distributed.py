@@ -1,4 +1,3 @@
-
 from replay.data.nn.parquet.info.distributed_info import DEFAULT_DISTRIBUTED_INFO as dist_info
 
 
