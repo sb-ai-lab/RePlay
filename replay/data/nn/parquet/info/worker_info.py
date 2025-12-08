@@ -14,7 +14,7 @@ class WorkerInfoProtocol(Protocol):
 class WorkerInfo:
     """Wrapper class for Torch's worker metadata."""
 
-    def __iter__(self) -> Generator[int]:
+    def __iter__(self) -> Generator[int, None, None]:
         yield self.id
 
     @property
