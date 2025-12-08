@@ -21,7 +21,7 @@ variables:
 
 .install_conditionals: &install_conditionals
   - *activate_poetry
-  - pip install -q --upgrade onnx onnxscript openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114
+  - pip install --upgrade onnx "onnxscript<=0.5.4" openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114
 
 stages:
   - code_quality
