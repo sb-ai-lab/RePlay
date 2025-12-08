@@ -2,8 +2,8 @@ import pytest
 import torch
 
 from replay.data.nn.parquet.impl.array_1d_column import Array1DColumn
-from replay.data.nn.parquet.impl.numeric_column import NumericColumn
 from replay.data.nn.parquet.impl.named_columns import NamedColumns, deduce_device, deduce_length
+from replay.data.nn.parquet.impl.numeric_column import NumericColumn
 from replay.data.utils.batching import UniformBatching
 from tests.data.nn.parquet.conftest import BatchGenerator
 

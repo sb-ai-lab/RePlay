@@ -8,8 +8,8 @@ from hypothesis import (
 
 from replay.data.nn.parquet.impl.array_1d_column import to_array_1d_columns
 from replay.data.nn.parquet.impl.array_2d_column import to_array_2d_columns
-from replay.data.nn.parquet.impl.numeric_column import to_numeric_columns
 from replay.data.nn.parquet.impl.named_columns import NamedColumns
+from replay.data.nn.parquet.impl.numeric_column import to_numeric_columns
 from replay.data.utils.typing.dtype import torch_to_pyarrow
 
 settings.load_profile("fast")
