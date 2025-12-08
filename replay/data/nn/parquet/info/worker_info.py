@@ -1,4 +1,4 @@
-from typing import Any, Generator, Optional, Protocol
+from typing import Any, Iterator, Optional, Protocol
 
 import torch.utils.data as data
 
@@ -14,7 +14,7 @@ class WorkerInfoProtocol(Protocol):
 class WorkerInfo:
     """Wrapper class for Torch's worker metadata."""
 
-    def __iter__(self) -> Generator[int, None, None]:
+    def __iter__(self) -> Iterator[int]:
         yield self.id
 
     @property
