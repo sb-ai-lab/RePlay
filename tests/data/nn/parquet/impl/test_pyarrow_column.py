@@ -48,7 +48,7 @@ def test_column_with_nulls(seed: int, elem_count: int, torch_dtype: torch.dtype)
     not_nulls: torch.BoolTensor = (
         torch.randint(low=-10, high=+10, size=(elem_count,), generator=gen, dtype=torch_dtype) < 0
     )
-    iterable = zip(data.cpu().tolist(), not_nulls.cpu().tolist(), strict=False)
+    iterable = zip(data.cpu().tolist(), not_nulls.cpu().tolist())
     data_list = [value if not_null else None for value, not_null in iterable]
     array: pa.Array = pa.array(data_list, type=torch_to_pyarrow(torch_dtype))
     mask, torch_array = to_torch(array)
