@@ -4,6 +4,8 @@ import torch.distributed as dist
 
 
 class DistributedInfo:
+    """Wrapper class for Torch's distibuted environment metadata."""
+
     def __iter__(self):
         yield self.rank
         yield self.world_size

@@ -13,15 +13,22 @@ from .utils import ensure_mutable
 
 
 class NumericColumn:
+    """A representation of a numeric column, containing a single number in each of its rows."""
+
     def __init__(
         self,
         data: torch.Tensor,
         mask: Optional[torch.BoolTensor] = None,
         padding: Any = DEFAULT_PADDING,
     ) -> None:
+        """
+        :param data: A tensor containing column data.
+        :param mask: A mask tensor to differentiate real values from paddings. Default: `None`.
+        :param padding: Padding to use for future indexing of non-existent data. Default: value of `DEFAULT_PADDING`.
+        """
         self.padding: Any = padding
-        self.data: torch.Tensor = data
-        self.mask: Optional[torch.BoolTensor] = mask
+        self.data = data
+        self.mask = mask
 
     @property
     def length(self) -> int:
@@ -52,6 +59,15 @@ class NumericColumn:
 
 
 def to_torch(array: pa.Array, device: torch.device = DEFAULT_DEVICE, padding: Any = DEFAULT_PADDING) -> OutputType:
+    """
+    Converts a PyArrow array into a PyTorch tensor.
+
+    :param array: Original PyArow array.
+    :param device: Target device to send the resulting tensor to. Default: value of `DEFAULT_DEVICE`.
+    :param padding: Value to fill null values with. Default: value of to `DEFAULT_PADDING`.
+
+    :return: A PyTorch tensor obtained from original array.
+    """
     dtype = pyarrow_to_torch(array.type)
 
     mask_torch = None
@@ -77,13 +93,15 @@ def to_numeric_columns(
     padding: Any = DEFAULT_PADDING,
 ) -> dict[str, NumericColumn]:
     """
-    Converts a PyArrow batch of data to a 
+    Converts a PyArrow batch of data to a set of `NumericColumn`s.
+    This function filters only those columns matching its format from the full batch.
 
-    :param data: _description_
-    :param metadata: _description_
-    :param device: _description_, defaults to DEFAULT_DEVICE
-    :param padding: _description_, defaults to DEFAULT_PADDING
-    :return: _description_
+    :param data: A PayArrow batch of column data.
+    :param metadata: Metadata containing information about columns' formats.
+    :param device: Target device to send column tensors to. Default: value of `DEFAULT_DEVICE`
+    :param padding: Padding to use for future indexing of non-existent data. Default: value of `DEFAULT_PADDING`.
+
+    :return: A dict of tensors containing dataset's numeric columns.
     """
     result = {}
     for column_name in get_numeric_columns(metadata):

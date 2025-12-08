@@ -30,6 +30,7 @@ class ReplicasInfoProtocol(Protocol):
 
 class ReplicasInfo:
     """Wrapper class for Torch's replica metadata."""
+
     def __init__(
         self,
         worker_info: WorkerInfoProtocol = DEFAULT_WORKER_INFO,

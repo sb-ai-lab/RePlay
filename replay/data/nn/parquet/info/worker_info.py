@@ -13,6 +13,7 @@ class WorkerInfoProtocol(Protocol):
 
 class WorkerInfo:
     """Wrapper class for Torch's worker metadata."""
+
     def __iter__(self) -> Generator[int]:
         yield self.id
 
@@ -37,6 +38,6 @@ class WorkerInfo:
         if wi is not None:
             return wi.num_workers
         return 1
-    
+
 
 DEFAULT_WORKER_INFO: WorkerInfo = WorkerInfo()

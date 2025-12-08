@@ -4,12 +4,28 @@ import torch
 
 
 def raw_get_offsets(lengths: torch.LongTensor) -> torch.LongTensor:
+    """
+    Performs offset calculation, defined simply as a cumulative sum of
+    the provided lengths tensor.
+
+    :param lengths: A tensor containing lengths of each individual row in a dataset's column.
+    :return: A tensor of offsets for each row.
+    """
     zero = torch.zeros((1,), device=lengths.device, dtype=torch.int64)
     cumsum = torch.cumsum(lengths, dim=-1)
     return torch.cat([zero, cumsum])
 
 
 def get_offsets(lengths: torch.LongTensor) -> torch.LongTensor:
+    """
+    Sanitizes row lengths, then calculates offsets for each row.
+    The calculation itself is performed via the `raw_get_offsets` method.
+
+    :param lengths: A tensor containing lengths of each individual row in a dataset's column.
+    :raises ValueError: If the lengths tensor is of invalid shape or contains negative values.
+
+    :return: A tensor of offsets for each row.
+    """
     if lengths.ndim != 1:
         msg = f"Lengths must be strictly 1D. Got {lengths.ndim}D."
         raise ValueError(msg)
@@ -30,8 +46,7 @@ def raw_get_mask(
 ) -> tuple[torch.BoolTensor, torch.LongTensor]:
     """
     Performs mask construction.
-
-    For
+    Given a list of indices, samples ...???
     """
     length = torch.asarray(length, dtype=torch.int64, device=indices.device)
 
@@ -46,7 +61,7 @@ def raw_get_mask(
     mask = (first[:, None] <= raw_indices) & (raw_indices < last[:, None])
 
     assert torch.all(torch.sum(mask, dim=-1, dtype=torch.int64) == torch.minimum(last - first, length)).cpu().item()
-    # We are indexing `first` (not anymore lmao) because of the data locality & tests
+
     output_indices = torch.where(mask, raw_indices, 0)
     assert torch.all((torch.max(output_indices, dim=-1).values < last) | (last == first)).cpu().item()
     return (mask, output_indices)
@@ -59,25 +74,17 @@ def get_mask(
 ) -> tuple[torch.BoolTensor, torch.LongTensor]:
     """
     Perform input sanity checks, then contructs a mask from inputs.
-
     The mask calculation itself is performed via the ``raw_get_mask`` method.
 
-    Args:
-        indices (torch.LongTensor): _description_
-        offsets (torch.LongTensor): _description_
-        length (LengthType): _description_
+    :param indices: A tensor of indices to be sampled from the dataset.
+    :param offsets: A tensor containing individual offsets for each of the column's rows.
+    :param length: THe total number of elements in a dataset's column.
 
-    Raises:
-        ValueError: _description_
-        IndexError: _description_
-        RuntimeError: _description_
-        ValueError: _description_
-        IndexError: _description_
-        IndexError: _description_
-        ValueError: _description_
+    :raises ValueError: When mishaped or otherwise invalid arguments are provided.
+    :raises IndexError: When sampling indices missing from dataset or none at all.
+    :raises RuntimeError: When provided tensors are not on the same device.
 
-    Returns:
-        tuple[torch.BoolTensor, torch.LongTensor]: _description_
+    :return: Constructed mask.
     """
     if torch.asarray(length).cpu().item() < 1:
         msg = f"Length must be a positive number. Got {length}"

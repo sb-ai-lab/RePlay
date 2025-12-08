@@ -20,6 +20,11 @@ from .utils import ensure_mutable
 
 
 class Array2DColumn:
+    """
+    A representation of a 2D array column, containing nested
+    lists of numbers of varying length in each of its rows.
+    """
+
     def __init__(
         self,
         data: torch.Tensor,
@@ -28,6 +33,16 @@ class Array2DColumn:
         shape: list[int],
         padding: Any = DEFAULT_PADDING,
     ) -> None:
+        """
+        :param data: A tensor containing column data.
+        :param outer_lengths: A tensor containing inner lengths (dim 0) of each individual row array.
+        :param inner_lengths: A tensor containing lengths (dim 1) of each individual row array.
+        :param shape: An integer or list of integers representing the target array shapes.
+        :param padding: Padding value to use to fill null values and match target shape.
+            Default: value of `DEFAULT_PADDING`
+
+        :raises ValueError: If the shape provided is not two-dimensional.
+        """
         self.padding = padding
         self.data = data
         self.inner_offsets = get_offsets(inner_lengths)
@@ -81,6 +96,14 @@ def to_torch(
     array: pa.Array,
     device: torch.device = DEFAULT_DEVICE,
 ) -> tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]:
+    """
+    Converts a PyArrow array into a PyTorch tensor.
+
+    :param array: Original PyArow array.
+    :param device: Target device to send the resulting tensor to. Default: value of `DEFAULT_DEVICE`.
+
+    :return: A PyTorch tensor obtained from original array.
+    """
     flatten_dim0 = pc.list_flatten(array)
     flatten = pc.list_flatten(flatten_dim0)
 
@@ -113,6 +136,16 @@ def to_array_2d_columns(
     metadata: Metadata,
     device: torch.device = DEFAULT_DEVICE,
 ) -> dict[str, Array2DColumn]:
+    """
+    Converts a PyArrow batch of data to a set of `Array2DColums`s.
+    This function filters only those columns matching its format from the full batch.
+
+    :param data: A PayArrow batch of column data.
+    :param metadata: Metadata containing information about columns' formats.
+    :param device: Target device to send column tensors to. Default: value of `DEFAULT_DEVICE`
+
+    :return: A dict of tensors containing dataset's numeric columns.
+    """
     result = {}
 
     for column_name in get_2d_array_columns(metadata):

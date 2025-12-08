@@ -156,9 +156,7 @@ class ParquetDataset(IterableDataset):
         self.cached_lengths: dict[int, int] = {}
 
     def compute_length(self) -> int:
-        """
-        Возвращает длину датасета в батчах фиксированного размера.
-        """
+        """Returns the length of the dataset counted in fixed-size batches."""
         num_replicas = self.replicas_info.num_replicas
         if num_replicas not in self.cached_lengths:
             if len(self.cached_lengths) > 0:
