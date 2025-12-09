@@ -4,7 +4,7 @@ from typing import Optional, Union
 
 import torch
 
-from replay.constants.device import DEFAULT_DEVICE
+from replay.data.nn.parquet.constants.device import DEFAULT_DEVICE
 
 
 def validate_length(length: int) -> int:
@@ -64,6 +64,8 @@ def partitioning_per_replica(length: int, num_replicas: int) -> int:
 
 
 class Partitioning:
+    """Utility class for calculating valid indices across multiple replicas."""
+
     def __init__(
         self,
         curr_replica: int,
@@ -71,6 +73,13 @@ class Partitioning:
         device: Union[torch.device, str] = DEFAULT_DEVICE,
         generator: Optional[torch.Generator] = None,
     ) -> None:
+        """
+        :param curr_replica: Id of the curreent replica.
+        :param num_replicas: Total number of active replicas.
+        :param device: Target device to send the indices tensor to.
+            Default: value of ``DEFAULT_DEVICE``.
+        :param generator: A pseudo-random number generator for index shuffling. Default: ``None``.
+        """
         self.device = torch.device(device)
         self.generator = generator
         self.num_replicas = validate_num_replicas(num_replicas)
@@ -84,28 +93,35 @@ class Partitioning:
         else:
             raw_indices = torch.randperm(full_length, dtype=torch.int64, generator=self.generator)
             raw_indices = raw_indices.to(device=self.device)
+
         assert torch.max(raw_indices).cpu().item() < full_length
         assert torch.numel(raw_indices) == full_length
         assert raw_indices.device == self.device
+
         return raw_indices
 
     def replica_indices(self, raw_indices: torch.LongTensor) -> torch.LongTensor:
         full_length = torch.numel(raw_indices)
         slc = slice(self.curr_replica, full_length, self.num_replicas)
         replica_indices = raw_indices[slc].clone()
+
         assert torch.max(replica_indices).cpu().item() < full_length
+
         return replica_indices
 
     def generate(self, length: int) -> torch.LongTensor:
         raw_indices = self.generate_raw_indices(length)
         full_length = partitioning_length(length, self.num_replicas)
+
         assert torch.numel(raw_indices) == full_length
 
         replica_indices = self.replica_indices(raw_indices)
         per_replica = partitioning_per_replica(length, self.num_replicas)
+
         assert torch.numel(replica_indices) == per_replica
 
         indices = torch.remainder(replica_indices, length)
+
         assert torch.max(indices).cpu().item() < length
         assert torch.numel(indices) == per_replica
         assert indices.device == self.device

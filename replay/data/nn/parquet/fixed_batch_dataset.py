@@ -5,21 +5,20 @@ from typing import Callable, Optional, Protocol, cast
 import torch
 from torch.utils.data import IterableDataset
 
-from replay.constants.batches import GeneralBatch, GeneralCollateFn
+from replay.data.nn.parquet.constants.batches import GeneralBatch, GeneralCollateFn
 from replay.data.nn.parquet.impl.masking import DEFAULT_COLLATE_FN
 
 
 def get_batch_size(batch: GeneralBatch, strict: bool = False) -> int:
     """
-    Получает размер батча из объекта `batch`.
+    Retrieves the size of the ``batch`` object.
 
-    Аргументы:
-        batch (GeneralBatch): Объект, содержащий батч.
-        strict (bool, optional): Если `True`, то будет проведена дополнительная проверка.
-        По умолчанию `False`.
+    :param batch: Batch object.
+    :param strict: If ``True``, performs additional validation. Default: ``False``.
 
-    Возвращает:
-        int: Размер батча.
+    :raises ValueError: If size mismatch is found in the batch during a strict check.
+
+    :return: Batch size.
     """
     batch_size: Optional[int] = None
 
@@ -61,10 +60,6 @@ def split_batches(batch: GeneralBatch, split: int) -> tuple[GeneralBatch, Genera
 
 
 class DatasetProtocol(Protocol):
-    """
-    Протокол для входного датасета.
-    """
-
     def __iter__(self) -> Iterator[GeneralBatch]: ...
     @property
     def batch_size(self) -> int: ...
@@ -72,22 +67,9 @@ class DatasetProtocol(Protocol):
 
 class FixedBatchSizeDataset(IterableDataset):
     """
-    Обертка для произвольных датасетов. Позволяет получать батчи фиксированного размера.
-        Конкатенирует батчи из обернутого датасета, пока не достигнет заданного размера.
-        Последний батч может быть меньше заданного размера.
-
-    Аргументы:
-        dataset (DatasetProtocol): Итерируемый объект, возвращающий батчи.
-            Чаще всего подкласс `torch.utils.data.IterableDataset`, например
-            `fmlib.data.io.PartitionedIterableDataset`.
-        batch_size (Optional[int]): Желанный размер батча. Если `None`, то будет
-            предпринята попытка получить его из `dataset.batch_size`. По умолчанию `None`.
-        collate_fn (GeneralCollateFn): Функция для объединения батчей. По умолчанию DEFAULT_COLLATE_FN.
-        strict_checks (bool, optional): Если `True`, то будут проведены дополнительные проверки.
-            Может влиять на скорость работы. По умолчанию `False`.
-
-    Атрибуты:
-        dataset (PartitionedIterableDataset): Объект датасета, поддерживающий итерацию по батчам.
+    Wrapper for arbitrary datasets that fetches batches of fixed size.
+    Concatenates batches from the wrapped dataset until it reaches the specified size.
+    The last batch may be smaller than the specified size.
     """
 
     def __init__(
@@ -97,6 +79,17 @@ class FixedBatchSizeDataset(IterableDataset):
         collate_fn: GeneralCollateFn = DEFAULT_COLLATE_FN,
         strict_checks: bool = False,
     ) -> None:
+        """
+        :param dataset: An iterable object that returns batches.
+            Generally a subclass of ``torch.utils.data.IterableDataset``.
+        :param batch_size: Desired batch size. If ``None``, will search for batch size in ``dataset.batch_size``.
+            Default: ``None``.
+        :param collate_fn: Collate function for merging batches. Default: value of ``DEFAULT_COLLATE_FN``.
+        :param strict_checks: If ``True``, additional batch size checks will be performed.
+            May affect performance. Default: ``False``.
+
+        :raises ValueError: If an invalid batch size was provided.
+        """
         super().__init__()
 
         self.dataset: DatasetProtocol = dataset

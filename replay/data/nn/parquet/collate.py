@@ -2,16 +2,18 @@ from collections.abc import Sequence
 
 import torch
 
-from replay.constants.batches import GeneralBatch, GeneralValue
+from replay.data.nn.parquet.constants.batches import GeneralBatch, GeneralValue
 
 
 def dict_collate(batch: Sequence[dict[str, torch.Tensor]]) -> dict[str, torch.Tensor]:
+    """Simple collate function that converts a dict of values into a tensor dict."""
     return {k: torch.cat([d[k] for d in batch], dim=0) for k in batch[0]}
 
 
 def general_collate(batch: Sequence[GeneralBatch]) -> GeneralBatch:
-    result: GeneralBatch = {}
-    test_sample: GeneralBatch = batch[0]
+    """General collate function that converts a nested dict of values into a tensor dict."""
+    result = {}
+    test_sample = batch[0]
 
     if len(batch) == 1:
         return test_sample

@@ -3,7 +3,7 @@ from typing import Any, Union
 
 from typing_extensions import TypeAlias
 
-from replay.constants.metadata import (
+from replay.data.nn.parquet.constants.metadata import (
     DEFAULT_PADDING,
     PADDING_FLAG,
     SHAPE_FLAG,
@@ -19,6 +19,12 @@ Listing: TypeAlias = Callable[[Metadata], list[str]]
 
 
 def make_shape_check(dim: int) -> ColumnCheck:
+    """
+    Constructs a function which checks a column's shape.
+
+    :param dim: Target number of dimensions.
+    """
+
     def function(column_metadata: ColumnMetadata) -> bool:
         if SHAPE_FLAG in column_metadata:
             value: Any = column_metadata[SHAPE_FLAG]
@@ -64,6 +70,12 @@ is_number = all_column_checks(
 
 
 def make_listing(check: ColumnCheck) -> Listing:
+    """
+    Filtering function for selecting columns that pass the provided check.
+
+    :param check: Check function to validate agains.
+    """
+
     def function(metadata: Metadata) -> list[str]:
         result: list[str] = []
         for col_name, col_meta in metadata.items():

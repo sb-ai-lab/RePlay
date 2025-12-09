@@ -7,9 +7,9 @@ import pyarrow.fs as fs
 import torch
 from torch.utils.data import IterableDataset
 
-from replay.constants.batches import GeneralBatch
-from replay.constants.device import DEFAULT_DEVICE
-from replay.constants.filesystem import DEFAULT_FILESYSTEM
+from replay.data.nn.parquet.constants.batches import GeneralBatch
+from replay.data.nn.parquet.constants.device import DEFAULT_DEVICE
+from replay.data.nn.parquet.constants.filesystem import DEFAULT_FILESYSTEM
 from replay.data.nn.parquet.impl.masking import (
     DEFAULT_COLLATE_FN,
     DEFAULT_MAKE_MASK_NAME,
@@ -27,62 +27,22 @@ from .partitioned_iterable_dataset import PartitionedIterableDataset
 
 class ParquetDataset(IterableDataset):
     """
-    Датасет для загрузки данных из одного или нескольких Parquet-файлов с поддержкой батчевания.
+    Combination dataset and sampler for batch-wise reading and processing of Parquet files.
 
-    Эта реализация позволяет читать данные с помощью PyArrow Dataset, преобразовывать их в структурированные колонки,
-        разбивать на партиции, а затем на батчи, необходимые для обучения модели.
-        Поддерживает распределённое обучение и воспроизводимое случайное перемешивание.
-    Во время работы даталоадера читается партиция размером `partition_size`.
-        Могут возникать ситуации, когда размер прочитанной партиции будет меньше,
-        чем `partition_size` - это зависит от количества строк в фрагменте данных.
-        Фрагмент - это один Parquet-файл в файловой системе.
-    Прочитанная партиция будет обработана и результат выдан в виде батча размером `batch_size`.
-    Обратите внимание, что размер батча в результате может быть меньше `batch_size`.
-    Для получения наибольшей эффективности при чтении и обработке данных
-        рекомендуется устанавливать `partition_size` в несколько раз больше, чем `batch_size`.
+    This implementation allows one to read data using a PyArrow Dataset, convert it into structured columns,
+    split it into partitions, and then into batches needed for model training.
+    Supports distributed training and reproducible random shuffling.
 
-    Аргументы:
-        source (Union[str, List[str]]): Путь или список путей к файлам/каталогам с данными в формате Parquet.
-        metadata (Metadata): Метаданные, описывающие структуру данных.
-            Структура каждого столбца определяется следующими значениями:
-            `shape` - размерность прочитываемого столбца.
-                Если столбец содержит только одно значение, то параметр указывать не нужно.
-                Если столбец содержит одномерный массив, то параметр должен быть числом или массивом,
-                    содержащим одно число.
-                Если столбец содержит двумерный массив, то параметр должен быть массивом, содержащим 2 числа.
-            `padding` - паддинг значение, которым будут заполняться массивы в случае если его длина меньше,
-                чем указанная в параметре `shape`.
-        partition_size (int): Размер партиции при чтении данных из Parquet-файлов.
-        batch_size (int): Размер батча, который будет возвращаться при итерации.
-        filesystem (Union[str, fs.FileSystem], optional): Файловая система для доступа к данным.
-            По умолчанию DEFAULT_FILESYSTEM.
-        make_mask_name (Callable[[str], str], optional): Функция для генерации имени маски.
-            По умолчанию DEFAULT_MAKE_MASK_NAME.
-        device (torch.device, optional): Устройство для хранения тензоров. По умолчанию DEFAULT_DEVICE.
-        generator (Optional[torch.Generator], optional): Генератор случайных чисел для перемешивания батчей.
-        replicas_info (ReplicasInfoProtocol, optional): Информация о репликах. По умолчанию DEFAULT_REPLICAS_INFO.
-        collate_fn (GeneralCollateFn, optional): Функция для соединения батчей. По умолчанию DEFAULT_COLLATE_FN.
-        kwargs (Dict[str, Any]): Дополнительные аргументы.
-            Для передачи дополнительных аргументов в PyArrow Dataset
-            необходимо передать аргументы в виде словаря с ключом `pyarrow_dataset_kwargs`.
-            Для передачи дополнительных аргументов в метод `to_batches` в PyArrow Dataset
-            необходимо передать аргументы в виде словаря с ключом `pyarrow_to_batches_kwargs`.
-        pyarrow_dataset_kwargs (Dict[str, Any], optional): Дополнительные параметры для создания PyArrow Dataset.
-        pyarrow_to_batches_kwargs (Dict[str, Any], optional): Дополнительные параметры для метода to_batches
-            в PyArrow Dataset.
+    During data loader operation, a partition of size ``partition_size`` is read.
+    There may be situations where the size of the read partition is less than
+    `partition_size` - this depends on the number of rows in the data fragment.
+    A fragment is a single Parquet file in the file system.
 
+    The read partition will be processed and the result will be returned as a batch of size ``batch_size``.
+    Please note that the resulting batch size may be less than ``batch_size``.
 
-    Атрибуты:
-        filesystem (fs.FileSystem): Файловая система для доступа к данным.
-        metadata (Metadata): Метаданные, описывающие структуру данных.
-        batch_size (int): Размер батча.
-        partition_size (int): Размер партиции при чтении данных из Parquet-файлов.
-        replicas_info (ReplicasInfoProtocol): Информация о репликах.
-        iterator (BatchesIterator): Итератор для чтения партиций из PyArrow Dataset.
-        raw_dataset (PartitionedIterableDataset): Датасет, который обрабатывает итератор и возвращает батчи.
-        dataset (FixedBatchSizeDataset): Объект датасета, поддерживающий итерацию по батчам фиксированного размера.
-        do_compute_length (bool): Флаг вычисления длины датасета. По умолчанию `True`.
-            Это может быть медленно в некоторых случаях.
+    For maximum efficiency when reading and processing data,
+    it is recommended to set `partition_size` to several times larger than `batch_size`.
     """
 
     def __init__(
@@ -99,6 +59,30 @@ class ParquetDataset(IterableDataset):
         collate_fn: GeneralCollateFn = DEFAULT_COLLATE_FN,
         **kwargs,
     ) -> None:
+        """
+        :param source: The path or list of paths to files/directories containing data in Parquet format.
+        :param metadata: Metadata describing the data structure.
+            The structure of each column is defined by the following values:
+
+                ``shape`` - the dimension of the column being read.
+                    If the column contains only one value, this parameter does not need to be specified.
+                    If the column contains a one-dimensional array, the parameter must be a number or an array
+                        containing one number.
+                    If the column contains a two-dimensional array, the parameter
+                        must be an array containing two numbers.
+
+                ``padding`` - padding value that will fill the arrays if their length is less
+                    than that specified in the `shape` parameter.
+        :param partition_size: Partition size when reading data from Parquet files.
+        :param batch_size: The size of the batch that will be returned during iteration.
+        :param filesystem: Filesystem used to access data. Default: value of ``DEFAULT_FILESYSTEM``.
+        :param make_mask_name: Mask name generation function. Default: value of ``DEFAULT_MAKE_MASK_NAME``.
+        :param device: The device on which the data will be generated. Defaults: value of ``DEFAULT_DEVICE``.
+        :param generator: Random number generator for batch shuffling.
+            If ``None``, shuffling will be disabled. Default: ``None``.
+        :param replicas_info: Replica information. Default: value of ``DEFAULT_REPLICAS_INFO``.
+        :param collate_fn: Collate function for merging batches. Default: value of ``DEFAULT_COLLATE_FN``.
+        """
         if partition_size < batch_size:
             msg = (
                 "Suboptimal parameters: partition size is smaller than batch size. "

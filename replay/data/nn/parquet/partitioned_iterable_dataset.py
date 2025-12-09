@@ -15,25 +15,10 @@ Batch = dict[str, torch.Tensor]
 
 class PartitionedIterableDataset(data.IterableDataset):
     """
-    Датасет, реализующий итерацию по данным, разбитым на партиции (partitions),
-    с последующим формированием батчей для обучения модели.
+    A dataset that implements iteration over partitioned data.
 
-    Эта реализация позволяет обрабатывать большие объемы данных в режиме потока,
-    особенно полезна при использовании в распределённых тренировках.
-
-    Аргументы:
-        iterable (Iterable[NamedColumns]): Итерируемый объект, возвращающий партиции данных.
-        batch_size (int): Размер одного батча.
-        generator (Optional[torch.Generator], optional): Генератор случайных чисел для перемешивания батчей.
-            Если не указан, то перемешивание будет выключено.
-        replicas_info (ReplicasInfoProtocol, optional): Информация о репликах, используется в распределённой тренировке.
-            По умолчанию — DEFAULT_REPLICAS_INFO.
-
-    Атрибуты:
-        iterable (Iterable[NamedColumns]): Итерируемый объект с партициями.
-        batch_size (Optional[int]): Размер батча.
-        generator (Optional[torch.Generator]): Генератор случайных чисел.
-        replicas_info (ReplicasInfoProtocol): Информация о репликах.
+    This implementation allows large amounts of data to be processed in batch-wise mode,
+    which is especially useful when used in distributed training.
     """
 
     def __init__(
@@ -43,6 +28,13 @@ class PartitionedIterableDataset(data.IterableDataset):
         generator: Optional[torch.Generator] = None,
         replicas_info: ReplicasInfoProtocol = DEFAULT_REPLICAS_INFO,
     ) -> None:
+        """
+        :param iterable: An iterable object that returns data partitions.
+        :param batch_size: Batch size.
+        :param generator: Random number generator for batch shuffling.
+            If ``None``, shuffling will be disabled. Default: ``None``.
+        :param replicas_info: Replica information. Default: value of ``DEFAULT_REPLICAS_INFO``.
+        """
         super().__init__()
 
         self.iterable = iterable

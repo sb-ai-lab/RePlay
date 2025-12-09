@@ -19,7 +19,7 @@ def raw_get_offsets(lengths: torch.LongTensor) -> torch.LongTensor:
 def get_offsets(lengths: torch.LongTensor) -> torch.LongTensor:
     """
     Sanitizes row lengths, then calculates offsets for each row.
-    The calculation itself is performed via the `raw_get_offsets` method.
+    The calculation itself is performed via the ``raw_get_offsets`` method.
 
     :param lengths: A tensor containing lengths of each individual row in a dataset's column.
     :raises ValueError: If the lengths tensor is of invalid shape or contains negative values.
@@ -46,7 +46,18 @@ def raw_get_mask(
 ) -> tuple[torch.BoolTensor, torch.LongTensor]:
     """
     Performs mask construction.
-    Given a list of indices, samples ...???
+    Given the data itself, its offsets and the expected sequence length, returns two tensors.
+
+    The first tensor is the padding mask, where ``False`` represents a padded value that was not present in the data,
+    and ``True`` represents a real element from the dataset.
+
+    The second tensor is the data itself, left-padded with a 0 to the desired length.
+
+    :param indices: A tensor of indices to be sampled from the dataset.
+    :param offsets: A tensor containing individual offsets for each of the column's rows.
+    :param length: THe total number of elements in a dataset's column.
+
+    :return: Constructed mask.
     """
     length = torch.asarray(length, dtype=torch.int64, device=indices.device)
 

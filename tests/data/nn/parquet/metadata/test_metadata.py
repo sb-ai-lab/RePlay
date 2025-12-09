@@ -1,6 +1,6 @@
 import pytest
 
-from replay.constants.metadata import SHAPE_FLAG
+from replay.data.nn.parquet.constants.metadata import SHAPE_FLAG
 from replay.data.nn.parquet.metadata import (
     get_1d_array_columns,
     get_2d_array_columns,

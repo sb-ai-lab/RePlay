@@ -4,7 +4,7 @@ from typing import Any, Callable, Optional
 import pyarrow.dataset as da
 import torch
 
-from replay.constants.device import DEFAULT_DEVICE
+from replay.data.nn.parquet.constants.device import DEFAULT_DEVICE
 from replay.data.nn.parquet.impl.masking import DEFAULT_MAKE_MASK_NAME
 
 from .impl.array_1d_column import to_array_1d_columns
@@ -15,31 +15,7 @@ from .metadata import Metadata
 
 
 class BatchesIterator:
-    """
-    Итератор для побатчевого извлечения данных из parquet-датасета с преобразованием в структурированные колонки.
-
-    Аргументы:
-        metadata (Metadata): Метаданные, описывающие структуру и типы данных.
-        dataset (da.Dataset): Pyarrow-датасет, поддерживающий метод to_batches.
-        batch_size (int): Размер батча при обработке одной партиции parquet-датасета.
-            Размер получаемого батча не всегда будет равен batch_size.
-            По причине того, что в фрагменте parquet-файла может содержаться количество строк некратное batch_size.
-            Например, если фрагмент содержит 1000 строк и batch_size равен 64,
-            то вы получите 15 батчей размера 64 и последний батч будет размером 40.
-        make_mask_name (Callable[[str], str], optional): Функция для генерации имени маски.
-            По умолчанию `DEFAULT_MAKE_MASK_NAME`.
-        device (torch.device, optional): Устройство для хранения тензоров (CPU/GPU). По умолчанию `DEFAULT_DEVICE`.
-        pyarrow_kwargs (Dict[str, Any], optional): Дополнительные аргументы для метода `to_batches`.
-            Для большего понимания смотрите документацию метода `to_batches` в PyArrow Dataset.
-
-    Атрибуты:
-        dataset (da.Dataset): Входной датасет.
-        metadata (Metadata): Метаданные.
-        batch_size (int): Размер батча.
-        make_mask_name (Callable[[str], str]): Функция формирования имени маски.
-        device (torch.device): Устройство, на котором будут формироваться данные.
-        pyarrow_kwargs (Dict[str, Any]): Параметры для PyArrow.
-    """
+    """Iterator for batch-wise extraction of data from a Parquet dataset with conversion to structured columns."""
 
     def __init__(
         self,
@@ -50,6 +26,16 @@ class BatchesIterator:
         device: torch.device = DEFAULT_DEVICE,
         pyarrow_kwargs: Optional[dict[str, Any]] = None,
     ) -> None:
+        """
+        :param metadata: Metadata describing the structure and types of input data.
+        :param dataset: Pyarrow dataset implementing the ``to_batches`` method.
+        :param batch_size: Batch size sampled from a single partition.
+            Resulting batch will not always match it in size due to mismatches between
+            the target batch size and the partition size.
+        :param make_mask_name: Mask name generation function. Default: value of ``DEFAULT_MAKE_MASK_NAME``.
+        :param device: The device on which the data will be generated. Defaults: value of ``DEFAULT_DEVICE``.
+        :param pyarrow_kwargs: Additional parameters for PyArrow dataset's ``to_batches`` method. Default: ``None``.
+        """
         if pyarrow_kwargs is None:
             pyarrow_kwargs = {}
         self.dataset = dataset

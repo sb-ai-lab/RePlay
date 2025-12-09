@@ -4,8 +4,8 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import torch
 
-from replay.constants.device import DEFAULT_DEVICE
-from replay.constants.metadata import DEFAULT_PADDING
+from replay.data.nn.parquet.constants.device import DEFAULT_DEVICE
+from replay.data.nn.parquet.constants.metadata import DEFAULT_PADDING
 from replay.data.nn.parquet.metadata import (
     Metadata,
     get_2d_array_columns,
@@ -21,7 +21,7 @@ from .utils import ensure_mutable
 
 class Array2DColumn:
     """
-    A representation of a 2D array column, containing nested
+    Representation of a 2D array column, containing nested
     lists of numbers of varying length in each of its rows.
     """
 
@@ -35,11 +35,11 @@ class Array2DColumn:
     ) -> None:
         """
         :param data: A tensor containing column data.
-        :param outer_lengths: A tensor containing inner lengths (dim 0) of each individual row array.
-        :param inner_lengths: A tensor containing lengths (dim 1) of each individual row array.
+        :param outer_lengths: A tensor containing outer lengths (first dim) of each individual row array.
+        :param inner_lengths: A tensor containing inner lengths (second dim) of each individual row array.
         :param shape: An integer or list of integers representing the target array shapes.
         :param padding: Padding value to use to fill null values and match target shape.
-            Default: value of `DEFAULT_PADDING`
+            Default: value of ``DEFAULT_PADDING``
 
         :raises ValueError: If the shape provided is not two-dimensional.
         """
@@ -99,8 +99,8 @@ def to_torch(
     """
     Converts a PyArrow array into a PyTorch tensor.
 
-    :param array: Original PyArow array.
-    :param device: Target device to send the resulting tensor to. Default: value of `DEFAULT_DEVICE`.
+    :param array: Original PyArrow array.
+    :param device: Target device to send the resulting tensor to. Default: value of ``DEFAULT_DEVICE``.
 
     :return: A PyTorch tensor obtained from original array.
     """
@@ -137,12 +137,12 @@ def to_array_2d_columns(
     device: torch.device = DEFAULT_DEVICE,
 ) -> dict[str, Array2DColumn]:
     """
-    Converts a PyArrow batch of data to a set of `Array2DColums`s.
+    Converts a PyArrow batch of data to a set of ``Array2DColums``s.
     This function filters only those columns matching its format from the full batch.
 
-    :param data: A PayArrow batch of column data.
+    :param data: A PyArrow batch of column data.
     :param metadata: Metadata containing information about columns' formats.
-    :param device: Target device to send column tensors to. Default: value of `DEFAULT_DEVICE`
+    :param device: Target device to send column tensors to. Default: value of ``DEFAULT_DEVICE``
 
     :return: A dict of tensors containing dataset's numeric columns.
     """

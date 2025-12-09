@@ -3,8 +3,8 @@ from typing import Any, Optional
 import pyarrow as pa
 import torch
 
-from replay.constants.device import DEFAULT_DEVICE
-from replay.constants.metadata import DEFAULT_PADDING
+from replay.data.nn.parquet.constants.device import DEFAULT_DEVICE
+from replay.data.nn.parquet.constants.metadata import DEFAULT_PADDING
 from replay.data.nn.parquet.metadata import Metadata, get_numeric_columns
 from replay.data.utils.typing.dtype import pyarrow_to_torch
 
@@ -23,8 +23,8 @@ class NumericColumn:
     ) -> None:
         """
         :param data: A tensor containing column data.
-        :param mask: A mask tensor to differentiate real values from paddings. Default: `None`.
-        :param padding: Padding to use for future indexing of non-existent data. Default: value of `DEFAULT_PADDING`.
+        :param mask: A mask tensor to differentiate real values from paddings. Default: ``None``.
+        :param padding: Padding to use for future indexing of non-existent data. Default: value of ``DEFAULT_PADDING``.
         """
         self.padding: Any = padding
         self.data = data
@@ -62,9 +62,9 @@ def to_torch(array: pa.Array, device: torch.device = DEFAULT_DEVICE, padding: An
     """
     Converts a PyArrow array into a PyTorch tensor.
 
-    :param array: Original PyArow array.
-    :param device: Target device to send the resulting tensor to. Default: value of `DEFAULT_DEVICE`.
-    :param padding: Value to fill null values with. Default: value of to `DEFAULT_PADDING`.
+    :param array: Original PyArrow array.
+    :param device: Target device to send the resulting tensor to. Default: value of ``DEFAULT_DEVICE``.
+    :param padding: Value to fill null values with. Default: value of to ``DEFAULT_PADDING``.
 
     :return: A PyTorch tensor obtained from original array.
     """
@@ -93,13 +93,13 @@ def to_numeric_columns(
     padding: Any = DEFAULT_PADDING,
 ) -> dict[str, NumericColumn]:
     """
-    Converts a PyArrow batch of data to a set of `NumericColumn`s.
+    Converts a PyArrow batch of data to a set of ``NumericColumn``s.
     This function filters only those columns matching its format from the full batch.
 
-    :param data: A PayArrow batch of column data.
+    :param data: A PyArrow batch of column data.
     :param metadata: Metadata containing information about columns' formats.
-    :param device: Target device to send column tensors to. Default: value of `DEFAULT_DEVICE`
-    :param padding: Padding to use for future indexing of non-existent data. Default: value of `DEFAULT_PADDING`.
+    :param device: Target device to send column tensors to. Default: value of ``DEFAULT_DEVICE``
+    :param padding: Padding to use for future indexing of non-existent data. Default: value of ``DEFAULT_PADDING``.
 
     :return: A dict of tensors containing dataset's numeric columns.
     """

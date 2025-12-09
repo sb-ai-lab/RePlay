@@ -16,31 +16,18 @@ Batch = dict[str, torch.Tensor]
 
 def validate_batch_size(batch_size: int) -> int:
     if batch_size <= 0:
-        msg = "`batch_size` must be a positive integer."
+        msg = f"batch_size must be a positive integer. Got {batch_size=}"
         raise ValueError(msg)
     return batch_size
 
 
 class IterableDataset(data.IterableDataset):
     """
-    Реализация итерируемого датасета, поддерживающего партиционирование и батчевание данных.
-    Есть поддержка распределённого обучения, когда данные должны быть
-        разделены между репликами, и воспроизводимое случайное перемешивание.
-    Реплика - это идентификатор процесса, который выполняет загрузку данных.
-        Определяется двумя параметрами - номер процесса внутри PyTorch и номер ноды.
+    An iterable dataset used for processing a single partition of data.
+    Supports distributed training, where data is divided between replicas, and reproducible random shuffling.
 
-    Arguments:
-        named_columns (NamedColumns): Структурированные данные, представленные в виде колонок.
-        batch_size (int): Размер одного батча.
-        generator (Optional[torch.Generator], optional): Генератор случайных чисел для перемешивания батчей.
-            Если не указан, то перемешивание будет выключено.
-        replicas_info (ReplicasInfoProtocol, optional): Информация о репликах. По умолчанию DEFAULT_REPLICAS_INFO.
-
-    Attributes:
-        named_columns (NamedColumns): Входные данные.
-        generator (Optional[torch.Generator]): Генератор случайных чисел.
-        replicas_info (ReplicasInfoProtocol): Информация о репликах.
-        batch_size (int): Размер батча.
+    A replica is an identifier for the process that performs data loading.
+    It is defined by two parameters: the process id within PyTorch and the node id.
     """
 
     def __init__(
@@ -50,6 +37,13 @@ class IterableDataset(data.IterableDataset):
         generator: Optional[torch.Generator] = None,
         replicas_info: ReplicasInfoProtocol = DEFAULT_REPLICAS_INFO,
     ) -> None:
+        """
+        :param named_columns: Structured data presented as columns.
+        :param batch_size: Batch size.
+        :param generator: Random number generator for batch shuffling.
+            If ``None``, shuffling will be disabled. Default: ``None``.
+        :param replicas_info: Replica information. Default: value of ``DEFAULT_REPLICAS_INFO``.
+        """
         super().__init__()
 
         self.named_columns = named_columns

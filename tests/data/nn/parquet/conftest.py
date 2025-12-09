@@ -11,7 +11,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
 
-from replay.constants.metadata import PADDING_FLAG, SHAPE_FLAG
+from replay.data.nn.parquet.constants.metadata import PADDING_FLAG, SHAPE_FLAG
 from replay.data.nn.parquet.impl.indexing import get_offsets
 from replay.data.nn.parquet.metadata import Metadata
 from replay.data.utils.typing.dtype import torch_to_pyarrow
