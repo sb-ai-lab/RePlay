@@ -3,11 +3,9 @@ import math
 from typing import Optional
 
 import torch
-import torch.nn.functional as f
 
 from replay.data.nn import TensorMap
-
-from .ffn import SwiGLU
+from replay.nn import SwiGLU
 
 
 class MultiHeadDifferentialAttention(torch.nn.Module):
@@ -137,8 +135,8 @@ class MultiHeadDifferentialAttention(torch.nn.Module):
         attention_scores2 = attention_scores2 + attn_mask  # Mask out future positions
 
         # Apply softmax to get attention weights
-        attention1 = f.softmax(attention_scores1, dim=-1)  # (batch_size, num_heads, seq_len, seq_len)
-        attention2 = f.softmax(attention_scores2, dim=-1)
+        attention1 = torch.nn.functional.softmax(attention_scores1, dim=-1)  # (batch_size, num_heads, seq_len, seq_len)
+        attention2 = torch.nn.functional.softmax(attention_scores2, dim=-1)
         attention = attention1 - lambda_val * attention2
 
         # Apply attention weights to values

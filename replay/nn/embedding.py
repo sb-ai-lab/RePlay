@@ -8,9 +8,12 @@ import torch
 from replay.data.nn.schema import TensorFeatureInfo, TensorMap, TensorSchema
 
 
-class SequentialEmbedder(torch.nn.Module):
+class SequenceEmbedding(torch.nn.Module):
     """
     The embedding generation class for all types of features given into the sequential models.
+
+    The embedding size for each feature will be taken from ``TensorSchema`` (``embedding_dim``).
+    For numerical features, it is expected that the last dimension of the tensor will be equal to ``tensor_dim``.
     """
 
     def __init__(

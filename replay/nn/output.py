@@ -1,13 +1,12 @@
-from dataclasses import dataclass
-from typing import Optional
+from typing import TypedDict
 
 import torch
+from typing_extensions import NotRequired
 
 
-@dataclass
-class TrainOutput:
+class TrainOutput(TypedDict):
     """
-    A base class for storing outputs from models training stage
+    Storing outputs from models training stage.
 
     :param loss: a tensor containing the calculated loss.\n
         It is important that the tensor contains a gradient to call back propagation from the outside.
@@ -18,13 +17,12 @@ class TrainOutput:
     """
 
     loss: torch.Tensor
-    hidden_states: Optional[tuple[torch.Tensor, ...]] = None
+    hidden_states: NotRequired[tuple[torch.Tensor, ...]]
 
 
-@dataclass
-class InferenceOutput:
+class InferenceOutput(TypedDict):
     """
-    A base class for storing outputs from models inference stage
+    Storing outputs from models inference stage.
 
     :param logits:
         Sequence of hidden-states at the output of the last layer of the model.\n
@@ -36,4 +34,4 @@ class InferenceOutput:
     """
 
     logits: torch.Tensor
-    hidden_states: Optional[tuple[torch.Tensor, ...]] = None
+    hidden_states: NotRequired[tuple[torch.Tensor, ...]]

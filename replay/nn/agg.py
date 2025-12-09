@@ -6,7 +6,7 @@ import torch
 from replay.data.nn.schema import TensorMap
 
 
-class SequentialEmbeddingAggregatorProto(Protocol):
+class AggregatorProto(Protocol):
     """Class-protocol for working with embedding aggregation functions"""
 
     def forward(

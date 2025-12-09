@@ -1,16 +1,19 @@
 from collections.abc import Sequence
-from typing import Optional, Protocol, Union
+from typing import Literal, Optional, Protocol, Union
 
 import torch
 
-from replay.data.nn import TensorMap
-from replay.models.nn.loss import LossProto
-from replay.models.nn.output import InferenceOutput, TrainOutput
-from replay.models.nn.sequential.common.agg import SequentialEmbeddingAggregatorProto
-from replay.models.nn.sequential.common.head import EmbeddingTyingHead
-from replay.models.nn.sequential.common.mask import AttentionMaskBuilderProto
-from replay.models.nn.sequential.common.normalization import NormalizerProto
-from replay.models.nn.utils import warning_is_not_none
+from replay.data.nn import TensorMap, TensorSchema
+from replay.nn import (
+    AggregatorProto,
+    AttentionMaskProto,
+    EmbeddingTyingHead,
+    InferenceOutput,
+    NormalizerProto,
+    TrainOutput,
+)
+from replay.nn.loss import LossProto
+from replay.nn.utils import warning_is_not_none
 
 
 class EmbedderProto(Protocol):
@@ -52,8 +55,8 @@ class SasRecBody(torch.nn.Module):
     def __init__(
         self,
         embedder: EmbedderProto,
-        embedding_aggregator: SequentialEmbeddingAggregatorProto,
-        attn_mask_builder: AttentionMaskBuilderProto,
+        embedding_aggregator: AggregatorProto,
+        attn_mask_builder: AttentionMaskProto,
         encoder: EncoderProto,
         output_normalization: NormalizerProto,
     ):
@@ -125,8 +128,8 @@ class SasRec(torch.nn.Module):
     def __init__(
         self,
         embedder: EmbedderProto,
-        embedding_aggregator: SequentialEmbeddingAggregatorProto,
-        attn_mask_builder: AttentionMaskBuilderProto,
+        embedding_aggregator: AggregatorProto,
+        attn_mask_builder: AttentionMaskProto,
         encoder: EncoderProto,
         output_normalization: NormalizerProto,
         loss: LossProto,
@@ -160,6 +163,56 @@ class SasRec(torch.nn.Module):
 
         self.reset_parameters()
 
+    @classmethod
+    def build_original(
+        cls,
+        tensor_schema: TensorSchema,
+        embedding_dim: int = 192,
+        head_count: int = 4,
+        block_count: int = 2,
+        max_sequence_length: int = 50,
+        dropout: float = 0.3,
+        excluded_features: Optional[list[str]] = None,
+        categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
+    ) -> "SasRec":
+        from replay.nn import DefaultAttentionMask, SequenceEmbedding, SumAggregator
+        from replay.nn.loss import CE
+
+        from .agg import SasRecAggregator
+        from .transformer import SasRecTransformerLayer
+
+        excluded_features = [
+            tensor_schema.query_id_feature_name,
+            tensor_schema.timestamp_feature_name,
+            *(excluded_features or []),
+        ]
+        excluded_features = list(set(excluded_features))
+        return cls(
+            embedder=SequenceEmbedding(
+                schema=tensor_schema,
+                categorical_list_feature_aggregation_method=categorical_list_feature_aggregation_method,
+                excluded_features=excluded_features,
+            ),
+            embedding_aggregator=SasRecAggregator(
+                embedding_aggregator=SumAggregator(embedding_dim=embedding_dim),
+                max_sequence_length=max_sequence_length,
+                dropout=dropout,
+            ),
+            attn_mask_builder=DefaultAttentionMask(
+                reference_feature_name=tensor_schema.item_id_feature_name,
+                num_heads=head_count,
+            ),
+            encoder=SasRecTransformerLayer(
+                embedding_dim=embedding_dim,
+                num_heads=head_count,
+                num_blocks=block_count,
+                dropout=dropout,
+                activation="relu",
+            ),
+            output_normalization=torch.nn.LayerNorm(embedding_dim),
+            loss=CE(padding_value=tensor_schema.item_id_features.item().padding_value),
+        )
+
     def reset_parameters(self) -> None:
         self.body.reset_parameters()
 
@@ -192,10 +245,10 @@ class SasRec(torch.nn.Module):
             target_padding_mask=target_padding_mask,
         )
 
-        return TrainOutput(
-            loss=loss,
-            hidden_states=(hidden_states,),
-        )
+        return {
+            "loss": loss,
+            "hidden_states": (hidden_states,),
+        }
 
     def forward_inference(
         self,
@@ -209,10 +262,10 @@ class SasRec(torch.nn.Module):
         last_hidden_state = hidden_states[:, -1, :].contiguous()
         logits = self.get_logits(last_hidden_state, candidates_to_score)
 
-        return InferenceOutput(
-            logits=logits,
-            hidden_states=(hidden_states,),
-        )
+        return {
+            "logits": logits,
+            "hidden_states": (hidden_states,),
+        }
 
     def forward(
         self,
@@ -228,7 +281,8 @@ class SasRec(torch.nn.Module):
         :param padding_mask: A mask of shape ``(batch_size, sequence_length)``
             indicating which elements within ``key`` to ignore for the purpose of attention (i.e. treat as "padding").
             ``False`` value indicates that the corresponding ``key`` value will be ignored.
-        :param candidates_to_score: a tensor containing item IDs for which you need to get logits at the inference stage.\n
+        :param candidates_to_score: a tensor containing item IDs
+            for which you need to get logits at the inference stage.\n
             **Note:** you must take into account the padding value when creating the tensor.\n
             The tensor participates in calculations only on the inference stage.
             You don't have to submit an argument at training stage,

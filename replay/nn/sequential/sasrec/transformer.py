@@ -4,10 +4,10 @@ from typing import Literal
 import torch
 
 from replay.data.nn import TensorMap
-from replay.models.nn.sequential.common.ffn import PointWiseFeedForward
+from replay.nn import PointWiseFeedForward
 
 
-class TransformerLayer(torch.nn.Module):
+class SasRecTransformerLayer(torch.nn.Module):
     """
     SasRec vanilla layer.
     Layer consists of Multi-Head Attention followed by a Point-Wise Feed-Forward Network.
@@ -60,7 +60,12 @@ class TransformerLayer(torch.nn.Module):
         self.forward_layernorms = torch.nn.ModuleList([torch.nn.LayerNorm(embedding_dim, eps=1e-8)])
 
     def reset_parameters(self):
-        for _, param in self.named_parameters():
+        for i in range(self.num_blocks):
+            self.attention_layernorms[i].reset_parameters()
+            self.forward_layernorms[i].reset_parameters()
+            self.forward_layers[i].reset_parameters()
+
+        for _, param in self.attention_layers.named_parameters():
             with contextlib.suppress(ValueError):
                 torch.nn.init.xavier_normal_(param.data)
 

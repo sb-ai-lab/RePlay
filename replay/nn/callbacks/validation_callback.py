@@ -1,32 +1,12 @@
-import warnings
-from typing import Any, Literal, Optional, Protocol
+from typing import Any, Optional
 
 import lightning
 import torch
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
 
-from replay.metrics.torch_metrics_builder import TorchMetricsBuilder, metrics_to_df
+from replay.metrics.torch_metrics_builder import MetricName, TorchMetricsBuilder, metrics_to_df
 from replay.models.nn.sequential.postprocessors import BasePostProcessor
-
-CallbackMetricName = Literal[
-    "recall",
-    "precision",
-    "ndcg",
-    "map",
-    "mrr",
-    "novelty",
-    "coverage",
-]
-
-
-class ValidationBatch(Protocol):
-    """
-    Validation callback batch
-    """
-
-    query_id: torch.LongTensor
-    ground_truth: torch.LongTensor
-    train: torch.LongTensor
+from replay.nn import InferenceOutput, LightningModule
 
 
 class ValidationMetricsCallback(lightning.Callback):
@@ -35,28 +15,36 @@ class ValidationMetricsCallback(lightning.Callback):
 
     If multiple validation/testing dataloaders are used,
     the suffix of the metric name will contain the serial number of the dataloader.
+
+    For the correct calculation of metrics inside the callback,
+    the batch must contain the ``ground_truth`` key - the padding value of this tensor can be any,
+    the main condition is that the padding value does not overlap with the existing item ID values.
+    For example, these can be negative values.
+
+    To calculate the ``coverage`` and ``novelty`` metrics, the batch must additionally contain the ``train`` key.
+    The padding value of this tensor can be any, the main condition is that the padding value does not overlap
+    with the existing item ID values and ``ground_truth`` padding value.
+    For example, these can be negative values.
     """
 
     def __init__(
         self,
-        metrics: Optional[list[CallbackMetricName]] = None,
+        metrics: Optional[list[MetricName]] = None,
         ks: Optional[list[int]] = None,
         postprocessors: Optional[list[BasePostProcessor]] = None,
         item_count: Optional[int] = None,
     ):
         """
-        :param metrics: Sequence of metrics to calculate.
-        :param ks: highest k scores in ranking. Default: will be `[1, 5, 10, 20]`.
-        :param postprocessors: postprocessors to validation stage.
-        :param item_count: the total number of items in the dataset, required only for Coverage calculations.
+        :param metrics: Sequence of metrics to calculate.\n
+            Default: ``None``. This means that the default metrics will be used - ``Map``, ``NDCG``, ``Recall``.
+        :param ks: highest k scores in ranking.\n
+            Default: ``None``. This means that the default ``ks`` will be ``[1, 5, 10, 20]``.
+        :param postprocessors: A list of postprocessors for modifying logits from the model.
+            For example, it can be a softmax operation to logits or set the ``-inf`` value for some IDs.
+            Default: ``None``.
+        :param item_count: the total number of items in the dataset, required only for ``Coverage`` calculations.
+            Default: ``None``.
         """
-        deprecation_msg = (
-            f"The {self.__class__.__name__} class is deprecated. "
-            "The class will be removed after 3 releases.\n"
-            "Instead of this class, you can use the similar class located in the replay.nn.callbacks module."
-        )
-        warnings.warn(deprecation_msg, DeprecationWarning, stacklevel=2)
-
         self._metrics = metrics
         self._ks = ks
         self._item_count = item_count
@@ -69,9 +57,7 @@ class ValidationMetricsCallback(lightning.Callback):
             return [len(dataloaders)]
         return [len(dataloader) for dataloader in dataloaders]
 
-    def on_validation_epoch_start(
-        self, trainer: lightning.Trainer, pl_module: lightning.LightningModule  # noqa: ARG002
-    ) -> None:
+    def on_validation_epoch_start(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:  # noqa: ARG002
         self._dataloaders_size = self._get_dataloaders_size(trainer.val_dataloaders)
         self._metrics_builders = [
             TorchMetricsBuilder(self._metrics, self._ks, self._item_count) for _ in self._dataloaders_size
@@ -82,7 +68,7 @@ class ValidationMetricsCallback(lightning.Callback):
     def on_test_epoch_start(
         self,
         trainer: lightning.Trainer,
-        pl_module: lightning.LightningModule,  # noqa: ARG002
+        pl_module: LightningModule,  # noqa: ARG002
     ) -> None:  # pragma: no cover
         self._dataloaders_size = self._get_dataloaders_size(trainer.test_dataloaders)
         self._metrics_builders = [
@@ -91,19 +77,18 @@ class ValidationMetricsCallback(lightning.Callback):
         for builder in self._metrics_builders:
             builder.reset()
 
-    def _compute_pipeline(
-        self, query_ids: torch.LongTensor, scores: torch.Tensor, ground_truth: torch.LongTensor
-    ) -> tuple[torch.LongTensor, torch.Tensor, torch.LongTensor]:
+    def _apply_postproccesors(self, batch: dict, logits: torch.Tensor) -> torch.Tensor:
+        modified_logits = logits.detach().clone()
         for postprocessor in self._postprocessors:
-            query_ids, scores, ground_truth = postprocessor.on_validation(query_ids, scores, ground_truth)
-        return query_ids, scores, ground_truth
+            modified_logits = postprocessor(batch, modified_logits)
+        return modified_logits
 
     def on_validation_batch_end(
         self,
         trainer: lightning.Trainer,
-        pl_module: lightning.LightningModule,
-        outputs: torch.Tensor,
-        batch: ValidationBatch,
+        pl_module: LightningModule,
+        outputs: InferenceOutput,
+        batch: dict,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
@@ -112,9 +97,9 @@ class ValidationMetricsCallback(lightning.Callback):
     def on_test_batch_end(
         self,
         trainer: lightning.Trainer,
-        pl_module: lightning.LightningModule,
-        outputs: torch.Tensor,
-        batch: ValidationBatch,
+        pl_module: LightningModule,
+        outputs: InferenceOutput,
+        batch: dict,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:  # pragma: no cover
@@ -123,15 +108,15 @@ class ValidationMetricsCallback(lightning.Callback):
     def _batch_end(
         self,
         trainer: lightning.Trainer,  # noqa: ARG002
-        pl_module: lightning.LightningModule,
-        outputs: torch.Tensor,
-        batch: ValidationBatch,
+        pl_module: LightningModule,
+        outputs: InferenceOutput,
+        batch: dict,
         batch_idx: int,
         dataloader_idx: int,
     ) -> None:
-        _, seen_scores, seen_ground_truth = self._compute_pipeline(batch.query_id, outputs, batch.ground_truth)
+        seen_scores = self._apply_postproccesors(batch, outputs["logits"])
         sampled_items = torch.topk(seen_scores, k=self._metrics_builders[dataloader_idx].max_k, dim=1).indices
-        self._metrics_builders[dataloader_idx].add_prediction(sampled_items, seen_ground_truth, batch.train)
+        self._metrics_builders[dataloader_idx].add_prediction(sampled_items, batch["ground_truth"], batch.get("train"))
 
         if batch_idx + 1 == self._dataloaders_size[dataloader_idx]:
             pl_module.log_dict(
@@ -141,15 +126,13 @@ class ValidationMetricsCallback(lightning.Callback):
                 add_dataloader_idx=True,
             )
 
-    def on_validation_epoch_end(self, trainer: lightning.Trainer, pl_module: lightning.LightningModule) -> None:
+    def on_validation_epoch_end(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:
         self._epoch_end(trainer, pl_module)
 
-    def on_test_epoch_end(
-        self, trainer: lightning.Trainer, pl_module: lightning.LightningModule
-    ) -> None:  # pragma: no cover
+    def on_test_epoch_end(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:  # pragma: no cover
         self._epoch_end(trainer, pl_module)
 
-    def _epoch_end(self, trainer: lightning.Trainer, pl_module: lightning.LightningModule) -> None:  # noqa: ARG002
+    def _epoch_end(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:  # noqa: ARG002
         @rank_zero_only
         def print_metrics() -> None:
             metrics = {}

@@ -6,11 +6,11 @@ import torch
 from replay.data.nn import TensorMap
 
 
-class AttentionMaskBuilderProto(Protocol):
+class AttentionMaskProto(Protocol):
     def __call__(self, feature_tensor: TensorMap, padding_mask: torch.BoolTensor) -> torch.Tensor: ...
 
 
-class AttentionMaskBuilderBase(ABC):
+class AttentionMaskBase(ABC):
     def __init__(
         self,
         num_heads: int,
@@ -58,7 +58,7 @@ class AttentionMaskBuilderBase(ABC):
         raise NotImplementedError()
 
 
-class DefaultAttentionMaskBuilder(AttentionMaskBuilderBase):
+class DefaultAttentionMask(AttentionMaskBase):
     """
     Constructs a float lower-triangular attenstion mask
     of shape ``(batch_size * num_heads, sequence_length, sequence_length)``,

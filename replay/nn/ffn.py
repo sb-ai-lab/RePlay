@@ -4,7 +4,8 @@ from typing import Literal
 import torch
 
 from replay.data.nn import TensorMap
-from replay.models.nn.utils import create_activation
+
+from .utils import create_activation
 
 
 class PointWiseFeedForward(torch.nn.Module):
