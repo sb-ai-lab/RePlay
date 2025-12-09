@@ -94,3 +94,64 @@ TorchSequentialValidationDataset
 ________________________________
 .. autoclass:: replay.data.nn.TorchSequentialValidationDataset
     :members: __init__
+
+
+ParquetDatamodule
+_________________
+
+.. autoclass:: replay.data.nn.module.datamodule.ParquetModule
+    :members: __init__
+
+
+Transforms
+__________
+
+This submodule contains a set of standard torch transformations necessary for training recommendation neural network models. 
+These Transforms are intended for use with the ParquetModule. For applying specify a sequence of transformations for every data split as ParquetModule's ``transforms`` parameter. 
+Specified transformations will be applyed per batch on device, then the resulting batch will be used as model input. 
+
+
+BatchingTransform
+`````````````````
+.. autoclass:: replay.data.nn.transforms.BatchingTransform
+    :members: __init__
+
+CopyTransform
+`````````````
+.. autoclass:: replay.data.nn.transforms.CopyTransform
+    :members: __init__
+
+GroupTransform
+``````````````
+.. autoclass:: replay.data.nn.transforms.GroupTransform
+    :members: __init__
+
+RenameTransform
+```````````````
+.. autoclass:: replay.data.nn.transforms.RenameTransform
+    :members: __init__
+
+UnsqueezeTransform
+``````````````````
+.. autoclass:: replay.data.nn.transforms.UnsqueezeTransform
+    :members: __init__
+
+NextTokenTransform
+``````````````````
+.. autoclass:: replay.data.nn.transforms.NextTokenTransform
+    :members: __init__
+
+TokenMaskTransform
+``````````````````
+.. autoclass:: replay.data.nn.transforms.TokenMaskTransform
+    :members: __init__
+
+SequenceRollTransform
+`````````````````````
+.. autoclass:: replay.data.nn.transforms.SequenceRollTransform
+    :members: __init__
+
+UniformNegativeSamplingTransform
+````````````````````````````````
+.. autoclass:: replay.data.nn.transforms.UniformNegativeSamplingTransform
+    :members: __init__
