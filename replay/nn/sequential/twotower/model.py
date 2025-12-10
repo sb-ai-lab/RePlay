@@ -4,6 +4,7 @@ from typing import Optional, Protocol, Union
 import pandas as pd
 import torch
 
+from replay.data import FeatureSource
 from replay.data.nn import TensorMap, TensorSchema
 from replay.nn import (
     AggregatorProto,
@@ -15,8 +16,6 @@ from replay.nn import (
 )
 from replay.nn.loss import LossProto
 from replay.nn.utils import warning_is_not_none
-
-FeatureDesc = dict[Union[str, int, float], int]
 
 
 class EmbedderProto(Protocol):
@@ -136,7 +135,9 @@ class ItemReference:
 
     def __init__(self, schema: TensorSchema, item_reference_path: str):
         inverse_feature_names_mapping = {
-            schema.get(feature_name).feature_source.column: feature_name for feature_name in schema
+            schema.get(feature_name).feature_source.column: feature_name
+            for feature_name in schema
+            if schema.get(feature_name).feature_source.source == FeatureSource.ITEM_FEATURES
         }
 
         item_reference = pd.read_parquet(item_reference_path)
