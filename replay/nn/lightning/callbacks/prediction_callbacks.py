@@ -4,8 +4,9 @@ from typing import Generic, Optional, TypeVar
 import lightning
 import torch
 
-from replay.nn import InferenceOutput, LightningModule
-from replay.nn.postprocessors import BasePostProcessor
+from replay.nn import InferenceOutput
+from replay.nn.lightning import LightningModule
+from replay.nn.lightning.postprocessors import PostprocessorBase
 from replay.utils import PYSPARK_AVAILABLE, MissingImport, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:  # pragma: no cover
@@ -19,7 +20,7 @@ else:
 _T = TypeVar("_T")
 
 
-class InferenceWriterBase(lightning.Callback, Generic[_T]):
+class LogitsWriterBase(lightning.Callback, Generic[_T]):
     """
     The base class for a callback that records the result at the inference stage via ``LightningModule``.
 
@@ -32,7 +33,7 @@ class InferenceWriterBase(lightning.Callback, Generic[_T]):
         query_column: str,
         item_column: str,
         rating_column: str = "rating",
-        postprocessors: Optional[list[BasePostProcessor]] = None,
+        postprocessors: Optional[list[PostprocessorBase]] = None,
     ) -> None:
         """
         :param top_k: Take the ``top_k`` IDs with the highest logit values.
@@ -49,7 +50,7 @@ class InferenceWriterBase(lightning.Callback, Generic[_T]):
         self.item_column = item_column
         self.rating_column = rating_column
         self._top_k = top_k
-        self._postprocessors: list[BasePostProcessor] = postprocessors or []
+        self._postprocessors: list[PostprocessorBase] = postprocessors or []
         self._query_batches: list[torch.Tensor] = []
         self._item_batches: list[torch.Tensor] = []
         self._item_scores: list[torch.Tensor] = []
@@ -106,7 +107,7 @@ class InferenceWriterBase(lightning.Callback, Generic[_T]):
         pass
 
 
-class PandasInferenceWriter(InferenceWriterBase[PandasDataFrame]):
+class PandasLogitsWriter(LogitsWriterBase[PandasDataFrame]):
     """
     A callback that records the result of the model's forward function at the inference stage in a Pandas Dataframe.
     """
@@ -127,7 +128,7 @@ class PandasInferenceWriter(InferenceWriterBase[PandasDataFrame]):
         return prediction.explode([self.item_column, self.rating_column])
 
 
-class PolarsInferenceWriter(InferenceWriterBase[PolarsDataFrame]):
+class PolarsLogitsWriter(LogitsWriterBase[PolarsDataFrame]):
     """
     A callback that records the result of the model's forward function at the inference stage in a Polars Dataframe.
     """
@@ -148,7 +149,7 @@ class PolarsInferenceWriter(InferenceWriterBase[PolarsDataFrame]):
         return prediction.explode([self.item_column, self.rating_column])
 
 
-class SparkInferenceWriter(InferenceWriterBase[SparkDataFrame]):
+class SparkLogitsWriter(LogitsWriterBase[SparkDataFrame]):
     """
     A callback that records the result of the model's forward function at the inference stage in a Spark Dataframe.
     """
@@ -160,7 +161,7 @@ class SparkInferenceWriter(InferenceWriterBase[SparkDataFrame]):
         item_column: str,
         rating_column: str,
         spark_session: SparkSession,
-        postprocessors: Optional[list[BasePostProcessor]] = None,
+        postprocessors: Optional[list[PostprocessorBase]] = None,
     ) -> None:
         """
         :param top_k: Take the ``top_k`` IDs with the highest logit values.
@@ -211,7 +212,7 @@ class SparkInferenceWriter(InferenceWriterBase[SparkDataFrame]):
         return prediction
 
 
-class InferenceWriter(InferenceWriterBase[tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]]):
+class LogitsWriter(LogitsWriterBase[tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]]):
     """
     A callback that records the result of the model's forward function at the inference stage in a PyTorch Tensors.
     """
@@ -219,7 +220,7 @@ class InferenceWriter(InferenceWriterBase[tuple[torch.LongTensor, torch.LongTens
     def __init__(
         self,
         top_k: int,
-        postprocessors: Optional[list[BasePostProcessor]] = None,
+        postprocessors: Optional[list[PostprocessorBase]] = None,
     ) -> None:
         """
         :param top_k: Take the ``top_k`` IDs with the highest logit values.
