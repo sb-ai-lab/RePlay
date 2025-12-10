@@ -6,10 +6,11 @@ from lightning.pytorch.utilities.rank_zero import rank_zero_only
 
 from replay.metrics.torch_metrics_builder import MetricName, TorchMetricsBuilder, metrics_to_df
 from replay.models.nn.sequential.postprocessors import BasePostProcessor
-from replay.nn import InferenceOutput, LightningModule
+from replay.nn import InferenceOutput
+from replay.nn.lightning import LightningModule
 
 
-class ValidationMetricsCallback(lightning.Callback):
+class MetricsCalculator(lightning.Callback):
     """
     Callback for validation and testing stages.
 

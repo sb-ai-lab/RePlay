@@ -52,7 +52,7 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
 
         deprecation_msg = (
             f"The {self.__class__.__name__} class is deprecated. "
-            "The class will be removed after 3 releases.\n"
+            "The class will be removed in next major release.\n"
             "Instead of this class, you can use the similar class located in the replay.nn.callbacks module."
         )
         warnings.warn(deprecation_msg, DeprecationWarning, stacklevel=2)

@@ -4,8 +4,7 @@ import lightning
 import torch
 
 from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
-
-from .output import InferenceOutput, TrainOutput
+from replay.nn import InferenceOutput, TrainOutput
 
 
 class LightningModule(lightning.LightningModule):

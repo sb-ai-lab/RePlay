@@ -3,7 +3,7 @@ import abc
 import torch
 
 
-class BasePostProcessor(abc.ABC):  # pragma: no cover
+class PostprocessorBase(abc.ABC):  # pragma: no cover
     """
     Abstract base class for post processor
     """

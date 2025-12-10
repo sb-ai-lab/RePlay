@@ -5,10 +5,10 @@ from typing_extensions import override
 
 from replay.data.nn import TensorMap
 
-from ._base import BasePostProcessor
+from ._base import PostprocessorBase
 
 
-class RemoveSeenItems(BasePostProcessor):
+class SeenItemsFilter(PostprocessorBase):
     """
     Filters out (sets logits value to ``-inf``) the items that already have been seen in given dataset.
     """

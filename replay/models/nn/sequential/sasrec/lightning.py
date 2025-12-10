@@ -78,7 +78,7 @@ class SasRec(lightning.LightningModule):
 
         deprecation_msg = (
             "The SasRec class is deprecated. "
-            "The class will be removed after 3 releases.\n"
+            "The class will be removed in next major release.\n"
             "Instead of this class, you can use the decomposed SasRec model class located in the replay.nn module.\n"
             "To train and infer a model via Lightning, "
             "you can use the universal class for all models, the LightingModule class located in the replay.nn module."

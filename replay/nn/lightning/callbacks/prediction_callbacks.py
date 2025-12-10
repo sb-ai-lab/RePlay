@@ -19,7 +19,7 @@ else:
 _T = TypeVar("_T")
 
 
-class BasePredictionCallback(lightning.Callback, Generic[_T]):
+class InferenceWriterBase(lightning.Callback, Generic[_T]):
     """
     The base class for a callback that records the result at the inference stage via ``LightningModule``.
 
@@ -106,7 +106,7 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
         pass
 
 
-class PandasPredictionCallback(BasePredictionCallback[PandasDataFrame]):
+class PandasInferenceWriter(InferenceWriterBase[PandasDataFrame]):
     """
     A callback that records the result of the model's forward function at the inference stage in a Pandas Dataframe.
     """
@@ -127,7 +127,7 @@ class PandasPredictionCallback(BasePredictionCallback[PandasDataFrame]):
         return prediction.explode([self.item_column, self.rating_column])
 
 
-class PolarsPredictionCallback(BasePredictionCallback[PolarsDataFrame]):
+class PolarsInferenceWriter(InferenceWriterBase[PolarsDataFrame]):
     """
     A callback that records the result of the model's forward function at the inference stage in a Polars Dataframe.
     """
@@ -148,7 +148,7 @@ class PolarsPredictionCallback(BasePredictionCallback[PolarsDataFrame]):
         return prediction.explode([self.item_column, self.rating_column])
 
 
-class SparkPredictionCallback(BasePredictionCallback[SparkDataFrame]):
+class SparkInferenceWriter(InferenceWriterBase[SparkDataFrame]):
     """
     A callback that records the result of the model's forward function at the inference stage in a Spark Dataframe.
     """
@@ -211,7 +211,7 @@ class SparkPredictionCallback(BasePredictionCallback[SparkDataFrame]):
         return prediction
 
 
-class TorchPredictionCallback(BasePredictionCallback[tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]]):
+class InferenceWriter(InferenceWriterBase[tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]]):
     """
     A callback that records the result of the model's forward function at the inference stage in a PyTorch Tensors.
     """
@@ -248,7 +248,7 @@ class TorchPredictionCallback(BasePredictionCallback[tuple[torch.LongTensor, tor
         )
 
 
-class HiddenStateCallback(lightning.Callback):
+class HiddenStatesRetriever(lightning.Callback):
     """
     A callback for getting any hidden state from the model.
 
