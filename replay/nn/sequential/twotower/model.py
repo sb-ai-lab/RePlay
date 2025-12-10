@@ -135,9 +135,8 @@ class ItemReference:
     Prepares a dataframe of tensors with item features that will be used for training and inference of the Item Tower.
     """
 
-    def __init__(self, item_reference: dict[str, dict[Union[str, int, float], int]]):
-        # {feature_name: {value0: idx0, value1: idx1, ...}, ...}
-        self.item_reference = item_reference
+    def __init__(self, schema: TensorSchema, item_reference_path: str):
+        self.item_reference = self._get_item_reference(schema, item_reference_path)
 
     def keys(self) -> Generator[str, None, None]:
         return self.item_reference.keys()
@@ -148,25 +147,14 @@ class ItemReference:
     def __getitem__(self, key: str) -> dict[Union[str, int, float], int]:
         return self.item_reference[key]
 
-    @classmethod
-    def load_item_reference(
-        cls,
+    def _get_item_reference(
+        self,
         schema: TensorSchema,
-        item_reference_path: str,
+        item_reference_path: str
     ) -> "ItemReference":
-        if not item_reference_path:
-            return {schema.item_id_feature_name: list(range(schema.item_id_features.item().cardinality))}
+        inverse_feature_names_mapping = {schema.get(feature_name).feature_source.column: feature_name for feature_name in schema}
 
-        item_reference = cls._load_file(item_reference_path)
-        return cls.get_item_reference(schema, item_reference)
-
-    @classmethod
-    def get_item_reference(
-        cls,
-        schema: TensorSchema,
-        item_reference: pd.DataFrame
-    ) -> "ItemReference":
-        inverse_feature_names_mapping = cls._get_inverse_feature_names_mapping(schema)
+        item_reference = pd.read_parquet(item_reference_path)
         item_reference = item_reference.rename(columns=inverse_feature_names_mapping)
         item_reference: pd.DataFrame = (
             item_reference
@@ -176,25 +164,7 @@ class ItemReference:
         item_reference = {
             feature_name: item_reference[feature_name].tolist() for feature_name in item_reference.columns
         }
-        return cls(item_reference)
-
-    @staticmethod
-    def _get_inverse_feature_names_mapping(schema: TensorSchema) -> dict[str, str]:
-        return {schema.get(feature_name).feature_source.column: feature_name for feature_name in schema}
-
-    @staticmethod
-    def _load_file(path: str):
-        if path.endswith(".parquet"):
-            output = pd.read_parquet(path)
-        elif path.endswith((".pkl", ".pickle")):
-            output = pd.read_pickle(path)
-        elif path.endswith(".csv"):
-            output = pd.read_csv(path)
-        else:
-            msg = "Got filepath with unexpected file extension. Expected to get only parquet, pickle, csv files"
-            raise ValueError(msg)
-        return output
-
+        return item_reference
 
 class ItemTower(torch.nn.Module):
     """
