@@ -59,7 +59,7 @@ class LightningModule(lightning.LightningModule):
 
     def training_step(self, batch: dict) -> torch.Tensor:
         model_output: TrainOutput = self(batch)
-        loss = model_output.loss
+        loss = model_output["loss"]
         lr = self.optimizers().param_groups[0]["lr"]  # Get current learning rate
         self.log("learning_rate", lr, on_step=True, on_epoch=True, prog_bar=True)
         self.log(
@@ -74,11 +74,11 @@ class LightningModule(lightning.LightningModule):
 
     def predict_step(self, batch: dict) -> torch.Tensor:
         model_output: InferenceOutput = self(batch)
-        return model_output.logits
+        return model_output["logits"]
 
     def validation_step(self, batch: dict) -> torch.Tensor:
         model_output: InferenceOutput = self(batch)
-        return model_output.logits
+        return model_output["logits"]
 
     def configure_optimizers(self) -> Any:
         """
