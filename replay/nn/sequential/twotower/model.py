@@ -1,6 +1,5 @@
-import pickle
 from collections.abc import Generator, Sequence
-from typing import Literal, Optional, Protocol, Union
+from typing import Optional, Protocol, Union
 
 import pandas as pd
 import torch
@@ -136,7 +135,17 @@ class ItemReference:
     """
 
     def __init__(self, schema: TensorSchema, item_reference_path: str):
-        self.item_reference = self._get_item_reference(schema, item_reference_path)
+        inverse_feature_names_mapping = {
+            schema.get(feature_name).feature_source.column: feature_name for feature_name in schema
+        }
+
+        item_reference = pd.read_parquet(item_reference_path)
+        item_reference = item_reference.rename(columns=inverse_feature_names_mapping)
+        item_reference: pd.DataFrame = item_reference.sort_values(schema.item_id_feature_name).reset_index(drop=True)
+        item_reference = {
+            feature_name: item_reference[feature_name].tolist() for feature_name in item_reference.columns
+        }
+        self.item_reference = item_reference
 
     def keys(self) -> Generator[str, None, None]:
         return self.item_reference.keys()
@@ -147,24 +156,6 @@ class ItemReference:
     def __getitem__(self, key: str) -> dict[Union[str, int, float], int]:
         return self.item_reference[key]
 
-    def _get_item_reference(
-        self,
-        schema: TensorSchema,
-        item_reference_path: str
-    ) -> "ItemReference":
-        inverse_feature_names_mapping = {schema.get(feature_name).feature_source.column: feature_name for feature_name in schema}
-
-        item_reference = pd.read_parquet(item_reference_path)
-        item_reference = item_reference.rename(columns=inverse_feature_names_mapping)
-        item_reference: pd.DataFrame = (
-            item_reference
-            .sort_values(schema.item_id_feature_name)
-            .reset_index(drop=True)
-        )
-        item_reference = {
-            feature_name: item_reference[feature_name].tolist() for feature_name in item_reference.columns
-        }
-        return item_reference
 
 class ItemTower(torch.nn.Module):
     """
