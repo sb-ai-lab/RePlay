@@ -203,7 +203,7 @@ class ItemTower(torch.nn.Module):
         self.embedding_aggregator = embedding_aggregator
         self.encoder = encoder
 
-        self.item_reference = ItemReference.load_item_reference(schema, item_reference_path)
+        self.item_reference = ItemReference(schema, item_reference_path)
         for feature_name, tensor_info in schema.items():
             if not tensor_info.is_seq:
                 msg = "Non-sequential features is not yet supported"
