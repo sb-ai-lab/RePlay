@@ -1,6 +1,7 @@
 import pytest
 
 pytest.importorskip("torch", reason="Module 'torch' is required for ParquetDataset tests.")
+pytest_mark = pytest.mark.torch
 
 import os
 import sys
