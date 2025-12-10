@@ -149,105 +149,49 @@ class ItemReference:
         return self.item_reference[key]
 
     @classmethod
-    def load_feature_mapping(
-        cls,
-        schema: TensorSchema,
-        feature_mapping_path: str,
-    ) -> dict[str, dict[Union[str, int, float], int]]:
-        if not feature_mapping_path:
-            return {}
-        feature_mapping = cls._load_file(feature_mapping_path)
-
-        return cls.update_feature_mapping(schema, feature_mapping)
-
-    @classmethod
     def load_item_reference(
         cls,
         schema: TensorSchema,
         item_reference_path: str,
-        feature_mapping: dict[str, dict[Union[str, int, float], int]],
     ) -> "ItemReference":
         if not item_reference_path:
             return {schema.item_id_feature_name: list(range(schema.item_id_features.item().cardinality))}
-        if not feature_mapping:
-            msg = "Expected to have feature_mapping if passing item_reference_path for future mapping"
-            raise ValueError(msg)
-        item_reference = cls._load_file(item_reference_path, read_mode="pandas")
-        return cls.get_item_reference(schema, item_reference, feature_mapping)
 
-    @classmethod
-    def update_feature_mapping(
-        cls,
-        schema: TensorSchema,
-        feature_mapping: dict[str, FeatureDesc],
-    ) -> dict[str, dict[Union[str, int, float], int]]:
-        inverse_feature_names_mapping = cls._get_inverse_feature_names_mapping(schema)
-        for feature_name in list(feature_mapping.keys()):
-            new_feature_name = inverse_feature_names_mapping[feature_name]
-            if new_feature_name == feature_name:
-                continue
-            feature_mapping[new_feature_name] = feature_mapping.pop(feature_name)
-        return feature_mapping
+        item_reference = cls._load_file(item_reference_path)
+        return cls.get_item_reference(schema, item_reference)
 
     @classmethod
     def get_item_reference(
         cls,
         schema: TensorSchema,
-        item_reference: pd.DataFrame,
-        feature_mapping: dict[str, dict[Union[str, int, float], int]],
+        item_reference: pd.DataFrame
     ) -> "ItemReference":
         inverse_feature_names_mapping = cls._get_inverse_feature_names_mapping(schema)
         item_reference = item_reference.rename(columns=inverse_feature_names_mapping)
         item_reference: pd.DataFrame = (
-            item_reference.loc[
-                item_reference[schema.item_id_feature_name].isin(
-                    list(feature_mapping[schema.item_id_feature_name].keys())
-                )
-            ]
-            .sort_values(schema.item_id_feature_name, key=lambda x: x.map(feature_mapping[schema.item_id_feature_name]))
+            item_reference
+            .sort_values(schema.item_id_feature_name)
             .reset_index(drop=True)
         )
         item_reference = {
             feature_name: item_reference[feature_name].tolist() for feature_name in item_reference.columns
         }
-
-        output_item_reference = {}
-        for feature_name in item_reference:
-            if feature_name not in feature_mapping:  # num features and other features
-                output_item_reference[feature_name] = item_reference[feature_name].copy()
-            elif isinstance(item_reference[feature_name][0], (int, float, str)):
-                output_item_reference[feature_name] = [
-                    feature_mapping[feature_name][x] for x in item_reference[feature_name]
-                ]
-            else:
-                output_item_reference[feature_name] = [
-                    [feature_mapping[feature_name].get(xx, schema.get(feature_name).padding_value) for xx in x]
-                    for x in item_reference[feature_name]
-                ]
-
-        return cls(output_item_reference)
+        return cls(item_reference)
 
     @staticmethod
     def _get_inverse_feature_names_mapping(schema: TensorSchema) -> dict[str, str]:
         return {schema.get(feature_name).feature_source.column: feature_name for feature_name in schema}
 
     @staticmethod
-    def _load_file(path: str, read_mode: Literal["pandas", "pickle"] = "pickle"):
-        if read_mode == "pandas":
-            if path.endswith(".parquet"):
-                output = pd.read_parquet(path)
-            elif path.endswith((".pkl", ".pickle")):
-                output = pd.read_pickle(path)
-            elif path.endswith(".csv"):
-                output = pd.read_csv(path)
-            else:
-                msg = "Got filepath with unexpected file extension. Expected to get only parquet, pickle, csv files"
-                raise ValueError(msg)
-        elif read_mode == "pickle":
-            with open(path, "rb") as f:
-                output = pickle.load(f)
+    def _load_file(path: str):
+        if path.endswith(".parquet"):
+            output = pd.read_parquet(path)
+        elif path.endswith((".pkl", ".pickle")):
+            output = pd.read_pickle(path)
+        elif path.endswith(".csv"):
+            output = pd.read_csv(path)
         else:
-            msg = "Expected to read only pandas and pickle files"
+            msg = "Got filepath with unexpected file extension. Expected to get only parquet, pickle, csv files"
             raise ValueError(msg)
         return output
 
