@@ -75,7 +75,8 @@ class ParquetDataset(IterableDataset):
                     than that specified in the `shape` parameter.
         :param partition_size: Partition size when reading data from Parquet files.
         :param batch_size: The size of the batch that will be returned during iteration.
-        :param filesystem: Filesystem used to access data. Default: value of ``DEFAULT_FILESYSTEM``.
+        :param filesystem: A PyArrow's Filesystem object used to access data, or a path string
+            to infer it from. Default: value of ``DEFAULT_FILESYSTEM``.
         :param make_mask_name: Mask name generation function. Default: value of ``DEFAULT_MAKE_MASK_NAME``.
         :param device: The device on which the data will be generated. Defaults: value of ``DEFAULT_DEVICE``.
         :param generator: Random number generator for batch shuffling.
