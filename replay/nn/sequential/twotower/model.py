@@ -210,7 +210,6 @@ class ItemTower(torch.nn.Module):
         embedding_aggregator: AggregatorProto,
         encoder: ItemEncoderProto,
         feature_names: Sequence[str],
-        feature_mapping_path: str,
         item_reference_path: str,
     ):
         """
@@ -225,7 +224,6 @@ class ItemTower(torch.nn.Module):
             features and aggregated embeddings of ``item_tower_feature_names``.
             Item encoder uses item reference which is created based on ``item_reference_path``.
         :param feature_names: sequence of names used in item tower.
-        :param feature_mapping_path: The path to mapping from the original IDs to the encoded ones.
         :param item_reference_path: Path to dataframe with
             all items with features used in ``item_encoder`` (item "tower").
         """
@@ -235,8 +233,7 @@ class ItemTower(torch.nn.Module):
         self.embedding_aggregator = embedding_aggregator
         self.encoder = encoder
 
-        feature_mapping = ItemReference.load_feature_mapping(schema, feature_mapping_path)
-        self.item_reference = ItemReference.load_item_reference(schema, item_reference_path, feature_mapping)
+        self.item_reference = ItemReference.load_item_reference(schema, item_reference_path)
         for feature_name, tensor_info in schema.items():
             if not tensor_info.is_seq:
                 msg = "Non-sequential features is not yet supported"
@@ -323,7 +320,6 @@ class TwoTowerBody(torch.nn.Module):
         query_encoder: QueryEncoderProto,
         query_tower_output_normalization: NormalizerProto,
         item_encoder: ItemEncoderProto,
-        feature_mapping_path: str,
         item_reference_path: str,
     ):
         super().__init__()
@@ -348,7 +344,6 @@ class TwoTowerBody(torch.nn.Module):
             item_embedding_aggregator,
             item_encoder,
             item_tower_feature_names,
-            feature_mapping_path,
             item_reference_path,
         )
 
@@ -389,7 +384,6 @@ class TwoTower(torch.nn.Module):
         query_encoder: QueryEncoderProto,
         query_tower_output_normalization: NormalizerProto,
         item_encoder: ItemEncoderProto,
-        feature_mapping_path: str,
         item_reference_path: str,
         loss: LossProto,
         context_merger: Optional[ContextMergerProto] = None,
@@ -418,7 +412,6 @@ class TwoTower(torch.nn.Module):
             an item hidden embedding representation based on
             features and aggregated embeddings of ``item_tower_feature_names``.
             Item encoder uses item reference which is created based on ``item_reference_path``.
-        :param feature_mapping_path: The path to mapping from the original IDs to the encoded ones.
         :param item_reference_path: Path to dataframe
             with all items with features used in ``item_encoder`` (item "tower").
         :param loss: An object of a class that performs loss calculation
@@ -439,7 +432,6 @@ class TwoTower(torch.nn.Module):
             query_encoder=query_encoder,
             query_tower_output_normalization=query_tower_output_normalization,
             item_encoder=item_encoder,
-            feature_mapping_path=feature_mapping_path,
             item_reference_path=item_reference_path,
         )
         self.head = EmbeddingTyingHead()
@@ -453,7 +445,6 @@ class TwoTower(torch.nn.Module):
     def build_original(
         cls,
         tensor_schema: TensorSchema,
-        feature_mapping_path: str,
         item_reference_path: str,
         embedding_dim: int = 192,
         num_heads: int = 4,
@@ -504,7 +495,6 @@ class TwoTower(torch.nn.Module):
             ),
             query_tower_output_normalization=torch.nn.LayerNorm(embedding_dim),
             item_encoder=SwiGLUEncoder(embedding_dim=embedding_dim),
-            feature_mapping_path=feature_mapping_path,
             item_reference_path=item_reference_path,
             loss=CE(padding_value=tensor_schema.item_id_features.item().padding_value),
             context_merger=None,
