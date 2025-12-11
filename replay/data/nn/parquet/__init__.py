@@ -10,5 +10,11 @@ access to remotely stored data via PyArrow's filesystem configs.
 """
 
 from .parquet_dataset import ParquetDataset
+from .info.replicas import ReplicasInfoProtocol, ReplicasInfo, DEFAULT_REPLICAS_INFO
 
-__all__ = ["ParquetDataset"]
+__all__ = [
+    "ParquetDataset",
+    "ReplicasInfoProtocol",
+    "ReplicasInfo",
+    "DEFAULT_REPLICAS_INFO",
+]

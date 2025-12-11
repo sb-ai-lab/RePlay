@@ -17,4 +17,3 @@ def default_make_mask_name(postfix: str) -> Callable[[str], str]:
 
 
 DEFAULT_MAKE_MASK_NAME = default_make_mask_name(DEFAULT_MASK_POSTFIX)
-DEFAULT_REPLICAS_INFO: ReplicasInfoProtocol = ReplicasInfo()

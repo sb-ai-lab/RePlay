@@ -46,3 +46,5 @@ class ReplicasInfo:
     @property
     def curr_replica(self) -> int:
         return curr_replica(worker_info=self.worker_info, distributed_info=self.distributed_info)
+
+DEFAULT_REPLICAS_INFO: ReplicasInfoProtocol = ReplicasInfo()
