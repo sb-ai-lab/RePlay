@@ -419,7 +419,7 @@ class TwoTower(torch.nn.Module):
     @classmethod
     def build_original(
         cls,
-        tensor_schema: TensorSchema,
+        schema: TensorSchema,
         item_reference_path: str,
         embedding_dim: int = 192,
         num_heads: int = 4,
@@ -468,24 +468,24 @@ class TwoTower(torch.nn.Module):
         # excluded_features = list(set(excluded_features or []))
 
         excluded_features = [
-            tensor_schema.query_id_feature_name,
-            tensor_schema.timestamp_feature_name,
+            schema.query_id_feature_name,
+            schema.timestamp_feature_name,
             *(excluded_features or []),
         ]
         excluded_features = list(set(excluded_features))
 
-        feature_names = set(tensor_schema.names) - set(excluded_features)
+        feature_names = set(schema.names) - set(excluded_features)
 
         common_aggregator = SumAggregator(embedding_dim=embedding_dim)
         return cls(
-            schema=tensor_schema,
+            schema=schema,
             embedder=SequenceEmbedding(
-                schema=tensor_schema,
+                schema=schema,
                 categorical_list_feature_aggregation_method=categorical_list_feature_aggregation_method,
                 excluded_features=excluded_features,
             ),
             attn_mask_builder=DefaultAttentionMask(
-                reference_feature_name=tensor_schema.item_id_feature_name,
+                reference_feature_name=schema.item_id_feature_name,
                 num_heads=num_heads,
             ),
             query_tower_feature_names=feature_names,
@@ -506,7 +506,7 @@ class TwoTower(torch.nn.Module):
             query_tower_output_normalization=torch.nn.LayerNorm(embedding_dim),
             item_encoder=SwiGLUEncoder(embedding_dim=embedding_dim),
             item_reference_path=item_reference_path,
-            loss=CE(padding_value=tensor_schema.item_id_features.item().padding_value),
+            loss=CE(padding_value=schema.item_id_features.item().padding_value),
             context_merger=None,
         )
 
