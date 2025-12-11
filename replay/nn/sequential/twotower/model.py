@@ -130,10 +130,18 @@ class QueryTower(torch.nn.Module):
 
 class ItemReference:
     """
-    Prepares a dataframe of tensors with item features that will be used for training and inference of the Item Tower.
+    Prepares a dict of item features values that will be used for training and inference of the Item Tower.
     """
 
     def __init__(self, schema: TensorSchema, item_reference_path: str):
+        """
+        :param schema: the same tensor schema used in TwoTower model.
+        :param item_reference_path: path to parquet with dataframe of item features.\n
+            **Note:**\n
+            1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
+            2. Item reference is constructed only on features with source of FeatureSource.ITEM_FEATURES
+            in tensor schema so an identificator of items ("item_id") should be marked as FeatureSource.ITEM_FEATURES too.
+        """
         inverse_feature_names_mapping = {
             schema.get(feature_name).feature_source.column: feature_name
             for feature_name in schema
@@ -142,6 +150,7 @@ class ItemReference:
 
         item_reference = pd.read_parquet(item_reference_path)
         item_reference = item_reference.rename(columns=inverse_feature_names_mapping)
+        item_reference = item_reference.loc[:, inverse_feature_names_mapping.values()]
         item_reference: pd.DataFrame = item_reference.sort_values(schema.item_id_feature_name).reset_index(drop=True)
         item_reference = {
             feature_name: item_reference[feature_name].tolist() for feature_name in item_reference.columns
@@ -376,6 +385,10 @@ class TwoTower(torch.nn.Module):
             Item encoder uses item reference which is created based on ``item_reference_path``.
         :param item_reference_path: Path to dataframe
             with all items with features used in ``item_encoder`` (item "tower").
+            **Note:**\n
+            1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
+            2. Item reference is constructed only on features with source of FeatureSource.ITEM_FEATURES in tensor
+            schema so an identificator of items ("item_id") should be marked as FeatureSource.ITEM_FEATURES too.
         :param loss: An object of a class that performs loss calculation
             based on hidden states from the model, positive and optionally negative labels.
         :param context_merger: An object of class that performs fusing query encoder hidden state
@@ -416,9 +429,43 @@ class TwoTower(torch.nn.Module):
         excluded_features: Optional[list[str]] = None,
         categorical_list_feature_aggregation_method: str = "sum",
     ) -> "TwoTower":
+        """
+        Class method for fast creating an instance of TwoTower with typical types
+        of blocks and user provided parameters.\n
+        The item "tower" is a SwiGLU encoder (MLP with SwiGLU activation),\n
+        the user "tower" is a SasRec transformer layers, and loss is Cross-Entropy loss.\n
+        Embeddings of every feature in both "towers" are aggregated via sum.
+        The same features are be used in both "towers",
+        that is, the features specified in the tensor schema with the exception of `excluded_features`.\n
+        To create an instance of TwoTower with other types of blocks, use the class constructor.
+
+        :param schema: tensor schema object with metainformation about features.
+        :param item_reference_path: Path to dataframe
+            with all items with features used in ``item_encoder`` (item "tower").
+            **Note:**\n
+            1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
+            2. Item reference is constructed only on features with source of FeatureSource.ITEM_FEATURES in tensor
+            schema so an identificator of items ("item_id") should be marked as FeatureSource.ITEM_FEATURES too.
+        :param embedding_dim: embeddings dimension in both towers. Default: ``192``.
+        :param num_heads: number of heads  in user tower SasRec layers. Default: ``4``.
+        :param num_blocks: number of blocks  in user tower SasRec layers. Default: ``2``.
+        :param max_sequence_length: maximun length of sequence in user tower SasRec layers. Default: ``50``.
+        :param dropout: dropout value in both towers. Default: ``0.3``
+        :param excluded_features: A list containing the names of features
+            for which you do not need to generate an embedding.
+            Fragments from this list are expected to be contained in ``schema``.
+            Default: ``None``.
+        :param categorical_list_feature_aggregation_method: Mode to aggregate tokens
+            in token item representation (categorical list only).
+            Default: ``"sum"``.
+        :return: an instance of TwoTower class.
+        """
         from replay.nn import DefaultAttentionMask, SequenceEmbedding, SumAggregator, SwiGLUEncoder
         from replay.nn.loss import CE
         from replay.nn.sequential import SasRecAggregator, SasRecTransformerLayer
+
+        # check 463-468
+        # excluded_features = list(set(excluded_features or []))
 
         excluded_features = [
             tensor_schema.query_id_feature_name,
@@ -426,6 +473,7 @@ class TwoTower(torch.nn.Module):
             *(excluded_features or []),
         ]
         excluded_features = list(set(excluded_features))
+
         feature_names = set(tensor_schema.names) - set(excluded_features)
 
         common_aggregator = SumAggregator(embedding_dim=embedding_dim)
