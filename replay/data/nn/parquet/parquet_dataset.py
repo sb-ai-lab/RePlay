@@ -81,7 +81,9 @@ class ParquetDataset(IterableDataset):
         :param device: The device on which the data will be generated. Defaults: value of ``DEFAULT_DEVICE``.
         :param generator: Random number generator for batch shuffling.
             If ``None``, shuffling will be disabled. Default: ``None``.
-        :param replicas_info: Replica information. Default: value of ``DEFAULT_REPLICAS_INFO``.
+        :param replicas_info: A replica info object capable of fetching information about the distributed environment.
+            Default: value of ``DEFAULT_REPLICAS_INFO`` - a default wrapper utilizing functions from the
+            ``torch.utils.data`` and ``torch.distributed`` modules.
         :param collate_fn: Collate function for merging batches. Default: value of ``DEFAULT_COLLATE_FN``.
         """
         if partition_size < batch_size:
