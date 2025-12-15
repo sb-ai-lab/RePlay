@@ -24,11 +24,11 @@ jobs:
           python-version: "3.9"
       - name: Install full package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning --no-cache-dir
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry cache clear PyPI --all
-          poetry sync --with dev
+          poetry sync --with dev --no-cache
       - name: ruff
         run: |
           poetry run ruff check .
@@ -88,11 +88,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install conditional package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning --no-cache-dir
           ./poetry_wrapper.sh --experimental --generate
           eval $(poetry env activate)
-          poetry sync
-          pip install -q --upgrade onnx openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114
+          poetry sync --no-cache
+          pip install -q --upgrade onnx openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 --no-cache-dir
       - name: pytest
         run: |
           ./poetry_wrapper.sh --generate
@@ -119,10 +119,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install torch package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning --no-cache-dir
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
-          poetry sync -E torch
+          poetry sync -E torch --no-cache
       - name: pytest
         run: |
           poetry run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/conditional
@@ -147,10 +147,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install spark package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning --no-cache-dir
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
-          poetry sync -E spark
+          poetry sync -E spark --no-cache
       - name: pytest
         run: |
           poetry run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
@@ -175,10 +175,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install full package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning --no-cache-dir
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
-          poetry sync -E spark -E torch
+          poetry sync -E spark -E torch --no-cache
       - name: pytest
         run: |
           poetry run pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
@@ -203,11 +203,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install experimental package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning --no-cache-dir
           ./poetry_wrapper.sh --experimental --generate
           eval $(poetry env activate)
-          poetry sync
-          pip install -q --upgrade onnx openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114
+          poetry sync --no-cache
+          pip install -q --upgrade onnx openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 --no-cache-dir
       - name: pytest
         run: |
           poetry run pytest -m "experimental" tests/
@@ -232,10 +232,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install full package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning --no-cache-dir
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
-          poetry sync -E spark -E torch
+          poetry sync -E spark -E torch --no-cache
       - name: pytest
         run: |
           poetry run pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/conditional
@@ -260,10 +260,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install only dev package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning --no-cache-dir
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
-          poetry sync --only dev
+          poetry sync --only dev --no-cache
       - name: Download coverage reports
         uses: actions/download-artifact@v4
         with:
@@ -287,10 +287,10 @@ jobs:
           python-version: "3.9"
       - name: Install production package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning --no-cache-dir
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
-          poetry sync -E torch -E spark
+          poetry sync -E torch -E spark --no-cache
       - name: Build
         run: |
           export PACKAGE_SUFFIX=.dev
@@ -308,10 +308,10 @@ jobs:
           python-version: "3.9"
       - name: Install full package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning --no-cache-dir
           ./poetry_wrapper.sh --generate --experimental
           eval $(poetry env activate)
-          poetry sync --with dev
+          poetry sync --with dev --no-cache
       - name: Build
         run: |
           export PACKAGE_SUFFIX=.preview
