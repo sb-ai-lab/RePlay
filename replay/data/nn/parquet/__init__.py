@@ -13,8 +13,8 @@ from .parquet_dataset import ParquetDataset
 from .info.replicas import ReplicasInfoProtocol, ReplicasInfo, DEFAULT_REPLICAS_INFO
 
 __all__ = [
-    "ParquetDataset",
-    "ReplicasInfoProtocol",
-    "ReplicasInfo",
     "DEFAULT_REPLICAS_INFO",
+    "ParquetDataset",
+    "ReplicasInfo",
+    "ReplicasInfoProtocol",
 ]

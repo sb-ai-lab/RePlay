@@ -2,7 +2,6 @@ from typing import Callable
 
 from replay.data.nn.parquet.collate import general_collate
 from replay.data.nn.parquet.constants.batches import GeneralCollateFn
-from replay.data.nn.parquet.info.replicas import ReplicasInfo, ReplicasInfoProtocol
 
 DEFAULT_COLLATE_FN: GeneralCollateFn = general_collate
 
