@@ -1,4 +1,5 @@
 import abc
+import warnings
 from typing import Generic, Optional, Protocol, TypeVar, cast
 
 import lightning
@@ -48,6 +49,14 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
         :param postprocessors: postprocessors to apply.
         """
         super().__init__()
+
+        deprecation_msg = (
+            f"The {self.__class__.__name__} class is deprecated. "
+            "The class will be removed in next major release.\n"
+            "Instead of this class, you can use the similar class located in the replay.nn.callbacks module."
+        )
+        warnings.warn(deprecation_msg, DeprecationWarning, stacklevel=2)
+
         self.query_column = query_column
         self.item_column = item_column
         self.rating_column = rating_column

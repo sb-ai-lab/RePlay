@@ -1,3 +1,4 @@
+import warnings
 from typing import Any, Literal, Optional, Protocol
 
 import lightning
@@ -49,6 +50,13 @@ class ValidationMetricsCallback(lightning.Callback):
         :param postprocessors: postprocessors to validation stage.
         :param item_count: the total number of items in the dataset, required only for Coverage calculations.
         """
+        deprecation_msg = (
+            f"The {self.__class__.__name__} class is deprecated. "
+            "The class will be removed in next major release.\n"
+            "Instead of this class, you can use the similar class located in the replay.nn.callbacks module."
+        )
+        warnings.warn(deprecation_msg, DeprecationWarning, stacklevel=2)
+
         self._metrics = metrics
         self._ks = ks
         self._item_count = item_count

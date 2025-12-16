@@ -1,5 +1,6 @@
 import abc
 from collections.abc import Iterator
+from typing import Literal
 
 import torch
 
@@ -43,7 +44,7 @@ class FatOptimizerFactory(OptimizerFactory):
 
     def __init__(
         self,
-        optimizer: str = "adam",
+        optimizer: Literal["adam", "sgd"] = "adam",
         learning_rate: float = 0.001,
         weight_decay: float = 0.0,
         sgd_momentum: float = 0.0,
@@ -80,11 +81,7 @@ class FatLRSchedulerFactory(LRSchedulerFactory):
     Factory that creates learning rate schedule depending on passed parameters
     """
 
-    def __init__(
-        self,
-        decay_step: int = 25,
-        gamma: float = 1.0,
-    ) -> None:
+    def __init__(self, decay_step: int = 25, gamma: float = 1.0) -> None:
         super().__init__()
         self.decay_step = decay_step
         self.gamma = gamma
