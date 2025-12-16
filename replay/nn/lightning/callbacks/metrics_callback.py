@@ -10,7 +10,7 @@ from replay.nn.lightning import LightningModule
 from replay.nn.lightning.postprocessors import PostprocessorBase
 
 
-class MetricsCalculator(lightning.Callback):
+class ComputeMetricsCallback(lightning.Callback):
     """
     Callback for validation and testing stages.
 

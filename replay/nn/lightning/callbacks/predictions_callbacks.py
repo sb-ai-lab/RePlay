@@ -20,9 +20,11 @@ else:
 _T = TypeVar("_T")
 
 
-class LogitsWriterBase(lightning.Callback, Generic[_T]):
+class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
     """
     The base class for a callback that records the result at the inference stage via ``LightningModule``.
+    The result consists of top K the highest logit values, IDs of these  top K logit values 
+    and corresponding query ids (encoded IDs of users named ``query_id``). 
 
     For the callback to work correctly, the batch is expected to contain the ``query_id`` key.
     """
@@ -41,7 +43,7 @@ class LogitsWriterBase(lightning.Callback, Generic[_T]):
         :param item_column: The name of the item column in the resulting dataframe.
         :param rating_column: The name of the rating column in the resulting dataframe.
             This column will contain the ``top_k`` items with the highest logit values.
-        :param postprocessors: A list of postprocessors for modifying logits from the model.
+        :param postprocessors: A list of postprocessors for modifying logits from the model before sorting and taking top K ones.
             For example, it can be a softmax operation to logits or set the ``-inf`` value for some IDs.
             Default: ``None``.
         """
@@ -107,7 +109,7 @@ class LogitsWriterBase(lightning.Callback, Generic[_T]):
         pass
 
 
-class PandasLogitsWriter(LogitsWriterBase[PandasDataFrame]):
+class PandasTopItemsCallback(TopItemsCallbackBase[PandasDataFrame]):
     """
     A callback that records the result of the model's forward function at the inference stage in a Pandas Dataframe.
     """
@@ -128,7 +130,7 @@ class PandasLogitsWriter(LogitsWriterBase[PandasDataFrame]):
         return prediction.explode([self.item_column, self.rating_column])
 
 
-class PolarsLogitsWriter(LogitsWriterBase[PolarsDataFrame]):
+class PolarsTopItemsCallback(TopItemsCallbackBase[PolarsDataFrame]):
     """
     A callback that records the result of the model's forward function at the inference stage in a Polars Dataframe.
     """
@@ -149,7 +151,7 @@ class PolarsLogitsWriter(LogitsWriterBase[PolarsDataFrame]):
         return prediction.explode([self.item_column, self.rating_column])
 
 
-class SparkLogitsWriter(LogitsWriterBase[SparkDataFrame]):
+class SparkTopItemsCallback(TopItemsCallbackBase[SparkDataFrame]):
     """
     A callback that records the result of the model's forward function at the inference stage in a Spark Dataframe.
     """
@@ -170,7 +172,7 @@ class SparkLogitsWriter(LogitsWriterBase[SparkDataFrame]):
         :param rating_column: The name of the rating column in the resulting dataframe.
             This column will contain the ``top_k`` items with the highest logit values.
         :param spark_session: Spark session. Required to create a Spark DataFrame.
-        :param postprocessors: A list of postprocessors for modifying logits from the model.
+        :param postprocessors: A list of postprocessors for modifying logits from the model before sorting and taking top K ones.
             For example, it can be a softmax operation to logits or set the ``-inf`` value for some IDs.
             Default: ``None``.
         """
@@ -212,7 +214,7 @@ class SparkLogitsWriter(LogitsWriterBase[SparkDataFrame]):
         return prediction
 
 
-class LogitsWriter(LogitsWriterBase[tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]]):
+class TorchTopItemsCallback(TopItemsCallbackBase[tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]]):
     """
     A callback that records the result of the model's forward function at the inference stage in a PyTorch Tensors.
     """
@@ -224,7 +226,7 @@ class LogitsWriter(LogitsWriterBase[tuple[torch.LongTensor, torch.LongTensor, to
     ) -> None:
         """
         :param top_k: Take the ``top_k`` IDs with the highest logit values.
-        :param postprocessors: A list of postprocessors for modifying logits from the model.
+        :param postprocessors: A list of postprocessors for modifying logits from the model before sorting and taking top K.
             For example, it can be a softmax operation to logits or set the ``-inf`` value for some IDs.
             Default: ``None``.
         """
@@ -249,7 +251,7 @@ class LogitsWriter(LogitsWriterBase[tuple[torch.LongTensor, torch.LongTensor, to
         )
 
 
-class HiddenStatesRetriever(lightning.Callback):
+class HiddenStatesCallback(lightning.Callback):
     """
     A callback for getting any hidden state from the model.
 
