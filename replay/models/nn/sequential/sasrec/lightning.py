@@ -1,4 +1,5 @@
 import math
+import warnings
 from typing import Any, Literal, Optional, Union, cast
 
 import lightning
@@ -54,9 +55,9 @@ class SasRec(lightning.LightningModule):
             Default: ``False``.
         :param time_span: Time span value.
             Default: ``256``.
-        :param loss_type: Loss type. Possible values: ``"CE"``, ``"BCE"``, ``"SCE"``.
+        :param loss_type: Loss type.
             Default: ``CE``.
-        :param loss_sample_count (Optional[int]): Sample count to calculate loss.
+        :param loss_sample_count: Sample count to calculate loss.
             Suitable for ``"CE"`` and ``"BCE"`` loss functions.
             Default: ``None``.
         :param negative_sampling_strategy: Negative sampling strategy to calculate loss on sampled negatives.
@@ -74,6 +75,16 @@ class SasRec(lightning.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters()
+
+        deprecation_msg = (
+            "The SasRec class is deprecated. "
+            "The class will be removed in next major release.\n"
+            "Instead of this class, you can use the decomposed SasRec model class located in the replay.nn module.\n"
+            "To train and infer a model via Lightning, "
+            "you can use the universal class for all models, the LightingModule class located in the replay.nn module."
+        )
+        warnings.warn(deprecation_msg, DeprecationWarning, stacklevel=2)
+
         self._model = SasRecModel(
             schema=tensor_schema,
             num_blocks=block_count,

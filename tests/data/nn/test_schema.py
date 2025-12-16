@@ -134,21 +134,17 @@ def test_tensor_feature_invalid_init():
             feature_type=FeatureType.CATEGORICAL,
         ).tensor_dim
 
-    with pytest.raises(RuntimeError) as exc7:
-        TensorFeatureInfo(
-            name="fake",
-            feature_type=FeatureType.NUMERICAL,
-        ).embedding_dim
+    TensorFeatureInfo(
+        name="fake",
+        feature_type=FeatureType.NUMERICAL,
+    ).embedding_dim
 
     assert str(exc1.value) == "Unknown feature type"
-    assert str(exc2.value) == "Cardinality and embedding dimensions are needed only with categorical feature type."
+    assert str(exc2.value) == "Cardinality is needed only with categorical feature type."
     assert str(exc3.value) == "Tensor dimensions is needed only with numerical feature type."
     assert str(exc4.value) == "Only one element feature sources can be converted to single feature source."
     assert str(exc5.value) == "Can not get cardinality because feature type of fake column is not categorical."
     assert str(exc6.value) == "Can not get tensor dimensions because feature type of fake feature is not numerical."
-    assert str(exc7.value) == (
-        "Can not get embedding dimensions because" " feature type of fake feature is not categorical."
-    )
 
 
 @pytest.mark.torch
