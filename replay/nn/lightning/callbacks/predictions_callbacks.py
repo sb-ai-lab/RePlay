@@ -7,7 +7,13 @@ import torch
 from replay.nn import InferenceOutput
 from replay.nn.lightning import LightningModule
 from replay.nn.lightning.postprocessors import PostprocessorBase
-from replay.utils import PYSPARK_AVAILABLE, MissingImport, PandasDataFrame, PolarsDataFrame, SparkDataFrame
+from replay.utils import (
+    PYSPARK_AVAILABLE,
+    MissingImport,
+    PandasDataFrame,
+    PolarsDataFrame,
+    SparkDataFrame,
+)
 
 if PYSPARK_AVAILABLE:  # pragma: no cover
     import pyspark.sql.functions as sf
@@ -23,8 +29,8 @@ _T = TypeVar("_T")
 class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
     """
     The base class for a callback that records the result at the inference stage via ``LightningModule``.
-    The result consists of top K the highest logit values, IDs of these  top K logit values 
-    and corresponding query ids (encoded IDs of users named ``query_id``). 
+    The result consists of top K the highest logit values, IDs of these  top K logit values
+    and corresponding query ids (encoded IDs of users named ``query_id``).
 
     For the callback to work correctly, the batch is expected to contain the ``query_id`` key.
     """
@@ -208,8 +214,15 @@ class SparkTopItemsCallback(TopItemsCallbackBase[SparkDataFrame]):
                 ),
                 schema=schema,
             )
-            .withColumn("exploded_columns", sf.explode(sf.arrays_zip(self.item_column, self.rating_column)))
-            .select(self.query_column, f"exploded_columns.{self.item_column}", f"exploded_columns.{self.rating_column}")
+            .withColumn(
+                "exploded_columns",
+                sf.explode(sf.arrays_zip(self.item_column, self.rating_column)),
+            )
+            .select(
+                self.query_column,
+                f"exploded_columns.{self.item_column}",
+                f"exploded_columns.{self.rating_column}",
+            )
         )
         return prediction
 
