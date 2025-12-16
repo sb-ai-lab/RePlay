@@ -1,4 +1,5 @@
 import abc
+from typing import Optional, Union
 
 import torch
 
@@ -29,3 +30,22 @@ class PostprocessorBase(abc.ABC):  # pragma: no cover
 
         :returns: modified logits
         """
+
+    @property
+    def candidates(self) -> Union[torch.LongTensor, None]:
+        """
+        Returns tensor of item ids to calculate scores.
+        """
+        return self._candidates
+
+    @candidates.setter
+    def candidates(self, candidates: Optional[torch.LongTensor] = None) -> None:
+        """
+        Sets tensor of item ids to calculate scores.
+        :param candidates: Tensor of item ids to calculate scores.
+        """
+        if torch.unique(candidates).numel() != candidates.numel():
+            msg = "The tensor of candidates to score must unique"
+            raise ValueError(msg)
+        
+        self._candidates = candidates

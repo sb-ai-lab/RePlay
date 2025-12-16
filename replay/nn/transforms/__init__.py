@@ -1,4 +1,3 @@
-from .base import BaseTransform
 from .batch import BatchingTransform
 from .copy import CopyTransform
 from .grouping import GroupTransform
@@ -8,9 +7,9 @@ from .rename import RenameTransform
 from .reshape import UnsqueezeTransform
 from .sequence_roll import SequenceRollTransform
 from .token_mask import TokenMaskTransform
+from .trim_transform import TrimTransform
 
 __all__ = [
-    "BaseTransform",
     "BatchingTransform",
     "CopyTransform",
     "GroupTransform",
@@ -18,6 +17,7 @@ __all__ = [
     "RenameTransform",
     "SequenceRollTransform",
     "TokenMaskTransform",
+    "TrimTransform",
     "UniformNegativeSamplingTransform",
     "UnsqueezeTransform",
 ]

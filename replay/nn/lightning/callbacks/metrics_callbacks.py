@@ -140,9 +140,7 @@ class ComputeMetricsCallback(lightning.Callback):
         sampled_items = torch.topk(seen_scores, k=self._metrics_builders[dataloader_idx].max_k, dim=1).indices
         self._metrics_builders[dataloader_idx].add_prediction(sampled_items, batch["ground_truth"], batch.get("train"))
 
-        print(f"b={batch_idx}, d={dataloader_idx}")
         if batch_idx + 1 == self._dataloaders_size[dataloader_idx]:
-            print("log_dict")
             pl_module.log_dict(
                 self._metrics_builders[dataloader_idx].get_metrics(),
                 on_epoch=True,
