@@ -29,13 +29,29 @@ class ReplicasInfoProtocol(Protocol):
 
 
 class ReplicasInfo:
-    """Wrapper class for Torch's replica metadata."""
+    """
+    A replica metadata geneartor.
+
+    By default, assumes standard Torch DDP training/inference procedure,
+    where each replica (a distinct worker on a specific device) is expected to process
+    a separate chunk of the dataset.
+
+    This behavior can be modified by providing custom ``worker_info`` and ``distributed_info`` objects
+    able to provide infor about local worker count and world size/rank respectively.
+    """
 
     def __init__(
         self,
         worker_info: WorkerInfoProtocol = DEFAULT_WORKER_INFO,
         distributed_info: DistributedInfoProtocol = DEFAULT_DISTRIBUTED_INFO,
     ) -> None:
+        """
+        :param worker_info: An object adhering to the ``WorkerInfoProtocol`` and used to obtain local worker count.
+            Default: value of ``DEFAULT_WORKER_INFO`` - an implementation using ``torch.utils.data.get_worker_info()``.
+        :param distributed_info: An object adhering to the ``DistributedInfoProtocol`` and used to obtain
+            world size and rank. Default: value of ``DEFAULT_WORKER_INFO`` - an implementation using the
+            ``torch.distributed`` module.
+        """
         self.worker_info = worker_info
         self.distributed_info = distributed_info
 

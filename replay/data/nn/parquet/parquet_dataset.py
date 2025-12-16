@@ -7,14 +7,13 @@ import pyarrow.fs as fs
 import torch
 from torch.utils.data import IterableDataset
 
-from replay.data.nn.parquet.constants.batches import GeneralBatch
+from replay.data.nn.parquet import DEFAULT_REPLICAS_INFO
+from replay.data.nn.parquet.constants.batches import GeneralBatch, GeneralCollateFn
 from replay.data.nn.parquet.constants.device import DEFAULT_DEVICE
 from replay.data.nn.parquet.constants.filesystem import DEFAULT_FILESYSTEM
 from replay.data.nn.parquet.impl.masking import (
     DEFAULT_COLLATE_FN,
     DEFAULT_MAKE_MASK_NAME,
-    DEFAULT_REPLICAS_INFO,
-    GeneralCollateFn,
 )
 from replay.data.nn.parquet.info.replicas import ReplicasInfoProtocol
 from replay.data.nn.parquet.utils.compute_length import compute_fixed_size_length
@@ -81,8 +80,8 @@ class ParquetDataset(IterableDataset):
         :param device: The device on which the data will be generated. Defaults: value of ``DEFAULT_DEVICE``.
         :param generator: Random number generator for batch shuffling.
             If ``None``, shuffling will be disabled. Default: ``None``.
-        :param replicas_info: A replica info object capable of fetching information about the distributed environment.
-            Default: value of ``DEFAULT_REPLICAS_INFO`` - a default wrapper utilizing functions from the
+        :param replicas_info: A connector object capable of fetching total replica count and replica id during runtime.
+            Default: value of ``DEFAULT_REPLICAS_INFO`` - a pre-built connector which assumes standard Torch DDP mode.
             ``torch.utils.data`` and ``torch.distributed`` modules.
         :param collate_fn: Collate function for merging batches. Default: value of ``DEFAULT_COLLATE_FN``.
         """

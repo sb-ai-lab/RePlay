@@ -4,7 +4,7 @@ from typing import Optional
 import torch
 import torch.utils.data as data
 
-from replay.data.nn.parquet.impl.masking import DEFAULT_REPLICAS_INFO
+from replay.data.nn.parquet import DEFAULT_REPLICAS_INFO
 from replay.data.utils.batching import UniformBatching, uniform_batch_count
 
 from .impl.named_columns import NamedColumns
@@ -26,8 +26,8 @@ class IterableDataset(data.IterableDataset):
     An iterable dataset used for processing a single partition of data.
     Supports distributed training, where data is divided between replicas, and reproducible random shuffling.
 
-    A replica is an identifier for the process that performs data loading.
-    It is defined by two parameters: the process id within PyTorch and the node id.
+    A replica is a worker or a set of workers for which a unique chunk of data will be assigned
+    during distributed training/inference.
     """
 
     def __init__(
@@ -42,7 +42,8 @@ class IterableDataset(data.IterableDataset):
         :param batch_size: Batch size.
         :param generator: Random number generator for batch shuffling.
             If ``None``, shuffling will be disabled. Default: ``None``.
-        :param replicas_info: Replica information. Default: value of ``DEFAULT_REPLICAS_INFO``.
+        :param replicas_info: A connector object capable of fetching total replica count and replica id during runtime.
+            Default: value of ``DEFAULT_REPLICAS_INFO`` - a pre-built connector which assumes standard Torch DDP mode.
         """
         super().__init__()
 
