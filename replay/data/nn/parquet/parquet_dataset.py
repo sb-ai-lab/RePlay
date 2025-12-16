@@ -37,7 +37,8 @@ class ParquetDataset(IterableDataset):
     `partition_size` - this depends on the number of rows in the data fragment.
     A fragment is a single Parquet file in the file system.
 
-    The read partition will be processed and the result will be returned as a batch of size ``batch_size``.
+    The partition will be read by every worker, split according to their replica ID,
+    processed and the result will be returned as a batch of size ``batch_size``.
     Please note that the resulting batch size may be less than ``batch_size``.
 
     For maximum efficiency when reading and processing data,
