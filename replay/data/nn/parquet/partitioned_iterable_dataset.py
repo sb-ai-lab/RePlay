@@ -4,7 +4,7 @@ from typing import Optional
 import torch
 import torch.utils.data as data
 
-from replay.data.nn.parquet.impl.masking import DEFAULT_REPLICAS_INFO
+from replay.data.nn.parquet import DEFAULT_REPLICAS_INFO
 
 from .impl.named_columns import NamedColumns
 from .info.replicas import ReplicasInfoProtocol
@@ -33,7 +33,8 @@ class PartitionedIterableDataset(data.IterableDataset):
         :param batch_size: Batch size.
         :param generator: Random number generator for batch shuffling.
             If ``None``, shuffling will be disabled. Default: ``None``.
-        :param replicas_info: Replica information. Default: value of ``DEFAULT_REPLICAS_INFO``.
+        :param replicas_info: A connector object capable of fetching total replica count and replica id during runtime.
+            Default: value of ``DEFAULT_REPLICAS_INFO`` - a pre-built connector which assumes standard Torch DDP mode.
         """
         super().__init__()
 

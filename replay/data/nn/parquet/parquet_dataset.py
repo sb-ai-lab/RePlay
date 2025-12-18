@@ -7,14 +7,13 @@ import pyarrow.fs as fs
 import torch
 from torch.utils.data import IterableDataset
 
-from replay.data.nn.parquet.constants.batches import GeneralBatch
+from replay.data.nn.parquet import DEFAULT_REPLICAS_INFO
+from replay.data.nn.parquet.constants.batches import GeneralBatch, GeneralCollateFn
 from replay.data.nn.parquet.constants.device import DEFAULT_DEVICE
 from replay.data.nn.parquet.constants.filesystem import DEFAULT_FILESYSTEM
 from replay.data.nn.parquet.impl.masking import (
     DEFAULT_COLLATE_FN,
     DEFAULT_MAKE_MASK_NAME,
-    DEFAULT_REPLICAS_INFO,
-    GeneralCollateFn,
 )
 from replay.data.nn.parquet.info.replicas import ReplicasInfoProtocol
 from replay.data.nn.parquet.utils.compute_length import compute_fixed_size_length
@@ -38,7 +37,8 @@ class ParquetDataset(IterableDataset):
     `partition_size` - this depends on the number of rows in the data fragment.
     A fragment is a single Parquet file in the file system.
 
-    The read partition will be processed and the result will be returned as a batch of size ``batch_size``.
+    The partition will be read by every worker, split according to their replica ID,
+    processed and the result will be returned as a batch of size ``batch_size``.
     Please note that the resulting batch size may be less than ``batch_size``.
 
     For maximum efficiency when reading and processing data,
@@ -67,20 +67,23 @@ class ParquetDataset(IterableDataset):
                 ``shape`` - the dimension of the column being read.
                     If the column contains only one value, this parameter does not need to be specified.
                     If the column contains a one-dimensional array, the parameter must be a number or an array
-                        containing one number.
+                    containing one number.
                     If the column contains a two-dimensional array, the parameter
-                        must be an array containing two numbers.
+                    must be an array containing two numbers.
 
                 ``padding`` - padding value that will fill the arrays if their length is less
                     than that specified in the `shape` parameter.
         :param partition_size: Partition size when reading data from Parquet files.
         :param batch_size: The size of the batch that will be returned during iteration.
-        :param filesystem: Filesystem used to access data. Default: value of ``DEFAULT_FILESYSTEM``.
+        :param filesystem: A PyArrow's Filesystem object used to access data, or a URI-based path
+            to infer the filesystem from. Default: value of ``DEFAULT_FILESYSTEM``.
         :param make_mask_name: Mask name generation function. Default: value of ``DEFAULT_MAKE_MASK_NAME``.
         :param device: The device on which the data will be generated. Defaults: value of ``DEFAULT_DEVICE``.
         :param generator: Random number generator for batch shuffling.
             If ``None``, shuffling will be disabled. Default: ``None``.
-        :param replicas_info: Replica information. Default: value of ``DEFAULT_REPLICAS_INFO``.
+        :param replicas_info: A connector object capable of fetching total replica count and replica id during runtime.
+            Default: value of ``DEFAULT_REPLICAS_INFO`` - a pre-built connector which assumes standard Torch DDP mode.
+            ``torch.utils.data`` and ``torch.distributed`` modules.
         :param collate_fn: Collate function for merging batches. Default: value of ``DEFAULT_COLLATE_FN``.
         """
         if partition_size < batch_size:

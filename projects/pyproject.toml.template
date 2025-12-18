@@ -127,7 +127,7 @@ priority = "explicit"
 {% endif %}
 [tool.poetry-dynamic-versioning]
 enable = true
-format-jinja = """0.20.0{{ env['PACKAGE_SUFFIX'] }}"""
+format-jinja = """0.21.0{{ env['PACKAGE_SUFFIX'] }}"""
 vcs = "git"
 
 [tool.ruff]

@@ -9,6 +9,12 @@ Datasets to perform batch-wise reading and processing of data from disk.
 access to remotely stored data via PyArrow's filesystem configs.
 """
 
+from .info.replicas import DEFAULT_REPLICAS_INFO, ReplicasInfo, ReplicasInfoProtocol
 from .parquet_dataset import ParquetDataset
 
-__all__ = ["ParquetDataset"]
+__all__ = [
+    "DEFAULT_REPLICAS_INFO",
+    "ParquetDataset",
+    "ReplicasInfo",
+    "ReplicasInfoProtocol",
+]

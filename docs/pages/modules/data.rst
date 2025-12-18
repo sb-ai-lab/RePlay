@@ -154,4 +154,10 @@ SequenceRollTransform
 UniformNegativeSamplingTransform
 ````````````````````````````````
 .. autoclass:: replay.nn.transforms.UniformNegativeSamplingTransform
+
+
+ParquetDataset
+______________
+
+.. autoclass:: replay.data.nn.parquet.ParquetDataset
     :members: __init__
