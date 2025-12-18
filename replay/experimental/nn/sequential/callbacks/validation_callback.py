@@ -1,4 +1,4 @@
-from typing import Optional, Protocol
+from typing import Optional
 
 import lightning
 import torch
@@ -6,9 +6,7 @@ from lightning.pytorch.utilities.rank_zero import rank_zero_only
 
 from replay.metrics.torch_metrics_builder import MetricName, TorchMetricsBuilder, metrics_to_df
 from replay.models.nn.sequential.callbacks.validation_callback import ValidationBatch
-
 from replay.models.nn.sequential.postprocessors import BasePostProcessor
-
 
 UNSEEN_PREFIX_NAME = "unseen-"
 
