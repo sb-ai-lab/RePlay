@@ -6,4 +6,4 @@ from .prediction_callbacks import (
 )
 from .validation_callback import ValidationMetricsCallback
 
-__all__ = ["PandasPredictionCallback" "PolarsPredictionCallback" "SparkPredictionCallback" "ValidationMetricsCallback"]
+__all__ = ["PandasPredictionCallback", "PolarsPredictionCallback", "SparkPredictionCallback", "ValidationMetricsCallback"]
