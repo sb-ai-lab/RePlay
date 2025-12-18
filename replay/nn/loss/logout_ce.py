@@ -36,7 +36,9 @@ class LogOutCE(torch.nn.Module):
         self._logits_callback = None
 
     @property
-    def logits_callback(self) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+    def logits_callback(
+        self,
+    ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
         """
         Property for calling a function for the logits computation.\n
 
@@ -88,8 +90,12 @@ class LogOutCE(torch.nn.Module):
             target_padding_mask = target_padding_mask.sum(-1).bool()
         masked_batch_size = target_padding_mask.sum().item()
 
-        logits: torch.Tensor = self.logits_callback(model_embeddings)  # [batch_size, seq_len, vocab_size]
-        all_negative_labels = torch.arange(self.vocab_size, dtype=torch.long, device=positive_labels.device)
+        logits: torch.Tensor = self.logits_callback(
+            model_embeddings
+        )  # [batch_size, seq_len, vocab_size]
+        all_negative_labels = torch.arange(
+            self.vocab_size, dtype=torch.long, device=positive_labels.device
+        )
 
         # [batch_size, seq_len, vocab_size] -> [masked_batch_size, vocab_size]
         logits = logits[target_padding_mask]
@@ -100,7 +106,9 @@ class LogOutCE(torch.nn.Module):
         # [batch_size, seq_len, num_positives] -> [masked_batch_size, num_positives]
         target_padding_mask = initial_target_padding_mask[target_padding_mask]
 
-        positive_ids = torch.arange(masked_batch_size, dtype=torch.long, device=positive_labels.device)
+        positive_ids = torch.arange(
+            masked_batch_size, dtype=torch.long, device=positive_labels.device
+        )
         # [masked_batch_size, vocab_size] -> [masked_batch_size, num_positives]
         positive_logits = logits[positive_ids.unsqueeze(-1), positive_labels]
 
@@ -125,7 +133,9 @@ class LogOutCE(torch.nn.Module):
         # [masked_batch_size, 1 + num_negatives] - all logits
         logits = torch.cat((positive_logits, negative_logits), dim=-1)
         # [masked_batch_size] - positives are always at 0 position for all recommendation points
-        target = torch.zeros(logits.size(0), dtype=torch.long, device=positive_labels.device)
+        target = torch.zeros(
+            logits.size(0), dtype=torch.long, device=positive_labels.device
+        )
         # [masked_batch_size] - loss for all recommendation points
         loss = self._loss(logits, target)
         return loss

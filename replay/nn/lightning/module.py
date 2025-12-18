@@ -3,7 +3,11 @@ from typing import Any, Optional, Union
 import lightning
 import torch
 
-from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
+from replay.models.nn.optimizer_utils import (
+    FatOptimizerFactory,
+    LRSchedulerFactory,
+    OptimizerFactory,
+)
 from replay.nn import InferenceOutput, TrainOutput
 
 
@@ -50,10 +54,18 @@ class LightningModule(lightning.LightningModule):
             of the ``TrainOutput`` container class or its successor.
             At the inference stage, the ``InferenceOutput`` class or its successor will be returned.
         """
-        if "candidates_to_score" not in batch and self.candidates_to_score is not None and not self.training:
+        if (
+            "candidates_to_score" not in batch
+            and self.candidates_to_score is not None
+            and not self.training
+        ):
             batch["candidates_to_score"] = self.candidates_to_score
         # select only args for model.forward
-        modified_batch = {k: v for k, v in batch.items() if k in self.model.forward.__code__.co_varnames}
+        modified_batch = {
+            k: v
+            for k, v in batch.items()
+            if k in self.model.forward.__code__.co_varnames
+        }
         return self.model(**modified_batch)
 
     def training_step(self, batch: dict) -> torch.Tensor:
@@ -105,5 +117,7 @@ class LightningModule(lightning.LightningModule):
         return self._candidates_to_score
 
     @candidates_to_score.setter
-    def candidates_to_score(self, candidates: Optional[torch.LongTensor] = None) -> None:
+    def candidates_to_score(
+        self, candidates: Optional[torch.LongTensor] = None
+    ) -> None:
         self._candidates_to_score = candidates

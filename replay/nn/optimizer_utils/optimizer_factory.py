@@ -12,7 +12,9 @@ class OptimizerFactory(abc.ABC):
     """
 
     @abc.abstractmethod
-    def create(self, parameters: Iterator[torch.nn.Parameter]) -> torch.optim.Optimizer:  # pragma: no cover
+    def create(
+        self, parameters: Iterator[torch.nn.Parameter]
+    ) -> torch.optim.Optimizer:  # pragma: no cover
         """
         Creates optimizer based on parameters.
 
@@ -28,7 +30,9 @@ class LRSchedulerFactory(abc.ABC):
     """
 
     @abc.abstractmethod
-    def create(self, optimizer: torch.optim.Optimizer) -> torch.optim.lr_scheduler._LRScheduler:  # pragma: no cover
+    def create(
+        self, optimizer: torch.optim.Optimizer
+    ) -> torch.optim.lr_scheduler._LRScheduler:  # pragma: no cover
         """
         Creates learning rate scheduler based on optimizer.
 
@@ -67,10 +71,18 @@ class FatOptimizerFactory(OptimizerFactory):
         :returns: torch optimizer
         """
         if self.optimizer == "adam":
-            return torch.optim.Adam(parameters, lr=self.learning_rate, weight_decay=self.weight_decay, betas=self.betas)
+            return torch.optim.Adam(
+                parameters,
+                lr=self.learning_rate,
+                weight_decay=self.weight_decay,
+                betas=self.betas,
+            )
         if self.optimizer == "sgd":
             return torch.optim.SGD(
-                parameters, lr=self.learning_rate, weight_decay=self.weight_decay, momentum=self.sgd_momentum
+                parameters,
+                lr=self.learning_rate,
+                weight_decay=self.weight_decay,
+                momentum=self.sgd_momentum,
             )
 
         msg = "Unexpected optimizer"
@@ -87,7 +99,9 @@ class FatLRSchedulerFactory(LRSchedulerFactory):
         self.decay_step = decay_step
         self.gamma = gamma
 
-    def create(self, optimizer: torch.optim.Optimizer) -> torch.optim.lr_scheduler._LRScheduler:
+    def create(
+        self, optimizer: torch.optim.Optimizer
+    ) -> torch.optim.lr_scheduler._LRScheduler:
         """
         Creates learning rate scheduler based on optimizer.
 
@@ -95,7 +109,9 @@ class FatLRSchedulerFactory(LRSchedulerFactory):
 
         :returns: torch LRScheduler
         """
-        return torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.decay_step, gamma=self.gamma)
+        return torch.optim.lr_scheduler.StepLR(
+            optimizer, step_size=self.decay_step, gamma=self.gamma
+        )
 
 
 class LambdaLRSchedulerFactory(LRSchedulerFactory):
@@ -127,7 +143,9 @@ class LambdaLRSchedulerFactory(LRSchedulerFactory):
         self.warmup_steps = warmup_steps
         self.update_interval = update_interval
 
-    def create(self, optimizer: torch.optim.Optimizer) -> torch.optim.lr_scheduler._LRScheduler:
+    def create(
+        self, optimizer: torch.optim.Optimizer
+    ) -> torch.optim.lr_scheduler._LRScheduler:
         """
         Creates learning rate scheduler based on optimizer.
 

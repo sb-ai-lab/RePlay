@@ -14,7 +14,9 @@ def warning_is_not_none(msg: str) -> Callable:
     return checker
 
 
-def create_activation(activation: Literal["relu", "gelu", "sigmoid"]) -> torch.nn.Module:
+def create_activation(
+    activation: Literal["relu", "gelu", "sigmoid"],
+) -> torch.nn.Module:
     """The function of creating an activation function based on its name"""
     if activation == "relu":
         return torch.nn.ReLU()

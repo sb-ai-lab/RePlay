@@ -44,5 +44,6 @@ class EmbeddingTyingHead(torch.nn.Module):
         # item embeddings shape [B, *, E]
         # [*, 1, E] x [*, E, 1] -> [B, *]
         return torch.bmm(
-            hidden_states.view(-1, 1, hidden_states.size(-1)), item_embeddings.view(-1, item_embeddings.size(-1), 1)
+            hidden_states.view(-1, 1, hidden_states.size(-1)),
+            item_embeddings.view(-1, item_embeddings.size(-1), 1),
         ).view(hidden_states.size(0), *item_embeddings.shape[1:-1])

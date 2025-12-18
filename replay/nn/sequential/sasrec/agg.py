@@ -25,7 +25,9 @@ class SasRecAggregator(torch.nn.Module):
         """
         super().__init__()
         self.embedding_aggregator = embedding_aggregator
-        self.pe = torch.nn.Embedding(max_sequence_length, self.embedding_aggregator.embedding_dim)
+        self.pe = torch.nn.Embedding(
+            max_sequence_length, self.embedding_aggregator.embedding_dim
+        )
         self.dropout = torch.nn.Dropout(p=dropout)
 
     def reset_parameters(self) -> None:

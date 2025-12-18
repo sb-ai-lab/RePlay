@@ -23,7 +23,9 @@ class CE(torch.nn.Module):
         self._logits_callback = None
 
     @property
-    def logits_callback(self) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+    def logits_callback(
+        self,
+    ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
         """
         Property for calling a function for the logits computation.\n
 
@@ -65,7 +67,9 @@ class CE(torch.nn.Module):
         if positive_labels.size(-1) != 1:
             msg = "The case of multi-positive labels is not supported in the CE loss"
             raise NotImplementedError(msg)
-        logits: torch.Tensor = self.logits_callback(model_embeddings)  # [batch_size, seq_len, vocab_size]
+        logits: torch.Tensor = self.logits_callback(
+            model_embeddings
+        )  # [batch_size, seq_len, vocab_size]
         labels = positive_labels.masked_fill(
             mask=(~target_padding_mask), value=self.padding_idx
         )  # [batch_size, seq_len, 1]
@@ -97,7 +101,9 @@ class CESampled(SampledLossBase):
         self._logits_callback = None
 
     @property
-    def logits_callback(self) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+    def logits_callback(
+        self,
+    ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
         """
         Property for calling a function for the logits computation.\n
 
@@ -143,10 +149,18 @@ class CESampled(SampledLossBase):
             negative_labels,
             target_padding_mask,
         )
-        positive_logits = sampled["positive_logits"]  # [masked_batch_size, num_positives]
-        negative_logits = sampled["negative_logits"]  # [masked_batch_size, num_negatives]
-        positive_labels = sampled["positive_labels"]  # [masked_batch_size, num_positives]
-        negative_labels = sampled["negative_labels"]  # [masked_batch_size, num_negatives] or [num_negatives]
+        positive_logits = sampled[
+            "positive_logits"
+        ]  # [masked_batch_size, num_positives]
+        negative_logits = sampled[
+            "negative_logits"
+        ]  # [masked_batch_size, num_negatives]
+        positive_labels = sampled[
+            "positive_labels"
+        ]  # [masked_batch_size, num_positives]
+        negative_labels = sampled[
+            "negative_labels"
+        ]  # [masked_batch_size, num_negatives] or [num_negatives]
 
         # [masked_batch_size, num_negatives] - assign low values to some negative logits
         negative_logits = mask_negative_logits(
@@ -157,7 +171,9 @@ class CESampled(SampledLossBase):
         # [masked_batch_size, 1 + num_negatives] - all logits
         logits = torch.cat((positive_logits, negative_logits), dim=-1)
         # [masked_batch_size] - positives are always at 0 position for all recommendation points
-        target = torch.zeros(positive_logits.size(0), dtype=torch.long, device=logits.device)
+        target = torch.zeros(
+            positive_logits.size(0), dtype=torch.long, device=logits.device
+        )
         # [masked_batch_size] - loss for all recommendation points
         loss = self._loss(logits, target)
         return loss
