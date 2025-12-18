@@ -85,7 +85,6 @@ def compute_builder_metrics(metric_list, train, test, recs, unseen_flag: bool, i
 
 @pytest.mark.spark
 @pytest.mark.torch
-@pytest.mark.usefixtures("random_train_test_recs")
 def test_seen_metrics(random_train_test_recs):
     train, test, recs = random_train_test_recs
 
@@ -125,7 +124,6 @@ def test_seen_metrics(random_train_test_recs):
 
 @pytest.mark.spark
 @pytest.mark.torch
-@pytest.mark.usefixtures("random_train_test_recs")
 def test_unseen_metrics(random_train_test_recs):
     train, test, recs = random_train_test_recs
 

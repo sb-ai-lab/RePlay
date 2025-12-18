@@ -7,4 +7,5 @@ omit =
 
 [coverage_conditional_plugin]
 rules =
+        "sys_version_info < (3, 10)": py-lt-310
         "sys_version_info < (3, 11)": py-lt-311

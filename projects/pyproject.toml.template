@@ -43,12 +43,12 @@ dependencies = [
 {% if project == "default" %}
     "pyspark (>=3.0,<3.5); extra == 'spark'",
     "psutil (<=7.0.0); extra == 'spark'",
-    "torch (>=1.8, <3.0.0); extra == 'torch' or extra == 'torch-cpu'",
+    "torch (>=1.8, <2.9.0); extra == 'torch' or extra == 'torch-cpu'",
     "pytorch-optimizer (>=3.8.0,<3.9.0); extra == 'torch' or extra == 'torch-cpu'",
     "lightning (<2.6.0); extra == 'torch' or extra == 'torch-cpu'",
 {% endif %}
 {% if project == "experimental" %}
-    "torch (>=1.8,<3.0.0)",
+    "torch (>=1.8,<2.9.0)",
     "lightning (>=2.0.2,<=2.4.0)",
     "pytorch-optimizer (>=3.8.0,<4)",
     "lightautoml (>=0.4.1,<0.5)",
@@ -99,11 +99,14 @@ torch = [
 coverage-conditional-plugin = "^0.9.0"
 jupyter = "~1.0.0"
 jupyterlab = "^3.6.0"
+pyarrow-stubs = "*"
 pytest = ">=7.1.0"
+pytest-mock = "^3.15"
 pytest-cov = ">=3.0.0"
 statsmodels = "~0.14.0"
 black = ">=23.3.0"
 ruff = ">=0.0.261"
+hypothesis = "*"
 toml-sort = "^0.23.0"
 sphinx = "5.3.0"
 sphinx-rtd-theme = "1.2.2"

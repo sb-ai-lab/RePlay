@@ -94,3 +94,10 @@ TorchSequentialValidationDataset
 ________________________________
 .. autoclass:: replay.data.nn.TorchSequentialValidationDataset
     :members: __init__
+
+
+ParquetDataset
+______________
+
+.. autoclass:: replay.data.nn.parquet.ParquetDataset
+    :members: __init__
