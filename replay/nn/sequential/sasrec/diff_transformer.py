@@ -253,7 +253,7 @@ class DiffTransformerLayer(torch.nn.Module):
         super().__init__()
         self.layers = torch.nn.ModuleList(
             [
-                DiffTransformerLayer(
+                DiffTransformerBlock(
                     embedding_dim=embedding_dim,
                     num_heads=num_heads,
                     lambda_init=0.8 - 0.6 * math.exp(-0.3 * block_num),

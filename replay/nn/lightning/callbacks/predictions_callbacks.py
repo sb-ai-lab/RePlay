@@ -7,13 +7,7 @@ import torch
 from replay.nn import InferenceOutput
 from replay.nn.lightning import LightningModule
 from replay.nn.lightning.postprocessors import PostprocessorBase
-from replay.utils import (
-    PYSPARK_AVAILABLE,
-    MissingImport,
-    PandasDataFrame,
-    PolarsDataFrame,
-    SparkDataFrame,
-)
+from replay.utils import PYSPARK_AVAILABLE, MissingImport, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 if PYSPARK_AVAILABLE:  # pragma: no cover
     import pyspark.sql.functions as sf
@@ -29,8 +23,8 @@ _T = TypeVar("_T")
 class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
     """
     The base class for a callback that records the result at the inference stage via ``LightningModule``.
-    The result consists of top K the highest logit values, IDs of these  top K logit values
-    and corresponding query ids (encoded IDs of users named ``query_id``).
+    The result consists of top K the highest logit values, IDs of these  top K logit values 
+    and corresponding query ids (encoded IDs of users named ``query_id``). 
 
     For the callback to work correctly, the batch is expected to contain the ``query_id`` key.
     """
@@ -49,8 +43,7 @@ class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
         :param item_column: The name of the item column in the resulting dataframe.
         :param rating_column: The name of the rating column in the resulting dataframe.
             This column will contain the ``top_k`` items with the highest logit values.
-        :param postprocessors: A list of postprocessors for modifying logits from the model
-            before sorting and taking top K ones.
+        :param postprocessors: A list of postprocessors for modifying logits from the model before sorting and taking top K ones.
             For example, it can be a softmax operation to logits or set the ``-inf`` value for some IDs.
             Default: ``None``.
         """
@@ -64,9 +57,7 @@ class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
         self._item_batches: list[torch.Tensor] = []
         self._item_scores: list[torch.Tensor] = []
 
-    def on_predict_epoch_start(
-        self, trainer: lightning.Trainer, pl_module: LightningModule
-    ) -> None:  # noqa: ARG002
+    def on_predict_epoch_start(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:  # noqa: ARG002
         self._query_batches.clear()
         self._item_batches.clear()
         self._item_scores.clear()
@@ -105,7 +96,7 @@ class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
     def _apply_postproccesors(self, batch: dict, logits: torch.Tensor) -> torch.Tensor:
         modified_logits = logits.detach().clone()
         for postprocessor in self._postprocessors:
-            modified_logits = postprocessor(batch, modified_logits)
+            modified_logits = postprocessor.on_prediction(batch, modified_logits)
         return modified_logits
 
     @abc.abstractmethod
@@ -181,8 +172,7 @@ class SparkTopItemsCallback(TopItemsCallbackBase[SparkDataFrame]):
         :param rating_column: The name of the rating column in the resulting dataframe.
             This column will contain the ``top_k`` items with the highest logit values.
         :param spark_session: Spark session. Required to create a Spark DataFrame.
-        :param postprocessors: A list of postprocessors for modifying logits from the model
-            before sorting and taking top K ones.
+        :param postprocessors: A list of postprocessors for modifying logits from the model before sorting and taking top K ones.
             For example, it can be a softmax operation to logits or set the ``-inf`` value for some IDs.
             Default: ``None``.
         """
@@ -218,22 +208,13 @@ class SparkTopItemsCallback(TopItemsCallbackBase[SparkDataFrame]):
                 ),
                 schema=schema,
             )
-            .withColumn(
-                "exploded_columns",
-                sf.explode(sf.arrays_zip(self.item_column, self.rating_column)),
-            )
-            .select(
-                self.query_column,
-                f"exploded_columns.{self.item_column}",
-                f"exploded_columns.{self.rating_column}",
-            )
+            .withColumn("exploded_columns", sf.explode(sf.arrays_zip(self.item_column, self.rating_column)))
+            .select(self.query_column, f"exploded_columns.{self.item_column}", f"exploded_columns.{self.rating_column}")
         )
         return prediction
 
 
-class TorchTopItemsCallback(
-    TopItemsCallbackBase[tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]]
-):
+class TorchTopItemsCallback(TopItemsCallbackBase[tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]]):
     """
     A callback that records the result of the model's forward function at the inference stage in a PyTorch Tensors.
     """
@@ -245,8 +226,7 @@ class TorchTopItemsCallback(
     ) -> None:
         """
         :param top_k: Take the ``top_k`` IDs with the highest logit values.
-        :param postprocessors: A list of postprocessors for modifying logits from the model
-            before sorting and taking top K.
+        :param postprocessors: A list of postprocessors for modifying logits from the model before sorting and taking top K.
             For example, it can be a softmax operation to logits or set the ``-inf`` value for some IDs.
             Default: ``None``.
         """
@@ -288,9 +268,7 @@ class HiddenStatesCallback(lightning.Callback):
         self._hidden_state_index = hidden_state_index
         self._embeddings_per_batch: list[torch.Tensor] = []
 
-    def on_predict_epoch_start(
-        self, trainer: lightning.Trainer, pl_module: LightningModule
-    ) -> None:  # noqa: ARG002
+    def on_predict_epoch_start(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:  # noqa: ARG002
         self._embeddings_per_batch.clear()
 
     def on_predict_batch_end(
@@ -302,9 +280,7 @@ class HiddenStatesCallback(lightning.Callback):
         batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> None:
-        self._embeddings_per_batch.append(
-            outputs["hidden_states"][self._hidden_state_index].detach().cpu()
-        )
+        self._embeddings_per_batch.append(outputs["hidden_states"][self._hidden_state_index].detach().cpu())
 
     def get_result(self):
         """

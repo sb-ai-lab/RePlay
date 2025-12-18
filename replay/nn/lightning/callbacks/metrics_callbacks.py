@@ -4,11 +4,7 @@ import lightning
 import torch
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
 
-from replay.metrics.torch_metrics_builder import (
-    MetricName,
-    TorchMetricsBuilder,
-    metrics_to_df,
-)
+from replay.metrics.torch_metrics_builder import MetricName, TorchMetricsBuilder, metrics_to_df
 from replay.nn import InferenceOutput
 from replay.nn.lightning import LightningModule
 from replay.nn.lightning.postprocessors import PostprocessorBase
@@ -62,13 +58,10 @@ class ComputeMetricsCallback(lightning.Callback):
             return [len(dataloaders)]
         return [len(dataloader) for dataloader in dataloaders]
 
-    def on_validation_epoch_start(
-        self, trainer: lightning.Trainer, pl_module: LightningModule
-    ) -> None:  # noqa: ARG002
+    def on_validation_epoch_start(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:  # noqa: ARG002
         self._dataloaders_size = self._get_dataloaders_size(trainer.val_dataloaders)
         self._metrics_builders = [
-            TorchMetricsBuilder(self._metrics, self._ks, self._item_count)
-            for _ in self._dataloaders_size
+            TorchMetricsBuilder(self._metrics, self._ks, self._item_count) for _ in self._dataloaders_size
         ]
         for builder in self._metrics_builders:
             builder.reset()
@@ -80,16 +73,18 @@ class ComputeMetricsCallback(lightning.Callback):
     ) -> None:  # pragma: no cover
         self._dataloaders_size = self._get_dataloaders_size(trainer.test_dataloaders)
         self._metrics_builders = [
-            TorchMetricsBuilder(self._metrics, self._ks, self._item_count)
-            for _ in self._dataloaders_size
+            TorchMetricsBuilder(self._metrics, self._ks, self._item_count) for _ in self._dataloaders_size
         ]
         for builder in self._metrics_builders:
             builder.reset()
 
-    def _apply_postproccesors(self, batch: dict, logits: torch.Tensor) -> torch.Tensor:
+    def _apply_postproccesors(self, batch: dict, logits: torch.Tensor, is_validation: bool) -> torch.Tensor:
         modified_logits = logits.detach().clone()
         for postprocessor in self._postprocessors:
-            modified_logits = postprocessor(batch, modified_logits)
+            if is_validation:
+                modified_logits = postprocessor.on_validation(batch, modified_logits)
+            else:
+                modified_logits = postprocessor.on_prediction(batch, modified_logits)
         return modified_logits
 
     def on_validation_batch_end(
@@ -101,7 +96,7 @@ class ComputeMetricsCallback(lightning.Callback):
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        self._batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
+        self._batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx, is_validation=True)
 
     def on_test_batch_end(
         self,
@@ -112,7 +107,7 @@ class ComputeMetricsCallback(lightning.Callback):
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:  # pragma: no cover
-        self._batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
+        self._batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx, is_validation=False)
 
     def _batch_end(
         self,
@@ -122,14 +117,11 @@ class ComputeMetricsCallback(lightning.Callback):
         batch: dict,
         batch_idx: int,
         dataloader_idx: int,
+        is_validation: bool
     ) -> None:
-        seen_scores = self._apply_postproccesors(batch, outputs["logits"])
-        sampled_items = torch.topk(
-            seen_scores, k=self._metrics_builders[dataloader_idx].max_k, dim=1
-        ).indices
-        self._metrics_builders[dataloader_idx].add_prediction(
-            sampled_items, batch["ground_truth"], batch.get("train")
-        )
+        seen_scores = self._apply_postproccesors(batch, outputs["logits"], is_validation)
+        sampled_items = torch.topk(seen_scores, k=self._metrics_builders[dataloader_idx].max_k, dim=1).indices
+        self._metrics_builders[dataloader_idx].add_prediction(sampled_items, batch["ground_truth"], batch.get("train"))
 
         if batch_idx + 1 == self._dataloaders_size[dataloader_idx]:
             pl_module.log_dict(
@@ -139,19 +131,13 @@ class ComputeMetricsCallback(lightning.Callback):
                 add_dataloader_idx=True,
             )
 
-    def on_validation_epoch_end(
-        self, trainer: lightning.Trainer, pl_module: LightningModule
-    ) -> None:
+    def on_validation_epoch_end(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:
         self._epoch_end(trainer, pl_module)
 
-    def on_test_epoch_end(
-        self, trainer: lightning.Trainer, pl_module: LightningModule
-    ) -> None:  # pragma: no cover
+    def on_test_epoch_end(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:  # pragma: no cover
         self._epoch_end(trainer, pl_module)
 
-    def _epoch_end(
-        self, trainer: lightning.Trainer, pl_module: LightningModule
-    ) -> None:  # noqa: ARG002
+    def _epoch_end(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:  # noqa: ARG002
         @rank_zero_only
         def print_metrics() -> None:
             metrics = {}
