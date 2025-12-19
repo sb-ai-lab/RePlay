@@ -86,9 +86,7 @@ class SampledLossBase(torch.nn.Module):
                 # [batch_size, seq_len, num_negatives] -> [batch_size, seq_len, num_positives, num_negatives]
                 negative_labels = negative_labels.repeat((1, 1, num_positives, 1))
         assert (
-            negative_labels.size()
-            == (batch_size, seq_len, num_positives, num_negatives)
-            or negative_labels.dim() == 1
+            negative_labels.size() == (batch_size, seq_len, num_positives, num_negatives) or negative_labels.dim() == 1
         )
         ################## SHAPE CHECKING STAGE END ##################
 
@@ -177,9 +175,7 @@ def mask_negative_logits(
 
     # [masked_batch_size, num_positives] -> [masked_batch_size, num_positives, 1]
     positive_labels = positive_labels.unsqueeze(-1)
-    negative_mask = (
-        positive_labels == negative_labels
-    )  # [masked_batch_size, num_positives, num_negatives]
+    negative_mask = positive_labels == negative_labels  # [masked_batch_size, num_positives, num_negatives]
 
     # [masked_batch_size, num_positives, num_negatives] -> [masked_batch_size, num_negatives]
     negative_mask = negative_mask.sum(-2)

@@ -173,9 +173,7 @@ class SasRec(torch.nn.Module):
         max_sequence_length: int = 50,
         dropout: float = 0.3,
         excluded_features: Optional[list[str]] = None,
-        categorical_list_feature_aggregation_method: Literal[
-            "sum", "mean", "max"
-        ] = "sum",
+        categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
     ) -> "SasRec":
         from replay.nn import DefaultAttentionMask, SequenceEmbedding, SumAggregator
         from replay.nn.loss import CE
@@ -223,9 +221,7 @@ class SasRec(torch.nn.Module):
         model_embeddings: torch.Tensor,
         candidates_to_score: Optional[torch.LongTensor] = None,
     ) -> torch.Tensor:
-        item_embeddings: torch.Tensor = self.body.embedder.get_item_weights(
-            candidates_to_score
-        )
+        item_embeddings: torch.Tensor = self.body.embedder.get_item_weights(candidates_to_score)
         logits: torch.Tensor = self.head(model_embeddings, item_embeddings)
         return logits
 
@@ -314,9 +310,7 @@ class SasRec(torch.nn.Module):
         if self.training:
             all(
                 map(
-                    warning_is_not_none(
-                        "Variable `{}` is not None. This will have no effect at the training stage."
-                    ),
+                    warning_is_not_none("Variable `{}` is not None. This will have no effect at the training stage."),
                     [(candidates_to_score, "candidates_to_score")],
                 )
             )
@@ -330,9 +324,7 @@ class SasRec(torch.nn.Module):
 
         all(
             map(
-                warning_is_not_none(
-                    "Variable `{}` is not None. This will have no effect at the inference stage."
-                ),
+                warning_is_not_none("Variable `{}` is not None. This will have no effect at the inference stage."),
                 [
                     (positive_labels, "positive_labels"),
                     (negative_labels, "negative_labels"),

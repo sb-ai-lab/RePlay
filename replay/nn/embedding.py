@@ -20,9 +20,7 @@ class SequenceEmbedding(torch.nn.Module):
         self,
         schema: TensorSchema,
         excluded_features: Optional[list[str]] = None,
-        categorical_list_feature_aggregation_method: Literal[
-            "sum", "mean", "max"
-        ] = "sum",
+        categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
     ):
         """
         :param schema: TensorSchema containing meta information about all the features
@@ -43,9 +41,7 @@ class SequenceEmbedding(torch.nn.Module):
             if feature_name in self.excluded_features:
                 continue
             if not tensor_info.is_seq:
-                msg = (
-                    f"Non-sequential features is not yet supported. Got {feature_name}"
-                )
+                msg = f"Non-sequential features is not yet supported. Got {feature_name}"
                 raise NotImplementedError(msg)
             if tensor_info.is_cat:
                 feature_embedders[feature_name] = CategoricalEmbedding(
@@ -59,9 +55,9 @@ class SequenceEmbedding(torch.nn.Module):
         if not feature_embedders:
             msg = "Expected to have at least one feature name to generate embedding."
             raise ValueError(msg)
-        self.feature_embedders: dict[
-            str, Union[CategoricalEmbedding, NumericalEmbedding]
-        ] = torch.nn.ModuleDict(feature_embedders)
+        self.feature_embedders: dict[str, Union[CategoricalEmbedding, NumericalEmbedding]] = torch.nn.ModuleDict(
+            feature_embedders
+        )
         self._item_feature_name = schema.item_id_feature_name
 
     def reset_parameters(self) -> None:
@@ -69,9 +65,7 @@ class SequenceEmbedding(torch.nn.Module):
             with contextlib.suppress(ValueError):
                 torch.nn.init.xavier_normal_(param.data)
 
-    def forward(
-        self, feature_tensor: TensorMap, feature_names: Optional[Sequence[str]] = None
-    ) -> TensorMap:
+    def forward(self, feature_tensor: TensorMap, feature_names: Optional[Sequence[str]] = None) -> TensorMap:
         """
         :param feature_tensor: a dictionary of tensors to generate embedding.
             It is expected that the keys from this dictionary match the names of the features in the given ``schema``.
@@ -82,9 +76,7 @@ class SequenceEmbedding(torch.nn.Module):
         :returns: a dictionary with tensors that contains embeddings.
         """
         return {
-            feature_name: self.feature_embedders[feature_name](
-                feature_tensor[feature_name]
-            )
+            feature_name: self.feature_embedders[feature_name](feature_tensor[feature_name])
             for feature_name in (feature_names or self.feature_names)
         }
 
@@ -95,9 +87,7 @@ class SequenceEmbedding(torch.nn.Module):
         """
         return {name: emb.embedding_dim for name, emb in self.feature_embedders.items()}
 
-    def get_item_weights(
-        self, indices: Optional[torch.LongTensor] = None
-    ) -> torch.Tensor:
+    def get_item_weights(self, indices: Optional[torch.LongTensor] = None) -> torch.Tensor:
         """
         Getting the embedding weights for a feature that matches the item id feature
         with the name specified in the ``schema``.
@@ -122,9 +112,7 @@ class CategoricalEmbedding(torch.nn.Module):
     def __init__(
         self,
         feature_info: TensorFeatureInfo,
-        categorical_list_feature_aggregation_method: Literal[
-            "sum", "mean", "max"
-        ] = "sum",
+        categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
     ) -> None:
         """
         :param feature_info: Meta information about the feature.

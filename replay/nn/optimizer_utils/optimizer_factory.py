@@ -12,9 +12,7 @@ class OptimizerFactory(abc.ABC):
     """
 
     @abc.abstractmethod
-    def create(
-        self, parameters: Iterator[torch.nn.Parameter]
-    ) -> torch.optim.Optimizer:  # pragma: no cover
+    def create(self, parameters: Iterator[torch.nn.Parameter]) -> torch.optim.Optimizer:  # pragma: no cover
         """
         Creates optimizer based on parameters.
 
@@ -30,9 +28,7 @@ class LRSchedulerFactory(abc.ABC):
     """
 
     @abc.abstractmethod
-    def create(
-        self, optimizer: torch.optim.Optimizer
-    ) -> torch.optim.lr_scheduler._LRScheduler:  # pragma: no cover
+    def create(self, optimizer: torch.optim.Optimizer) -> torch.optim.lr_scheduler._LRScheduler:  # pragma: no cover
         """
         Creates learning rate scheduler based on optimizer.
 
@@ -99,9 +95,7 @@ class FatLRSchedulerFactory(LRSchedulerFactory):
         self.decay_step = decay_step
         self.gamma = gamma
 
-    def create(
-        self, optimizer: torch.optim.Optimizer
-    ) -> torch.optim.lr_scheduler._LRScheduler:
+    def create(self, optimizer: torch.optim.Optimizer) -> torch.optim.lr_scheduler._LRScheduler:
         """
         Creates learning rate scheduler based on optimizer.
 
@@ -109,9 +103,7 @@ class FatLRSchedulerFactory(LRSchedulerFactory):
 
         :returns: torch LRScheduler
         """
-        return torch.optim.lr_scheduler.StepLR(
-            optimizer, step_size=self.decay_step, gamma=self.gamma
-        )
+        return torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.decay_step, gamma=self.gamma)
 
 
 class LambdaLRSchedulerFactory(LRSchedulerFactory):
@@ -143,9 +135,7 @@ class LambdaLRSchedulerFactory(LRSchedulerFactory):
         self.warmup_steps = warmup_steps
         self.update_interval = update_interval
 
-    def create(
-        self, optimizer: torch.optim.Optimizer
-    ) -> torch.optim.lr_scheduler._LRScheduler:
+    def create(self, optimizer: torch.optim.Optimizer) -> torch.optim.lr_scheduler._LRScheduler:
         """
         Creates learning rate scheduler based on optimizer.
 

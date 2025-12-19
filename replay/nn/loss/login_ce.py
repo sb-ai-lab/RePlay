@@ -48,10 +48,7 @@ class LogInCEBase(SampledLossBase):
         batch_size, seq_len, num_positives = positive_labels.size()
         assert target_padding_mask.size() == (batch_size, seq_len, num_positives)
         num_negatives = negative_labels.size(-1)
-        assert (
-            negative_labels.size() == (batch_size, seq_len, num_negatives)
-            or negative_labels.dim() == 1
-        )
+        assert negative_labels.size() == (batch_size, seq_len, num_negatives) or negative_labels.dim() == 1
         ################## SHAPE CHECKING STAGE END ##################
 
         # Get output embedding for every user event
@@ -59,9 +56,7 @@ class LogInCEBase(SampledLossBase):
         assert model_embeddings.size() == (batch_size, seq_len, embedding_dim)
 
         # [batch_size, seq_len, num_positives] -> [batch_size, seq_len]
-        masked_target_padding_mask: torch.BoolTensor = target_padding_mask.sum(
-            -1
-        ).bool()
+        masked_target_padding_mask: torch.BoolTensor = target_padding_mask.sum(-1).bool()
         masked_batch_size = masked_target_padding_mask.sum().item()
 
         # Apply target mask
@@ -190,21 +185,11 @@ class LogInCE(LogInCEBase):
             all_negative_labels,
             target_padding_mask,
         )
-        positive_logits = sampled[
-            "positive_logits"
-        ]  # [masked_batch_size, num_positives]
-        negative_logits = sampled[
-            "negative_logits"
-        ]  # [masked_batch_size, num_negatives]
-        positive_labels = sampled[
-            "positive_labels"
-        ]  # [masked_batch_size, num_positives]
-        all_negative_labels = sampled[
-            "negative_labels"
-        ]  # [masked_batch_size, num_negatives] or [num_negatives]
-        target_padding_mask = sampled[
-            "target_padding_mask"
-        ]  # [masked_batch_size, num_positives]
+        positive_logits = sampled["positive_logits"]  # [masked_batch_size, num_positives]
+        negative_logits = sampled["negative_logits"]  # [masked_batch_size, num_negatives]
+        positive_labels = sampled["positive_labels"]  # [masked_batch_size, num_positives]
+        all_negative_labels = sampled["negative_labels"]  # [masked_batch_size, num_negatives] or [num_negatives]
+        target_padding_mask = sampled["target_padding_mask"]  # [masked_batch_size, num_positives]
 
         # [masked_batch_size, num_negatives] - assign low values to some negative logits
         negative_logits = mask_negative_logits(
@@ -316,21 +301,11 @@ class LogInCESampled(LogInCEBase):
             negative_labels,
             target_padding_mask,
         )
-        positive_logits = sampled[
-            "positive_logits"
-        ]  # [masked_batch_size, num_positives]
-        negative_logits = sampled[
-            "negative_logits"
-        ]  # [masked_batch_size, num_negatives]
-        positive_labels = sampled[
-            "positive_labels"
-        ]  # [masked_batch_size, num_positives]
-        negative_labels = sampled[
-            "negative_labels"
-        ]  # [masked_batch_size, num_negatives] or [num_negatives]
-        target_padding_mask = sampled[
-            "target_padding_mask"
-        ]  # [masked_batch_size, num_positives]
+        positive_logits = sampled["positive_logits"]  # [masked_batch_size, num_positives]
+        negative_logits = sampled["negative_logits"]  # [masked_batch_size, num_negatives]
+        positive_labels = sampled["positive_labels"]  # [masked_batch_size, num_positives]
+        negative_labels = sampled["negative_labels"]  # [masked_batch_size, num_negatives] or [num_negatives]
+        target_padding_mask = sampled["target_padding_mask"]  # [masked_batch_size, num_positives]
 
         # [masked_batch_size, num_negatives] - assign low values to some negative logits
         negative_logits = mask_negative_logits(

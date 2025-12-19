@@ -76,9 +76,7 @@ class ConcatAggregator(torch.nn.Module):
         embedding_concat_size = sum(input_embedding_dims)
         self.feat_projection = None
         if len(input_embedding_dims) > 1:
-            self.feat_projection = torch.nn.Linear(
-                embedding_concat_size, self.embedding_dim
-            )
+            self.feat_projection = torch.nn.Linear(embedding_concat_size, self.embedding_dim)
         elif embedding_concat_size != self.embedding_dim:
             msg = f"Input embedding dim is not equal to embedding_dim ({embedding_concat_size} != {self.embedding_dim})"
             raise ValueError(msg)

@@ -94,13 +94,9 @@ class SwiGLU(torch.nn.Module):
         :returns: Output tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
         """
         # Apply the gates
-        activation = torch.nn.functional.silu(
-            self.WG(input_embeddings)
-        )  # Activation part
+        activation = torch.nn.functional.silu(self.WG(input_embeddings))  # Activation part
         linear = self.W1(input_embeddings)  # Linear part
-        return self.W2(
-            activation * linear
-        )  # Element-wise multiplication and projection
+        return self.W2(activation * linear)  # Element-wise multiplication and projection
 
 
 class SwiGLUEncoder(torch.nn.Module):

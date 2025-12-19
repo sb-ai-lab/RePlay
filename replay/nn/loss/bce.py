@@ -161,18 +161,10 @@ class BCESampled(SampledLossBase):
             negative_labels,
             target_padding_mask,
         )
-        positive_logits = sampled[
-            "positive_logits"
-        ]  # [masked_batch_size, num_positives]
-        negative_logits = sampled[
-            "negative_logits"
-        ]  # [masked_batch_size, num_negatives]
-        positive_labels = sampled[
-            "positive_labels"
-        ]  # [masked_batch_size, num_positives]
-        negative_labels = sampled[
-            "negative_labels"
-        ]  # [masked_batch_size, num_negatives] or [num_negatives]
+        positive_logits = sampled["positive_logits"]  # [masked_batch_size, num_positives]
+        negative_logits = sampled["negative_logits"]  # [masked_batch_size, num_negatives]
+        positive_labels = sampled["positive_labels"]  # [masked_batch_size, num_positives]
+        negative_labels = sampled["negative_labels"]  # [masked_batch_size, num_negatives] or [num_negatives]
 
         # Reject negative samples matching target label & correct for remaining samples
         negative_logits = mask_negative_logits(

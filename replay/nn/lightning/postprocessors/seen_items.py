@@ -37,9 +37,7 @@ class SeenItemsFilter(PostprocessorBase):
             lambda seq: np.concatenate(([seq[0]] * (max_seq_len - len(seq)), seq))
         )
 
-        seen_data = seen_data.map(
-            lambda x: x.tolist() if isinstance(x, np.ndarray) else x
-        )
+        seen_data = seen_data.map(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
 
         self.queries = torch.from_numpy(seen_data[query_column].to_numpy())
         self.sequences = torch.tensor(seen_data[item_column].tolist(), dtype=torch.long)
@@ -65,19 +63,13 @@ class SeenItemsFilter(PostprocessorBase):
         query_mask = torch.isin(self.queries, batch["query_id"]).cpu()
         seen_ids = self.sequences[query_mask].to(device=device)
 
-        batch_factors = (
-            torch.arange(0, batch["query_id"].numel(), device=device) * self.item_count
-        )
+        batch_factors = torch.arange(0, batch["query_id"].numel(), device=device) * self.item_count
         factored_ids = seen_ids + batch_factors.unsqueeze(1)
         seen_ids_flat = factored_ids.flatten()
 
         if not is_validation and self.candidates is not None:
-            _logits = torch.full(
-                (logits.size(0), self.item_count), -float("inf"), device=device
-            )
-            _logits[:, self.candidates] = torch.reshape(
-                logits, _logits[:, self.candidates].shape
-            )
+            _logits = torch.full((logits.size(0), self.item_count), -float("inf"), device=device)
+            _logits[:, self.candidates] = torch.reshape(logits, _logits[:, self.candidates].shape)
             logits = _logits
         if logits.is_contiguous():
             logits.view(-1)[seen_ids_flat] = -np.inf

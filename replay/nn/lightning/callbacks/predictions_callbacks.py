@@ -66,8 +66,8 @@ class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
 
     def on_predict_epoch_start(
         self,
-        trainer: lightning.Trainer,
-        pl_module: LightningModule,  # noqa: ARG002
+        trainer: lightning.Trainer,  # noqa: ARG002
+        pl_module: LightningModule,
     ) -> None:
         self._query_batches.clear()
         self._item_batches.clear()
@@ -233,9 +233,7 @@ class SparkTopItemsCallback(TopItemsCallbackBase[SparkDataFrame]):
         return prediction
 
 
-class TorchTopItemsCallback(
-    TopItemsCallbackBase[tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]]
-):
+class TorchTopItemsCallback(TopItemsCallbackBase[tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]]):
     """
     A callback that records the result of the model's forward function at the inference stage in a PyTorch Tensors.
     """
@@ -292,7 +290,7 @@ class HiddenStatesCallback(lightning.Callback):
 
     def on_predict_epoch_start(
         self,
-        trainer: lightning.Trainer,
+        trainer: lightning.Trainer,  # noqa: ARG002
         pl_module: LightningModule,  # noqa: ARG002
     ) -> None:
         self._embeddings_per_batch.clear()
@@ -306,9 +304,7 @@ class HiddenStatesCallback(lightning.Callback):
         batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> None:
-        self._embeddings_per_batch.append(
-            outputs["hidden_states"][self._hidden_state_index].detach().cpu()
-        )
+        self._embeddings_per_batch.append(outputs["hidden_states"][self._hidden_state_index].detach().cpu())
 
     def get_result(self):
         """
