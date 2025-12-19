@@ -4,38 +4,42 @@ SasRec
 SasRec
 ______
 .. autoclass:: replay.nn.sequential.SasRec
-   :members: __init__, forward
+   :members: __init__, forward, build_original
+
+SasRec Building Blocks
+______________________
 
 SasRecBody
-__________
+``````````````````````````````
+
 .. autoclass:: replay.nn.sequential.SasRecBody
    :members: __init__, forward
 
 SasRecTransformerLayer
-______________________
+``````````````````````````````
 .. autoclass:: replay.nn.sequential.SasRecTransformerLayer
    :members: __init__, forward
 
 SasRecAggregator
-________________
+``````````````````````````````
 .. autoclass:: replay.nn.sequential.SasRecAggregator
    :members: __init__, forward
 
 MultiHead Differential Attention
-_________________________________
+````````````````````````````````
 
 MultiHeadDifferentialAttention
-``````````````````````````````
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. autoclass:: replay.nn.sequential.MultiHeadDifferentialAttention
    :members: __init__, forward
 
 DiffTransformerBlock
-````````````````````
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. autoclass:: replay.nn.sequential.DiffTransformerBlock
    :members: __init__, forward
 
 DiffTransformerLayer
-````````````````````
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. autoclass:: replay.nn.sequential.DiffTransformerLayer
    :members: __init__, forward
 
@@ -307,34 +311,34 @@ For a better understanding, you should look at examples of using neural network 
 Callbacks
 _________
 
-MetricsCalculator
+ComputeMetricsCallback
 `````````````````````````
-.. autoclass:: replay.nn.lightning.callbacks.MetricsCalculator
+.. autoclass:: replay.nn.lightning.callbacks.ComputeMetricsCallback
    :members: __init__
 
-PandasLogitsWriter
+PandasTopItemsCallback
 ````````````````````````
-.. autoclass:: replay.nn.lightning.callbacks.PandasLogitsWriter
+.. autoclass:: replay.nn.lightning.callbacks.PandasTopItemsCallback
    :members: __init__, get_result
 
-PolarsLogitsWriter
+PolarsTopItemsCallback
 ````````````````````````
-.. autoclass:: replay.nn.lightning.callbacks.PolarsLogitsWriter
+.. autoclass:: replay.nn.lightning.callbacks.PolarsTopItemsCallback
    :members: __init__, get_result
 
-SparkLogitsWriter
+SparkTopItemsCallback
 ```````````````````````
-.. autoclass:: replay.nn.lightning.callbacks.SparkLogitsWriter
+.. autoclass:: replay.nn.lightning.callbacks.SparkTopItemsCallback
    :members: __init__, get_result
 
-LogitsWriter
+TorchTopItemsCallback
 ```````````````````````
-.. autoclass:: replay.nn.lightning.callbacks.LogitsWriter
+.. autoclass:: replay.nn.lightning.callbacks.TorchTopItemsCallback
    :members: __init__, get_result
 
-HiddenStatesRetriever
+HiddenStatesCallback
 `````````````````````
-.. autoclass:: replay.nn.lightning.callbacks.HiddenStatesRetriever
+.. autoclass:: replay.nn.lightning.callbacks.HiddenStatesCallback
    :members: __init__, get_result
 
 Postprocessors

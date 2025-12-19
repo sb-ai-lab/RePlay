@@ -102,8 +102,6 @@ class SwiGLU(torch.nn.Module):
 class SwiGLUEncoder(torch.nn.Module):
     """
     MLP block consists of SwiGLU Feed-Forward network followed by a RMSNorm layer with skip connection.
-
-    RMSNorm paper: https://arxiv.org/pdf/1910.07467.
     """
 
     def __init__(self, embedding_dim: int, hidden_dim: int) -> None:

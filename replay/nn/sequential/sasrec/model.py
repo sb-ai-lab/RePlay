@@ -123,6 +123,35 @@ class SasRec(torch.nn.Module):
     A model using the SasRec architecture as a hidden state generator.
     The hidden states are multiplied by the item embeddings,
     resulting in logits for each of the items.
+
+    Example:
+
+    .. code-block:: python
+
+        sasrec = SasRec(
+            embedder=SequenceEmbedding(
+                schema=tensor_schema,
+            ),
+            attn_mask_builder=DefaultAttentionMask(
+                reference_feature_name=tensor_schema.item_id_feature_name,
+                num_heads=2,
+            ),
+            embedding_aggregator=SasRecAggregator(
+                embedding_aggregator=common_aggregator,
+                max_sequence_length=100,
+                dropout=0.2,
+            ),
+            encoder=SasRecTransformerLayer(
+                embedding_dim=256,
+                num_heads=2,
+                num_blocks=2,
+                dropout=0.3,
+                activation="relu",
+            ),
+            output_normalization=torch.nn.LayerNorm(256),
+            loss=CESampled(padding_idx=tensor_schema.item_id_features.item().padding_value)
+        )
+
     """
 
     def __init__(
