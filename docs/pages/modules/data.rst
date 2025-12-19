@@ -156,8 +156,28 @@ UniformNegativeSamplingTransform
 .. autoclass:: replay.nn.transforms.UniformNegativeSamplingTransform
 
 
-ParquetDataset
+Parquet processing
 ______________
 
+This module contains the implementation of ``ParquetDataset`` - a combination of PyTorch-compatible dataset and sampler designed for working with the Parquet file format.
+The main advantages offered by this dataset are:
+
+1. Batch-wise reading and processing of data, allowing it to work with large datasets in memory-constrained settings.
+2. Full built-in support for Torch's Distributed Data Parallel mode.
+3. Automatic padding of data according to the provided schema.
+
+``ParquetDataset`` is primarily configured using column schemas - dictionaries containing target columns as keys and their shape/padding specifiers as values.
+An example column schema:
+.. code-block:: python
+    schema = {
+        "user_id": {} # Empty metadata represents a categorical column.
+        "seq_1": {"shape": 5} # 1-D sequences of length 5
+        "seq_1": {"shape": (5, 6), "padding_value": -1} # 2-D sequences with custom padding values
+    }
+
+Of note: ``ParquetDataset`` only supports numerical values - ensure that all of your data is boolean/integer/float to properly use this class.
+
+ParquetDataset
+`````````````````````
 .. autoclass:: replay.data.nn.parquet.ParquetDataset
     :members: __init__
