@@ -96,68 +96,8 @@ ________________________________
     :members: __init__
 
 
-ParquetDatamodule
-_________________
-
-.. autoclass:: replay.data.nn.ParquetModule
-    :members: __init__
-
-
-Transforms
-__________
-
-This submodule contains a set of standard torch transformations necessary for training recommendation neural network models. 
-These Transforms are intended for use with the ParquetModule. For applying specify a sequence of transformations for every data split as ParquetModule's ``transforms`` parameter. 
-Specified transformations will be applyed per batch on device, then the resulting batch will be used as model input. 
-
-
-BatchingTransform
-`````````````````
-.. autoclass:: replay.nn.transforms.BatchingTransform
-    :members: __init__
-
-CopyTransform
-`````````````
-.. autoclass:: replay.nn.transforms.CopyTransform
-    :members: __init__
-
-GroupTransform
-``````````````
-.. autoclass:: replay.nn.transforms.GroupTransform
-    :members: __init__
-
-RenameTransform
-```````````````
-.. autoclass:: replay.nn.transforms.RenameTransform
-    :members: __init__
-
-UnsqueezeTransform
-``````````````````
-.. autoclass:: replay.nn.transforms.UnsqueezeTransform
-    :members: __init__
-
-NextTokenTransform
-``````````````````
-.. autoclass:: replay.nn.transforms.NextTokenTransform
-    :members: __init__
-
-TokenMaskTransform
-``````````````````
-.. autoclass:: replay.nn.transforms.TokenMaskTransform
-    :members: __init__
-
-SequenceRollTransform
-`````````````````````
-.. autoclass:: replay.nn.transforms.SequenceRollTransform
-    :members: __init__
-
-UniformNegativeSamplingTransform
-````````````````````````````````
-.. autoclass:: replay.nn.transforms.UniformNegativeSamplingTransform
-
-
 Parquet processing
-______________
+__________________
 
 This module contains the implementation of ``ParquetDataset`` - a combination of PyTorch-compatible dataset and sampler designed for working with the Parquet file format.
 The main advantages offered by this dataset are:
@@ -168,7 +108,9 @@ The main advantages offered by this dataset are:
 
 ``ParquetDataset`` is primarily configured using column schemas - dictionaries containing target columns as keys and their shape/padding specifiers as values.
 An example column schema:
+
 .. code-block:: python
+
     schema = {
         "user_id": {} # Empty metadata represents a categorical column.
         "seq_1": {"shape": 5} # 1-D sequences of length 5
@@ -178,6 +120,14 @@ An example column schema:
 Of note: ``ParquetDataset`` only supports numerical values - ensure that all of your data is boolean/integer/float to properly use this class.
 
 ParquetDataset
-`````````````````````
+```````````````
 .. autoclass:: replay.data.nn.parquet.ParquetDataset
+    :members: __init__
+
+.. _Parquet-Module:
+
+ParquetDatamodule
+_________________
+
+.. autoclass:: replay.data.nn.ParquetModule
     :members: __init__

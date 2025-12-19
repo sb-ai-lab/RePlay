@@ -40,6 +40,18 @@ ___________________
 
 To get more info on how to choose base model, please see this  :doc:`page </pages/useful_data/algorithm_selection>`.
 
+
+Neural Networks recommenders
+____________________________
+Neural Networks recommenders are Lightning-compatible. They can be trained using a Trainer from Lightning module.
+
+..  toctree::
+    :caption: Contents:
+    
+    nn_models
+
+
+
 Recommender interface
 ____________________________
 

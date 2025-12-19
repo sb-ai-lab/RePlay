@@ -26,12 +26,13 @@ class ParquetModule(L.LightningDataModule):
 
     Allows for unified access to all data splits across the training/inference pipeline without loading
     full dataset into memory. Provide per batch data loading and preprocessing via transform pipelines.
-    See the Transforms section for getting available batch transforms.
+    See the :ref:`Transforms` section for getting info about available batch transforms.
 
     It's possible to use all train/val/test splits, then paths to splits should be passed
     as corresponding arguments of `ParquetModule`.
     Alternatively, all the paths to the splits may be not specified
     but then do not forget to configure the Pytorch Lightning Trainer's instance accordingly.
+
     For example, if you don't want use validation data, you are able not to set ``val_path`` parameter
     in `ParquetModule` and set ``limit_val_batches=0`` in Ligthning.Trainer.
     """
