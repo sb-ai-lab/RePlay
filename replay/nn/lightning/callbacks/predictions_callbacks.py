@@ -49,7 +49,8 @@ class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
         :param item_column: The name of the item column in the resulting dataframe.
         :param rating_column: The name of the rating column in the resulting dataframe.
             This column will contain the ``top_k`` items with the highest logit values.
-        :param postprocessors: A list of postprocessors for modifying logits from the model before sorting and taking top K ones.
+        :param postprocessors: A list of postprocessors for modifying logits from the model
+            before sorting and taking top K ones.
             For example, it can be a softmax operation to logits or set the ``-inf`` value for some IDs.
             Default: ``None``.
         """
@@ -64,8 +65,10 @@ class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
         self._item_scores: list[torch.Tensor] = []
 
     def on_predict_epoch_start(
-        self, trainer: lightning.Trainer, pl_module: LightningModule
-    ) -> None:  # noqa: ARG002
+        self,
+        trainer: lightning.Trainer,
+        pl_module: LightningModule,  # noqa: ARG002
+    ) -> None:
         self._query_batches.clear()
         self._item_batches.clear()
         self._item_scores.clear()
@@ -180,7 +183,8 @@ class SparkTopItemsCallback(TopItemsCallbackBase[SparkDataFrame]):
         :param rating_column: The name of the rating column in the resulting dataframe.
             This column will contain the ``top_k`` items with the highest logit values.
         :param spark_session: Spark session. Required to create a Spark DataFrame.
-        :param postprocessors: A list of postprocessors for modifying logits from the model before sorting and taking top K ones.
+        :param postprocessors: A list of postprocessors for modifying logits from the model
+            before sorting and taking top K ones.
             For example, it can be a softmax operation to logits or set the ``-inf`` value for some IDs.
             Default: ``None``.
         """
@@ -243,7 +247,8 @@ class TorchTopItemsCallback(
     ) -> None:
         """
         :param top_k: Take the ``top_k`` IDs with the highest logit values.
-        :param postprocessors: A list of postprocessors for modifying logits from the model before sorting and taking top K.
+        :param postprocessors: A list of postprocessors for modifying logits from the model
+            before sorting and taking top K.
             For example, it can be a softmax operation to logits or set the ``-inf`` value for some IDs.
             Default: ``None``.
         """
@@ -286,8 +291,10 @@ class HiddenStatesCallback(lightning.Callback):
         self._embeddings_per_batch: list[torch.Tensor] = []
 
     def on_predict_epoch_start(
-        self, trainer: lightning.Trainer, pl_module: LightningModule
-    ) -> None:  # noqa: ARG002
+        self,
+        trainer: lightning.Trainer,
+        pl_module: LightningModule,  # noqa: ARG002
+    ) -> None:
         self._embeddings_per_batch.clear()
 
     def on_predict_batch_end(

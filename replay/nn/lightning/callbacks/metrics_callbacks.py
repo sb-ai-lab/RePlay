@@ -63,8 +63,10 @@ class ComputeMetricsCallback(lightning.Callback):
         return [len(dataloader) for dataloader in dataloaders]
 
     def on_validation_epoch_start(
-        self, trainer: lightning.Trainer, pl_module: LightningModule
-    ) -> None:  # noqa: ARG002
+        self,
+        trainer: lightning.Trainer,
+        pl_module: LightningModule,  # noqa: ARG002
+    ) -> None:
         self._dataloaders_size = self._get_dataloaders_size(trainer.val_dataloaders)
         self._metrics_builders = [
             TorchMetricsBuilder(self._metrics, self._ks, self._item_count)
@@ -77,7 +79,7 @@ class ComputeMetricsCallback(lightning.Callback):
         self,
         trainer: lightning.Trainer,
         pl_module: LightningModule,  # noqa: ARG002
-    ) -> None:  # pragma: no cover
+    ) -> None:
         self._dataloaders_size = self._get_dataloaders_size(trainer.test_dataloaders)
         self._metrics_builders = [
             TorchMetricsBuilder(self._metrics, self._ks, self._item_count)
@@ -174,8 +176,10 @@ class ComputeMetricsCallback(lightning.Callback):
         self._epoch_end(trainer, pl_module)
 
     def _epoch_end(
-        self, trainer: lightning.Trainer, pl_module: LightningModule
-    ) -> None:  # noqa: ARG002
+        self,
+        trainer: lightning.Trainer,
+        pl_module: LightningModule,  # noqa: ARG002
+    ) -> None:
         @rank_zero_only
         def print_metrics() -> None:
             metrics = {}
