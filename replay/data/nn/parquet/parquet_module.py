@@ -63,7 +63,7 @@ class ParquetModule(L.LightningDataModule):
             Example: {"train": {"item_id" : {"shape": 100, "padding_value": 7657}}}.\n
             For details, see the section :ref:`parquet-processing`.
         :param config: Dict specifying configuration options of ``ParquetDataset`` (generator,
-            filesystem, collate_fn, make_mask_name, replicas_info) for each data split.\n
+            filesystem, collate_fn, make_mask_name, replicas_info) for each data split.
             Default: ``DEFAULT_CONFIG``.\n
             In most scenarios, the default configuration is sufficient.
         :param transforms: Dict specifying sequence of Transform modules for each data split.
