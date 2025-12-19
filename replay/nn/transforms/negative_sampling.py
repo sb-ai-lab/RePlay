@@ -17,11 +17,12 @@ class UniformNegativeSamplingTransform(BaseTransform):
 
     .. code-block:: python
 
+        >>> _ = torch.manual_seed(0)
         >>> input_batch = {"item_id": torch.LongTensor([[1, 0, 4]])}
         >>> transform = UniformNegativeSamplingTransform(vocab_size=4, num_negative_samples=2)
         >>> output_batch = transform(input_batch)
-        >>> print(output_batch)
-        {'item_id': tensor([[1, 0, 4]]), 'negative_labels': tensor([1, 2])}
+        >>> output_batch
+        {'item_id': tensor([[1, 0, 4]]), 'negative_labels': tensor([2, 1])}
 
     """
 

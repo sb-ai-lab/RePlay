@@ -16,11 +16,13 @@ class TokenMaskTransform(BaseTransform):
 
     .. code-block:: python
 
+        >>> _ = torch.manual_seed(0)
         >>> input_tensor = {"padding_id": torch.BoolTensor([0, 1, 1])}
         >>> transform = TokenMaskTransform("padding_id", generator=torch.default_generator)
         >>> output_tensor = transform(input_tensor)
         >>> output_tensor
-        {'padding_id': tensor([False,  True,  True]), 'token_mask': tensor([False,  True, False])}
+        {'padding_id': tensor([False,  True,  True]),
+        'token_mask': tensor([False,  True, False])}
 
     """
 

@@ -15,7 +15,9 @@ class UnsqueezeTransform(BaseTransform):
         >>> transform = UnsqueezeTransform("padding_id", dim=-1)
         >>> output_tensor = transform(input_tensor)
         >>> output_tensor
-        {'padding_id': tensor([[False],[ True],[ True]])}
+        {'padding_id': tensor([[False],
+         [ True],
+         [ True]])}
 
     """
 
