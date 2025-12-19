@@ -172,7 +172,7 @@ An example column schema:
     schema = {
         "user_id": {} # Empty metadata represents a categorical column.
         "seq_1": {"shape": 5} # 1-D sequences of length 5
-        "seq_1": {"shape": (5, 6), "padding_value": -1} # 2-D sequences with custom padding values
+        "seq_2": {"shape": (5, 6), "padding_value": -1} # 2-D sequences with custom padding values
     }
 
 Of note: ``ParquetDataset`` only supports numerical values - ensure that all of your data is boolean/integer/float to properly use this class.
