@@ -14,7 +14,7 @@ class UnsqueezeTransform(BaseTransform):
         >>> input_tensor = {"padding_id": torch.BoolTensor([False, True, True])}
         >>> transform = UnsqueezeTransform("padding_id", dim=-1)
         >>> output_tensor = transform(input_tensor)
-        >>> print(output_tensor)
+        >>> output_tensor
         {'padding_id': tensor([[False],[ True],[ True]])}
 
     """

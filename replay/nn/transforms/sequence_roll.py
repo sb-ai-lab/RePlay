@@ -16,7 +16,7 @@ class SequenceRollTransform(BaseTransform):
         >>> input_tensor = {"item_id": torch.LongTensor([[2, 3, 1]])}
         >>> transform = SequenceRollTransform("item_id", roll=-1, padding_value=10)
         >>> output_tensor = transform(input_tensor)
-        >>> print(output_tensor)
+        >>> output_tensor
         {'item_id': tensor([[ 3,  1, 10]])}
 
     """

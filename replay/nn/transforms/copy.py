@@ -18,7 +18,7 @@ class CopyTransform(BaseTransform):
         >>> input_batch = {"item_id_mask": torch.BoolTensor([False, True, True])}
         >>> transform = CopyTransform({"item_id_mask" : "padding_id"})
         >>> output_batch = transform(input_batch)
-        >>> print(output_batch)
+        >>> output_batch
         {'item_id_mask': tensor([False,  True,  True]),
         'padding_id': tensor([False,  True,  True])}
 

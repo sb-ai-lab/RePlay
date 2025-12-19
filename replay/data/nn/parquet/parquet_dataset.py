@@ -43,6 +43,14 @@ class ParquetDataset(IterableDataset):
 
     For maximum efficiency when reading and processing data,
     it is recommended to set `partition_size` to several times larger than `batch_size`.
+
+    **Note:**
+
+    *   ``ParquetDataset`` supports only numeric values (boolean/integer/float),
+        therefore, the data paths passed as arguments must contain encoded data.
+    *   For optimal performance, set the OMP_NUM_THREADS and ARROW_TO_THREADS to match
+        the number of available CPU cores.
+
     """
 
     def __init__(

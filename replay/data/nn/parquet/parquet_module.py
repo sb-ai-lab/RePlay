@@ -25,16 +25,24 @@ class ParquetModule(L.LightningDataModule):
     Standardized DataModule with batch-wise support via `ParquetDataset`.
 
     Allows for unified access to all data splits across the training/inference pipeline without loading
-    full dataset into memory. Provide per batch data loading and preprocessing via transform pipelines.
+    full dataset into memory. See the :ref:`parquet-processing` section for details.
+
+    ParquetModule provides per batch data loading and preprocessing via transform pipelines.
     See the :ref:`Transforms` section for getting info about available batch transforms.
 
-    It's possible to use all train/val/test splits, then paths to splits should be passed
-    as corresponding arguments of `ParquetModule`.
-    Alternatively, all the paths to the splits may be not specified
-    but then do not forget to configure the Pytorch Lightning Trainer's instance accordingly.
+    **Note:**
 
-    For example, if you don't want use validation data, you are able not to set ``val_path`` parameter
-    in `ParquetModule` and set ``limit_val_batches=0`` in Ligthning.Trainer.
+    *   ``ParquetModule`` supports only numeric values (boolean/integer/float),
+        therefore, the data paths passed as arguments must contain encoded data.
+    *   For optimal performance, set the OMP_NUM_THREADS and ARROW_TO_THREADS to match
+        the number of available CPU cores.
+    *   It's possible to use all train/val/test splits, then paths to splits should be passed
+        as corresponding arguments of `ParquetModule`.
+        Alternatively, all the paths to the splits may be not specified
+        but then do not forget to configure the Pytorch Lightning Trainer's instance accordingly.
+        For example, if you don't want use validation data, you are able not to set ``val_path`` parameter
+        in `ParquetModule` and set ``limit_val_batches=0`` in Ligthning.Trainer.
+
     """
 
     def __init__(
@@ -50,10 +58,14 @@ class ParquetModule(L.LightningDataModule):
     ):
         """
         :param batch_size: Target batch size.
-        :param metadata: A dictionary containing information about the data columns to be read from the parquet files
-            for each split.
-        :param config: Dict specifying configuration options, such as `DataLoader` generators,
-            filesystem, collate function, etc. for each data split.
+        :param metadata: A dictionary that each data split maps to a dictionary of feature names
+            with each feature is associated with its shape and padding_value.\n
+            Example: {"train": {"item_id" : {"shape": 100, "padding_value": 7657}}}.\n
+            For details, see the section :ref:`parquet-processing`.
+        :param config: Dict specifying configuration options of ``ParquetDataset`` (generator,
+            filesystem, collate_fn, make_mask_name, replicas_info) for each data split.\n
+            Default: ``DEFAULT_CONFIG``.\n
+            In most scenarios, the default configuration is sufficient.
         :param transforms: Dict specifying sequence of Transform modules for each data split.
         :param train_path: Path to the Parquet file containing train data split. Default: `None`.
         :param val_path: Path to the Parquet file containing validation data split. Default: `None`.

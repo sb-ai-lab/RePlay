@@ -13,17 +13,14 @@ class GroupTransform(BaseTransform):
     .. code-block:: python
 
         >>> input_batch = {"item_id": torch.LongTensor([[30, 22, 1]]),
-        >>>                 "item_feature": torch.Tensor([[0.3, 0.2, 0.1]])}
+        ...                 "item_feature": torch.LongTensor([[1, 11, 11]])}
         >>> transform = GroupTransform({"tensor_features" : ["item_id", "item_feature"]})
         >>> output_batch = transform(input_batch)
-        >>> print(output_batch)
-        {'item_id': tensor([[30, 22, 1]]),
-        'item_feature': tensor([[0.3, 0.2, 0.1]]),
-        'tensor_features': {
-            'item_id': tensor([[30, 22, 1]]),
-            'item_feature': tensor([[0.3, 0.2, 0.1]])
-            }
-        }
+        >>> output_batch
+        {'item_id': tensor([[30, 22,  1]]),
+        'item_feature': tensor([[ 1, 11, 11]]),
+        'tensor_features': {'item_id': tensor([[30, 22,  1]]),
+        'item_feature': tensor([[ 1, 11, 11]])}}
 
     """
 

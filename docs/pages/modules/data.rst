@@ -96,6 +96,8 @@ ________________________________
     :members: __init__
 
 
+.. _parquet-processing:
+
 Parquet processing
 __________________
 
@@ -117,8 +119,6 @@ An example column schema:
         "seq_2": {"shape": (5, 6), "padding_value": -1} # 2-D sequences with custom padding values
     }
 
-Of note: ``ParquetDataset`` only supports numerical values - ensure that all of your data is boolean/integer/float to properly use this class.
-
 ParquetDataset
 ```````````````
 .. autoclass:: replay.data.nn.parquet.ParquetDataset
@@ -126,8 +126,50 @@ ParquetDataset
 
 .. _Parquet-Module:
 
-ParquetDatamodule
-_________________
+ParquetModule (Lightning DataModule)
+____________________________________
 
 .. autoclass:: replay.data.nn.ParquetModule
     :members: __init__
+
+**Example**
+
+This is a minimal usage example of ParquetModule. It uses train data only, and the Transforms are defined to support further training of the SasRec model.
+
+See the full example in `examples/sasrec_streaming_example.ipynb <https://github.com/sb-ai-lab/RePlay/blob/main/examples/sasrec_streaming_example.ipynb>`_.
+
+    .. code-block:: python
+
+        from replay.data.nn import ParquetModule
+        from replay.nn.transforms import (
+            GroupTransform,
+            RenameTransform,
+            NextTokenTransform,
+            UnsqueezeTransform,
+        )
+
+        metadata = {"user_id": {},
+            "item_id": {"shape": 50,"padding": 51}
+            }
+        transforms = {
+            "train": [
+                NextTokenTransform(
+                            label_field="item_id", 
+                            shift=1, 
+                            out_feature_name="positive_labels"),
+                RenameTransform({
+                            "user_id": "query_id", 
+                            "item_id_mask": "padding_mask", 
+                            "positive_labels_mask": "target_padding_mask"
+                            }),
+                UnsqueezeTransform("target_padding_mask", -1),
+                UnsqueezeTransform("positive_labels", -1),
+                GroupTransform({"feature_tensors": ["item_id"]})
+            ]
+        }
+        parquet_datamodule = ParquetModule(
+            batch_size=64,
+            metadata=metadata,
+            transforms=transforms,
+            train_path="data/train.parquet",
+        )

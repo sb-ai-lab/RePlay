@@ -17,9 +17,9 @@ class TokenMaskTransform(BaseTransform):
     .. code-block:: python
 
         >>> input_tensor = {"padding_id": torch.BoolTensor([0, 1, 1])}
-        >>> transform = TokenMaskTransform("padding_id")
+        >>> transform = TokenMaskTransform("padding_id", generator=torch.default_generator)
         >>> output_tensor = transform(input_tensor)
-        >>> print(output_tensor)
+        >>> output_tensor
         {'padding_id': tensor([False,  True,  True]), 'token_mask': tensor([False,  True, False])}
 
     """
@@ -35,7 +35,7 @@ class TokenMaskTransform(BaseTransform):
         :param token_field: Name of the column containing the unmasked tokes.
         :param out_feature_name: Name of the resulting  mask column. Default: ``token_mask``.
         :param mask_prob: Probability of masking the item, i.e. setting it to 0. Default: ``0.15``.
-        :param generator: Random number generator to be used for generatring
+        :param generator: Random number generator to be used for generating
                 the uniform distribution. Default: ``None``.
         """
         super().__init__()

@@ -17,18 +17,16 @@ class BatchingTransform(BaseTransform, Generic[T]):
 
     .. code-block:: python
 
+        >>> from replay.models.nn.sequential.sasrec import SasRecPredictionBatch
         >>> input_batch = {
-        >>>         "query_id": torch.LongTensor([[0]]),
-        >>>         "padding_mask": torch.BoolTensor([[0, 1, 1]]),
-        >>>         "features": {"item_id": torch.LongTensor([[30, 22, 1]])}
-        >>> }
+        ...         "query_id": torch.LongTensor([[0]]),
+        ...         "padding_mask": torch.BoolTensor([[0, 1]]),
+        ...         "features": {"item_id": torch.LongTensor([[30, 22]])}
+        ... }
         >>> transform = BatchingTransform(SasRecPredictionBatch)
         >>> output_batch = transform(input_batch)
-        >>> print(output_batch)
-        SasRecPredictionBatch(
-            query_id=tensor([[0]]),
-            padding_mask=tensor([[False,  True,  True]]),
-            features={'item_id': tensor([[30, 22,  1]])})
+        >>> type(output_batch)
+        <class 'replay.models.nn.sequential.sasrec.dataset.SasRecPredictionBatch'>
 
     """
 

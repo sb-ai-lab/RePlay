@@ -26,17 +26,17 @@ class NextTokenTransform(BaseTransform):
     .. code-block:: python
 
         >>> input_batch = {
-        >>>     "user_id": torch.LongTensor([111]),
-        >>>     "item_id": torch.LongTensor([[5, 0, 7, 4]]),
-        >>>     "item_id_mask": torch.BoolTensor([[0, 1, 1, 1]])}
+        ...     "user_id": torch.LongTensor([111]),
+        ...     "item_id": torch.LongTensor([[5, 0, 7, 4]]),
+        ...     "item_id_mask": torch.BoolTensor([[0, 1, 1, 1]])}
         >>> transform = NextTokenTransform(label_field="item_id", shift=1, query_features="user_id")
         >>> output_batch = transform(input_batch)
-        >>> print(output_batch)
+        >>> output_batch
         {'user_id': tensor([111]),
-         'item_id': tensor([[5, 0, 7]]),
-         'item_id_mask': tensor([[False,  True,  True]]),
-         'labels': tensor([[0, 7, 4]]),
-         'labels_mask': tensor([[True, True, True]])}
+        'item_id': tensor([[5, 0, 7]]),
+        'item_id_mask': tensor([[False,  True,  True]]),
+        'labels': tensor([[0, 7, 4]]),
+        'labels_mask': tensor([[True, True, True]])}
 
     """
 
