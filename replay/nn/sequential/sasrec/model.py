@@ -193,7 +193,7 @@ class SasRec(torch.nn.Module):
         self.reset_parameters()
 
     @classmethod
-    def build_original(
+    def build_default(
         cls,
         schema: TensorSchema,
         embedding_dim: int = 192,
