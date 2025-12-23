@@ -112,9 +112,6 @@ class ParquetModule(L.LightningDataModule):
 
         compiled_transorms = {}
         for subset, transform_set in transforms.items():
-            for transform in transform_set:
-                self.metadata[subset] = transform.adjust_meta(self.metadata[subset])
-
             compiled_transorms[subset] = torch.nn.Sequential(*transform_set)
 
         return compiled_transorms

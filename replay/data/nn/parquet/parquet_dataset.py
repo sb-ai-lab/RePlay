@@ -41,7 +41,7 @@ class ParquetDataset(IterableDataset):
     processed and the result will be returned as a batch of size ``batch_size``.
     Please note that the resulting batch size may be less than ``batch_size``.
 
-    For maximum efficiency when reading and processing data,
+    For maximum efficiency when reading and processing data, as well as increase data shuffling,
     it is recommended to set `partition_size` to several times larger than `batch_size`.
 
     **Note:**
@@ -94,9 +94,10 @@ class ParquetDataset(IterableDataset):
             ``torch.utils.data`` and ``torch.distributed`` modules.
         :param collate_fn: Collate function for merging batches. Default: value of ``DEFAULT_COLLATE_FN``.
         """
-        if partition_size < batch_size:
+        if partition_size // batch_size < 20:
             msg = (
-                "Suboptimal parameters: partition size is smaller than batch size. "
+                "Suboptimal parameters: partition to batch size ratio too low. "
+                "Recommended proportion of partition size to batch size is at least 20:1. "
                 f"Got: {partition_size=}, {batch_size=}."
             )
             warnings.warn(msg, stacklevel=2)

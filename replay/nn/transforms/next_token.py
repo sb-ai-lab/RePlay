@@ -1,7 +1,6 @@
 from typing import List, Union
 
 import torch
-from typing_extensions import override
 
 from replay.data.nn.parquet.impl.masking import DEFAULT_MASK_POSTFIX
 from replay.nn.transforms.base import BaseTransform
@@ -15,11 +14,11 @@ class NextTokenTransform(BaseTransform):
 
     This transform is required for the sequential models solving next token prediction task (SasRec).
 
-    **SIDE EFFECT**: In order to facilitate  the shifting, this transform
-    will modify the dataset's meta, increasing the `sequence_length` param of all
-    sequential features by `shift`. This does not affect the length of sequences
-    produced by this transform, but should be accounted for in all subsequent steps
-    of the transform pipeline that utilize sequential featuers.
+    **WARNING**: In order to facilitate the shifting, this transform
+    requires extra elements in the sequence. Therefore, when utilizing this
+    transform, ensure you're reading at least ``sequence_length`` + ``shift``
+    elements from your dataset. The resulting batch will have the relevant fields
+    trimmed to ``sequence_length``.
 
     Example:
 
@@ -96,14 +95,3 @@ class NextTokenTransform(BaseTransform):
         ].clone()
 
         return target
-
-    @override
-    def adjust_meta(self, meta: dict) -> dict:
-        for feature in meta.values():
-            if feature.get("shape", False):
-                shape = feature["shape"]
-                shape = shape[0] if isinstance(shape, list) else shape
-                shape += abs(self.shift)
-                feature["shape"] = shape
-
-        return meta
