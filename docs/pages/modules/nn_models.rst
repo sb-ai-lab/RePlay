@@ -275,7 +275,7 @@ Universal Lighting module
 =========================
 LightningModule
 _______________
-.. autoclass:: replay.nn.LightningModule
+.. autoclass:: replay.nn.lightning.LightningModule
    :members: __init__, forward, candidates_to_score
 
 TrainOutput
@@ -307,45 +307,45 @@ For a better understanding, you should look at examples of using neural network 
 Callbacks
 _________
 
-ValidationMetricsCallback
+MetricsCalculator
 `````````````````````````
-.. autoclass:: replay.nn.callbacks.ValidationMetricsCallback
+.. autoclass:: replay.nn.lightning.callbacks.MetricsCalculator
    :members: __init__
 
-PandasPredictionCallback
+PandasLogitsWriter
 ````````````````````````
-.. autoclass:: replay.nn.callbacks.PandasPredictionCallback
+.. autoclass:: replay.nn.lightning.callbacks.PandasLogitsWriter
    :members: __init__, get_result
 
-PolarsPredictionCallback
+PolarsLogitsWriter
 ````````````````````````
-.. autoclass:: replay.nn.callbacks.PolarsPredictionCallback
+.. autoclass:: replay.nn.lightning.callbacks.PolarsLogitsWriter
    :members: __init__, get_result
 
-SparkPredictionCallback
+SparkLogitsWriter
 ```````````````````````
-.. autoclass:: replay.nn.callbacks.SparkPredictionCallback
+.. autoclass:: replay.nn.lightning.callbacks.SparkLogitsWriter
    :members: __init__, get_result
 
-TorchPredictionCallback
+LogitsWriter
 ```````````````````````
-.. autoclass:: replay.nn.callbacks.TorchPredictionCallback
+.. autoclass:: replay.nn.lightning.callbacks.LogitsWriter
    :members: __init__, get_result
 
-HiddenStateCallback
-```````````````````
-.. autoclass:: replay.nn.callbacks.HiddenStateCallback
+HiddenStatesRetriever
+`````````````````````
+.. autoclass:: replay.nn.lightning.callbacks.HiddenStatesRetriever
    :members: __init__, get_result
 
 Postprocessors
 ______________
 
-BasePostProcessor
+PostprocessorBase
 `````````````````
-.. autoclass:: replay.nn.postprocessors.BasePostProcessor
+.. autoclass:: replay.nn.lightning.postprocessors.PostprocessorBase
    :members: __init__, on_validation, on_prediction
 
-RemoveSeenItems
+SeenItemsFilter
 ```````````````
-.. autoclass:: replay.nn.postprocessors.RemoveSeenItems
+.. autoclass:: replay.nn.lightning.postprocessors.SeenItemsFilter
    :members: __init__, on_validation, on_prediction

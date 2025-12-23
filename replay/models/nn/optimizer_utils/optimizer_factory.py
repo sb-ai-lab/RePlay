@@ -1,4 +1,5 @@
 import abc
+import warnings
 from collections.abc import Iterator
 from typing import Literal
 
@@ -50,6 +51,13 @@ class FatOptimizerFactory(OptimizerFactory):
         sgd_momentum: float = 0.0,
         betas: tuple[float, float] = (0.9, 0.98),
     ) -> None:
+        deprecation_msg = (
+            "The FatOptimizerFactory class located in replay.models.nn is deprecated.\n"
+            "The class will be removed after 3 releases.\n"
+            "Please use the FatOptimizerFactory located in the replay.nn module instead."
+        )
+        warnings.warn(deprecation_msg, DeprecationWarning, stacklevel=2)
+
         super().__init__()
         self.optimizer = optimizer
         self.learning_rate = learning_rate
@@ -83,6 +91,13 @@ class FatLRSchedulerFactory(LRSchedulerFactory):
 
     def __init__(self, decay_step: int = 25, gamma: float = 1.0) -> None:
         super().__init__()
+        deprecation_msg = (
+            "The FatOptimizerFactory class located in replay.models.nn is deprecated.\n"
+            "The class will be removed after 3 releases.\n"
+            "Please use the FatOptimizerFactory located in the replay.nn module instead."
+        )
+        warnings.warn(deprecation_msg, DeprecationWarning, stacklevel=2)
+
         self.decay_step = decay_step
         self.gamma = gamma
 

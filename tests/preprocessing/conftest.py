@@ -1151,13 +1151,11 @@ def interactions_100k_polars(interactions_100k_pandas):
 
 
 @pytest.fixture(scope="module")
-@pytest.mark.usefixtures("spark")
 def interactions_100k_spark(spark, interactions_100k_pandas):
     return spark.createDataFrame(interactions_100k_pandas)
 
 
 @pytest.fixture(scope="module")
-@pytest.mark.usefixtures("spark")
 def interactions_100k_pandas_with_nan(interactions_100k_pandas):
     interactions_100k_pandas_with_nan = interactions_100k_pandas.copy()
     nan_index = np.random.choice(interactions_100k_pandas_with_nan.index, size=200, replace=False)

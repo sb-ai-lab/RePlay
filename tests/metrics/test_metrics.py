@@ -72,7 +72,6 @@ def compute_mean_from_result_per_user(result_per_user):
         RocAuc,
     ],
 )
-@pytest.mark.usefixtures("predict_spark", "gt_spark")
 def test_metric_with_different_column_names(metric, predict_spark: SparkDataFrame, gt_spark: SparkDataFrame):
     metric_value = metric(topk=[5], **INIT_DICT)(predict_spark, gt_spark)
 

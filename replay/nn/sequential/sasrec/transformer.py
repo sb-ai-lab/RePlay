@@ -57,7 +57,9 @@ class SasRecTransformerLayer(torch.nn.Module):
                 for _ in range(num_blocks)
             ]
         )
-        self.forward_layernorms = torch.nn.ModuleList([torch.nn.LayerNorm(embedding_dim, eps=1e-8)])
+        self.forward_layernorms = torch.nn.ModuleList(
+            [torch.nn.LayerNorm(embedding_dim, eps=1e-8) for _ in range(num_blocks)]
+        )
 
     def reset_parameters(self):
         for i in range(self.num_blocks):

@@ -166,7 +166,7 @@ class SasRec(torch.nn.Module):
     @classmethod
     def build_original(
         cls,
-        tensor_schema: TensorSchema,
+        schema: TensorSchema,
         embedding_dim: int = 192,
         head_count: int = 4,
         block_count: int = 2,
@@ -182,14 +182,14 @@ class SasRec(torch.nn.Module):
         from .transformer import SasRecTransformerLayer
 
         excluded_features = [
-            tensor_schema.query_id_feature_name,
-            tensor_schema.timestamp_feature_name,
+            schema.query_id_feature_name,
+            schema.timestamp_feature_name,
             *(excluded_features or []),
         ]
         excluded_features = list(set(excluded_features))
         return cls(
             embedder=SequenceEmbedding(
-                schema=tensor_schema,
+                schema=schema,
                 categorical_list_feature_aggregation_method=categorical_list_feature_aggregation_method,
                 excluded_features=excluded_features,
             ),
@@ -199,7 +199,7 @@ class SasRec(torch.nn.Module):
                 dropout=dropout,
             ),
             attn_mask_builder=DefaultAttentionMask(
-                reference_feature_name=tensor_schema.item_id_feature_name,
+                reference_feature_name=schema.item_id_feature_name,
                 num_heads=head_count,
             ),
             encoder=SasRecTransformerLayer(
@@ -210,7 +210,7 @@ class SasRec(torch.nn.Module):
                 activation="relu",
             ),
             output_normalization=torch.nn.LayerNorm(embedding_dim),
-            loss=CE(padding_value=tensor_schema.item_id_features.item().padding_value),
+            loss=CE(padding_idx=schema.item_id_features.item().padding_value),
         )
 
     def reset_parameters(self) -> None:

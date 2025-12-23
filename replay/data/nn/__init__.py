@@ -2,6 +2,7 @@ from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
     from .schema import MutableTensorMap, TensorFeatureInfo, TensorFeatureSource, TensorMap, TensorSchema
+    from .parquet_module import ParquetModule
     from .sequence_tokenizer import SequenceTokenizer
     from .sequential_dataset import PandasSequentialDataset, PolarsSequentialDataset, SequentialDataset
     from .torch_sequential_dataset import (
@@ -18,6 +19,7 @@ if TORCH_AVAILABLE:
         "DEFAULT_TRAIN_PADDING_VALUE",
         "MutableTensorMap",
         "PandasSequentialDataset",
+        "ParquetModule",
         "PolarsSequentialDataset",
         "SequenceTokenizer",
         "SequentialDataset",

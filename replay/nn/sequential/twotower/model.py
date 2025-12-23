@@ -1,10 +1,10 @@
-import pickle
 from collections.abc import Generator, Sequence
-from typing import Literal, Optional, Protocol, Union
+from typing import Optional, Protocol, Union
 
 import pandas as pd
 import torch
 
+from replay.data import FeatureSource
 from replay.data.nn import TensorMap, TensorSchema
 from replay.nn import (
     AggregatorProto,
@@ -16,8 +16,6 @@ from replay.nn import (
 )
 from replay.nn.loss import LossProto
 from replay.nn.utils import warning_is_not_none
-
-FeatureDesc = dict[Union[str, int, float], int]
 
 
 class EmbedderProto(Protocol):
@@ -132,11 +130,31 @@ class QueryTower(torch.nn.Module):
 
 class ItemReference:
     """
-    Prepares a dataframe of tensors with item features that will be used for training and inference of the Item Tower.
+    Prepares a dict of item features values that will be used for training and inference of the Item Tower.
     """
 
-    def __init__(self, item_reference: dict[str, dict[Union[str, int, float], int]]):
-        # {feature_name: {value0: idx0, value1: idx1, ...}, ...}
+    def __init__(self, schema: TensorSchema, item_reference_path: str):
+        """
+        :param schema: the same tensor schema used in TwoTower model.
+        :param item_reference_path: path to parquet with dataframe of item features.\n
+            **Note:**\n
+            1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
+            2. Item reference is constructed only on features with source of FeatureSource.ITEM_FEATURES
+            in tensor schema so an identificator of items ("item_id") should be marked as FeatureSource.ITEM_FEATURES too.
+        """
+        inverse_feature_names_mapping = {
+            schema.get(feature_name).feature_source.column: feature_name
+            for feature_name in schema
+            if schema.get(feature_name).feature_source.source == FeatureSource.ITEM_FEATURES
+        }
+
+        item_reference = pd.read_parquet(item_reference_path)
+        item_reference = item_reference.rename(columns=inverse_feature_names_mapping)
+        item_reference = item_reference.loc[:, inverse_feature_names_mapping.values()]
+        item_reference: pd.DataFrame = item_reference.sort_values(schema.item_id_feature_name).reset_index(drop=True)
+        item_reference = {
+            feature_name: item_reference[feature_name].tolist() for feature_name in item_reference.columns
+        }
         self.item_reference = item_reference
 
     def keys(self) -> Generator[str, None, None]:
@@ -147,109 +165,6 @@ class ItemReference:
 
     def __getitem__(self, key: str) -> dict[Union[str, int, float], int]:
         return self.item_reference[key]
-
-    @classmethod
-    def load_feature_mapping(
-        cls,
-        schema: TensorSchema,
-        feature_mapping_path: str,
-    ) -> dict[str, dict[Union[str, int, float], int]]:
-        if not feature_mapping_path:
-            return {}
-        feature_mapping = cls._load_file(feature_mapping_path)
-
-        return cls.update_feature_mapping(schema, feature_mapping)
-
-    @classmethod
-    def load_item_reference(
-        cls,
-        schema: TensorSchema,
-        item_reference_path: str,
-        feature_mapping: dict[str, dict[Union[str, int, float], int]],
-    ) -> "ItemReference":
-        if not item_reference_path:
-            return {schema.item_id_feature_name: list(range(schema.item_id_features.item().cardinality))}
-        if not feature_mapping:
-            msg = "Expected to have feature_mapping if passing item_reference_path for future mapping"
-            raise ValueError(msg)
-        item_reference = cls._load_file(item_reference_path, read_mode="pandas")
-        return cls.get_item_reference(schema, item_reference, feature_mapping)
-
-    @classmethod
-    def update_feature_mapping(
-        cls,
-        schema: TensorSchema,
-        feature_mapping: dict[str, FeatureDesc],
-    ) -> dict[str, dict[Union[str, int, float], int]]:
-        inverse_feature_names_mapping = cls._get_inverse_feature_names_mapping(schema)
-        for feature_name in list(feature_mapping.keys()):
-            new_feature_name = inverse_feature_names_mapping[feature_name]
-            if new_feature_name == feature_name:
-                continue
-            feature_mapping[new_feature_name] = feature_mapping.pop(feature_name)
-        return feature_mapping
-
-    @classmethod
-    def get_item_reference(
-        cls,
-        schema: TensorSchema,
-        item_reference: pd.DataFrame,
-        feature_mapping: dict[str, dict[Union[str, int, float], int]],
-    ) -> "ItemReference":
-        inverse_feature_names_mapping = cls._get_inverse_feature_names_mapping(schema)
-        item_reference = item_reference.rename(columns=inverse_feature_names_mapping)
-        item_reference: pd.DataFrame = (
-            item_reference.loc[
-                item_reference[schema.item_id_feature_name].isin(
-                    list(feature_mapping[schema.item_id_feature_name].keys())
-                )
-            ]
-            .sort_values(schema.item_id_feature_name, key=lambda x: x.map(feature_mapping[schema.item_id_feature_name]))
-            .reset_index(drop=True)
-        )
-        item_reference = {
-            feature_name: item_reference[feature_name].tolist() for feature_name in item_reference.columns
-        }
-
-        output_item_reference = {}
-        for feature_name in item_reference:
-            if feature_name not in feature_mapping:  # num features and other features
-                output_item_reference[feature_name] = item_reference[feature_name].copy()
-            elif isinstance(item_reference[feature_name][0], (int, float, str)):
-                output_item_reference[feature_name] = [
-                    feature_mapping[feature_name][x] for x in item_reference[feature_name]
-                ]
-            else:
-                output_item_reference[feature_name] = [
-                    [feature_mapping[feature_name].get(xx, schema.get(feature_name).padding_value) for xx in x]
-                    for x in item_reference[feature_name]
-                ]
-
-        return cls(output_item_reference)
-
-    @staticmethod
-    def _get_inverse_feature_names_mapping(schema: TensorSchema) -> dict[str, str]:
-        return {schema.get(feature_name).feature_source.column: feature_name for feature_name in schema}
-
-    @staticmethod
-    def _load_file(path: str, read_mode: Literal["pandas", "pickle"] = "pickle"):
-        if read_mode == "pandas":
-            if path.endswith(".parquet"):
-                output = pd.read_parquet(path)
-            elif path.endswith((".pkl", ".pickle")):
-                output = pd.read_pickle(path)
-            elif path.endswith(".csv"):
-                output = pd.read_csv(path)
-            else:
-                msg = "Got filepath with unexpected file extension. Expected to get only parquet, pickle, csv files"
-                raise ValueError(msg)
-        elif read_mode == "pickle":
-            with open(path, "rb") as f:
-                output = pickle.load(f)
-        else:
-            msg = "Expected to read only pandas and pickle files"
-            raise ValueError(msg)
-        return output
 
 
 class ItemTower(torch.nn.Module):
@@ -266,7 +181,6 @@ class ItemTower(torch.nn.Module):
         embedding_aggregator: AggregatorProto,
         encoder: ItemEncoderProto,
         feature_names: Sequence[str],
-        feature_mapping_path: str,
         item_reference_path: str,
     ):
         """
@@ -281,7 +195,6 @@ class ItemTower(torch.nn.Module):
             features and aggregated embeddings of ``item_tower_feature_names``.
             Item encoder uses item reference which is created based on ``item_reference_path``.
         :param feature_names: sequence of names used in item tower.
-        :param feature_mapping_path: The path to mapping from the original IDs to the encoded ones.
         :param item_reference_path: Path to dataframe with
             all items with features used in ``item_encoder`` (item "tower").
         """
@@ -291,8 +204,7 @@ class ItemTower(torch.nn.Module):
         self.embedding_aggregator = embedding_aggregator
         self.encoder = encoder
 
-        feature_mapping = ItemReference.load_feature_mapping(schema, feature_mapping_path)
-        self.item_reference = ItemReference.load_item_reference(schema, item_reference_path, feature_mapping)
+        self.item_reference = ItemReference(schema, item_reference_path)
         for feature_name, tensor_info in schema.items():
             if not tensor_info.is_seq:
                 msg = "Non-sequential features is not yet supported"
@@ -379,7 +291,6 @@ class TwoTowerBody(torch.nn.Module):
         query_encoder: QueryEncoderProto,
         query_tower_output_normalization: NormalizerProto,
         item_encoder: ItemEncoderProto,
-        feature_mapping_path: str,
         item_reference_path: str,
     ):
         super().__init__()
@@ -404,7 +315,6 @@ class TwoTowerBody(torch.nn.Module):
             item_embedding_aggregator,
             item_encoder,
             item_tower_feature_names,
-            feature_mapping_path,
             item_reference_path,
         )
 
@@ -445,7 +355,6 @@ class TwoTower(torch.nn.Module):
         query_encoder: QueryEncoderProto,
         query_tower_output_normalization: NormalizerProto,
         item_encoder: ItemEncoderProto,
-        feature_mapping_path: str,
         item_reference_path: str,
         loss: LossProto,
         context_merger: Optional[ContextMergerProto] = None,
@@ -474,9 +383,12 @@ class TwoTower(torch.nn.Module):
             an item hidden embedding representation based on
             features and aggregated embeddings of ``item_tower_feature_names``.
             Item encoder uses item reference which is created based on ``item_reference_path``.
-        :param feature_mapping_path: The path to mapping from the original IDs to the encoded ones.
         :param item_reference_path: Path to dataframe
             with all items with features used in ``item_encoder`` (item "tower").
+            **Note:**\n
+            1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
+            2. Item reference is constructed only on features with source of FeatureSource.ITEM_FEATURES in tensor
+            schema so an identificator of items ("item_id") should be marked as FeatureSource.ITEM_FEATURES too.
         :param loss: An object of a class that performs loss calculation
             based on hidden states from the model, positive and optionally negative labels.
         :param context_merger: An object of class that performs fusing query encoder hidden state
@@ -495,7 +407,6 @@ class TwoTower(torch.nn.Module):
             query_encoder=query_encoder,
             query_tower_output_normalization=query_tower_output_normalization,
             item_encoder=item_encoder,
-            feature_mapping_path=feature_mapping_path,
             item_reference_path=item_reference_path,
         )
         self.head = EmbeddingTyingHead()
@@ -508,8 +419,7 @@ class TwoTower(torch.nn.Module):
     @classmethod
     def build_original(
         cls,
-        tensor_schema: TensorSchema,
-        feature_mapping_path: str,
+        schema: TensorSchema,
         item_reference_path: str,
         embedding_dim: int = 192,
         num_heads: int = 4,
@@ -519,28 +429,63 @@ class TwoTower(torch.nn.Module):
         excluded_features: Optional[list[str]] = None,
         categorical_list_feature_aggregation_method: str = "sum",
     ) -> "TwoTower":
+        """
+        Class method for fast creating an instance of TwoTower with typical types
+        of blocks and user provided parameters.\n
+        The item "tower" is a SwiGLU encoder (MLP with SwiGLU activation),\n
+        the user "tower" is a SasRec transformer layers, and loss is Cross-Entropy loss.\n
+        Embeddings of every feature in both "towers" are aggregated via sum.
+        The same features are be used in both "towers",
+        that is, the features specified in the tensor schema with the exception of `excluded_features`.\n
+        To create an instance of TwoTower with other types of blocks, use the class constructor.
+
+        :param schema: tensor schema object with metainformation about features.
+        :param item_reference_path: Path to dataframe
+            with all items with features used in ``item_encoder`` (item "tower").
+            **Note:**\n
+            1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
+            2. Item reference is constructed only on features with source of FeatureSource.ITEM_FEATURES in tensor
+            schema so an identificator of items ("item_id") should be marked as FeatureSource.ITEM_FEATURES too.
+        :param embedding_dim: embeddings dimension in both towers. Default: ``192``.
+        :param num_heads: number of heads  in user tower SasRec layers. Default: ``4``.
+        :param num_blocks: number of blocks  in user tower SasRec layers. Default: ``2``.
+        :param max_sequence_length: maximun length of sequence in user tower SasRec layers. Default: ``50``.
+        :param dropout: dropout value in both towers. Default: ``0.3``
+        :param excluded_features: A list containing the names of features
+            for which you do not need to generate an embedding.
+            Fragments from this list are expected to be contained in ``schema``.
+            Default: ``None``.
+        :param categorical_list_feature_aggregation_method: Mode to aggregate tokens
+            in token item representation (categorical list only).
+            Default: ``"sum"``.
+        :return: an instance of TwoTower class.
+        """
         from replay.nn import DefaultAttentionMask, SequenceEmbedding, SumAggregator, SwiGLUEncoder
         from replay.nn.loss import CE
         from replay.nn.sequential import SasRecAggregator, SasRecTransformerLayer
 
+        # check 463-468
+        # excluded_features = list(set(excluded_features or []))
+
         excluded_features = [
-            tensor_schema.query_id_feature_name,
-            tensor_schema.timestamp_feature_name,
+            schema.query_id_feature_name,
+            schema.timestamp_feature_name,
             *(excluded_features or []),
         ]
         excluded_features = list(set(excluded_features))
-        feature_names = set(tensor_schema.names) - set(excluded_features)
+
+        feature_names = set(schema.names) - set(excluded_features)
 
         common_aggregator = SumAggregator(embedding_dim=embedding_dim)
         return cls(
-            schema=tensor_schema,
+            schema=schema,
             embedder=SequenceEmbedding(
-                schema=tensor_schema,
+                schema=schema,
                 categorical_list_feature_aggregation_method=categorical_list_feature_aggregation_method,
                 excluded_features=excluded_features,
             ),
             attn_mask_builder=DefaultAttentionMask(
-                reference_feature_name=tensor_schema.item_id_feature_name,
+                reference_feature_name=schema.item_id_feature_name,
                 num_heads=num_heads,
             ),
             query_tower_feature_names=feature_names,
@@ -559,10 +504,9 @@ class TwoTower(torch.nn.Module):
                 activation="relu",
             ),
             query_tower_output_normalization=torch.nn.LayerNorm(embedding_dim),
-            item_encoder=SwiGLUEncoder(embedding_dim=embedding_dim),
-            feature_mapping_path=feature_mapping_path,
+            item_encoder=SwiGLUEncoder(embedding_dim=embedding_dim, hidden_dim=2*embedding_dim),
             item_reference_path=item_reference_path,
-            loss=CE(padding_value=tensor_schema.item_id_features.item().padding_value),
+            loss=CE(padding_idx=schema.item_id_features.item().padding_value),
             context_merger=None,
         )
 
