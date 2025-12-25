@@ -529,7 +529,7 @@ def test_sasrec_with_parquet_datamodule(parquet_dataset_path, item_user_sequenti
         ],
     }
 
-    shared_meta = {"user_id": {}, "item_id": {"shape": max_len, "padding": tensor_schema["item_id"].padding_value}}
+    shared_meta = {"user_id": {}, "item_id": {"shape": max_len+1, "padding": tensor_schema["item_id"].padding_value}}
 
     METADATA = {
         "train": copy.deepcopy(shared_meta),
