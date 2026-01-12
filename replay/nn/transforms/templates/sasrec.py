@@ -41,13 +41,13 @@ def make_sasrec_transforms(
     ]
 
     val_transforms = [
-        RenameTransform({f"{item_column}_mask": "padding_mask"}),
+        RenameTransform({query_column: "query_id", f"{item_column}_mask": "padding_mask"}),
         CopyTransform(mapping={"train": "ground_truth"}), # Add mention of pre-made`train` to docs
         GroupTransform({"features": [item_column]}),
     ]
 
     test_transforms = [
-        RenameTransform({f"{item_column}_mask": "padding_mask"}),
+        RenameTransform({query_column: "query_id", f"{item_column}_mask": "padding_mask"}),
         GroupTransform({"features": [item_column]}),
     ]
 

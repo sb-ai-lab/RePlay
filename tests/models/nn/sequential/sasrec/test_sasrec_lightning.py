@@ -21,6 +21,7 @@ from replay.nn.transforms import (
     NextTokenTransform,
     RenameTransform,
 )
+from replay.nn.transforms.templates.sasrec import make_sasrec_transforms
 
 
 @pytest.mark.torch
@@ -506,37 +507,19 @@ def test_sasrec_set_invalid_optim_factory(item_user_sequential_dataset):
 def test_sasrec_with_parquet_datamodule(parquet_dataset_path, item_user_sequential_dataset):
     max_len = 10
     tensor_schema = copy.deepcopy(item_user_sequential_dataset._tensor_schema)
+    
+    TRANSFORMS = make_sasrec_transforms(query_column="user_id", use_legacy=True)
+    
+    TRANSFORMS["val"].insert(1, CopyTransform(mapping={"item_id": "train"}))
 
-    TRANSFORMS = {
-        "train": [
-            NextTokenTransform(label_field="item_id", query_features="user_id", shift=1),
-            RenameTransform(
-                {"user_id": "query_id", "item_id_mask": "padding_mask", "labels_mask": "labels_padding_mask"}
-            ),
-            GroupTransform({"features": ["item_id"]}),
-            BatchingTransform(SasRecTrainingBatch),
-        ],
-        "val": [
-            RenameTransform({"user_id": "query_id", "item_id_mask": "padding_mask"}),
-            CopyTransform(mapping={"item_id": "train"}),
-            CopyTransform(mapping={"train": "ground_truth"}),
-            GroupTransform({"features": ["item_id"]}),
-            BatchingTransform(SasRecValidationBatch),
-        ],
-        "test": [
-            RenameTransform({"user_id": "query_id", "item_id_mask": "padding_mask"}),
-            GroupTransform({"features": ["item_id"]}),
-            BatchingTransform(SasRecPredictionBatch),
-        ],
-    }
-
-    shared_meta = {"user_id": {}, "item_id": {"shape": max_len + 1, "padding": tensor_schema["item_id"].padding_value}}
-
+    shared_meta = {"user_id": {}, "item_id": {"shape": max_len, "padding": tensor_schema["item_id"].padding_value}}
     METADATA = {
         "train": copy.deepcopy(shared_meta),
         "val": copy.deepcopy(shared_meta),
         "test": copy.deepcopy(shared_meta),
     }
+    METADATA["train"]["item_id"]["shape"] = max_len + 1
+
 
     parquet_dataset = ParquetModule(
         train_path=parquet_dataset_path,
