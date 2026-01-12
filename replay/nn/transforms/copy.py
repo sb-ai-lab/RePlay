@@ -33,7 +33,5 @@ class CopyTransform(BaseTransform):
         self.mapping = mapping
 
     def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        for in_column, out_column in self.mapping.items():
-            batch[out_column] = batch[in_column].clone().detach()
-
+        batch |= {out_column: batch[in_column].clone().detach() for in_column, out_column in self.mapping.items()}
         return batch

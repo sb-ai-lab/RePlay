@@ -518,7 +518,8 @@ def test_sasrec_with_parquet_datamodule(parquet_dataset_path, item_user_sequenti
         ],
         "val": [
             RenameTransform({"user_id": "query_id", "item_id_mask": "padding_mask"}),
-            CopyTransform(mapping={"item_id": "train", "train": "ground_truth"}),
+            CopyTransform(mapping={"item_id": "train"}),
+            CopyTransform(mapping={"train": "ground_truth"}),
             GroupTransform({"features": ["item_id"]}),
             BatchingTransform(SasRecValidationBatch),
         ],
@@ -529,7 +530,7 @@ def test_sasrec_with_parquet_datamodule(parquet_dataset_path, item_user_sequenti
         ],
     }
 
-    shared_meta = {"user_id": {}, "item_id": {"shape": max_len+1, "padding": tensor_schema["item_id"].padding_value}}
+    shared_meta = {"user_id": {}, "item_id": {"shape": max_len + 1, "padding": tensor_schema["item_id"].padding_value}}
 
     METADATA = {
         "train": copy.deepcopy(shared_meta),
