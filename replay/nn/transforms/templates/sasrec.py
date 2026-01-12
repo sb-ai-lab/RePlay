@@ -12,9 +12,7 @@ from replay.nn.transforms import (
 # TODO: Offer func names
 # TODO: List options for `query_column`
 def make_sasrec_transforms(
-    query_column: str = "query_id",
-    item_column: str = "item_id", # TensorSchema?
-    use_legacy: bool = False
+    query_column: str = "query_id", item_column: str = "item_id", use_legacy: bool = False  # TensorSchema?
 ) -> dict[str, list[BaseTransform]]:
     """
     Generates a valid transformation pipeline for SasRec data batches.
@@ -32,17 +30,15 @@ def make_sasrec_transforms(
     """
     train_transforms = [
         NextTokenTransform(label_field=item_column, query_features=query_column, shift=1),
-        RenameTransform({
-            query_column: "query_id",
-            f"{item_column}_mask": "padding_mask",
-            "labels_mask": "labels_padding_mask"
-        }),
-        GroupTransform({"features": [item_column]}), # fetch from TensorSchema
+        RenameTransform(
+            {query_column: "query_id", f"{item_column}_mask": "padding_mask", "labels_mask": "labels_padding_mask"}
+        ),
+        GroupTransform({"features": [item_column]}),  # fetch from TensorSchema
     ]
 
     val_transforms = [
         RenameTransform({query_column: "query_id", f"{item_column}_mask": "padding_mask"}),
-        CopyTransform(mapping={"train": "ground_truth"}), # Add mention of pre-made`train` to docs
+        CopyTransform(mapping={"train": "ground_truth"}),  # Add mention of pre-made`train` to docs
         GroupTransform({"features": [item_column]}),
     ]
 

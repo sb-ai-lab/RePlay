@@ -11,15 +11,9 @@ from replay.models.nn.sequential.sasrec import (
     SasRec,
     SasRecPredictionBatch,
     SasRecPredictionDataset,
-    SasRecTrainingBatch,
-    SasRecValidationBatch,
 )
 from replay.nn.transforms import (
-    BatchingTransform,
     CopyTransform,
-    GroupTransform,
-    NextTokenTransform,
-    RenameTransform,
 )
 from replay.nn.transforms.templates.sasrec import make_sasrec_transforms
 
@@ -507,9 +501,9 @@ def test_sasrec_set_invalid_optim_factory(item_user_sequential_dataset):
 def test_sasrec_with_parquet_datamodule(parquet_dataset_path, item_user_sequential_dataset):
     max_len = 10
     tensor_schema = copy.deepcopy(item_user_sequential_dataset._tensor_schema)
-    
+
     TRANSFORMS = make_sasrec_transforms(query_column="user_id", use_legacy=True)
-    
+
     TRANSFORMS["val"].insert(1, CopyTransform(mapping={"item_id": "train"}))
 
     shared_meta = {"user_id": {}, "item_id": {"shape": max_len, "padding": tensor_schema["item_id"].padding_value}}
@@ -519,7 +513,6 @@ def test_sasrec_with_parquet_datamodule(parquet_dataset_path, item_user_sequenti
         "test": copy.deepcopy(shared_meta),
     }
     METADATA["train"]["item_id"]["shape"] = max_len + 1
-
 
     parquet_dataset = ParquetModule(
         train_path=parquet_dataset_path,
