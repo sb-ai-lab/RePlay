@@ -46,7 +46,7 @@ class Dataset:
     ):
         """
         :param feature_schema: mapping of columns names and feature infos.
-            All features not specified in the schema will be assumed numerical by defalt.
+            All features not specified in the schema will be assumed numerical by default.
         :param interactions: dataframe with interactions.
         :param query_features: dataframe with query features,
             defaults: ```None```.
