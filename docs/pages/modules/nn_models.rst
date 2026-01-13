@@ -3,9 +3,9 @@
 Transforms for ParquetModule
 ====================================================
 
-This submodule contains a set of standard torch transformations necessary for training recommendation neural network models. 
+This submodule contains a set of standard PyTorch tensor transformations necessary for neural network models. 
 These Transforms are intended for use with the :ref:`Parquet-Module`. For applying specify a sequence of transformations for every data split as ParquetModule's ``transforms`` parameter. 
-Specified transformations will be applyed per batch on device, then the resulting batch will be used as model input. 
+Specified transformations will be applied per batch on device, then the resulting batch will be used as model input. 
 
 
 BatchingTransform

@@ -35,14 +35,14 @@ class ParquetModule(L.LightningDataModule):
 
     *   ``ParquetModule`` supports only numeric values (boolean/integer/float),
         therefore, the data paths passed as arguments must contain encoded data.
-    *   For optimal performance, set the OMP_NUM_THREADS and ARROW_TO_THREADS to match
+    *   For optimal performance, set the OMP_NUM_THREADS and ARROW_IO_THREADS to match
         the number of available CPU cores.
     *   It's possible to use all train/val/test splits, then paths to splits should be passed
-        as corresponding arguments of `ParquetModule`.
+        as corresponding arguments of ``ParquetModule``.
         Alternatively, all the paths to the splits may be not specified
         but then do not forget to configure the Pytorch Lightning Trainer's instance accordingly.
         For example, if you don't want use validation data, you are able not to set ``val_path`` parameter
-        in `ParquetModule` and set ``limit_val_batches=0`` in Ligthning.Trainer.
+        in ``ParquetModule`` and set ``limit_val_batches=0`` in Ligthning.Trainer.
 
     """
 
@@ -69,10 +69,10 @@ class ParquetModule(L.LightningDataModule):
             Default: ``DEFAULT_CONFIG``.\n
             In most scenarios, the default configuration is sufficient.
         :param transforms: Dict specifying sequence of Transform modules for each data split.
-        :param train_path: Path to the Parquet file containing train data split. Default: `None`.
-        :param val_path: Path to the Parquet file containing validation data split. Default: `None`.
-        :param test_path: Path to the Parquet file containing testing data split. Default: `None`.
-        :param predict_path: Path to the Parquet file containing prediction data split. Default: `None`.
+        :param train_path: Path to the Parquet file containing train data split. Default: ``None``.
+        :param val_path: Path to the Parquet file containing validation data split. Default: ``None``.
+        :param test_path: Path to the Parquet file containing testing data split. Default: ``None``.
+        :param predict_path: Path to the Parquet file containing prediction data split. Default: ``None``.
         """
         if not any([train_path, val_path, test_path, predict_path]):
             msg = (

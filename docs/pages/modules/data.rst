@@ -116,7 +116,7 @@ An example column schema:
     schema = {
         "user_id": {} # Empty metadata represents a categorical column.
         "seq_1": {"shape": 5} # 1-D sequences of length 5
-        "seq_2": {"shape": (5, 6), "padding_value": -1} # 2-D sequences with custom padding values
+        "seq_2": {"shape": [5, 6], "padding_value": -1} # 2-D sequences with custom padding values
     }
 
 ParquetDataset
@@ -148,20 +148,22 @@ See the full example in `examples/sasrec_streaming_example.ipynb <https://github
             UnsqueezeTransform,
         )
 
-        metadata = {"user_id": {},
-            "item_id": {"shape": 50,"padding": 51}
-            }
+        metadata = {
+            "user_id": {},
+            "item_id": {"shape": 50,"padding": 51},
+        }
         transforms = {
             "train": [
                 NextTokenTransform(
-                            label_field="item_id", 
-                            shift=1, 
-                            out_feature_name="positive_labels"),
+                    label_field="item_id", 
+                    shift=1, 
+                    out_feature_name="positive_labels",
+                ),
                 RenameTransform({
-                            "user_id": "query_id", 
-                            "item_id_mask": "padding_mask", 
-                            "positive_labels_mask": "target_padding_mask"
-                            }),
+                    "user_id": "query_id", 
+                    "item_id_mask": "padding_mask", 
+                    "positive_labels_mask": "target_padding_mask"
+                }),
                 UnsqueezeTransform("target_padding_mask", -1),
                 UnsqueezeTransform("positive_labels", -1),
                 GroupTransform({"feature_tensors": ["item_id"]})

@@ -34,7 +34,7 @@ class ParquetDataset(IterableDataset):
 
     During data loader operation, a partition of size ``partition_size`` is read.
     There may be situations where the size of the read partition is less than
-    `partition_size` - this depends on the number of rows in the data fragment.
+    ``partition_size`` - this depends on the number of rows in the data fragment.
     A fragment is a single Parquet file in the file system.
 
     The partition will be read by every worker, split according to their replica ID,
@@ -48,7 +48,7 @@ class ParquetDataset(IterableDataset):
 
     *   ``ParquetDataset`` supports only numeric values (boolean/integer/float),
         therefore, the data paths passed as arguments must contain encoded data.
-    *   For optimal performance, set the OMP_NUM_THREADS and ARROW_TO_THREADS to match
+    *   For optimal performance, set the ``OMP_NUM_THREADS`` and ``ARROW_IO_THREADS`` to match
         the number of available CPU cores.
 
     """

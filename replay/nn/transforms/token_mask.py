@@ -36,7 +36,7 @@ class TokenMaskTransform(BaseTransform):
         """
         :param token_field: Name of the column containing the unmasked tokes.
         :param out_feature_name: Name of the resulting  mask column. Default: ``token_mask``.
-        :param mask_prob: Probability of masking the item, i.e. setting it to 0. Default: ``0.15``.
+        :param mask_prob: Probability of masking the item, i.e. setting it to ``0``. Default: ``0.15``.
         :param generator: Random number generator to be used for generating
                 the uniform distribution. Default: ``None``.
         """
