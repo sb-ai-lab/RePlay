@@ -66,7 +66,7 @@ def parquet_module_args():
             ),
             GroupTransform({"features": ["item_id"]}),
         ],
-        "val": [
+        "validate": [
             RenameTransform({"user_id": "query_id", "item_id_mask": "padding_mask"}),
             GroupTransform({"features": ["item_id"]}),
         ],
