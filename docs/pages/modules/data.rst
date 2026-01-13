@@ -136,7 +136,9 @@ ____________________________________
 
 This is a minimal usage example of ParquetModule. It uses train data only, and the Transforms are defined to support further training of the SasRec model.
 
-See the full example in `examples/sasrec_streaming_example.ipynb <https://github.com/sb-ai-lab/RePlay/blob/main/examples/sasrec_streaming_example.ipynb>`_.
+..
+    # FIXME: Add relative link when merged to master
+See the full example in `examples/sasrec_streaming_example.ipynb`. 
 
     .. code-block:: python
 

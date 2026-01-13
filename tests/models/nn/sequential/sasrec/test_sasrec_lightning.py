@@ -516,7 +516,7 @@ def test_sasrec_with_parquet_datamodule(parquet_dataset_path, item_user_sequenti
 
     parquet_dataset = ParquetModule(
         train_path=parquet_dataset_path,
-        val_path=parquet_dataset_path,
+        validate_path=parquet_dataset_path,
         predict_path=parquet_dataset_path,
         batch_size=2,
         metadata=METADATA,

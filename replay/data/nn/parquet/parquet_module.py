@@ -37,11 +37,11 @@ class ParquetModule(L.LightningDataModule):
         therefore, the data paths passed as arguments must contain encoded data.
     *   For optimal performance, set the OMP_NUM_THREADS and ARROW_IO_THREADS to match
         the number of available CPU cores.
-    *   It's possible to use all train/val/test splits, then paths to splits should be passed
+    *   It's possible to use all train/validate/test/predict splits, then paths to splits should be passed
         as corresponding arguments of ``ParquetModule``.
         Alternatively, all the paths to the splits may be not specified
         but then do not forget to configure the Pytorch Lightning Trainer's instance accordingly.
-        For example, if you don't want use validation data, you are able not to set ``val_path`` parameter
+        For example, if you don't want use validation data, you are able not to set ``validate_path`` parameter
         in ``ParquetModule`` and set ``limit_val_batches=0`` in Ligthning.Trainer.
 
     """
@@ -54,7 +54,7 @@ class ParquetModule(L.LightningDataModule):
         config: Optional[dict] = None,
         *,
         train_path: Optional[str] = None,
-        val_path: Optional[str] = None,
+        validate_path: Optional[str] = None,
         test_path: Optional[str] = None,
         predict_path: Optional[str] = None,
     ) -> None:
@@ -70,11 +70,11 @@ class ParquetModule(L.LightningDataModule):
             In most scenarios, the default configuration is sufficient.
         :param transforms: Dict specifying sequence of Transform modules for each data split.
         :param train_path: Path to the Parquet file containing train data split. Default: ``None``.
-        :param val_path: Path to the Parquet file containing validation data split. Default: ``None``.
+        :param validate_path: Path to the Parquet file containing validation data split. Default: ``None``.
         :param test_path: Path to the Parquet file containing testing data split. Default: ``None``.
         :param predict_path: Path to the Parquet file containing prediction data split. Default: ``None``.
         """
-        if not any([train_path, val_path, test_path, predict_path]):
+        if not any([train_path, validate_path, test_path, predict_path]):
             msg = (
                 f"{type(self)}.__init__() expects at least one of "
                 "['train_path', 'val_path', 'test_path', 'predict_path], but none were provided."
@@ -85,7 +85,7 @@ class ParquetModule(L.LightningDataModule):
         if config is None:
             config = DEFAULT_CONFIG
 
-        self.datapaths = {"train": train_path, "validate": val_path, "test": test_path, "predict": predict_path}
+        self.datapaths = {"train": train_path, "validate": validate_path, "test": test_path, "predict": predict_path}
         missing_splits = [split_name for split_name, split_path in self.datapaths.items() if split_path is None]
         if missing_splits:
             msg = (
@@ -108,8 +108,8 @@ class ParquetModule(L.LightningDataModule):
         Preform meta adjustments based on provided transform pipelines,
         then compile each subset into a `torch.nn.Sequential` module.
 
-        :param: transforms: Python dict where keys are names of stage (train, val, test) and values are
-            corresponding transform pipelines for every stage.
+        :param: transforms: Python dict where keys are names of stage (train, validate, test, predict)
+            and values are corresponding transform pipelines for every stage.
         :returns: out: Compiled transform pipelines.
         """
         if all(subset not in get_args(TransformStage) for subset in transforms):

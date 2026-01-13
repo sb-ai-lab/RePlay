@@ -41,8 +41,8 @@ class ParquetDataset(IterableDataset):
     processed and the result will be returned as a batch of size ``batch_size``.
     Please note that the resulting batch size may be less than ``batch_size``.
 
-    For maximum efficiency when reading and processing data, as well as increase data shuffling,
-    it is recommended to set `partition_size` to several times larger than `batch_size`.
+    For maximum efficiency when reading and processing data, as well as imporved data shuffling,
+    it is recommended to set ``partition_size`` to several times larger than ``batch_size``.
 
     **Note:**
 
