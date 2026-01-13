@@ -4,6 +4,7 @@ from typing import Literal, Optional, get_args
 
 import lightning as L  # noqa: N812
 import torch
+from lightning.pytorch.trainer.states import RunningStage
 from typing_extensions import TypeAlias, override
 
 from replay.data.nn.parquet.constants.filesystem import DEFAULT_FILESYSTEM
@@ -15,7 +16,7 @@ from replay.data.nn.parquet.impl.masking import (
 from replay.data.nn.parquet.parquet_dataset import ParquetDataset
 from replay.nn.transforms.base import BaseTransform
 
-TransformStage: TypeAlias = Literal["train", "val", "test"]
+TransformStage: TypeAlias = Literal["train", "validate", "test", "predict"]
 
 DEFAULT_CONFIG = {"train": {"generator": torch.default_generator}}
 
@@ -50,12 +51,13 @@ class ParquetModule(L.LightningDataModule):
         batch_size: int,
         metadata: dict,
         transforms: dict[TransformStage, list[torch.nn.Module]],
-        config: dict = DEFAULT_CONFIG,
+        config: Optional[dict] = None,
         *,
         train_path: Optional[str] = None,
         val_path: Optional[str] = None,
         test_path: Optional[str] = None,
-    ):
+        predict_path: Optional[str] = None,
+    ) -> None:
         """
         :param batch_size: Target batch size.
         :param metadata: A dictionary that each data split maps to a dictionary of feature names
@@ -73,18 +75,21 @@ class ParquetModule(L.LightningDataModule):
         """
         if not any([train_path, val_path, test_path]):
             msg = (
-                f"{type(self)}.__init__() expects at least one of ['train_path', 'val_path', 'test_path'] "
-                "but none of them founded."
+                f"{type(self)}.__init__() expects at least one of "
+                "['train_path', 'val_path', 'test_path', 'predict_path], but none were provided."
             )
             raise KeyError(msg)
 
         super().__init__()
-        self.datapaths = {"train": train_path, "val": val_path, "test": test_path}
+        if config is None:
+            config = DEFAULT_CONFIG
+
+        self.datapaths = {"train": train_path, "validate": val_path, "test": test_path, "predict": predict_path}
         missing_splits = [split_name for split_name, split_path in self.datapaths.items() if split_path is None]
         if missing_splits:
             msg = (
                 f"The following dataset paths aren't provided: {','.join(missing_splits)}."
-                "Make sure to disable these splits in your Lightning Trainer configuration."
+                "Make sure to disable these stages in your Lightning Trainer configuration."
             )
             warnings.warn(msg, stacklevel=2)
 
@@ -121,7 +126,7 @@ class ParquetModule(L.LightningDataModule):
         self.datasets = {}
 
         for subset in get_args(TransformStage):
-            if self.datapaths[subset] is not None:
+            if self.datapaths.get(subset, None) is not None:
                 subset_config = self.config.get(subset, {})
                 kwargs = {
                     "source": self.datapaths[subset],
@@ -143,18 +148,19 @@ class ParquetModule(L.LightningDataModule):
 
     @override
     def val_dataloader(self):
-        return self.datasets["val"]
+        return self.datasets["validate"]
 
     @override
-    def predict_dataloader(self):
+    def test_dataloader(self):
         return self.datasets["test"]
 
     @override
-    def on_after_batch_transfer(self, batch, _dataloader_idx):
-        subset = "test"
-        if self.trainer.training:
-            subset = "train"
-        elif not self.trainer.predicting:
-            subset = "val"
+    def predict_dataloader(self):
+        return self.datasets["predict"]
 
-        return self.compiled_transforms[subset](batch)
+    @override
+    def on_after_batch_transfer(self, batch, _dataloader_idx):
+        stage = self.trainer.state.stage
+        target = RunningStage.VALIDATING if stage is RunningStage.SANITY_CHECKING else stage
+
+        return self.compiled_transforms[str(target.value)](batch)

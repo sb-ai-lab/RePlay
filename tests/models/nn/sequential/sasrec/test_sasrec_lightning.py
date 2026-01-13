@@ -15,7 +15,7 @@ from replay.models.nn.sequential.sasrec import (
 from replay.nn.transforms import (
     CopyTransform,
 )
-from replay.nn.transforms.templates.sasrec import make_sasrec_transforms
+from replay.nn.transforms.templates.sasrec import make_default_sasrec_transforms
 
 
 @pytest.mark.torch
@@ -502,22 +502,22 @@ def test_sasrec_with_parquet_datamodule(parquet_dataset_path, item_user_sequenti
     max_len = 10
     tensor_schema = copy.deepcopy(item_user_sequential_dataset._tensor_schema)
 
-    TRANSFORMS = make_sasrec_transforms(query_column="user_id", use_legacy=True)
+    TRANSFORMS = make_default_sasrec_transforms(tensor_schema, query_column="user_id", use_legacy=True)
 
-    TRANSFORMS["val"].insert(1, CopyTransform(mapping={"item_id": "train"}))
+    TRANSFORMS["validate"].insert(1, CopyTransform(mapping={"item_id": "train"}))
 
     shared_meta = {"user_id": {}, "item_id": {"shape": max_len, "padding": tensor_schema["item_id"].padding_value}}
     METADATA = {
         "train": copy.deepcopy(shared_meta),
-        "val": copy.deepcopy(shared_meta),
-        "test": copy.deepcopy(shared_meta),
+        "validate": copy.deepcopy(shared_meta),
+        "predict": copy.deepcopy(shared_meta),
     }
     METADATA["train"]["item_id"]["shape"] = max_len + 1
 
     parquet_dataset = ParquetModule(
         train_path=parquet_dataset_path,
         val_path=parquet_dataset_path,
-        test_path=parquet_dataset_path,
+        predict_path=parquet_dataset_path,
         batch_size=2,
         metadata=METADATA,
         transforms=TRANSFORMS,
