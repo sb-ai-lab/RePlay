@@ -71,9 +71,10 @@ class ParquetModule(L.LightningDataModule):
         :param transforms: Dict specifying sequence of Transform modules for each data split.
         :param train_path: Path to the Parquet file containing train data split. Default: `None`.
         :param val_path: Path to the Parquet file containing validation data split. Default: `None`.
-        :param test_path: Path to the Parquet file containing test data split. Default: `None`.
+        :param test_path: Path to the Parquet file containing testing data split. Default: `None`.
+        :param predict_path: Path to the Parquet file containing prediction data split. Default: `None`.
         """
-        if not any([train_path, val_path, test_path]):
+        if not any([train_path, val_path, test_path, predict_path]):
             msg = (
                 f"{type(self)}.__init__() expects at least one of "
                 "['train_path', 'val_path', 'test_path', 'predict_path], but none were provided."
