@@ -86,13 +86,10 @@ class ComputeMetricsCallback(lightning.Callback):
         for builder in self._metrics_builders:
             builder.reset()
 
-    def _apply_postproccesors(self, batch: dict, logits: torch.Tensor, is_validation: bool) -> torch.Tensor:
+    def _apply_postproccesors(self, batch: dict, logits: torch.Tensor) -> torch.Tensor:
         for postprocessor in self._postprocessors:
-            if is_validation:
-                modified_logits = postprocessor.on_validation(batch, logits)
-            else:
-                modified_logits = postprocessor.on_prediction(batch, logits)
-        return modified_logits
+            logits = postprocessor.on_validation(batch, logits)
+        return logits
 
     def on_validation_batch_end(
         self,
@@ -110,7 +107,6 @@ class ComputeMetricsCallback(lightning.Callback):
             batch,
             batch_idx,
             dataloader_idx,
-            is_validation=True,
         )
 
     def on_test_batch_end(
@@ -129,7 +125,6 @@ class ComputeMetricsCallback(lightning.Callback):
             batch,
             batch_idx,
             dataloader_idx,
-            is_validation=False,
         )
 
     def _batch_end(
@@ -140,9 +135,8 @@ class ComputeMetricsCallback(lightning.Callback):
         batch: dict,
         batch_idx: int,
         dataloader_idx: int,
-        is_validation: bool,
     ) -> None:
-        seen_scores = self._apply_postproccesors(batch, outputs["logits"], is_validation)
+        seen_scores = self._apply_postproccesors(batch, outputs["logits"])
         sampled_items = torch.topk(seen_scores, k=self._metrics_builders[dataloader_idx].max_k, dim=1).indices
         self._metrics_builders[dataloader_idx].add_prediction(sampled_items, batch["ground_truth"], batch.get("train"))
 
