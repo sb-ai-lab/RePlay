@@ -87,12 +87,11 @@ class ComputeMetricsCallback(lightning.Callback):
             builder.reset()
 
     def _apply_postproccesors(self, batch: dict, logits: torch.Tensor, is_validation: bool) -> torch.Tensor:
-        modified_logits = logits.detach().clone()
         for postprocessor in self._postprocessors:
             if is_validation:
-                modified_logits = postprocessor.on_validation(batch, modified_logits)
+                modified_logits = postprocessor.on_validation(batch, logits)
             else:
-                modified_logits = postprocessor.on_prediction(batch, modified_logits)
+                modified_logits = postprocessor.on_prediction(batch, logits)
         return modified_logits
 
     def on_validation_batch_end(

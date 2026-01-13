@@ -6,7 +6,7 @@ from replay.data.nn.schema import TensorMap
 from replay.nn import AggregatorProto
 
 
-class SasRecAggregator(torch.nn.Module):
+class PositionAwareAggregator(torch.nn.Module):
     """
     The layer for aggregating embeddings and adding positional encoding.
     """

@@ -105,9 +105,8 @@ class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
         return prediction
 
     def _apply_postproccesors(self, batch: dict, logits: torch.Tensor) -> torch.Tensor:
-        modified_logits = logits.detach().clone()
         for postprocessor in self._postprocessors:
-            modified_logits = postprocessor.on_prediction(batch, modified_logits)
+            modified_logits = postprocessor.on_prediction(batch, logits)
         return modified_logits
 
     @abc.abstractmethod

@@ -43,10 +43,10 @@ class SeenItemsFilter(PostprocessorBase):
         self.sequences = torch.tensor(seen_data[item_column].tolist(), dtype=torch.long)
 
     def on_validation(self, batch: dict, logits: torch.Tensor) -> torch.Tensor:
-        return self._compute_scores(batch, logits, True)
+        return self._compute_scores(batch, logits.detach().clone(), True)
 
     def on_prediction(self, batch: dict, logits: torch.Tensor) -> torch.Tensor:
-        return self._compute_scores(batch, logits, False)
+        return self._compute_scores(batch, logits.detach().clone(), False)
 
     def _compute_scores(
         self,

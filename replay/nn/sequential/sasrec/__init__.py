@@ -1,4 +1,4 @@
-from .agg import SasRecAggregator
+from .agg import PositionAwareAggregator
 from .diff_transformer import (
     DiffTransformerBlock,
     DiffTransformerLayer,

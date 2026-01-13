@@ -127,19 +127,18 @@ class SasRec(torch.nn.Module):
     Example:
 
     .. code-block:: python
-
-        sasrec = SasRec(
+        body = SasRecBody(
             embedder=SequenceEmbedding(
                 schema=tensor_schema,
+            ),
+            embedding_aggregator=PositionAwareAggregator(
+                embedding_aggregator=common_aggregator,
+                max_sequence_length=100,
+                dropout=0.2,
             ),
             attn_mask_builder=DefaultAttentionMask(
                 reference_feature_name=tensor_schema.item_id_feature_name,
                 num_heads=2,
-            ),
-            embedding_aggregator=SasRecAggregator(
-                embedding_aggregator=common_aggregator,
-                max_sequence_length=100,
-                dropout=0.2,
             ),
             encoder=SasRecTransformerLayer(
                 embedding_dim=256,
@@ -149,6 +148,9 @@ class SasRec(torch.nn.Module):
                 activation="relu",
             ),
             output_normalization=torch.nn.LayerNorm(256),
+        )
+        sasrec = SasRec(
+            body=body,
             loss=CESampled(padding_idx=tensor_schema.item_id_features.item().padding_value)
         )
 
@@ -156,36 +158,16 @@ class SasRec(torch.nn.Module):
 
     def __init__(
         self,
-        embedder: EmbedderProto,
-        embedding_aggregator: AggregatorProto,
-        attn_mask_builder: AttentionMaskProto,
-        encoder: EncoderProto,
-        output_normalization: NormalizerProto,
+        body: SasRecBody,
         loss: LossProto,
     ):
         """
-        :param embedder: An object of a class that performs the logic of
-            generating embeddings from an input set of tensors.
-        :param embedding_aggregator: An object of a class that performs the logic of aggregating multiple embeddings.\n
-        :param attn_mask_builder: An object of a class that performs the logic of
-            generating an attention mask based on the features and padding mask given to the model.
-        :param encoder: An object of a class that performs the logic of generating
-            a hidden embedding representation based on
-            features, padding masks, attention mask, and aggregated embedding.
-        :param output_normalization: An object of a class that performs the logic of
-            normalization of the hidden state obtained from the encoder.\n
-            For example, it can be a ``torch.nn.LayerNorm`` or ``torch.nn.RMSNorm``.
+        :param body: An object of SasRecBody.
         :param loss: An object of a class that performs loss calculation
             based on hidden states from the model, positive and optionally negative labels.
         """
         super().__init__()
-        self.body = SasRecBody(
-            embedder=embedder,
-            embedding_aggregator=embedding_aggregator,
-            attn_mask_builder=attn_mask_builder,
-            encoder=encoder,
-            output_normalization=output_normalization,
-        )
+        self.body = body
         self.head = EmbeddingTyingHead()
         self.loss = loss
         self.loss.logits_callback = self.get_logits
@@ -193,7 +175,7 @@ class SasRec(torch.nn.Module):
         self.reset_parameters()
 
     @classmethod
-    def build_default(
+    def from_params(
         cls,
         schema: TensorSchema,
         embedding_dim: int = 192,
@@ -216,7 +198,8 @@ class SasRec(torch.nn.Module):
             *(excluded_features or []),
         ]
         excluded_features = list(set(excluded_features))
-        return cls(
+
+        body = SasRecBody(
             embedder=SequenceEmbedding(
                 schema=schema,
                 categorical_list_feature_aggregation_method=categorical_list_feature_aggregation_method,
@@ -239,6 +222,10 @@ class SasRec(torch.nn.Module):
                 activation="relu",
             ),
             output_normalization=torch.nn.LayerNorm(embedding_dim),
+
+        )
+        return cls(
+            body=body,
             loss=CE(padding_idx=schema.item_id_features.item().padding_value),
         )
 

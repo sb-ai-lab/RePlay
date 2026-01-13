@@ -2,8 +2,8 @@ from .sasrec import (
     DiffTransformerBlock,
     DiffTransformerLayer,
     MultiHeadDifferentialAttention,
+    PositionAwareAggregator,
     SasRec,
-    SasRecAggregator,
     SasRecBody,
     SasRecTransformerLayer,
 )
