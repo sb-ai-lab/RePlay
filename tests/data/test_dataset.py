@@ -166,7 +166,7 @@ def get_wrong_items_features(data_dict):
     return FeatureSchema(features)
 
 
-def get_doesnt_existing_features(data_dict):
+def get_nonexistant_features(data_dict):
     users = data_dict.get("users", None)
     items = data_dict.get("items", None)
 
@@ -369,7 +369,8 @@ def test_not_check_consistency(data_dict, request):
 )
 def test_get_unlabeled_columns(data_dict, request):
     feature_schema = get_features(request.getfixturevalue(data_dict))
-    dataset = create_dataset(request.getfixturevalue(data_dict))
+    with pytest.warns(UserWarning, match=r"('feature1', 'item_features')"):
+        dataset = create_dataset(request.getfixturevalue(data_dict))
     unlabeled_cols = dataset._get_unlabeled_columns(source=FeatureSource.ITEM_FEATURES, feature_schema=feature_schema)
     assert len(unlabeled_cols) == 1
     assert unlabeled_cols[0].column == "feature1"
@@ -385,7 +386,7 @@ def test_get_unlabeled_columns(data_dict, request):
 )
 def test_feature_info_doesnt_exist(data_dict, request):
     dataframe = request.getfixturevalue(data_dict)
-    feature_schema = get_doesnt_existing_features(dataframe)
+    feature_schema = get_nonexistant_features(dataframe)
 
     with pytest.raises(ValueError) as exc:
         Dataset(
