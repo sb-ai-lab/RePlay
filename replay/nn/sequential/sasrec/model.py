@@ -189,7 +189,7 @@ class SasRec(torch.nn.Module):
         from replay.nn import DefaultAttentionMask, SequenceEmbedding, SumAggregator
         from replay.nn.loss import CE
 
-        from .agg import SasRecAggregator
+        from .agg import PositionAwareAggregator
         from .transformer import SasRecTransformerLayer
 
         excluded_features = [
@@ -205,7 +205,7 @@ class SasRec(torch.nn.Module):
                 categorical_list_feature_aggregation_method=categorical_list_feature_aggregation_method,
                 excluded_features=excluded_features,
             ),
-            embedding_aggregator=SasRecAggregator(
+            embedding_aggregator=PositionAwareAggregator(
                 embedding_aggregator=SumAggregator(embedding_dim=embedding_dim),
                 max_sequence_length=max_sequence_length,
                 dropout=dropout,

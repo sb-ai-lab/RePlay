@@ -79,6 +79,10 @@ class LightningModule(lightning.LightningModule):
         model_output: InferenceOutput = self(batch)
         return model_output
 
+    def test_step(self, batch: dict) -> torch.Tensor:
+        model_output: InferenceOutput = self(batch)
+        return model_output
+
     def validation_step(self, batch: dict) -> torch.Tensor:
         model_output: InferenceOutput = self(batch)
         return model_output
