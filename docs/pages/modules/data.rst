@@ -138,6 +138,7 @@ This is a minimal usage example of ParquetModule. It uses train data only, and t
 
 ..
     # FIXME: Add relative link when merged to master
+
 See the full example in `examples/sasrec_streaming_example.ipynb`. 
 
     .. code-block:: python
