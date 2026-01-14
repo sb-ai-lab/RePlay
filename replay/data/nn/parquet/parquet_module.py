@@ -112,8 +112,11 @@ class ParquetModule(L.LightningDataModule):
             and values are corresponding transform pipelines for every stage.
         :returns: out: Compiled transform pipelines.
         """
-        if all([subset not in get_args(TransformStage) for subset in transforms]):
-            msg = f"`transforms` expects at least one of {get_args(TransformStage)}, but none were found."
+        if not any(subset in get_args(TransformStage) for subset in transforms):
+            msg = (
+                f"Expected transform.keys()={list(transforms.keys())} to contain at least "
+                f"one of {get_args(TransformStage)}, but none were found."
+            )
             raise KeyError(msg)
 
         compiled_transorms = {}
