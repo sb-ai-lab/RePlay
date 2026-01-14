@@ -29,7 +29,8 @@ class PositionAwareAggregator(torch.nn.Module):
         self.dropout = torch.nn.Dropout(p=dropout)
 
     def reset_parameters(self) -> None:
-        for _, param in self.named_parameters():
+        self.embedding_aggregator.reset_parameters()
+        for _, param in self.pe.named_parameters():
             with contextlib.suppress(ValueError):
                 torch.nn.init.xavier_normal_(param.data)
 

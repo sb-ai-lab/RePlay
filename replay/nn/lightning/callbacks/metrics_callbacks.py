@@ -3,7 +3,7 @@ from typing import Any, Optional
 import lightning
 import torch
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
-
+from lightning.pytorch.utilities.combined_loader import CombinedLoader
 from replay.metrics.torch_metrics_builder import (
     MetricName,
     TorchMetricsBuilder,
@@ -58,9 +58,9 @@ class ComputeMetricsCallback(lightning.Callback):
         self._postprocessors: list[PostprocessorBase] = postprocessors or []
 
     def _get_dataloaders_size(self, dataloaders: Optional[Any]) -> list[int]:
-        if isinstance(dataloaders, torch.utils.data.DataLoader):
-            return [len(dataloaders)]
-        return [len(dataloader) for dataloader in dataloaders]
+        if isinstance(dataloaders, CombinedLoader):
+            return [len(dataloader) for dataloader in dataloaders.flattened]
+        return [len(dataloaders)]
 
     def on_validation_epoch_start(
         self,
@@ -140,7 +140,9 @@ class ComputeMetricsCallback(lightning.Callback):
         sampled_items = torch.topk(seen_scores, k=self._metrics_builders[dataloader_idx].max_k, dim=1).indices
         self._metrics_builders[dataloader_idx].add_prediction(sampled_items, batch["ground_truth"], batch.get("train"))
 
+        print(f"b={batch_idx}, d={dataloader_idx}")
         if batch_idx + 1 == self._dataloaders_size[dataloader_idx]:
+            print("log_dict")
             pl_module.log_dict(
                 self._metrics_builders[dataloader_idx].get_metrics(),
                 on_epoch=True,

@@ -3,7 +3,7 @@ from typing import Protocol
 
 import torch
 
-from replay.data.nn import TensorMap
+from replay.data.nn.schema import TensorMap
 
 
 class AttentionMaskProto(Protocol):
@@ -38,9 +38,6 @@ class AttentionMaskBase(ABC):
         # (B, 1, 1, L) -> (B, 1, L, L), where 0 - PAD, 1 - otherwise
         key_padding_mask = key_padding_mask | diagonal_attention_mask
 
-        if len(attention_mask.shape) == 3:
-            # (B * num_heads, L, L) -> (B, num_heads, L, L)
-            attention_mask = attention_mask.reshape(key_padding_mask.shape[0], -1, *attention_mask.shape[-2:])
         attention_mask = (attention_mask & key_padding_mask).float()
         attention_mask = attention_mask.masked_fill(attention_mask == 0, float("-inf")).masked_fill(
             attention_mask == 1, 0.0
