@@ -34,15 +34,23 @@ class ParquetDataset(IterableDataset):
 
     During data loader operation, a partition of size ``partition_size`` is read.
     There may be situations where the size of the read partition is less than
-    `partition_size` - this depends on the number of rows in the data fragment.
+    ``partition_size`` - this depends on the number of rows in the data fragment.
     A fragment is a single Parquet file in the file system.
 
     The partition will be read by every worker, split according to their replica ID,
     processed and the result will be returned as a batch of size ``batch_size``.
     Please note that the resulting batch size may be less than ``batch_size``.
 
-    For maximum efficiency when reading and processing data,
-    it is recommended to set `partition_size` to several times larger than `batch_size`.
+    For maximum efficiency when reading and processing data, as well as imporved data shuffling,
+    it is recommended to set ``partition_size`` to several times larger than ``batch_size``.
+
+    **Note:**
+
+    *   ``ParquetDataset`` supports only numeric values (boolean/integer/float),
+        therefore, the data paths passed as arguments must contain encoded data.
+    *   For optimal performance, set the ``OMP_NUM_THREADS`` and ``ARROW_IO_THREADS`` to match
+        the number of available CPU cores.
+
     """
 
     def __init__(
@@ -86,9 +94,10 @@ class ParquetDataset(IterableDataset):
             ``torch.utils.data`` and ``torch.distributed`` modules.
         :param collate_fn: Collate function for merging batches. Default: value of ``DEFAULT_COLLATE_FN``.
         """
-        if partition_size < batch_size:
+        if partition_size // batch_size < 20:
             msg = (
-                "Suboptimal parameters: partition size is smaller than batch size. "
+                "Suboptimal parameters: partition to batch size ratio too low. "
+                "Recommended proportion of partition size to batch size is at least 20:1. "
                 f"Got: {partition_size=}, {batch_size=}."
             )
             warnings.warn(msg, stacklevel=2)

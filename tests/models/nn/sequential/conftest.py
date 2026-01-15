@@ -267,6 +267,16 @@ def item_user_sequential_dataset():
     return sequential_dataset
 
 
+@pytest.fixture
+def parquet_dataset_path(tmp_path_factory, item_user_sequential_dataset):
+    tmp_dir = tmp_path_factory.mktemp("parquet_module")
+    path = tmp_dir / "tmp.parquet"
+
+    item_user_sequential_dataset._sequences.to_parquet(path)
+
+    return str(path)
+
+
 @pytest.fixture(scope="module")
 def polars_item_user_sequential_dataset():
     sequences = pl.from_records(
