@@ -1,12 +1,7 @@
 import abc
-<<<<<<< HEAD
 import inspect
 import warnings
 from typing import Generic, Optional, Protocol, TypeVar, Union, cast
-=======
-import warnings
-from typing import Generic, Optional, Protocol, TypeVar, cast
->>>>>>> 304c3e36... Squash all
 
 import lightning
 import torch
