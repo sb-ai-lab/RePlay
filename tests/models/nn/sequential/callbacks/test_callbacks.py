@@ -9,7 +9,7 @@ from replay.utils import (
 from replay.utils.session_handler import get_spark_session
 
 if TORCH_AVAILABLE:
-    from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionDataset
+    from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionBatch, Bert4RecPredictionDataset
     from replay.models.nn.sequential.callbacks import (
         PandasPredictionCallback,
         PolarsPredictionCallback,
@@ -19,7 +19,27 @@ if TORCH_AVAILABLE:
         ValidationMetricsCallback,
     )
     from replay.models.nn.sequential.postprocessors import RemoveSeenItems
-    from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionDataset
+    from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionBatch, SasRecPredictionDataset
+
+    class DeprecatedBert4RecPredictionDataset(Bert4RecPredictionDataset):
+        def __getitem__(self, index: int) -> dict:
+            res = super().__getitem__(index)
+            return Bert4RecPredictionBatch(
+                query_id=res["query_id"],
+                padding_mask=res["pad_mask"],
+                features=res["inputs"],
+                tokens_mask=res["token_mask"],
+            )
+
+    class DeprecatedSasRecPredictionDataset(SasRecPredictionDataset):
+        def __getitem__(self, index: int) -> dict:
+            res = super().__getitem__(index)
+            return SasRecPredictionBatch(
+                query_id=res["query_id"],
+                padding_mask=res["padding_mask"],
+                features=res["feature_tensor"],
+            )
+
 
 torch = pytest.importorskip("torch")
 L = pytest.importorskip("lightning")
@@ -261,6 +281,40 @@ def test_query_embeddings_callback(item_user_sequential_dataset, candidates, mod
 
     trainer = L.Trainer(callbacks=[callback], inference_mode=True)
     trainer.predict(model, pred_loader)
+    embs = callback.get_result()
+
+    assert embs.shape == (item_user_sequential_dataset._sequences.shape[0], model._model.hidden_size)
+
+
+@pytest.mark.torch
+@pytest.mark.parametrize(
+    "model, dataset",
+    [
+        (Bert4Rec, DeprecatedBert4RecPredictionDataset),
+        (SasRec, DeprecatedSasRecPredictionDataset),
+    ],
+)
+@pytest.mark.parametrize(
+    "candidates", [torch.LongTensor([0]), torch.LongTensor([1, 2]), torch.LongTensor([1, 2, 3, 4]), None]
+)
+def test_deprecated_query_embeddings_callback(item_user_sequential_dataset, candidates, model, dataset):
+    callback = QueryEmbeddingsPredictionCallback()
+    model = model(
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        max_seq_len=5,
+        hidden_size=64,
+        loss_type="BCE",
+        loss_sample_count=6,
+    )
+    if candidates is not None:
+        model.candidates_to_score = candidates
+
+    pred = dataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred_loader = torch.utils.data.DataLoader(pred)
+
+    trainer = L.Trainer(callbacks=[callback], inference_mode=True)
+    with pytest.deprecated_call():
+        trainer.predict(model, pred_loader)
     embs = callback.get_result()
 
     assert embs.shape == (item_user_sequential_dataset._sequences.shape[0], model._model.hidden_size)

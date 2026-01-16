@@ -50,6 +50,8 @@ Neural Networks recommenders are Lightning-compatible. They can be trained using
     
     nn_models
 
+
+
 Recommender interface
 ____________________________
 

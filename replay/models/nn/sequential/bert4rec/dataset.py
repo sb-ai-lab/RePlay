@@ -26,6 +26,15 @@ class Bert4RecTrainingBatch(NamedTuple):
     tokens_mask: torch.BoolTensor
     labels: torch.LongTensor
 
+    def convert_to_dict(self) -> dict:
+        return {
+            "query_id": self.query_id,
+            "pad_mask": self.padding_mask,
+            "inputs": self.features,
+            "token_mask": self.tokens_mask,
+            "positive_labels": self.labels,
+        }
+
 
 class Bert4RecMasker(abc.ABC):
     """
@@ -85,7 +94,12 @@ class Bert4RecUniformMasker(Bert4RecMasker):
 
 class Bert4RecTrainingDataset(TorchDataset):
     """
-    Dataset that generates samples to train BERT-like model
+    Dataset that generates samples to train Bert4Rec model.
+
+    As a result of the dataset iteration, a dictionary is formed.
+    The keys in the dictionary match the names of the arguments in the model's `forward` function.
+    There are also additional keys needed to calculate losses - 'positive_labels`.
+    The `query_id` key is required for possible debugging and calling additional lightning callbacks.
     """
 
     def __init__(
@@ -143,20 +157,20 @@ class Bert4RecTrainingDataset(TorchDataset):
     def __len__(self) -> int:
         return len(self._inner)
 
-    def __getitem__(self, index: int) -> Bert4RecTrainingBatch:
+    def __getitem__(self, index: int) -> dict:
         query_id, padding_mask, features = self._inner[index]
         tokens_mask = self._masker.mask(padding_mask)
 
         assert self._label_feature_name
         labels = features[self._label_feature_name]
 
-        return Bert4RecTrainingBatch(
-            query_id=query_id,
-            padding_mask=padding_mask,
-            features=features,
-            tokens_mask=tokens_mask,
-            labels=cast(torch.LongTensor, labels),
-        )
+        return {
+            "query_id": query_id,
+            "pad_mask": padding_mask,
+            "inputs": features,
+            "token_mask": tokens_mask,
+            "positive_labels": labels,
+        }
 
 
 class Bert4RecPredictionBatch(NamedTuple):
@@ -170,10 +184,22 @@ class Bert4RecPredictionBatch(NamedTuple):
     features: TensorMap
     tokens_mask: torch.BoolTensor
 
+    def convert_to_dict(self) -> dict:
+        return {
+            "query_id": self.query_id,
+            "pad_mask": self.padding_mask,
+            "inputs": self.features,
+            "token_mask": self.tokens_mask,
+        }
+
 
 class Bert4RecPredictionDataset(TorchDataset):
     """
-    Dataset that generates samples to infer BERT-like model
+    Dataset that generates samples to inference Bert4Rec model
+
+    As a result of the dataset iteration, a dictionary is formed.
+    The keys in the dictionary match the names of the arguments in the model's `forward` function.
+    The `query_id` key is required for possible debugging and calling additional lightning callbacks.
     """
 
     def __init__(
@@ -198,17 +224,17 @@ class Bert4RecPredictionDataset(TorchDataset):
     def __len__(self) -> int:
         return len(self._inner)
 
-    def __getitem__(self, index: int) -> Bert4RecPredictionBatch:
+    def __getitem__(self, index: int) -> dict:
         query_id, padding_mask, features = self._inner[index]
 
         shifted_features, shifted_padding_mask, tokens_mask = _shift_features(self._schema, features, padding_mask)
 
-        return Bert4RecPredictionBatch(
-            query_id=query_id,
-            padding_mask=shifted_padding_mask,
-            features=shifted_features,
-            tokens_mask=tokens_mask,
-        )
+        return {
+            "query_id": query_id,
+            "pad_mask": shifted_padding_mask,
+            "inputs": shifted_features,
+            "token_mask": tokens_mask,
+        }
 
 
 class Bert4RecValidationBatch(NamedTuple):
@@ -224,10 +250,25 @@ class Bert4RecValidationBatch(NamedTuple):
     ground_truth: torch.LongTensor
     train: torch.LongTensor
 
+    def convert_to_dict(self) -> dict:
+        return {
+            "query_id": self.query_id,
+            "pad_mask": self.padding_mask,
+            "inputs": self.features,
+            "token_mask": self.tokens_mask,
+            "ground_truth": self.ground_truth,
+            "train": self.train,
+        }
+
 
 class Bert4RecValidationDataset(TorchDataset):
     """
     Dataset that generates samples to infer and validate BERT-like model
+
+    As a result of the dataset iteration, a dictionary is formed.
+    The keys in the dictionary match the names of the arguments in the model's `forward` function.
+    The `query_id` key is required for possible debugging and calling additional lightning callbacks.
+    Keys 'ground_truth` and `train` keys are required for metrics calculation on validation stage.
     """
 
     def __init__(
@@ -263,19 +304,19 @@ class Bert4RecValidationDataset(TorchDataset):
     def __len__(self) -> int:
         return len(self._inner)
 
-    def __getitem__(self, index: int) -> Bert4RecValidationBatch:
+    def __getitem__(self, index: int) -> dict:
         query_id, padding_mask, features, ground_truth, train = self._inner[index]
 
         shifted_features, shifted_padding_mask, tokens_mask = _shift_features(self._schema, features, padding_mask)
 
-        return Bert4RecValidationBatch(
-            query_id=query_id,
-            padding_mask=shifted_padding_mask,
-            features=shifted_features,
-            tokens_mask=tokens_mask,
-            ground_truth=ground_truth,
-            train=train,
-        )
+        return {
+            "query_id": query_id,
+            "pad_mask": shifted_padding_mask,
+            "inputs": shifted_features,
+            "token_mask": tokens_mask,
+            "ground_truth": ground_truth,
+            "train": train,
+        }
 
 
 def _shift_features(

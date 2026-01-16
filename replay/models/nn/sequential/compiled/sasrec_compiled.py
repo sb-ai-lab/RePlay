@@ -1,4 +1,5 @@
 import pathlib
+import warnings
 from typing import Optional, Union, get_args
 
 import openvino as ov
@@ -39,7 +40,7 @@ class SasRecCompiled(BaseCompiledModel):
 
     def predict(
         self,
-        batch: SasRecPredictionBatch,
+        batch: Union[SasRecPredictionBatch, dict],
         candidates_to_score: Optional[torch.LongTensor] = None,
     ) -> torch.Tensor:
         """
@@ -51,12 +52,21 @@ class SasRecCompiled(BaseCompiledModel):
 
         :return: Tensor with scores.
         """
-        self._valilade_predict_input(batch, candidates_to_score)
+        self._validate_predict_input(batch, candidates_to_score)
+
+        if isinstance(batch, SasRecPredictionBatch):
+            warnings.warn(
+                "`SasRecPredictionBatch` class will be removed in future versions. "
+                "Instead, you should use simple dictionary",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            batch = batch.convert_to_dict()
 
         batch = _prepare_prediction_batch(self._schema, self._max_seq_len, batch)
         model_inputs = {
-            self._inputs_names[0]: batch.features[self._inputs_names[0]],
-            self._inputs_names[1]: batch.padding_mask,
+            self._inputs_names[0]: batch["feature_tensor"][self._inputs_names[0]],
+            self._inputs_names[1]: batch["padding_mask"],
         }
         if self._num_candidates_to_score is not None:
             self._validate_candidates_to_score(candidates_to_score)
