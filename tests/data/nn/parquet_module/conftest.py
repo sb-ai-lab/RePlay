@@ -1,6 +1,5 @@
 import copy
 
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -12,25 +11,7 @@ from replay.data.nn import (
     TensorFeatureSource,
     TensorSchema,
 )
-from replay.nn.transforms import (
-    GroupTransform,
-    NextTokenTransform,
-    RenameTransform,
-)
-
-
-def generate_recsys_dataset(n_users: int = 10, max_len: int = 20, n_items=30, seed=2):
-    np.random.seed(seed)
-
-    rows = []
-    for i in range(n_users):
-        hist_len = np.random.randint(0, max_len, size=None, dtype=int)
-
-        row = {"user_id": i}
-        row["item_id"] = np.random.randint(0, n_items, hist_len).tolist()
-        rows.append(row)
-
-    return pd.DataFrame.from_records(rows)
+from replay.nn.transforms.templates.sasrec import make_default_sasrec_transforms
 
 
 @pytest.fixture
@@ -38,7 +19,7 @@ def parquet_module_path(tmp_path_factory):
     tmp_dir = tmp_path_factory.mktemp("parquet_module")
     path = tmp_dir / "tmp.parquet"
 
-    df = generate_recsys_dataset()
+    df = pd.DataFrame({"item_id": [0]})
     df.to_parquet(path, index=False)
 
     return str(path)
@@ -58,28 +39,13 @@ def parquet_module_args():
             feature_hint=FeatureHint.ITEM_ID,
         )
     )
-    transforms = {
-        "train": [
-            NextTokenTransform(label_field="item_id", query_features="user_id", shift=1),
-            RenameTransform(
-                {"user_id": "query_id", "item_id_mask": "padding_mask", "labels_mask": "labels_padding_mask"}
-            ),
-            GroupTransform({"features": ["item_id"]}),
-        ],
-        "validate": [
-            RenameTransform({"user_id": "query_id", "item_id_mask": "padding_mask"}),
-            GroupTransform({"features": ["item_id"]}),
-        ],
-        "test": [
-            RenameTransform({"user_id": "query_id", "item_id_mask": "padding_mask"}),
-            GroupTransform({"features": ["item_id"]}),
-        ],
-    }
+    transforms = make_default_sasrec_transforms(tensor_schema, query_column="user_id")
+
     shared_meta = {"user_id": {}, "item_id": {"shape": max_len, "padding": tensor_schema["item_id"].padding_value}}
 
     metadata = {
         "train": copy.deepcopy(shared_meta),
-        "val": copy.deepcopy(shared_meta),
+        "validate": copy.deepcopy(shared_meta),
         "test": copy.deepcopy(shared_meta),
     }
 
