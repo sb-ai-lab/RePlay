@@ -21,6 +21,7 @@ from replay.nn.transforms import (
     GroupTransform,
     NextTokenTransform,
     RenameTransform,
+    TrimTransform,
     UniformNegativeSamplingTransform,
     UnsqueezeTransform,
 )
@@ -213,14 +214,17 @@ def parquet_module(parquet_module_path, tensor_schema, max_len, batch_size=4):
             UnsqueezeTransform("positive_labels", -1),
             GroupTransform({"feature_tensors": tensor_schema.names}),
         ],
-        "val": [
+        "validate": [
             RenameTransform({"user_id": "query_id", "item_id_mask": "padding_mask"}),
             CopyTransform({"item_id": "train"}),
             CopyTransform({"item_id": "ground_truth"}),
+            CopyTransform({"item_id": "seen_ids"}),
             GroupTransform({"feature_tensors": tensor_schema.names}),
         ],
-        "test": [
+        "predict": [
             RenameTransform({"user_id": "query_id", "item_id_mask": "padding_mask"}),
+            CopyTransform({"item_id": "seen_ids"}),
+            TrimTransform(max_len, ["seen_ids"]),
             GroupTransform({"feature_tensors": tensor_schema.names}),
         ],
     }
@@ -238,8 +242,8 @@ def parquet_module(parquet_module_path, tensor_schema, max_len, batch_size=4):
 
     metadata = {
         "train": create_meta(shape=max_len + 1),
-        "val": create_meta(shape=max_len),
-        "test": create_meta(shape=max_len),
+        "validate": create_meta(shape=max_len),
+        "predict": create_meta(shape=max_len),
     }
 
     parquet_module = ParquetModule(
@@ -247,8 +251,8 @@ def parquet_module(parquet_module_path, tensor_schema, max_len, batch_size=4):
         transforms=transforms,
         batch_size=batch_size,
         train_path=parquet_module_path,
-        val_path=parquet_module_path,
-        test_path=parquet_module_path,
+        validate_path=parquet_module_path,
+        predict_path=parquet_module_path,
     )
     return parquet_module
 

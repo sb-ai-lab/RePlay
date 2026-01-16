@@ -44,8 +44,8 @@ class PostprocessorBase(abc.ABC):  # pragma: no cover
         Sets tensor of item ids to calculate scores.
         :param candidates: Tensor of item ids to calculate scores.
         """
-        if torch.unique(candidates).numel() != candidates.numel():
-            msg = "The tensor of candidates to score must unique"
+        if (candidates is not None) and (torch.unique(candidates).numel() != candidates.numel()):
+            msg = "The tensor of candidates to score must be unique."
             raise ValueError(msg)
-        
+
         self._candidates = candidates

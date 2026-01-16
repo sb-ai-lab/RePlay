@@ -1,3 +1,4 @@
+from .base import BaseTransform
 from .batch import BatchingTransform
 from .copy import CopyTransform
 from .grouping import GroupTransform
@@ -10,6 +11,7 @@ from .token_mask import TokenMaskTransform
 from .trim_transform import TrimTransform
 
 __all__ = [
+    "BaseTransform",
     "BatchingTransform",
     "CopyTransform",
     "GroupTransform",

@@ -31,7 +31,6 @@ from replay.utils.session_handler import get_spark_session
     "candidates", [torch.LongTensor([0]), torch.LongTensor([1, 2]), torch.LongTensor([1, 2, 3, 4]), None]
 )
 def test_prediction_callbacks_fast_forward(
-    parquet_module_path,
     parquet_module,
     tensor_schema,
     sasrec_model,
@@ -44,14 +43,7 @@ def test_prediction_callbacks_fast_forward(
     kwargs = {
         "top_k": 1,
         "postprocessors": (
-            [
-                SeenItemsFilter(
-                    item_count=cardinality-1,
-                    seen_items_column="seen_ids"
-                )
-            ]
-            if is_postprocessor
-            else None
+            [SeenItemsFilter(item_count=cardinality - 1, seen_items_column="seen_ids")] if is_postprocessor else None
         ),
     }
     if callback_class != TorchTopItemsCallback:
@@ -101,7 +93,6 @@ def test_prediction_callbacks_fast_forward(
     ],
 )
 def test_validation_callbacks(
-    parquet_module_path,
     parquet_module,
     tensor_schema,
     sasrec_model,
@@ -117,10 +108,7 @@ def test_validation_callbacks(
         postprocessors=(
             [
                 postprocessor(
-                    parquet_module_path,
-                    cardinality,
-                    query_column="user_id",
-                    item_column=tensor_schema.item_id_feature_name,
+                    item_count=cardinality - 1, seen_items_column="seen_ids"
                 )
             ]
             if postprocessor

@@ -72,8 +72,8 @@ def test_predictions_sasrec_equal_with_permuted_candidates(sasrec_model, parquet
     trainer = L.Trainer(max_epochs=1)
     trainer.fit(sasrec, datamodule=parquet_module)
 
-    sorted_candidates = torch.LongTensor([0, 0, 1, 1, 1, 2])
-    permuted_candidates = torch.LongTensor([1, 0, 2, 1, 1, 0])
+    sorted_candidates = torch.LongTensor([0, 1, 2, 22, 30, 33])
+    permuted_candidates = torch.LongTensor([33, 0, 1, 22, 30, 2])
     _, ordering = torch.sort(permuted_candidates)
 
     trainer = L.Trainer(inference_mode=True)

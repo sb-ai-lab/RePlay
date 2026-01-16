@@ -36,6 +36,7 @@ class TrimTransform(BaseTransform):
         :param feature_name: name of feature in batch to be trimmed
         """
         super().__init__()
+        assert seq_len > 0
         self.seq_len = seq_len
         self.feature_names = [feature_names] if isinstance(feature_names, str) else feature_names
 
