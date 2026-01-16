@@ -26,7 +26,7 @@ class SeenItemsFilter(PostprocessorBase):
             user0: [1, 0]
             user1: [1, 2, 1]
 
-    Output: 
+    Output:
         SeenItemsFilter sets logits of seen items to ``-inf``::
 
             processed_logits =
