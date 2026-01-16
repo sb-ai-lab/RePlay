@@ -1,11 +1,8 @@
 import copy
 
 from replay.data.nn import TensorSchema
-from replay.models.nn.sequential.sasrec.dataset import SasRecPredictionBatch, SasRecTrainingBatch, SasRecValidationBatch
 from replay.nn.transforms import (
     BaseTransform,
-    BatchingTransform,
-    CopyTransform,
     GroupTransform,
     NextTokenTransform,
     RenameTransform,
@@ -13,7 +10,7 @@ from replay.nn.transforms import (
 
 
 def make_default_sasrec_transforms(
-    tensor_schema: TensorSchema, query_column: str = "query_id", use_legacy: bool = False
+    tensor_schema: TensorSchema, query_column: str = "query_id"
 ) -> dict[str, list[BaseTransform]]:
     """
     Generates a valid transformation pipeline for SasRec data batches.
@@ -35,26 +32,16 @@ def make_default_sasrec_transforms(
         RenameTransform(
             {query_column: "query_id", f"{item_column}_mask": "padding_mask", "labels_mask": "labels_padding_mask"}
         ),
-        GroupTransform({"features": [item_column]}),
+        GroupTransform({"feature_tensors": [item_column]}),
     ]
 
     val_transforms = [
         RenameTransform({query_column: "query_id", f"{item_column}_mask": "padding_mask"}),
-        CopyTransform(mapping={"train": "ground_truth"}),
-        GroupTransform({"features": [item_column]}),
+        GroupTransform({"feature_tensors": [item_column]}),
     ]
     test_transforms = copy.deepcopy(val_transforms)
 
-    predict_transforms = [
-        RenameTransform({query_column: "query_id", f"{item_column}_mask": "padding_mask"}),
-        GroupTransform({"features": [item_column]}),
-    ]
-
-    if use_legacy:
-        train_transforms.append(BatchingTransform(SasRecTrainingBatch))
-        val_transforms.append(BatchingTransform(SasRecValidationBatch))
-        test_transforms.append(BatchingTransform(SasRecValidationBatch))
-        predict_transforms.append(BatchingTransform(SasRecPredictionBatch))
+    predict_transforms = copy.deepcopy(val_transforms)
 
     transforms = {
         "train": train_transforms,

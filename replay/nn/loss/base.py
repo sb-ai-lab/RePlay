@@ -169,7 +169,7 @@ def mask_negative_logits(
         where positive labels are equal to negative ones.
     """
 
-    if negative_labels.dim() > 1:  # explicit_negatives
+    if negative_labels.dim() > 1:
         # [masked_batch_size, num_negatives] -> [masked_batch_size, 1, num_negatives]
         negative_labels = negative_labels.unsqueeze(-2)
 
