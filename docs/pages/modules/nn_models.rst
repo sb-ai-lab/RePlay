@@ -57,7 +57,7 @@ SasRec
 SasRec
 ______
 .. autoclass:: replay.nn.sequential.SasRec
-   :members: __init__, forward, build_default
+   :members: __init__, forward, from_params
 
 SasRec Building Blocks
 ______________________
