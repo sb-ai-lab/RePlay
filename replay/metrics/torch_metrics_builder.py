@@ -193,7 +193,7 @@ class _MetricBuilder(abc.ABC):
 
 class TorchMetricsBuilder(_MetricBuilder):
     """
-    Computes specified metrics over multiple batches
+    Computes specified metrics over multiple batches.
     """
 
     def __init__(
@@ -203,12 +203,12 @@ class TorchMetricsBuilder(_MetricBuilder):
         item_count: Optional[int] = None,
     ) -> None:
         """
-        :param metrics: (list[MetricName]): Names of metrics to calculate.
-            Default: `["map", "ndcg", "recall"]`.
-        :param top_k: (list): Consider the highest k scores in the ranking.
-            Default: `[1, 5, 10, 20]`.
-        :param item_count: (optional, int): the total number of items in the dataset.
-            You can omit this parameter if you don't need to calculate the Coverage metric.
+        :param metrics: Names of metrics to calculate.
+            Default: ``["map", "ndcg", "recall"]``.
+        :param top_k: Consider the highest k scores in the ranking.
+            Default: ``[1, 5, 10, 20]``.
+        :param item_count: the total number of items in the dataset.
+            You can omit this parameter if you don't need to calculate the ``Coverage`` metric.
         """
         self._mr = _MetricRequirements.from_metrics(
             set(metrics),
@@ -272,12 +272,16 @@ class TorchMetricsBuilder(_MetricBuilder):
         """
         Add a batch with predictions, ground truth and train set to calculate the metrics.
 
-        :param predictions: (torch.LongTensor): A batch with the same number of recommendations for each user.
-        :param ground_truth: (torch.LongTensor): A batch corresponding to the test set for each user.
-            If users have a test set of different sizes then you need to do the padding using -1.
-        :param train: (optional, int): A batch corresponding to the train set for each user.
-            If users have a train set of different sizes then you need to do the padding using -2.
-            You can omit this parameter if you don't need to calculate the coverage or novelty metrics.
+        :param predictions: A batch with the same number of recommendations for each user.
+        :param ground_truth: A batch corresponding to the test set for each user.
+            If users have a test set of different sizes then you need to do
+            the padding using a value that is not found in the item ID's.
+            For example, these can be negative values.
+        :param train: A batch corresponding to the train set for each user.
+            If users have a train set of different sizes then you need to do
+            the padding using a value that is not found in the item ID's and ``ground_truth``.
+            For example, these can be negative values.
+            You can omit this parameter if you don't need to calculate the ``coverage`` or ``novelty`` metrics.
         """
         self._ensure_constants_on_device(predictions.device)
         metrics_sum = np.array(self._compute_metrics_sum(predictions, ground_truth, train), dtype=np.float64)

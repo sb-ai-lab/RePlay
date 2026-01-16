@@ -89,9 +89,10 @@ class TensorFeatureInfo:
         :param cardinality: cardinality of categorical feature, required for ids columns,
             optional for others,
             default: ``None``.
-        :param padding_value: value to pad sequences to desired length
-        :param embedding_dim: embedding dimensions of categorical feature,
-            default: ``None``.
+        :param padding_value: value to pad sequences to desired length.
+            It is recommended to set the padding value for categorical features in `cardinality` - 1.
+        :param embedding_dim: embedding dimensions of the feature.
+            Default: ``None`` - it means will be used value of ``DEFAULT_EMBEDDING_DIM``.
         :param tensor_dim: tensor dimensions of numerical feature,
             default: ``None``.
         """
@@ -106,8 +107,8 @@ class TensorFeatureInfo:
             raise ValueError(msg)
         self._feature_type = feature_type
 
-        if feature_type in [FeatureType.NUMERICAL, FeatureType.NUMERICAL_LIST] and (cardinality or embedding_dim):
-            msg = "Cardinality and embedding dimensions are needed only with categorical feature type."
+        if feature_type in [FeatureType.NUMERICAL, FeatureType.NUMERICAL_LIST] and cardinality is not None:
+            msg = "Cardinality is needed only with categorical feature type."
             raise ValueError(msg)
         self._cardinality = cardinality
 
@@ -115,9 +116,8 @@ class TensorFeatureInfo:
             msg = "Tensor dimensions is needed only with numerical feature type."
             raise ValueError(msg)
 
-        if feature_type in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]:
-            self._embedding_dim = embedding_dim or self.DEFAULT_EMBEDDING_DIM
-        else:
+        self._embedding_dim = embedding_dim or self.DEFAULT_EMBEDDING_DIM
+        if feature_type in [FeatureType.NUMERICAL, FeatureType.NUMERICAL_LIST]:
             self._tensor_dim = tensor_dim
 
     @property
@@ -236,9 +236,6 @@ class TensorFeatureInfo:
         """
         :returns: Embedding dimensions of the feature.
         """
-        if not self.is_cat:
-            msg = f"Can not get embedding dimensions because feature type of {self.name} feature is not categorical."
-            raise RuntimeError(msg)
         return self._embedding_dim
 
     def _set_embedding_dim(self, embedding_dim: int) -> None:

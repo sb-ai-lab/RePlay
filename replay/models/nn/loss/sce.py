@@ -6,9 +6,9 @@ import torch
 
 @dataclass(frozen=True)
 class SCEParams:
-    """Set of parameters for ScalableCrossEntropyLoss.
+    """
+    Set of parameters for ScalableCrossEntropyLoss.
 
-    Constructor arguments:
     :param n_buckets: Number of buckets into which samples will be distributed.
     :param bucket_size_x: Number of item hidden representations that will be in each bucket.
     :param bucket_size_y: Number of item embeddings that will be in each bucket.
@@ -33,11 +33,6 @@ class ScalableCrossEntropyLoss:
 
         :param SCEParams: Dataclass with ScalableCrossEntropyLoss parameters.
             Dataclass contains following values:
-                :param n_buckets: Number of buckets into which samples will be distributed.
-                :param bucket_size_x: Number of item hidden representations that will be in each bucket.
-                :param bucket_size_y: Number of item embeddings that will be in each bucket.
-                :param mix_x: Whether a randomly generated matrix will be multiplied by the model output matrix or not.
-                    Default: ``False``.
         """
         assert all(
             param is not None for param in sce_params._get_not_none_params()
