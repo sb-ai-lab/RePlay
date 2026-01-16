@@ -106,19 +106,19 @@ def test_validation_callbacks(
         ks=[1],
         item_count=cardinality,
         postprocessors=(
-            [
-                postprocessor(
-                    item_count=cardinality - 1, seen_items_column="seen_ids"
-                )
-            ]
-            if postprocessor
-            else None
+            [postprocessor(item_count=cardinality - 1, seen_items_column="seen_ids")] if postprocessor else None
         ),
     )
     model = LightningModule(sasrec_model)
 
     trainer = L.Trainer(max_epochs=1, callbacks=[callback], log_every_n_steps=4)
     trainer.fit(model, datamodule=parquet_module)
+
+    for metric in metrics:
+        assert any(key.startswith(metric) for key in trainer.callback_metrics.keys())
+
+    trainer = L.Trainer(callbacks=[callback])
+    trainer.test(model, datamodule=parquet_module)
 
     for metric in metrics:
         assert any(key.startswith(metric) for key in trainer.callback_metrics.keys())

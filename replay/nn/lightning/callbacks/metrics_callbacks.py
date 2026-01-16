@@ -2,8 +2,9 @@ from typing import Any, Optional
 
 import lightning
 import torch
-from lightning.pytorch.utilities.rank_zero import rank_zero_only
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
+from lightning.pytorch.utilities.rank_zero import rank_zero_only
+
 from replay.metrics.torch_metrics_builder import (
     MetricName,
     TorchMetricsBuilder,

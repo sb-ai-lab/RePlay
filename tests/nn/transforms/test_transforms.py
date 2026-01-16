@@ -192,6 +192,7 @@ def test_token_mask_transform_corner_cases(mask_prob, batch):
 
     assert torch.any(not_padded_token_mask == 0)
 
+
 @pytest.mark.parametrize("max_len", [1, 10])
 def test_trim_transform(random_batch, max_len):
     features_to_trim = ["item_id", "cat_feature"]
@@ -200,6 +201,7 @@ def test_trim_transform(random_batch, max_len):
 
     for feature in features_to_trim:
         assert transformed_batch[feature].shape[1] == max_len
+
 
 def test_trim_transform_wrong_length(random_batch):
     features_to_trim = ["item_id", "cat_feature"]
