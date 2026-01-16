@@ -11,6 +11,7 @@ from replay.nn.transforms import (
     RenameTransform,
     SequenceRollTransform,
     TokenMaskTransform,
+    TrimTransform,
     UniformNegativeSamplingTransform,
     UnsqueezeTransform,
 )
@@ -190,3 +191,20 @@ def test_token_mask_transform_corner_cases(mask_prob, batch):
     not_padded_token_mask = token_mask[padding_mask]
 
     assert torch.any(not_padded_token_mask == 0)
+
+
+@pytest.mark.parametrize("max_len", [1, 10])
+def test_trim_transform(random_batch, max_len):
+    features_to_trim = ["item_id", "cat_feature"]
+    transform = TrimTransform(max_len, features_to_trim)
+    transformed_batch = transform(random_batch)
+
+    for feature in features_to_trim:
+        assert transformed_batch[feature].shape[1] == max_len
+
+
+def test_trim_transform_wrong_length(random_batch):
+    features_to_trim = ["item_id", "cat_feature"]
+    transform = TrimTransform(100, features_to_trim)
+    with pytest.raises(AssertionError):
+        transform(random_batch)

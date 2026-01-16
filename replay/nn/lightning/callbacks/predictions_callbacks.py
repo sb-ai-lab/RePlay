@@ -75,13 +75,12 @@ class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
 
         candidates = pl_module.candidates_to_score
         for postprocessor in self._postprocessors:
-            if hasattr(postprocessor, "candidates"):
-                postprocessor.candidates = candidates
+            postprocessor.candidates = candidates
 
     def on_predict_batch_end(
         self,
         trainer: lightning.Trainer,  # noqa: ARG002
-        pl_module: LightningModule,  # noqa: ARG002
+        pl_module: LightningModule,
         outputs: InferenceOutput,
         batch: dict,
         batch_idx: int,  # noqa: ARG002
@@ -89,6 +88,9 @@ class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
     ) -> None:
         logits = self._apply_postproccesors(batch, outputs["logits"])
         top_scores, top_item_ids = torch.topk(logits, k=self._top_k, dim=1)
+        if pl_module.candidates_to_score is not None:
+            top_item_ids = torch.take(pl_module.candidates_to_score, top_item_ids)
+
         self._query_batches.append(batch["query_id"])
         self._item_batches.append(top_item_ids)
         self._item_scores.append(top_scores)

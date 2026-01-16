@@ -1,5 +1,5 @@
 import warnings
-from typing import Any, Literal, Optional, Protocol
+from typing import Any, Literal, Optional, Protocol, Union
 
 import lightning
 import torch

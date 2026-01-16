@@ -43,6 +43,11 @@ __________________
 .. autoclass:: replay.nn.transforms.TokenMaskTransform
     :members: __init__
 
+TrimTransform
+__________________
+.. autoclass:: replay.nn.transforms.TrimTransform
+    :members: __init__
+
 SequenceRollTransform
 ______________________
 .. autoclass:: replay.nn.transforms.SequenceRollTransform
@@ -51,13 +56,16 @@ ______________________
 UniformNegativeSamplingTransform
 _________________________________
 .. autoclass:: replay.nn.transforms.UniformNegativeSamplingTransform
+
+
+
 SasRec
 ======
 
 SasRec
 ______
 .. autoclass:: replay.nn.sequential.SasRec
-   :members: __init__, forward, build_default
+   :members: __init__, forward, from_params
 
 SasRec Building Blocks
 ______________________
@@ -73,9 +81,9 @@ SasRecTransformerLayer
 .. autoclass:: replay.nn.sequential.SasRecTransformerLayer
    :members: __init__, forward
 
-SasRecAggregator
+PositionAwareAggregator
 ``````````````````````````````
-.. autoclass:: replay.nn.sequential.SasRecAggregator
+.. autoclass:: replay.nn.sequential.PositionAwareAggregator
    :members: __init__, forward
 
 MultiHead Differential Attention

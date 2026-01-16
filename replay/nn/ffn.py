@@ -3,7 +3,7 @@ from typing import Literal
 
 import torch
 
-from replay.data.nn import TensorMap
+from replay.data.nn.schema import TensorMap
 
 from .utils import create_activation
 

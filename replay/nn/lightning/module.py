@@ -114,4 +114,8 @@ class LightningModule(lightning.LightningModule):
 
     @candidates_to_score.setter
     def candidates_to_score(self, candidates: Optional[torch.LongTensor] = None) -> None:
+        if (candidates is not None) and bool(candidates.unique().numel() != candidates.numel()):
+            msg = "The tensor of candidates to score must be unique."
+            raise ValueError(msg)
+
         self._candidates_to_score = candidates

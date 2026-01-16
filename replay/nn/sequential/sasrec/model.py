@@ -127,6 +127,7 @@ class SasRec(torch.nn.Module):
     Example:
 
     .. code-block:: python
+
         body = SasRecBody(
             embedder=SequenceEmbedding(
                 schema=tensor_schema,
@@ -222,7 +223,6 @@ class SasRec(torch.nn.Module):
                 activation="relu",
             ),
             output_normalization=torch.nn.LayerNorm(embedding_dim),
-
         )
         return cls(
             body=body,
