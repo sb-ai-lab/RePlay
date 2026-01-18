@@ -4,9 +4,9 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pytest
-import torch
 
 pytest.importorskip("torch")
+import torch
 
 from replay.data import FeatureHint, FeatureSource, FeatureType
 from replay.data.nn import (

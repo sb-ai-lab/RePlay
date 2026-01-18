@@ -8,11 +8,13 @@ from replay.nn.transforms.base import BaseTransform
 
 class NextTokenTransform(BaseTransform):
     """
-    For the feature tensor specified by ``label_field`` (typically "item_id") creates a corresponding "labels" tensor,
-    shifted forward by the specified ``shift`` value. Padding mask for "labels" is also created.
-    For all the other features excepted ``query_features``,  last ``shift`` elements are truncated.
+    For the tensor specified by key ``label_field`` (typically "item_id") in the batch, this transform creates
+    a corresponding "labels" tensor with a key ``out_feature_name`` in the batch, shifted forward
+    by the specified ``shift`` value. This "labels" tensor are a target that model predicts.
+    Padding mask for "labels" is also created. For all the other features excepted ``query_features``,
+    last ``shift`` elements are truncated.
 
-    This transform is required for the sequential models solving next token prediction task (SasRec).
+    This transform is required for the sequential models optimizing next token prediction task.
 
     **WARNING**: In order to facilitate the shifting, this transform
     requires extra elements in the sequence. Therefore, when utilizing this
@@ -27,7 +29,8 @@ class NextTokenTransform(BaseTransform):
         >>> input_batch = {
         ...     "user_id": torch.LongTensor([111]),
         ...     "item_id": torch.LongTensor([[5, 0, 7, 4]]),
-        ...     "item_id_mask": torch.BoolTensor([[0, 1, 1, 1]])}
+        ...     "item_id_mask": torch.BoolTensor([[0, 1, 1, 1]])
+        ... }
         >>> transform = NextTokenTransform(label_field="item_id", shift=1, query_features="user_id")
         >>> output_batch = transform(input_batch)
         >>> output_batch
@@ -44,7 +47,7 @@ class NextTokenTransform(BaseTransform):
         label_field: str,
         shift: int = 1,
         query_features: Union[List[str], str] = "query_id",
-        out_feature_name: str = "labels",
+        out_feature_name: str = "positive_labels",
         mask_postfix: str = DEFAULT_MASK_POSTFIX,
     ) -> None:
         """
@@ -52,7 +55,7 @@ class NextTokenTransform(BaseTransform):
         :param shift: Number of sequence items to shift by. Default: `1`.
         :param query_features: Name of the query column or list of user features.
             These columns will be excepted from the shifting and will be stayed unchanged. Default: ``"query_id"``.
-        :param out_feature_name: The name of result feature in batch. Default: ``"labels"``.
+        :param out_feature_name: The name of result feature in batch. Default: ``"positive_labels"``.
         :param mask_postfix: Postfix to append to the mask feature corresponding to resulting feature.
             Default: ``"_mask"``.
         """
