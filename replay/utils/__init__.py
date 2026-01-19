@@ -15,4 +15,3 @@ from .types import (
     PolarsDataFrame,
     SparkDataFrame,
 )
-from .warnings import deprecation_warning

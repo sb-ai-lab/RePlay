@@ -11,13 +11,19 @@ if TORCH_AVAILABLE:
 
     from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset, TensorFeatureInfo, TensorSchema
     from replay.models.nn.sequential.bert4rec import (
+        Bert4RecPredictionBatch,
         Bert4RecPredictionDataset,
+        Bert4RecTrainingBatch,
         Bert4RecTrainingDataset,
+        Bert4RecValidationBatch,
         Bert4RecValidationDataset,
     )
     from replay.models.nn.sequential.sasrec import (
+        SasRecPredictionBatch,
         SasRecPredictionDataset,
+        SasRecTrainingBatch,
         SasRecTrainingDataset,
+        SasRecValidationBatch,
         SasRecValidationDataset,
     )
 
@@ -261,6 +267,16 @@ def item_user_sequential_dataset():
     return sequential_dataset
 
 
+@pytest.fixture
+def parquet_dataset_path(tmp_path_factory, item_user_sequential_dataset):
+    tmp_dir = tmp_path_factory.mktemp("parquet_module")
+    path = tmp_dir / "tmp.parquet"
+
+    item_user_sequential_dataset._sequences.to_parquet(path)
+
+    return str(path)
+
+
 @pytest.fixture(scope="module")
 def polars_item_user_sequential_dataset():
     sequences = pl.from_records(
@@ -382,4 +398,111 @@ def val_sasrec_loader(item_user_sequential_dataset):
 @pytest.fixture(scope="module")
 def pred_sasrec_loader(item_user_sequential_dataset):
     pred = SasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    return torch.utils.data.DataLoader(pred)
+
+
+@pytest.fixture(scope="module")
+def deprecated_train_bert_loader(item_user_sequential_dataset):
+    class DeprecatedBert4RecTrainingDataset(Bert4RecTrainingDataset):
+        def __getitem__(self, index: int) -> dict:
+            res = super().__getitem__(index)
+            return Bert4RecTrainingBatch(
+                query_id=res["query_id"],
+                padding_mask=res["pad_mask"],
+                features=res["inputs"],
+                tokens_mask=res["token_mask"],
+                labels=res["positive_labels"],
+            )
+
+    train = DeprecatedBert4RecTrainingDataset(item_user_sequential_dataset, 5)
+    return torch.utils.data.DataLoader(train)
+
+
+@pytest.fixture(scope="module")
+def deprecated_val_bert_loader(item_user_sequential_dataset):
+    class DeprecatedBert4RecValidationDataset(Bert4RecValidationDataset):
+        def __getitem__(self, index: int) -> dict:
+            res = super().__getitem__(index)
+            return Bert4RecValidationBatch(
+                query_id=res["query_id"],
+                padding_mask=res["pad_mask"],
+                features=res["inputs"],
+                tokens_mask=res["token_mask"],
+                ground_truth=res["ground_truth"],
+                train=res["train"],
+            )
+
+    val = DeprecatedBert4RecValidationDataset(
+        item_user_sequential_dataset,
+        item_user_sequential_dataset,
+        item_user_sequential_dataset,
+        max_sequence_length=5,
+    )
+    return torch.utils.data.DataLoader(val)
+
+
+@pytest.fixture(scope="module")
+def deprecated_pred_bert_loader(item_user_sequential_dataset):
+    class DeprecatedBert4RecPredictionDataset(Bert4RecPredictionDataset):
+        def __getitem__(self, index: int) -> dict:
+            res = super().__getitem__(index)
+            return Bert4RecPredictionBatch(
+                query_id=res["query_id"],
+                padding_mask=res["pad_mask"],
+                features=res["inputs"],
+                tokens_mask=res["token_mask"],
+            )
+
+    pred = DeprecatedBert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    return torch.utils.data.DataLoader(pred)
+
+
+@pytest.fixture(scope="module")
+def deprecated_train_sasrec_loader(item_user_sequential_dataset):
+    class DeprecatedSasRecTrainingDataset(SasRecTrainingDataset):
+        def __getitem__(self, index: int) -> dict:
+            res = super().__getitem__(index)
+            return SasRecTrainingBatch(
+                query_id=res["query_id"],
+                padding_mask=res["padding_mask"],
+                features=res["feature_tensor"],
+                labels=res["positive_labels"],
+                labels_padding_mask=res["target_padding_mask"],
+            )
+
+    train = DeprecatedSasRecTrainingDataset(item_user_sequential_dataset, 5)
+    return torch.utils.data.DataLoader(train)
+
+
+@pytest.fixture(scope="module")
+def deprecated_val_sasrec_loader(item_user_sequential_dataset):
+    class DeprecatedSasRecValidationDataset(SasRecValidationDataset):
+        def __getitem__(self, index: int) -> dict:
+            res = super().__getitem__(index)
+            return SasRecValidationBatch(
+                query_id=res["query_id"],
+                padding_mask=res["padding_mask"],
+                features=res["feature_tensor"],
+                ground_truth=res["ground_truth"],
+                train=res["train"],
+            )
+
+    val = DeprecatedSasRecValidationDataset(
+        item_user_sequential_dataset, item_user_sequential_dataset, item_user_sequential_dataset, max_sequence_length=5
+    )
+    return torch.utils.data.DataLoader(val)
+
+
+@pytest.fixture(scope="module")
+def deprecated_pred_sasrec_loader(item_user_sequential_dataset):
+    class DeprecatedSasRecPredictionDataset(SasRecPredictionDataset):
+        def __getitem__(self, index: int) -> dict:
+            res = super().__getitem__(index)
+            return SasRecPredictionBatch(
+                query_id=res["query_id"],
+                padding_mask=res["padding_mask"],
+                features=res["feature_tensor"],
+            )
+
+    pred = DeprecatedSasRecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     return torch.utils.data.DataLoader(pred)

@@ -110,7 +110,7 @@ class SasRecModel(torch.nn.Module):
     ) -> torch.Tensor:
         """
         :param feature_tensor: Batch of features.
-        :param padding_mask: Padding mask where 0 - <PAD>, 1 otherwise.
+        :param padding_mask: Padding mask where 0 - ``<PAD>``, 1 - otherwise.
 
         :returns: Calculated scores.
         """
@@ -127,11 +127,11 @@ class SasRecModel(torch.nn.Module):
     ) -> torch.Tensor:
         """
         :param feature_tensor: Batch of features.
-        :param padding_mask: Padding mask where 0 - <PAD>, 1 otherwise.
-        :param candidates_to_score: Item ids to calculate scores.
-            if `None` predicts for all items
+        :param padding_mask: Padding mask where 0 - ``<PAD>``, 1 - otherwise.
+        :param candidates_to_score: Item ids to calculate scores.\n
+            If ``None`` then predicts for all items. Default: ``None``.
 
-        :returns: Prediction among canditates_to_score items.
+        :returns: Prediction among ``canditates_to_score`` items.
         """
         # final_emb: [B x E]
         final_emb = self.get_query_embeddings(feature_tensor, padding_mask)
@@ -145,7 +145,7 @@ class SasRecModel(torch.nn.Module):
     ):
         """
         :param feature_tensor: Batch of features.
-        :param padding_mask: Padding mask where 0 - <PAD>, 1 otherwise.
+        :param padding_mask: Padding mask where 0 - ``<PAD>``, 1 - otherwise.
 
         :returns: Query embeddings.
         """
@@ -158,7 +158,7 @@ class SasRecModel(torch.nn.Module):
     ) -> torch.Tensor:
         """
         :param feature_tensor: Batch of features.
-        :param padding_mask: Padding mask where 0 - <PAD>, 1 otherwise.
+        :param padding_mask: Padding mask where 0 - ``<PAD>``, 1 - otherwise.
 
         :returns: Output embeddings.
         """
@@ -176,9 +176,9 @@ class SasRecModel(torch.nn.Module):
 
     def get_logits(self, out_embeddings: torch.Tensor, item_ids: Optional[torch.LongTensor] = None) -> torch.Tensor:
         """
-        Apply head to output embeddings of `forward_step`.
+        Apply head to output embeddings of ``forward_step``.
 
-        :param out_embeddings: Embeddings after `forward step`.
+        :param out_embeddings: Embeddings after ``forward step``.
         :param item_ids: Item ids to calculate scores.
             Default: ``None``.
 

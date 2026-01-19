@@ -1,5 +1,7 @@
 import abc
-from typing import Generic, Optional, Protocol, TypeVar, cast
+import inspect
+import warnings
+from typing import Generic, Optional, Protocol, TypeVar, Union, cast
 
 import lightning
 import torch
@@ -48,6 +50,14 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
         :param postprocessors: postprocessors to apply.
         """
         super().__init__()
+
+        deprecation_msg = (
+            f"The {self.__class__.__name__} class is deprecated. "
+            "The class will be removed in next major release.\n"
+            "Instead of this class, you can use the similar class located in the replay.nn.callbacks module."
+        )
+        warnings.warn(deprecation_msg, DeprecationWarning, stacklevel=2)
+
         self.query_column = query_column
         self.item_column = item_column
         self.rating_column = rating_column
@@ -74,11 +84,14 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
         trainer: lightning.Trainer,  # noqa: ARG002
         pl_module: lightning.LightningModule,  # noqa: ARG002
         outputs: torch.Tensor,
-        batch: PredictionBatch,
+        batch: Union[PredictionBatch, dict],
         batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> None:
-        query_ids, scores = self._compute_pipeline(batch.query_id, outputs)
+        query_ids, scores = self._compute_pipeline(
+            batch["query_id"] if isinstance(batch, dict) else batch.query_id,
+            outputs,
+        )
         top_scores, top_item_ids = torch.topk(scores, k=self._top_k, dim=1)
         self._query_batches.append(query_ids)
         self._item_batches.append(top_item_ids)
@@ -266,15 +279,26 @@ class QueryEmbeddingsPredictionCallback(lightning.Callback):
         trainer: lightning.Trainer,  # noqa: ARG002
         pl_module: lightning.LightningModule,
         outputs: torch.Tensor,  # noqa: ARG002
-        batch: PredictionBatch,
+        batch: Union[PredictionBatch, dict],
         batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> None:
-        args = [batch.features, batch.padding_mask]
-        if isinstance(pl_module, Bert4Rec):
-            args.append(batch.tokens_mask)
+        if isinstance(batch, dict):
+            modified_batch = {
+                k: v
+                for k, v in batch.items()
+                if k in inspect.signature(pl_module._model.get_query_embeddings).parameters
+            }
+            query_embeddings = pl_module._model.get_query_embeddings(**modified_batch)
+        else:
+            args = [
+                batch.features,
+                batch.padding_mask,
+            ]
+            if isinstance(pl_module, Bert4Rec):
+                args.append(batch.tokens_mask)
+            query_embeddings = pl_module._model.get_query_embeddings(*args)
 
-        query_embeddings = pl_module._model.get_query_embeddings(*args)
         self._embeddings_per_batch.append(query_embeddings)
 
     def get_result(self):

@@ -1,4 +1,5 @@
 import math
+import warnings
 from typing import Any, Literal, Optional, Union, cast
 
 import lightning
@@ -54,9 +55,9 @@ class SasRec(lightning.LightningModule):
             Default: ``False``.
         :param time_span: Time span value.
             Default: ``256``.
-        :param loss_type: Loss type. Possible values: ``"CE"``, ``"BCE"``, ``"SCE"``.
+        :param loss_type: Loss type.
             Default: ``CE``.
-        :param loss_sample_count (Optional[int]): Sample count to calculate loss.
+        :param loss_sample_count: Sample count to calculate loss.
             Suitable for ``"CE"`` and ``"BCE"`` loss functions.
             Default: ``None``.
         :param negative_sampling_strategy: Negative sampling strategy to calculate loss on sampled negatives.
@@ -74,6 +75,16 @@ class SasRec(lightning.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters()
+
+        deprecation_msg = (
+            "The SasRec class is deprecated. "
+            "The class will be removed in next major release.\n"
+            "Instead of this class, you can use the decomposed SasRec model class located in the replay.nn module.\n"
+            "To train and infer a model via Lightning, "
+            "you can use the universal class for all models, the LightingModule class located in the replay.nn module."
+        )
+        warnings.warn(deprecation_msg, DeprecationWarning, stacklevel=2)
+
         self._model = SasRecModel(
             schema=tensor_schema,
             num_blocks=block_count,
@@ -102,7 +113,7 @@ class SasRec(lightning.LightningModule):
         self._vocab_size = item_count
         self.candidates_to_score = None
 
-    def training_step(self, batch: SasRecTrainingBatch, batch_idx: int) -> torch.Tensor:
+    def training_step(self, batch: Union[SasRecTrainingBatch, dict], batch_idx: int) -> torch.Tensor:
         """
         :param batch (SasRecTrainingBatch): Batch of training data.
         :param batch_idx (int): Batch index.
@@ -117,7 +128,7 @@ class SasRec(lightning.LightningModule):
 
     def predict_step(
         self,
-        batch: SasRecPredictionBatch,
+        batch: Union[SasRecPredictionBatch, dict],
         batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> torch.Tensor:
@@ -128,12 +139,23 @@ class SasRec(lightning.LightningModule):
 
         :returns: Calculated scores.
         """
+        if isinstance(batch, SasRecPredictionBatch):
+            warnings.warn(
+                "`SasRecPredictionBatch` class will be removed in future versions. "
+                "Instead, you should use simple dictionary",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            batch = batch.convert_to_dict()
         batch = _prepare_prediction_batch(self._schema, self._model.max_len, batch)
-        return self._model_predict(batch.features, batch.padding_mask)
+        return self._model_predict(
+            feature_tensors=batch["feature_tensor"],
+            padding_mask=batch["padding_mask"],
+        )
 
     def predict(
         self,
-        batch: SasRecPredictionBatch,
+        batch: Union[SasRecPredictionBatch, dict],
         candidates_to_score: Optional[torch.LongTensor] = None,
     ) -> torch.Tensor:
         """
@@ -143,8 +165,20 @@ class SasRec(lightning.LightningModule):
 
         :returns: Calculated scores.
         """
+        if isinstance(batch, SasRecPredictionBatch):
+            warnings.warn(
+                "`SasRecPredictionBatch` class will be removed in future versions. "
+                "Instead, you should use simple dictionary",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            batch = batch.convert_to_dict()
         batch = _prepare_prediction_batch(self._schema, self._model.max_len, batch)
-        return self._model_predict(batch.features, batch.padding_mask, candidates_to_score)
+        return self._model_predict(
+            feature_tensors=batch["feature_tensor"],
+            padding_mask=batch["padding_mask"],
+            candidates_to_score=candidates_to_score,
+        )
 
     def forward(
         self,
@@ -164,7 +198,7 @@ class SasRec(lightning.LightningModule):
 
     def validation_step(
         self,
-        batch: SasRecValidationBatch,
+        batch: Union[SasRecValidationBatch, dict],
         batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> torch.Tensor:
@@ -174,7 +208,19 @@ class SasRec(lightning.LightningModule):
 
         :returns: Calculated scores.
         """
-        return self._model_predict(batch.features, batch.padding_mask)
+        if isinstance(batch, SasRecValidationBatch):
+            warnings.warn(
+                "`SasRecValidationBatch` class will be removed in future versions. "
+                "Instead, you should use simple dictionary",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            batch = batch.convert_to_dict()
+
+        return self._model_predict(
+            feature_tensors=batch["feature_tensor"],
+            padding_mask=batch["padding_mask"],
+        )
 
     def configure_optimizers(self) -> Any:
         """
@@ -197,10 +243,14 @@ class SasRec(lightning.LightningModule):
         model: SasRecModel
         model = cast(SasRecModel, self._model.module) if isinstance(self._model, torch.nn.DataParallel) else self._model
         candidates_to_score = self.candidates_to_score if candidates_to_score is None else candidates_to_score
-        scores = model.predict(feature_tensors, padding_mask, candidates_to_score)
+        scores = model.predict(
+            feature_tensor=feature_tensors,
+            padding_mask=padding_mask,
+            candidates_to_score=candidates_to_score,
+        )
         return scores
 
-    def _compute_loss(self, batch: SasRecTrainingBatch) -> torch.Tensor:
+    def _compute_loss(self, batch: Union[SasRecTrainingBatch, dict]) -> torch.Tensor:
         if self._loss_type == "BCE":
             loss_func = self._compute_loss_bce if self._loss_sample_count is None else self._compute_loss_bce_sampled
         elif self._loss_type == "CE":
@@ -211,11 +261,20 @@ class SasRec(lightning.LightningModule):
             msg = f"Not supported loss type: {self._loss_type}"
             raise ValueError(msg)
 
+        if isinstance(batch, SasRecTrainingBatch):
+            warnings.warn(
+                "`SasRecTrainingBatch` class will be removed in future versions. "
+                "Instead, you should use simple dictionary",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            batch = batch.convert_to_dict()
+
         loss = loss_func(
-            batch.features,
-            batch.labels,
-            batch.padding_mask,
-            batch.labels_padding_mask,
+            batch["feature_tensor"],
+            batch["positive_labels"],
+            batch["padding_mask"],
+            batch["target_padding_mask"],
         )
         return loss
 
@@ -566,19 +625,23 @@ class SasRec(lightning.LightningModule):
 
 
 def _prepare_prediction_batch(
-    schema: TensorSchema, max_len: int, batch: SasRecPredictionBatch
-) -> SasRecPredictionBatch:
-    if batch.padding_mask.shape[1] > max_len:
+    schema: TensorSchema,
+    max_len: int,
+    batch: dict,
+) -> dict:
+    seq_len = batch["padding_mask"].shape[1]
+    if seq_len > max_len:
         msg = (
             "The length of the submitted sequence "
             "must not exceed the maximum length of the sequence. "
-            f"The length of the sequence is given {batch.padding_mask.shape[1]}, "
+            f"The length of the sequence is given {seq_len}, "
             f"while the maximum length is {max_len}"
         )
         raise ValueError(msg)
 
-    if batch.padding_mask.shape[1] < max_len:
-        query_id, padding_mask, features = batch
+    if seq_len < max_len:
+        padding_mask = batch["padding_mask"]
+        features = batch["feature_tensor"].copy()
         sequence_item_count = padding_mask.shape[1]
         for feature_name, feature_tensor in features.items():
             if schema[feature_name].is_cat:
@@ -592,5 +655,7 @@ def _prepare_prediction_batch(
                     value=0,
                 ).unsqueeze(-1)
         padding_mask = torch.nn.functional.pad(padding_mask, (max_len - sequence_item_count, 0), value=0)
-        batch = SasRecPredictionBatch(query_id, padding_mask, features)
+        batch["padding_mask"] = padding_mask
+        batch["feature_tensor"] = features
+
     return batch

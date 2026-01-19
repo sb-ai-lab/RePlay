@@ -3,7 +3,6 @@ Welcome to RePlay's documentation!
 
 
 .. toctree::
-   :maxdepth: 4
    :caption: Contents:
 
    pages/installation

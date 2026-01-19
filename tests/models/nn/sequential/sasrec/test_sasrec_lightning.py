@@ -1,15 +1,21 @@
+import copy
+
+import lightning as L
 import pytest
+import torch
 
-from replay.utils import TORCH_AVAILABLE
-
-if TORCH_AVAILABLE:
-    from replay.models.nn.loss import SCEParams
-    from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
-    from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionBatch, SasRecPredictionDataset
-
-
-torch = pytest.importorskip("torch")
-L = pytest.importorskip("lightning")
+from replay.data.nn import ParquetModule
+from replay.models.nn.loss import SCEParams
+from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
+from replay.models.nn.sequential.sasrec import (
+    SasRec,
+    SasRecPredictionBatch,
+    SasRecPredictionDataset,
+)
+from replay.nn.transforms import (
+    CopyTransform,
+)
+from replay.nn.transforms.templates.sasrec import make_default_sasrec_transforms
 
 
 @pytest.mark.torch
@@ -38,6 +44,32 @@ def test_training_sasrec_with_different_losses(
         loss_sample_count=loss_sample_count,
     )
     trainer.fit(model, train_sasrec_loader, val_sasrec_loader)
+
+
+@pytest.mark.torch
+def test_deprecated_sasrec_pipeline(
+    item_user_sequential_dataset,
+    deprecated_train_sasrec_loader,
+    deprecated_val_sasrec_loader,
+    deprecated_pred_sasrec_loader,
+):
+    trainer = L.Trainer(max_epochs=1)
+    model = SasRec(
+        tensor_schema=item_user_sequential_dataset._tensor_schema,
+        max_seq_len=5,
+        hidden_size=64,
+    )
+    with pytest.deprecated_call():
+        trainer.fit(model, deprecated_train_sasrec_loader, deprecated_val_sasrec_loader)
+
+    with pytest.deprecated_call():
+        _ = trainer.predict(model, deprecated_pred_sasrec_loader)
+
+    with pytest.deprecated_call():
+        for batch in deprecated_pred_sasrec_loader:
+            _ = model.predict(
+                batch,
+            )
 
 
 @pytest.mark.torch
@@ -463,3 +495,43 @@ def test_sasrec_set_invalid_optim_factory(item_user_sequential_dataset):
     new_factory = "Let's say it's an optimizer_factory"
     with pytest.raises(ValueError):
         model.optimizer_factory = new_factory
+
+
+@pytest.mark.torch
+def test_sasrec_with_parquet_datamodule(parquet_dataset_path, item_user_sequential_dataset):
+    max_len = 10
+    tensor_schema = copy.deepcopy(item_user_sequential_dataset._tensor_schema)
+
+    TRANSFORMS = make_default_sasrec_transforms(tensor_schema, query_column="user_id", use_legacy=True)
+
+    TRANSFORMS["validate"].insert(1, CopyTransform(mapping={"item_id": "train"}))
+
+    shared_meta = {"user_id": {}, "item_id": {"shape": max_len, "padding": tensor_schema["item_id"].padding_value}}
+    METADATA = {
+        "train": copy.deepcopy(shared_meta),
+        "validate": copy.deepcopy(shared_meta),
+        "predict": copy.deepcopy(shared_meta),
+    }
+    METADATA["train"]["item_id"]["shape"] = max_len + 1
+
+    parquet_dataset = ParquetModule(
+        train_path=parquet_dataset_path,
+        validate_path=parquet_dataset_path,
+        predict_path=parquet_dataset_path,
+        batch_size=2,
+        metadata=METADATA,
+        transforms=TRANSFORMS,
+    )
+
+    trainer = L.Trainer(max_epochs=1)
+    model = SasRec(
+        tensor_schema=tensor_schema,
+        max_seq_len=max_len,
+        hidden_size=64,
+        loss_type="BCE",
+        loss_sample_count=6,
+    )
+    trainer.fit(model, datamodule=parquet_dataset)
+
+    trainer = L.Trainer(inference_mode=True)
+    trainer.predict(model, datamodule=parquet_dataset)

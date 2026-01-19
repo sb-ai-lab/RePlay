@@ -440,14 +440,19 @@ def sequential_tensor_schema():
 
 
 @pytest.fixture(scope="class")
-def sequential_df():
+def data_rows():
+    return [
+        (0, [1], [0, 1], [1, 2], np.array([[1, 2], [1, 2], [1, 2]])),
+        (1, [2], [0, 2, 3], [1, 3, 4], np.array([[1, 2], [1, 2]])),
+        (2, [3], [1], [2], np.array([[1, 2]])),
+        (3, [4], [0, 1, 2, 3, 4, 5], [1, 2, 3, 4, 5, 6], np.array([[1, 2], [1, 2], [1, 2], [1, 2]])),
+    ]
+
+
+@pytest.fixture(scope="class")
+def sequential_df_pandas(data_rows):
     return pd.DataFrame(
-        [
-            (0, [1], [0, 1], [1, 2], [[1, 2], [1, 2], [1, 2]]),
-            (1, [2], [0, 2, 3], [1, 3, 4], [[1, 2], [1, 2]]),
-            (2, [3], [1], [2], [[1, 2]]),
-            (3, [4], [0, 1, 2, 3, 4, 5], [1, 2, 3, 4, 5, 6], [[1, 2], [1, 2], [1, 2], [1, 2]]),
-        ],
+        data_rows,
         columns=[
             "user_id",
             "some_user_feature",
@@ -459,20 +464,34 @@ def sequential_df():
 
 
 @pytest.fixture(scope="class")
-def sequential_info(sequential_tensor_schema, sequential_df):
+def sequential_df_polars(data_rows):
+    return pl.from_records(
+        data_rows,
+        schema=[
+            "user_id",
+            "some_user_feature",
+            "item_id",
+            "some_item_feature",
+            "some_tensor_feature",
+        ],
+    )
+
+
+@pytest.fixture(scope="class")
+def sequential_info(sequential_tensor_schema, sequential_df_pandas):
     return {
         "tensor_schema": sequential_tensor_schema,
-        "sequences": sequential_df,
+        "sequences": sequential_df_pandas,
         "query_id_column": "user_id",
         "item_id_column": "item_id",
     }
 
 
 @pytest.fixture(scope="class")
-def sequential_info_polars(sequential_tensor_schema, sequential_df):
+def sequential_info_polars(sequential_tensor_schema, sequential_df_polars):
     return {
         "tensor_schema": sequential_tensor_schema,
-        "sequences": pl.from_pandas(sequential_df),
+        "sequences": sequential_df_polars,
         "query_id_column": "user_id",
         "item_id_column": "item_id",
     }

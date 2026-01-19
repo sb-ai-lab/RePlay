@@ -18,7 +18,6 @@ def interactions_pandas():
     )
 
 
-@pytest.mark.usefixtures("spark")
 @pytest.fixture()
 def interactions_spark(spark, interactions_pandas):
     return spark.createDataFrame(interactions_pandas)
@@ -34,7 +33,6 @@ def true_size(interactions_pandas):
 @pytest.mark.spark
 @pytest.mark.parametrize("row_count", [None, 1000, 1500])
 @pytest.mark.parametrize("column_count", [None, 2000, 1700])
-@pytest.mark.usefixtures("interactions_spark", "true_size")
 def test_CSRConverter_user_column_counts(row_count, column_count, interactions_spark, true_size):
     current_size = (
         row_count if row_count is not None else true_size[0],
@@ -49,7 +47,6 @@ def test_CSRConverter_user_column_counts(row_count, column_count, interactions_s
 @pytest.mark.spark
 @pytest.mark.parametrize("row_count", [3, 2, 1])
 @pytest.mark.parametrize("column_count", [11, 1, 5])
-@pytest.mark.usefixtures("interactions_spark")
 def test_CSRConverter_user_column_counts_exception(row_count, column_count, interactions_spark):
     with pytest.raises(ValueError):
         CSRConverter(

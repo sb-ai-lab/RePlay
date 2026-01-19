@@ -88,8 +88,8 @@ class Bert4RecModel(torch.nn.Module):
     def forward(self, inputs: TensorMap, pad_mask: torch.BoolTensor, token_mask: torch.BoolTensor) -> torch.Tensor:
         """
         :param inputs: Batch of features.
-        :param pad_mask: Padding mask where 0 - <PAD>, 1 otherwise.
-        :param token_mask: Token mask where 0 - <MASK> tokens, 1 otherwise.
+        :param pad_mask: Padding mask where 0 - ``<PAD>``, 1 - otherwise.
+        :param token_mask: Token mask where 0 - ``<MASK>`` tokens, 1 - otherwise.
 
         :returns: Calculated scores.
         """
@@ -107,12 +107,12 @@ class Bert4RecModel(torch.nn.Module):
     ) -> torch.Tensor:
         """
         :param inputs: Batch of features.
-        :param pad_mask: Padding mask where 0 - <PAD>, 1 otherwise.
-        :param token_mask: Token mask where 0 - <MASK> tokens, 1 otherwise.
-        :param candidates_to_score: Item ids to calculate scores.
-            if `None` predicts for all items
+        :param pad_mask: Padding mask where 0 - ``<PAD>``, 1 - otherwise.
+        :param token_mask: Token mask where 0 - ``<MASK>`` tokens, 1 - otherwise.
+        :param candidates_to_score: Item ids to calculate scores.\n
+            If ``None`` then predicts for all items. Default: ``None``.
 
-        :returns: Calculated scores among canditates_to_score items.
+        :returns: Calculated scores among ``canditates_to_score`` items.
         """
         # final_emb: [B x E]
         final_emb = self.get_query_embeddings(inputs, pad_mask, token_mask)
@@ -123,8 +123,8 @@ class Bert4RecModel(torch.nn.Module):
         """
 
         :param inputs (TensorMap): Batch of features.
-        :param pad_mask (torch.BoolTensor): Padding mask where 0 - <PAD>, 1 otherwise.
-        :param token_mask (torch.BoolTensor): Token mask where 0 - <MASK> tokens, 1 otherwise.
+        :param pad_mask (torch.BoolTensor): Padding mask where 0 - ``<PAD>``, 1 - otherwise.
+        :param token_mask (torch.BoolTensor): Token mask where 0 - ``<MASK>`` tokens, 1 - otherwise.
 
         :returns: Output embeddings.
         """
@@ -158,8 +158,8 @@ class Bert4RecModel(torch.nn.Module):
     def get_query_embeddings(self, inputs: TensorMap, pad_mask: torch.BoolTensor, token_mask: torch.BoolTensor):
         """
         :param inputs: Batch of features.
-        :param pad_mask: Padding mask where 0 - <PAD>, 1 otherwise.
-        :param token_mask: Token mask where 0 - <MASK> tokens, 1 otherwise.
+        :param pad_mask: Padding mask where 0 - ``<PAD>``, 1 - otherwise.
+        :param token_mask: Token mask where 0 - ``<MASK>`` tokens, 1 - otherwise.
 
         :returns: Query embeddings.
         """

@@ -13,7 +13,6 @@ def interactions_pandas():
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("spark")
 def interactions_spark(spark, interactions_pandas):
     return spark.createDataFrame(interactions_pandas)
 

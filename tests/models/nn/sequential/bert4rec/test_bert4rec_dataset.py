@@ -73,27 +73,27 @@ def test_bert_training_dataset_getitem(sequential_dataset):
         mask_prob=0.0,
     )[0]
 
-    assert batch.query_id.item() == 0
-    assert all(batch.padding_mask == torch.tensor([0, 0, 0, 0, 0, 0, 1, 1], dtype=torch.bool))
-    assert all(batch.tokens_mask == torch.tensor([1, 1, 1, 1, 1, 1, 1, 0], dtype=torch.bool))
-    assert all(batch.labels == torch.tensor([-10, -10, -10, -10, -10, -10, 1, 2]))
+    assert batch["query_id"].item() == 0
+    assert all(batch["pad_mask"] == torch.tensor([0, 0, 0, 0, 0, 0, 1, 1], dtype=torch.bool))
+    assert all(batch["token_mask"] == torch.tensor([1, 1, 1, 1, 1, 1, 1, 0], dtype=torch.bool))
+    assert all(batch["positive_labels"] == torch.tensor([-10, -10, -10, -10, -10, -10, 1, 2]))
 
 
 @pytest.mark.torch
 def test_bert_prediction_dataset_getitem(sequential_dataset):
     batch = Bert4RecPredictionDataset(sequential_dataset, 8)[1]
 
-    assert batch.query_id.item() == 1
-    assert all(batch.padding_mask == torch.tensor([0, 0, 0, 0, 1, 1, 1, 1], dtype=torch.bool))
-    assert all(batch.tokens_mask == torch.tensor([0, 0, 0, 0, 1, 1, 1, 0], dtype=torch.bool))
+    assert batch["query_id"].item() == 1
+    assert all(batch["pad_mask"] == torch.tensor([0, 0, 0, 0, 1, 1, 1, 1], dtype=torch.bool))
+    assert all(batch["token_mask"] == torch.tensor([0, 0, 0, 0, 1, 1, 1, 0], dtype=torch.bool))
 
 
 @pytest.mark.torch
 def test_bert_validation_dataset_getitem(sequential_dataset):
     batch = Bert4RecValidationDataset(sequential_dataset, sequential_dataset, sequential_dataset, 8)[2]
 
-    assert batch.query_id.item() == 2
-    assert all(batch.padding_mask == torch.tensor([0, 0, 0, 0, 0, 0, 1, 1], dtype=torch.bool))
-    assert all(batch.tokens_mask == torch.tensor([0, 0, 0, 0, 0, 0, 1, 0], dtype=torch.bool))
-    assert all(batch.ground_truth == torch.tensor([1, -1, -1, -1, -1, -1]))
-    assert all(batch.train == torch.tensor([1, -2, -2, -2, -2, -2]))
+    assert batch["query_id"].item() == 2
+    assert all(batch["pad_mask"] == torch.tensor([0, 0, 0, 0, 0, 0, 1, 1], dtype=torch.bool))
+    assert all(batch["token_mask"] == torch.tensor([0, 0, 0, 0, 0, 0, 1, 0], dtype=torch.bool))
+    assert all(batch["ground_truth"] == torch.tensor([1, -1, -1, -1, -1, -1]))
+    assert all(batch["train"] == torch.tensor([1, -2, -2, -2, -2, -2]))

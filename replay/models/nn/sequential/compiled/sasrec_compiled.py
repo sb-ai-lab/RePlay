@@ -1,4 +1,5 @@
 import pathlib
+import warnings
 from typing import Optional, Union, get_args
 
 import openvino as ov
@@ -39,7 +40,7 @@ class SasRecCompiled(BaseCompiledModel):
 
     def predict(
         self,
-        batch: SasRecPredictionBatch,
+        batch: Union[SasRecPredictionBatch, dict],
         candidates_to_score: Optional[torch.LongTensor] = None,
     ) -> torch.Tensor:
         """
@@ -51,12 +52,21 @@ class SasRecCompiled(BaseCompiledModel):
 
         :return: Tensor with scores.
         """
-        self._valilade_predict_input(batch, candidates_to_score)
+        self._validate_predict_input(batch, candidates_to_score)
+
+        if isinstance(batch, SasRecPredictionBatch):
+            warnings.warn(
+                "`SasRecPredictionBatch` class will be removed in future versions. "
+                "Instead, you should use simple dictionary",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            batch = batch.convert_to_dict()
 
         batch = _prepare_prediction_batch(self._schema, self._max_seq_len, batch)
         model_inputs = {
-            self._inputs_names[0]: batch.features[self._inputs_names[0]],
-            self._inputs_names[1]: batch.padding_mask,
+            self._inputs_names[0]: batch["feature_tensor"][self._inputs_names[0]],
+            self._inputs_names[1]: batch["padding_mask"],
         }
         if self._num_candidates_to_score is not None:
             self._validate_candidates_to_score(candidates_to_score)
@@ -77,15 +87,14 @@ class SasRecCompiled(BaseCompiledModel):
         Model compilation.
 
         :param model: Path to lightning SasRec model saved in .ckpt format or the SasRec object itself.
-        :param mode: Inference mode, defines shape of inputs.
-            Could be one of [``one_query``, ``batch``, ``dynamic_batch_size``].\n
+        :param mode: Inference mode, defines shape of inputs.\n
             ``one_query`` - sets input shape to [1, max_seq_len]\n
             ``batch`` - sets input shape to [batch_size, max_seq_len]\n
             ``dynamic_batch_size`` - sets batch_size to dynamic range [?, max_seq_len]\n
             Default: ``one_query``.
         :param batch_size: Batch size, required for ``batch`` mode.
             Default: ``None``.
-        :param num_candidates_to_score: Number of item ids to calculate scores.
+        :param num_candidates_to_score: Number of item ids to calculate scores.\n
             Could be one of [``None``, ``-1``, ``N``].\n
             ``-1`` - sets candidates_to_score shape to dynamic range [1, ?]\n
             ``N`` - sets candidates_to_score shape to [1, N]\n

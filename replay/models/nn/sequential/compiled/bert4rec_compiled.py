@@ -1,4 +1,5 @@
 import pathlib
+import warnings
 from typing import Optional, Union, get_args
 
 import openvino as ov
@@ -39,7 +40,7 @@ class Bert4RecCompiled(BaseCompiledModel):
 
     def predict(
         self,
-        batch: Bert4RecPredictionBatch,
+        batch: Union[Bert4RecPredictionBatch, dict],
         candidates_to_score: Optional[torch.LongTensor] = None,
     ) -> torch.Tensor:
         """
@@ -51,13 +52,22 @@ class Bert4RecCompiled(BaseCompiledModel):
 
         :return: Tensor with scores.
         """
-        self._valilade_predict_input(batch, candidates_to_score)
+        self._validate_predict_input(batch, candidates_to_score, "pad_mask")
+
+        if isinstance(batch, Bert4RecPredictionBatch):
+            warnings.warn(
+                "`Bert4RecPredictionBatch` class will be removed in future versions. "
+                "Instead, you should use simple dictionary",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            batch = batch.convert_to_dict()
 
         batch = _prepare_prediction_batch(self._schema, self._max_seq_len, batch)
         model_inputs = {
-            self._inputs_names[0]: batch.features[self._inputs_names[0]],
-            self._inputs_names[1]: batch.padding_mask,
-            self._inputs_names[2]: batch.tokens_mask,
+            self._inputs_names[0]: batch["inputs"][self._inputs_names[0]],
+            self._inputs_names[1]: batch["pad_mask"],
+            self._inputs_names[2]: batch["token_mask"],
         }
         if self._num_candidates_to_score is not None:
             self._validate_candidates_to_score(candidates_to_score)

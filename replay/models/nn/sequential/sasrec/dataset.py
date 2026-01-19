@@ -1,4 +1,4 @@
-from typing import NamedTuple, Optional, cast
+from typing import NamedTuple, Optional
 
 import torch
 from torch.utils.data import Dataset as TorchDataset
@@ -10,7 +10,6 @@ from replay.data.nn import (
     TorchSequentialDataset,
     TorchSequentialValidationDataset,
 )
-from replay.utils import deprecation_warning
 
 
 class SasRecTrainingBatch(NamedTuple):
@@ -25,23 +24,33 @@ class SasRecTrainingBatch(NamedTuple):
     labels: torch.LongTensor
     labels_padding_mask: torch.BoolTensor
 
+    def convert_to_dict(self) -> dict:
+        return {
+            "query_id": self.query_id,
+            "feature_tensor": self.features,
+            "padding_mask": self.padding_mask,
+            "positive_labels": self.labels,
+            "target_padding_mask": self.labels_padding_mask,
+        }
+
 
 class SasRecTrainingDataset(TorchDataset):
     """
-    Dataset that generates samples to train SasRec-like model
+    Dataset that generates samples to train SasRec model.
+
+    As a result of the dataset iteration, a dictionary is formed.
+    The keys in the dictionary match the names of the arguments in the model's `forward` function.
+    There are also additional keys needed to calculate losses - 'positive_labels`, `target_padding_mask`.
+    The `query_id` key is required for possible debugging and calling additional lightning callbacks.
     """
 
-    @deprecation_warning(
-        "`padding_value` parameter will be removed in future versions. "
-        "Instead, you should specify `padding_value` for each column in TensorSchema"
-    )
     def __init__(
         self,
         sequential: SequentialDataset,
         max_sequence_length: int,
         sequence_shift: int = 1,
         sliding_window_step: Optional[None] = None,
-        padding_value: int = 0,
+        padding_value: Optional[int] = None,
         label_feature_name: Optional[str] = None,
     ) -> None:
         """
@@ -86,7 +95,7 @@ class SasRecTrainingDataset(TorchDataset):
     def __len__(self) -> int:
         return len(self._inner)
 
-    def __getitem__(self, index: int) -> SasRecTrainingBatch:
+    def __getitem__(self, index: int) -> dict:
         query_id, padding_mask, features = self._inner[index]
 
         assert self._label_feature_name
@@ -102,13 +111,13 @@ class SasRecTrainingDataset(TorchDataset):
 
         output_features_padding_mask = padding_mask[: -self._sequence_shift]
 
-        return SasRecTrainingBatch(
-            query_id=query_id,
-            features=output_features,
-            padding_mask=cast(torch.BoolTensor, output_features_padding_mask),
-            labels=cast(torch.LongTensor, labels),
-            labels_padding_mask=cast(torch.BoolTensor, labels_padding_mask),
-        )
+        return {
+            "query_id": query_id,
+            "feature_tensor": output_features,
+            "padding_mask": output_features_padding_mask,
+            "positive_labels": labels,
+            "target_padding_mask": labels_padding_mask,
+        }
 
 
 class SasRecPredictionBatch(NamedTuple):
@@ -121,21 +130,28 @@ class SasRecPredictionBatch(NamedTuple):
     padding_mask: torch.BoolTensor
     features: TensorMap
 
+    def convert_to_dict(self) -> dict:
+        return {
+            "query_id": self.query_id,
+            "feature_tensor": self.features,
+            "padding_mask": self.padding_mask,
+        }
+
 
 class SasRecPredictionDataset(TorchDataset):
     """
-    Dataset that generates samples to infer SasRec-like model
+    Dataset that generates samples to infer SasRec model
+
+    As a result of the dataset iteration, a dictionary is formed.
+    The keys in the dictionary match the names of the arguments in the model's `forward` function.
+    The `query_id` key is required for possible debugging and calling additional lightning callbacks.
     """
 
-    @deprecation_warning(
-        "`padding_value` parameter will be removed in future versions. "
-        "Instead, you should specify `padding_value` for each column in TensorSchema"
-    )
     def __init__(
         self,
         sequential: SequentialDataset,
         max_sequence_length: int,
-        padding_value: int = 0,
+        padding_value: Optional[int] = None,
     ) -> None:
         """
         :param sequential: Sequential dataset with data to make predictions at.
@@ -152,13 +168,13 @@ class SasRecPredictionDataset(TorchDataset):
     def __len__(self) -> int:
         return len(self._inner)
 
-    def __getitem__(self, index: int) -> SasRecPredictionBatch:
+    def __getitem__(self, index: int) -> dict:
         query_id, padding_mask, features = self._inner[index]
-        return SasRecPredictionBatch(
-            query_id=query_id,
-            padding_mask=padding_mask,
-            features=features,
-        )
+        return {
+            "query_id": query_id,
+            "padding_mask": padding_mask,
+            "feature_tensor": features,
+        }
 
 
 class SasRecValidationBatch(NamedTuple):
@@ -173,23 +189,33 @@ class SasRecValidationBatch(NamedTuple):
     ground_truth: torch.LongTensor
     train: torch.LongTensor
 
+    def convert_to_dict(self) -> dict:
+        return {
+            "query_id": self.query_id,
+            "feature_tensor": self.features,
+            "padding_mask": self.padding_mask,
+            "ground_truth": self.ground_truth,
+            "train": self.train,
+        }
+
 
 class SasRecValidationDataset(TorchDataset):
     """
-    Dataset that generates samples to infer and validate SasRec-like model
+    Dataset that generates samples to infer and validate SasRec model.
+
+    As a result of the dataset iteration, a dictionary is formed.
+    The keys in the dictionary match the names of the arguments in the model's `forward` function.
+    The `query_id` key is required for possible debugging and calling additional lightning callbacks.
+    Keys 'ground_truth` and `train` keys are required for metrics calculation on validation stage.
     """
 
-    @deprecation_warning(
-        "`padding_value` parameter will be removed in future versions. "
-        "Instead, you should specify `padding_value` for each column in TensorSchema"
-    )
     def __init__(
         self,
         sequential: SequentialDataset,
         ground_truth: SequentialDataset,
         train: SequentialDataset,
         max_sequence_length: int,
-        padding_value: int = 0,
+        padding_value: Optional[int] = None,
         label_feature_name: Optional[str] = None,
     ):
         """
@@ -215,12 +241,12 @@ class SasRecValidationDataset(TorchDataset):
     def __len__(self) -> int:
         return len(self._inner)
 
-    def __getitem__(self, index: int) -> SasRecValidationBatch:
+    def __getitem__(self, index: int) -> dict:
         query_id, padding_mask, features, ground_truth, train = self._inner[index]
-        return SasRecValidationBatch(
-            query_id=query_id,
-            padding_mask=padding_mask,
-            features=features,
-            ground_truth=ground_truth,
-            train=train,
-        )
+        return {
+            "query_id": query_id,
+            "padding_mask": padding_mask,
+            "feature_tensor": features,
+            "ground_truth": ground_truth,
+            "train": train,
+        }
