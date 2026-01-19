@@ -2,7 +2,6 @@ import copy
 
 import numpy as np
 import pandas as pd
-import pyarrow as pa
 import pytest
 
 pytest.importorskip("torch")
@@ -177,22 +176,11 @@ def seed():
 
 @pytest.fixture(scope="module")
 def parquet_module_path(tmp_path_factory, tensor_schema, seed, max_len):
-    tmp_dir = tmp_path_factory.mktemp("parquet_module")
+    tmp_dir = tmp_path_factory.mktemp("parquet_module_")
     path = tmp_dir / f"tmp_{seed}.parquet"
 
     df = generate_recsys_dataset(tensor_schema, n_users=50, max_len=max_len, seed=seed)
-
-    schema = pa.schema(
-        [
-            ("item_id", pa.list_(pa.int64())),
-            ("user_id", pa.int64()),
-            ("cat_list_feature", pa.list_(pa.list_(pa.int64()))),
-            ("num_feature", pa.list_(pa.float32())),
-            ("num_list_feature", pa.list_(pa.list_(pa.float32()))),
-            ("emb_list_feature", pa.list_(pa.list_(pa.float32()))),
-        ]
-    )
-    df.to_parquet(path, index=False, schema=schema)
+    df.to_parquet(path, index=False)
 
     return str(path)
 
