@@ -10,10 +10,9 @@ def make_default_sasrec_transforms(
     """
     Creates a valid transformation pipeline for SasRec data batches.
 
-    Genearted pipeline expects input dataset to contain the following columns:
+    Generated pipeline expects input dataset to contain the following columns:
         1) Query ID column, specified by ``query_column``.
         2) Item ID column, specified in the tensor schema.
-        3) ``"train"`` - item IDs used for training (Validation/Test subsets only) .
 
     :param tensor_schema: TensorSchema used to infer feature columns.
     :param query_column: Name of the column containing query IDs. Default: ``"query_id"``.
