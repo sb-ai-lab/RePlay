@@ -1,11 +1,12 @@
 import pytest
 import torch
 
+from replay.data.nn import ParquetModule
 from replay.nn import ConcatAggregator, DefaultAttentionMask, SequenceEmbedding
 from replay.nn.loss import BCE, CE, BCESampled, CESampled, LogInCE, LogInCESampled, LogOutCE
 from replay.nn.sequential.sasrec import DiffTransformerLayer, PositionAwareAggregator, SasRec, SasRecBody
 from replay.nn.transforms.templates.sasrec import make_default_sasrec_transforms
-from replay.data.nn import ParquetModule
+
 
 @pytest.fixture(
     params=[
@@ -42,12 +43,19 @@ def sasrec_parametrized(request, tensor_schema):
     model = SasRec(body=body, loss=loss)
     return model
 
+
 @pytest.fixture
 def sasrec_model_only_items(tensor_schema):
     model = SasRec.from_params(
-        schema=tensor_schema.filter(name="item_id"), embedding_dim=64, num_heads=1, num_blocks=1, max_sequence_length=7, dropout=0.2
+        schema=tensor_schema.filter(name="item_id"),
+        embedding_dim=64,
+        num_heads=1,
+        num_blocks=1,
+        max_sequence_length=7,
+        dropout=0.2,
     )
     return model
+
 
 @pytest.fixture
 def parquet_module_with_default_sasrec_transform(parquet_module_path, tensor_schema, max_len, batch_size=4):

@@ -68,7 +68,7 @@ class LogInCEBase(SampledLossBase):
         positive_labels = positive_labels[masked_target_padding_mask]
         assert positive_labels.size() == (masked_batch_size, num_positives)
 
-        if negative_labels.dim() > 1: # pragma: no cover
+        if negative_labels.dim() > 1:  # pragma: no cover
             # [batch_size, seq_len, num_negatives] -> [masked_batch_size, num_negatives]
             negative_labels = negative_labels[masked_target_padding_mask]
             assert negative_labels.size() == (masked_batch_size, num_negatives)

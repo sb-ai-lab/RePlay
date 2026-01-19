@@ -4,7 +4,6 @@ import torch
 
 from replay.nn.lightning import LightningModule
 from replay.nn.lightning.optimizer_utils import FatOptimizerFactory, LambdaLRSchedulerFactory
-from replay.nn.transforms.templates.sasrec import make_default_sasrec_transforms
 
 
 def test_training_sasrec_with_different_losses(sasrec_parametrized, parquet_module):
@@ -15,6 +14,7 @@ def test_training_sasrec_with_different_losses(sasrec_parametrized, parquet_modu
     )
     trainer = L.Trainer(max_epochs=2)
     trainer.fit(sasrec, datamodule=parquet_module)
+
 
 def test_sasrec_with_default_transform(sasrec_model_only_items, parquet_module_with_default_sasrec_transform):
     sasrec = LightningModule(
