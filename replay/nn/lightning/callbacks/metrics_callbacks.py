@@ -23,14 +23,13 @@ class ComputeMetricsCallback(lightning.Callback):
     the suffix of the metric name will contain the serial number of the dataloader.
 
     For the correct calculation of metrics inside the callback,
-    the batch must contain the ``ground_truth`` key - the padding value of this tensor can be any,
+    the batch must contain the ``ground_truth_column`` key - the padding value of this tensor can be any,
     the main condition is that the padding value does not overlap with the existing item ID values.
     For example, these can be negative values.
 
-    To calculate the ``coverage`` and ``novelty`` metrics, the batch must additionally contain the ``train`` key.
+    To calculate the ``coverage`` and ``novelty`` metrics, the batch must additionally contain the ``train_column`` key.
     The padding value of this tensor can be any, the main condition is that the padding value does not overlap
-    with the existing item ID values and ``ground_truth`` padding value.
-    For example, these can be negative values.
+    with the existing item ID values. For example, these can be negative values.
     """
 
     def __init__(
@@ -39,6 +38,8 @@ class ComputeMetricsCallback(lightning.Callback):
         ks: Optional[list[int]] = None,
         postprocessors: Optional[list[PostprocessorBase]] = None,
         item_count: Optional[int] = None,
+        ground_truth_column: str = "ground_truth",
+        train_column: str = "train",
     ):
         """
         :param metrics: Sequence of metrics to calculate.\n
@@ -50,6 +51,8 @@ class ComputeMetricsCallback(lightning.Callback):
             Default: ``None``.
         :param item_count: the total number of items in the dataset, required only for ``Coverage`` calculations.
             Default: ``None``.
+        :param ground_truth_column: Name of key in batch that contains ground truth items.
+        :param train_column: Name of key in batch that contains items on which the model is trained.
         """
         self._metrics = metrics
         self._ks = ks
@@ -57,6 +60,8 @@ class ComputeMetricsCallback(lightning.Callback):
         self._metrics_builders: list[TorchMetricsBuilder] = []
         self._dataloaders_size: list[int] = []
         self._postprocessors: list[PostprocessorBase] = postprocessors or []
+        self._ground_truth_column = ground_truth_column
+        self._train_column = train_column
 
     def _get_dataloaders_size(self, dataloaders: Optional[Any]) -> list[int]:
         if isinstance(dataloaders, CombinedLoader):
@@ -139,7 +144,9 @@ class ComputeMetricsCallback(lightning.Callback):
     ) -> None:
         seen_scores = self._apply_postproccesors(batch, outputs["logits"])
         sampled_items = torch.topk(seen_scores, k=self._metrics_builders[dataloader_idx].max_k, dim=1).indices
-        self._metrics_builders[dataloader_idx].add_prediction(sampled_items, batch["ground_truth"], batch.get("train"))
+        self._metrics_builders[dataloader_idx].add_prediction(
+            sampled_items, batch[self._ground_truth_column], batch.get(self._train_column)
+        )
 
         if batch_idx + 1 == self._dataloaders_size[dataloader_idx]:
             pl_module.log_dict(

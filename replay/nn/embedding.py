@@ -12,8 +12,9 @@ class SequenceEmbedding(torch.nn.Module):
     """
     The embedding generation class for all types of features given into the sequential models.
 
-    The embedding size for each feature will be taken from ``TensorSchema`` (``embedding_dim``).
-    For numerical features, it is expected that the last dimension of the tensor will be equal to ``tensor_dim``.
+    The embedding size for each feature will be taken from ``TensorSchema`` (from field named ``embedding_dim``).
+    For numerical features, it is expected that the last dimension of the tensor will be equal
+    to ``tensor_dim`` field in ``TensorSchema``.
     """
 
     def __init__(
@@ -216,8 +217,8 @@ class NumericalEmbedding(torch.nn.Module):
     The embedding generation class for numerical features.
     It supports working with single features for each event in sequence, as well as several (numerical list).
 
-    **Note**: if the ``embedding_dim`` for an incoming feature matches its last dimension (``tensor_dim``),
-    then transformation will not be applied.
+    **Note**: if the ``embedding_dim`` field in ``TensorSchema`` for an incoming feature matches its last dimension
+    (``tensor_dim`` field in ``TensorSchema``), then transformation will not be applied.
     """
 
     def __init__(self, feature_info: TensorFeatureInfo) -> None:
