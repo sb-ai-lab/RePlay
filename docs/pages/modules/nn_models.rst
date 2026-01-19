@@ -150,9 +150,18 @@ ________________
    :members: compile, predict
 
 
+
+TwoTower
+=========
+
+TwoTower
+_________
+.. autoclass:: replay.nn.sequential.TwoTower
+   :members: __init__, forward, from_params
+
+
 Losses
 ======
-
 
 
 `BCE`_, `BCESampled`_, `CESampled`_, `LogInCE`_, `LogInCESampled`_, `LogOutCE`_ support the calculation of logits for the case of multi-positive labels (there are several labels for each position in the sequence).
