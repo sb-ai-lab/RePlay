@@ -13,24 +13,25 @@ class SeenItemsFilter(PostprocessorBase):
 
     .. rubric:: Input example:
 
-        logits [B=2 users, I=3 items]::
+    logits [B=2 users, I=3 items]::
 
-            logits =
-            [[0.1, 0.2, 0.3],    # user0
-            [-0.1, -0.2, -0.3]]  # user1
+        logits =
+        [[0.1, 0.2, 0.3],    # user0
+        [-0.1, -0.2, -0.3]]  # user1
 
-        Seen items per user::
+    Seen items per user::
 
-            seen_items =
-            user0: [1, 0]
-            user1: [1, 2, 1]
+        seen_items =
+        user0: [1, 0]
+        user1: [1, 2, 1]
 
     .. rubric:: Output example:
-        SeenItemsFilter sets logits of seen items to ``-inf``::
 
-            processed_logits =
-            [[   -inf,    -inf,  0.3000], # user0
-            [-0.1000,    -inf,    -inf]]  # user1
+    SeenItemsFilter sets logits of seen items to ``-inf``::
+
+        processed_logits =
+        [[   -inf,    -inf,  0.3000], # user0
+        [-0.1000,    -inf,    -inf]]  # user1
 
     """
 
