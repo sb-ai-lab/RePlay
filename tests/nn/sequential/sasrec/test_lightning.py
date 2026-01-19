@@ -23,11 +23,10 @@ def test_sasrec_with_default_transform(sasrec_model_only_items, parquet_module_w
     )
     trainer = L.Trainer(max_epochs=1)
     trainer.fit(sasrec, datamodule=parquet_module_with_default_sasrec_transform)
-
     trainer.test(sasrec, datamodule=parquet_module_with_default_sasrec_transform)
 
 
-def test_sasrec_checkpoining(sasrec_model, parquet_module, tmp_path):
+def test_sasrec_checkpointing(sasrec_model, parquet_module, tmp_path):
     sasrec = LightningModule(sasrec_model)
     trainer = L.Trainer(max_epochs=1)
     trainer.fit(sasrec, datamodule=parquet_module)
@@ -53,7 +52,7 @@ def test_sasrec_checkpoining(sasrec_model, parquet_module, tmp_path):
     "candidates_to_score",
     [torch.LongTensor([1]), torch.LongTensor([1, 2]), torch.arange(0, 40, dtype=torch.long), None],
 )
-def test_sasrec_prediction_with_candidates(sasrec_model, parquet_module, candidates_to_score):
+def test_sasrec_prediction_with_candidates(tensor_schema, sasrec_model, parquet_module, candidates_to_score):
     sasrec = LightningModule(sasrec_model)
     trainer = L.Trainer(max_epochs=1)
     trainer.fit(sasrec, datamodule=parquet_module)
@@ -69,19 +68,27 @@ def test_sasrec_prediction_with_candidates(sasrec_model, parquet_module, candida
 
     for pred in predictions[:-1]:
         if candidates_to_score is None:
-            assert pred["logits"].size() == (parquet_module.batch_size, 40)
+            assert pred["logits"].size() == (parquet_module.batch_size, tensor_schema["item_id"].cardinality - 1)
         else:
             assert pred["logits"].size() == (parquet_module.batch_size, candidates_to_score.shape[0])
 
 
-def test_predictions_sasrec_equal_with_permuted_candidates(sasrec_model, parquet_module):
+@pytest.mark.parametrize("random_seed", [0, 1, 2, 3, 4])
+def test_predictions_sasrec_equal_with_permuted_candidates(tensor_schema, sasrec_model, parquet_module, random_seed):
     sasrec = LightningModule(sasrec_model)
     trainer = L.Trainer(max_epochs=1)
     trainer.fit(sasrec, datamodule=parquet_module)
 
-    sorted_candidates = torch.LongTensor([0, 1, 2, 22, 30, 33])
-    permuted_candidates = torch.LongTensor([33, 0, 1, 22, 30, 2])
-    _, ordering = torch.sort(permuted_candidates)
+    generator = torch.Generator()
+    generator.manual_seed(random_seed)
+
+    items_cardinality = tensor_schema["item_id"].cardinality
+    num_samples = torch.randint(low=1, high=items_cardinality, size=(1,), generator=generator)
+
+    permuted_candidates = torch.multinomial(
+        input=torch.ones(items_cardinality), num_samples=num_samples, replacement=False, generator=generator
+    )
+    sorted_candidates, ordering = torch.sort(permuted_candidates)
 
     trainer = L.Trainer(inference_mode=True)
 
@@ -99,7 +106,8 @@ def test_predictions_sasrec_equal_with_permuted_candidates(sasrec_model, parquet
 
 @pytest.mark.parametrize(
     "candidates_to_score",
-    [torch.FloatTensor([1]), torch.BoolTensor([1, 0])],
+    [torch.FloatTensor([1]), torch.BoolTensor([1, 0]), torch.LongTensor([1, 1])],
+    ids=["Float tensor", "Bool tensor", "Tensor with non-unique values"],
 )
 def test_sasrec_prediction_invalid_candidates_to_score(sasrec_model, parquet_module, candidates_to_score):
     sasrec = LightningModule(sasrec_model)
@@ -107,7 +115,7 @@ def test_sasrec_prediction_invalid_candidates_to_score(sasrec_model, parquet_mod
     trainer.fit(sasrec, datamodule=parquet_module)
 
     trainer = L.Trainer(inference_mode=True)
-    sasrec.candidates_to_score = candidates_to_score
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises((RuntimeError, ValueError)):
+        sasrec.candidates_to_score = candidates_to_score
         trainer.predict(sasrec, datamodule=parquet_module)

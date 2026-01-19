@@ -23,31 +23,30 @@ def test_wrong_input(sasrec_model, wrong_sequential_sample):
         sasrec_model(**wrong_sequential_sample)
 
 
-def sasrec_test_model_train_forward(sasrec_model, sequential_sample):
+def test_sasrec_model_train_forward(sasrec_model, sequential_sample):
     sasrec_model.train()
     output: TrainOutput = sasrec_model(
-        sequential_sample["feature_tensors"],
-        sequential_sample["padding_mask"],
-        sequential_sample["positive_labels"],
-        sequential_sample["target_padding_mask"],
+        feature_tensors=sequential_sample["feature_tensors"],
+        padding_mask=sequential_sample["padding_mask"],
+        positive_labels=sequential_sample["positive_labels"],
+        target_padding_mask=sequential_sample["target_padding_mask"],
     )
 
     assert output["loss"].ndim == 0
-    assert output["hidden_states"][0].size() == (2, 7, 64)
+    assert output["hidden_states"][0].size() == (4, 7, 64)
 
 
-@pytest.mark.parametrize(
-    "candidates_to_score, expected_shape",
-    [
-        (torch.LongTensor([1]), (2, 1)),
-        (torch.LongTensor([0, 1, 2]), (2, 3)),
-        (None, (2, 3)),
-    ],
-)
-def sasrec_test_model_inference_forward(sasrec_model, sequential_sample, candidates_to_score, expected_shape):
+@pytest.mark.parametrize("candidates_to_score", [torch.LongTensor([1]), torch.LongTensor([0, 1, 2]), None])
+def test_sasrec_test_model_inference_forward(tensor_schema, sasrec_model, sequential_sample, candidates_to_score):
     sasrec_model.eval()
     output: InferenceOutput = sasrec_model(
         sequential_sample["feature_tensors"], sequential_sample["padding_mask"], candidates_to_score
     )
-    assert output["logits"].size() == expected_shape
-    assert output["hidden_states"][0].size() == (2, 7, 64)
+
+    if candidates_to_score is not None:
+        num_items = candidates_to_score.shape[0]
+    else:
+        num_items = tensor_schema["item_id"].cardinality - 1
+
+    assert output["logits"].size() == (sequential_sample["padding_mask"].shape[0], num_items)
+    assert output["hidden_states"][0].size() == (4, 7, 64)
