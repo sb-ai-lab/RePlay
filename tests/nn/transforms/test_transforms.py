@@ -3,9 +3,7 @@ import copy
 import pytest
 import torch
 
-from replay.models.nn.sequential.sasrec import SasRecTrainingBatch
 from replay.nn.transforms import (
-    BatchingTransform,
     CopyTransform,
     GroupTransform,
     NextTokenTransform,
@@ -58,12 +56,6 @@ def test_next_token_label_raises_error(batch, shift):
     with pytest.raises(ValueError):
         transform = NextTokenTransform(label_field="item_id", shift=shift)
         transform(batch)
-
-
-def test_batching_transform_raises_error(random_batch):
-    transform = BatchingTransform(SasRecTrainingBatch)
-    with pytest.raises(ValueError):
-        transform(random_batch)
 
 
 def test_rename_transform(random_batch):

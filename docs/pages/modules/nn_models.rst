@@ -43,6 +43,12 @@ DiffTransformerLayer
 .. autoclass:: replay.nn.sequential.DiffTransformerLayer
    :members: __init__, forward
 
+
+SasRec Transforms
+_________________
+.. autofunction:: replay.nn.transforms.templates.sasrec.make_default_sasrec_transforms
+
+
 Bert4Rec
 ========
 
@@ -302,11 +308,6 @@ This submodule contains a set of standard PyTorch tensor transformations necessa
 These Transforms are intended for use with the :ref:`Parquet-Module`. For applying specify a sequence of transformations for every data split as ParquetModule's ``transforms`` parameter. 
 Specified transformations will be applied per batch on device, then the resulting batch will be used as model input. 
 
-
-BatchingTransform
-__________________
-.. autoclass:: replay.nn.transforms.BatchingTransform
-    :members: __init__
 
 CopyTransform
 __________________

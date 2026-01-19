@@ -1,5 +1,4 @@
 from .base import BaseTransform
-from .batch import BatchingTransform
 from .copy import CopyTransform
 from .grouping import GroupTransform
 from .negative_sampling import UniformNegativeSamplingTransform
@@ -12,7 +11,6 @@ from .trim import TrimTransform
 
 __all__ = [
     "BaseTransform",
-    "BatchingTransform",
     "CopyTransform",
     "GroupTransform",
     "NextTokenTransform",
