@@ -41,7 +41,9 @@ def test_next_token_label_transform(random_batch, shift):
             torch.testing.assert_close(transformed_batch[feature], random_batch[feature][:, :-shift])
 
     torch.testing.assert_close(transformed_batch["positive_labels"], random_batch[label_field][:, shift:])
-    torch.testing.assert_close(transformed_batch["positive_labels_mask"], random_batch[f"{label_field}_mask"][:, shift:])
+    torch.testing.assert_close(
+        transformed_batch["positive_labels_mask"], random_batch[f"{label_field}_mask"][:, shift:]
+    )
 
 
 @pytest.mark.parametrize(
@@ -213,20 +215,26 @@ def test_trim_transform_wrong_length(random_batch):
 
 
 @pytest.mark.parametrize(
-    "transform", [
-        pytest.param(CopyTransform(mapping={"item_id_mask" : "padding_id"}), id="CopyTransform"),
-        pytest.param(GroupTransform(mapping={"feature_tensors" : ["item_id"]}), id="GroupTransform"),
-        pytest.param(NextTokenTransform(label_field="item_id", query_features=["user_id", "user_id_mask"]), id="NextTokenTransform"),
-        pytest.param(RenameTransform(mapping={"item_id_mask" : "padding_id"}), id="RenameTransform"),
+    "transform",
+    [
+        pytest.param(CopyTransform(mapping={"item_id_mask": "padding_id"}), id="CopyTransform"),
+        pytest.param(GroupTransform(mapping={"feature_tensors": ["item_id"]}), id="GroupTransform"),
+        pytest.param(
+            NextTokenTransform(label_field="item_id", query_features=["user_id", "user_id_mask"]),
+            id="NextTokenTransform",
+        ),
+        pytest.param(RenameTransform(mapping={"item_id_mask": "padding_id"}), id="RenameTransform"),
         pytest.param(SequenceRollTransform(field_name="item_id"), id="SequenceRollTransform"),
         pytest.param(TokenMaskTransform(token_field="item_id_mask"), id="TokenMaskTransform"),
         pytest.param(TrimTransform(seq_len=2, feature_names=["item_id"]), id="TrimTransform"),
-        # pytest.param(UniformNegativeSamplingTransform(vocab_size=4, num_negative_samples=2), id="UniformNegativeSamplingTransform"),
+        pytest.param(
+            UniformNegativeSamplingTransform(vocab_size=4, num_negative_samples=2),
+            id="UniformNegativeSamplingTransform",
+        ),
         pytest.param(UnsqueezeTransform(column_name="item_id", dim=-1), id="UnsqueezeTransform"),
     ],
 )
 def test_immutability_input_batch(transform, random_batch):
-
     input_batch_id = id(random_batch)
     input_batch_keys = set(random_batch.keys())
     input_batch_items = set(random_batch.items())

@@ -64,6 +64,8 @@ class UniformNegativeSamplingTransform(BaseTransform):
             self.sample_distribution = torch.ones(vocab_size)
 
     def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        output_batch = dict(batch.items())
+
         negatives = torch.multinomial(
             self.sample_distribution,
             num_samples=self.num_negative_samples,
@@ -71,5 +73,5 @@ class UniformNegativeSamplingTransform(BaseTransform):
             generator=self.generator,
         )
 
-        batch[self.out_feature_name] = negatives.to(device=next(iter(batch.values())).device)
-        return batch
+        output_batch[self.out_feature_name] = negatives.to(device=next(iter(output_batch.values())).device)
+        return output_batch
