@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import torch
-from typing_extensions import override
 
 from replay.data.nn import TensorMap
 
@@ -43,7 +42,6 @@ class SeenItemsFilter(PostprocessorBase):
         self.queries = torch.from_numpy(seen_data[query_column].to_numpy())
         self.sequences = torch.tensor(seen_data[item_column].tolist(), dtype=torch.long)
 
-    @override
     def on_validation(self, batch: dict, logits: torch.Tensor) -> torch.Tensor:
         return self._compute_scores(batch, logits, True)
 

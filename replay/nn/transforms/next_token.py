@@ -102,7 +102,7 @@ class NextTokenTransform(BaseTransform):
         for feature in meta.values():
             if feature.get("shape", False):
                 shape = feature["shape"]
-                shape = shape[0] if isinstance(shape, list) else shape
+                shape = shape[0] if isinstance(shape, tuple) else shape
                 shape += abs(self.shift)
                 feature["shape"] = shape
 

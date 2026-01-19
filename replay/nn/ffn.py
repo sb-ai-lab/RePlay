@@ -3,7 +3,7 @@ from typing import Literal
 
 import torch
 
-from replay.data.nn import TensorMap
+from replay.data.nn.schema import TensorMap
 
 from .utils import create_activation
 
@@ -102,18 +102,16 @@ class SwiGLU(torch.nn.Module):
 class SwiGLUEncoder(torch.nn.Module):
     """
     MLP block consists of SwiGLU Feed-Forward network followed by a RMSNorm layer with skip connection.
-
-    RMSNorm paper: https://arxiv.org/pdf/1910.07467.
     """
 
-    def __init__(self, embedding_dim: int) -> None:
+    def __init__(self, embedding_dim: int, hidden_dim: int) -> None:
         """
         :param embedding_dim: Dimension of the input features.
         """
         super().__init__()
-        self.sw1 = SwiGLU(embedding_dim)
+        self.sw1 = SwiGLU(embedding_dim, hidden_dim)
         self.norm1 = torch.nn.RMSNorm(embedding_dim)
-        self.sw2 = SwiGLU(embedding_dim)
+        self.sw2 = SwiGLU(embedding_dim, hidden_dim)
         self.norm2 = torch.nn.RMSNorm(embedding_dim)
 
     def reset_parameters(self) -> None:

@@ -123,6 +123,7 @@ class CategoricalEmbedding(torch.nn.Module):
         super().__init__()
         assert feature_info.cardinality
         assert feature_info.embedding_dim
+        assert feature_info.padding_value
 
         self._expect_padding_value_setted = True
         if feature_info.cardinality - 1 != feature_info.padding_value:
@@ -202,16 +203,12 @@ class CategoricalEmbedding(torch.nn.Module):
 
         :returns: Embeddings for specific items.
         """
-        assert indices.dim() >= 2
+        assert indices.dim() >= 3
 
-        embeddings: torch.Tensor
-        if indices.dim() == 2:
-            embeddings: torch.Tensor = self.emb(indices)
-        else:
-            source_size = indices.size()
-            indices = indices.view(-1, source_size[-1])
-            embeddings = self.emb(indices)
-            embeddings = embeddings.view(*source_size[:-1], -1)
+        source_size = indices.size()
+        indices = indices.view(-1, source_size[-1])
+        embeddings = self.emb(indices)
+        embeddings = embeddings.view(*source_size[:-1], -1)
         return embeddings
 
 

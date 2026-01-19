@@ -124,7 +124,7 @@ class SasRec(torch.nn.Module):
     The hidden states are multiplied by the item embeddings,
     resulting in logits for each of the items.
     """
-
+    #TODO: add doc references in init docstring
     def __init__(
         self,
         embedder: EmbedderProto,
@@ -136,9 +136,8 @@ class SasRec(torch.nn.Module):
     ):
         """
         :param embedder: An object of a class that performs the logic of
-            generating embeddings from an input set of tensors.
+            generating embeddings from an input set of tensors. 
         :param embedding_aggregator: An object of a class that performs the logic of aggregating multiple embeddings.\n
-            For example, it can be a ``sum``, a ``mean``, or a ``concatenation``.
         :param attn_mask_builder: An object of a class that performs the logic of
             generating an attention mask based on the features and padding mask given to the model.
         :param encoder: An object of a class that performs the logic of generating
@@ -148,7 +147,7 @@ class SasRec(torch.nn.Module):
             normalization of the hidden state obtained from the encoder.\n
             For example, it can be a ``torch.nn.LayerNorm`` or ``torch.nn.RMSNorm``.
         :param loss: An object of a class that performs loss calculation
-            based on hidden states from the model, positive and negative labels.
+            based on hidden states from the model, positive and optionally negative labels.
         """
         super().__init__()
         self.body = SasRecBody(
@@ -165,17 +164,18 @@ class SasRec(torch.nn.Module):
         self.reset_parameters()
 
     @classmethod
-    def build_original(
+    def build_default(
         cls,
-        tensor_schema: TensorSchema,
+        schema: TensorSchema,
         embedding_dim: int = 192,
-        head_count: int = 4,
-        block_count: int = 2,
+        num_heads: int = 4,
+        num_blocks: int = 2,
         max_sequence_length: int = 50,
         dropout: float = 0.3,
         excluded_features: Optional[list[str]] = None,
         categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
     ) -> "SasRec":
+        #TODO: add doctsring
         from replay.nn import DefaultAttentionMask, SequenceEmbedding, SumAggregator
         from replay.nn.loss import CE
 
@@ -183,14 +183,14 @@ class SasRec(torch.nn.Module):
         from .transformer import SasRecTransformerLayer
 
         excluded_features = [
-            tensor_schema.query_id_feature_name,
-            tensor_schema.timestamp_feature_name,
+            schema.query_id_feature_name,
+            schema.timestamp_feature_name,
             *(excluded_features or []),
         ]
         excluded_features = list(set(excluded_features))
         return cls(
             embedder=SequenceEmbedding(
-                schema=tensor_schema,
+                schema=schema,
                 categorical_list_feature_aggregation_method=categorical_list_feature_aggregation_method,
                 excluded_features=excluded_features,
             ),
@@ -200,18 +200,18 @@ class SasRec(torch.nn.Module):
                 dropout=dropout,
             ),
             attn_mask_builder=DefaultAttentionMask(
-                reference_feature_name=tensor_schema.item_id_feature_name,
-                num_heads=head_count,
+                reference_feature_name=schema.item_id_feature_name,
+                num_heads=num_heads,
             ),
             encoder=SasRecTransformerLayer(
                 embedding_dim=embedding_dim,
-                num_heads=head_count,
-                num_blocks=block_count,
+                num_heads=num_heads,
+                num_blocks=num_blocks,
                 dropout=dropout,
                 activation="relu",
             ),
             output_normalization=torch.nn.LayerNorm(embedding_dim),
-            loss=CE(padding_value=tensor_schema.item_id_features.item().padding_value),
+            loss=CE(padding_idx=schema.item_id_features.item().padding_value),
         )
 
     def reset_parameters(self) -> None:
@@ -282,8 +282,9 @@ class SasRec(torch.nn.Module):
         :param padding_mask: A mask of shape ``(batch_size, sequence_length)``
             indicating which elements within ``key`` to ignore for the purpose of attention (i.e. treat as "padding").
             ``False`` value indicates that the corresponding ``key`` value will be ignored.
-        :param candidates_to_score: a tensor containing IDs for which you need to get logits at the inference stage.\n
-            **Note:** that you must take into account the padding value when creating the tensor.\n
+        :param candidates_to_score: a tensor containing item IDs
+            for which you need to get logits at the inference stage.\n
+            **Note:** you must take into account the padding value when creating the tensor.\n
             The tensor participates in calculations only on the inference stage.
             You don't have to submit an argument at training stage,
             but if it is submitted, then no effect will be provided.\n
@@ -298,7 +299,7 @@ class SasRec(torch.nn.Module):
             but if it is submitted, then no effect will be provided.\n
             Default: ``None``.
         :param target_padding_mask: A mask of shape ``(batch_size, sequence_length, num_positives)``
-            indicating elements to ignore during loss calculation.
+            indicating elements from ``positive_labels`` to ignore during loss calculation.
             ``False`` value indicates that the corresponding value will be ignored.\n
             You don't have to submit an argument at inference stage,
             but if it is submitted, then no effect will be provided.\n
