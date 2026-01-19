@@ -17,7 +17,7 @@ class UniformNegativeSamplingTransform(BaseTransform):
 
     .. code-block:: python
 
-        >>> torch.manual_seed(0)
+        >>> _ = torch.manual_seed(0)
         >>> input_batch = {"item_id": torch.LongTensor([[1, 0, 4]])}
         >>> transform = UniformNegativeSamplingTransform(vocab_size=4, num_negative_samples=2)
         >>> output_batch = transform(input_batch)

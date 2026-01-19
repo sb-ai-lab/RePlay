@@ -52,7 +52,7 @@ class AttentionMaskBase(ABC):
 
     @abstractmethod
     def _get_attention_mask(self, feature_tensor: TensorMap) -> torch.Tensor:
-        raise NotImplementedError()
+        raise NotImplementedError() # pragma: no cover
 
 
 class DefaultAttentionMask(AttentionMaskBase):

@@ -15,7 +15,7 @@ class TokenMaskTransform(BaseTransform):
 
     .. code-block:: python
 
-        >>> torch.manual_seed(0)
+        >>> _ = torch.manual_seed(0)
         >>> input_tensor = {"padding_id": torch.BoolTensor([0, 1, 1])}
         >>> transform = TokenMaskTransform("padding_id")
         >>> output_tensor = transform(input_tensor)

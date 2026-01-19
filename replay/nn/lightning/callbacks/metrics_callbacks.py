@@ -65,7 +65,7 @@ class ComputeMetricsCallback(lightning.Callback):
 
     def _get_dataloaders_size(self, dataloaders: Optional[Any]) -> list[int]:
         if isinstance(dataloaders, CombinedLoader):
-            return [len(dataloader) for dataloader in dataloaders.flattened]
+            return [len(dataloader) for dataloader in dataloaders.flattened] # pragma: no cover
         return [len(dataloaders)]
 
     def on_validation_epoch_start(

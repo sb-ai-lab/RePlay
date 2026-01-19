@@ -19,7 +19,7 @@ if PYSPARK_AVAILABLE:  # pragma: no cover
     import pyspark.sql.functions as sf
     from pyspark.sql import SparkSession
     from pyspark.sql.types import ArrayType, DoubleType, IntegerType, StructType
-else:
+else:  # pragma: no cover
     SparkSession = MissingImport
 
 

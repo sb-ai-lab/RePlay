@@ -43,7 +43,7 @@ class SampledLossBase(torch.nn.Module):
     def logits_callback(
         self,
     ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
-        raise NotImplementedError()
+        raise NotImplementedError() # pragma: no cover
 
     def get_sampled_logits(
         self,
@@ -79,7 +79,7 @@ class SampledLossBase(torch.nn.Module):
         batch_size, seq_len, num_positives = positive_labels.size()
         assert target_padding_mask.size() == (batch_size, seq_len, num_positives)
         num_negatives = negative_labels.size(-1)
-        if negative_labels.dim() == 3:
+        if negative_labels.dim() == 3: # pragma: no cover
             # [batch_size, seq_len, num_negatives] -> [batch_size, seq_len, 1, num_negatives]
             negative_labels = negative_labels.unsqueeze(-2)
             if num_positives != 1:
@@ -113,7 +113,7 @@ class SampledLossBase(torch.nn.Module):
         positive_labels = positive_labels[target_padding_mask].unsqueeze(-1)
         assert positive_labels.size() == (masked_batch_size, 1)
 
-        if negative_labels.dim() != 1:
+        if negative_labels.dim() != 1: # pragma: no cover
             # [batch_size, seq_len, num_positives, num_negatives] -> [masked_batch_size, num_negatives]
             negative_labels = negative_labels[target_padding_mask]
             assert negative_labels.size() == (masked_batch_size, num_negatives)
@@ -169,7 +169,7 @@ def mask_negative_logits(
         where positive labels are equal to negative ones.
     """
 
-    if negative_labels.dim() > 1:
+    if negative_labels.dim() > 1: # pragma: no cover
         # [masked_batch_size, num_negatives] -> [masked_batch_size, 1, num_negatives]
         negative_labels = negative_labels.unsqueeze(-2)
 

@@ -12,7 +12,7 @@ class UnsqueezeTransform(BaseTransform):
     .. code-block:: python
 
         >>> input_batch = {"padding_id": torch.BoolTensor([False, True, True])}
-        >>> transform = UnsqueezeTransform("padding_id", dim=-1)
+        >>> transform = UnsqueezeTransform("padding_id", dim=0)
         >>> output_batch = transform(input_batch)
         >>> output_batch
         {'padding_id': tensor([[False,  True,  True]])}

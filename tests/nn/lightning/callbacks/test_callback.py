@@ -28,7 +28,14 @@ from replay.utils.session_handler import get_spark_session
 )
 @pytest.mark.parametrize("is_postprocessor", [False, True])
 @pytest.mark.parametrize(
-    "candidates", [torch.LongTensor([0]), torch.LongTensor([1, 2]), torch.LongTensor([1, 2, 3, 4]), None]
+    "candidates",
+    [
+        torch.LongTensor([0]),
+        torch.LongTensor([2, 22]),
+        torch.LongTensor([1, 2, 3, 4]),
+        torch.LongTensor([11, 22, 33]),
+        None,
+    ],
 )
 def test_prediction_callbacks_fast_forward(
     parquet_module,
@@ -72,14 +79,17 @@ def test_prediction_callbacks_fast_forward(
         assert isinstance(users, torch.LongTensor)
         assert isinstance(items, torch.LongTensor)
         assert isinstance(scores, torch.Tensor)
+        if candidates is not None:
+            assert set(items.flatten().numpy()) <= set(candidates.numpy())
     else:
+        result = callback.get_result()
         if callback_class == PandasTopItemsCallback:
             result_type = PandasDataFrame
         elif callback_class == PolarsTopItemsCallback:
             result_type = PolarsDataFrame
         elif callback_class == SparkTopItemsCallback:
             result_type = SparkDataFrame
-        assert isinstance(callback.get_result(), result_type)
+        assert isinstance(result, result_type)
 
 
 @pytest.mark.torch

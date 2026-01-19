@@ -37,8 +37,8 @@ class NextTokenTransform(BaseTransform):
         {'user_id': tensor([111]),
         'item_id': tensor([[5, 0, 7]]),
         'item_id_mask': tensor([[False,  True,  True]]),
-        'labels': tensor([[0, 7, 4]]),
-        'labels_mask': tensor([[True, True, True]])}
+        'positive_labels': tensor([[0, 7, 4]]),
+        'positive_labels_mask': tensor([[True, True, True]])}
 
     """
 

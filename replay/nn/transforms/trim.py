@@ -14,9 +14,9 @@ class TrimTransform(BaseTransform):
     .. code-block:: python
 
         >>> input_batch = {
-        >>>     "user_id": torch.LongTensor([111]),
-        >>>     "item_id": torch.LongTensor([[5, 4, 0, 7, 4]]),
-        >>>     "seen_ids": torch.LongTensor([[5, 4, 0, 7, 4]]),
+        ...     "user_id": torch.LongTensor([111]),
+        ...     "item_id": torch.LongTensor([[5, 4, 0, 7, 4]]),
+        ...     "seen_ids": torch.LongTensor([[5, 4, 0, 7, 4]]),
         ... }
         >>> transform = TrimTransform(seq_len=3, feature_names="item_id")
         >>> output_batch = transform(input_batch)

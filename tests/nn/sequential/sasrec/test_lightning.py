@@ -4,9 +4,9 @@ import torch
 
 from replay.nn.lightning import LightningModule
 from replay.nn.lightning.optimizer_utils import FatOptimizerFactory, LambdaLRSchedulerFactory
+from replay.nn.transforms.templates.sasrec import make_default_sasrec_transforms
 
 
-@pytest.mark.torch
 def test_training_sasrec_with_different_losses(sasrec_parametrized, parquet_module):
     sasrec = LightningModule(
         sasrec_parametrized,
@@ -16,8 +16,17 @@ def test_training_sasrec_with_different_losses(sasrec_parametrized, parquet_modu
     trainer = L.Trainer(max_epochs=2)
     trainer.fit(sasrec, datamodule=parquet_module)
 
+def test_sasrec_with_default_transform(sasrec_model_only_items, parquet_module_with_default_sasrec_transform):
+    sasrec = LightningModule(
+        sasrec_model_only_items,
+        optimizer_factory=FatOptimizerFactory(),
+    )
+    trainer = L.Trainer(max_epochs=1)
+    trainer.fit(sasrec, datamodule=parquet_module_with_default_sasrec_transform)
 
-@pytest.mark.torch
+    trainer.test(sasrec, datamodule=parquet_module_with_default_sasrec_transform)
+
+
 def test_sasrec_checkpoining(sasrec_model, parquet_module, tmp_path):
     sasrec = LightningModule(sasrec_model)
     trainer = L.Trainer(max_epochs=1)
@@ -40,7 +49,6 @@ def test_sasrec_checkpoining(sasrec_model, parquet_module, tmp_path):
     torch.testing.assert_close(output1["hidden_states"][0], output2["hidden_states"][0])
 
 
-@pytest.mark.torch
 @pytest.mark.parametrize(
     "candidates_to_score",
     [torch.LongTensor([1]), torch.LongTensor([1, 2]), torch.arange(0, 40, dtype=torch.long), None],
@@ -66,7 +74,6 @@ def test_sasrec_prediction_with_candidates(sasrec_model, parquet_module, candida
             assert pred["logits"].size() == (parquet_module.batch_size, candidates_to_score.shape[0])
 
 
-@pytest.mark.torch
 def test_predictions_sasrec_equal_with_permuted_candidates(sasrec_model, parquet_module):
     sasrec = LightningModule(sasrec_model)
     trainer = L.Trainer(max_epochs=1)
@@ -90,7 +97,6 @@ def test_predictions_sasrec_equal_with_permuted_candidates(sasrec_model, parquet
         )
 
 
-@pytest.mark.torch
 @pytest.mark.parametrize(
     "candidates_to_score",
     [torch.FloatTensor([1]), torch.BoolTensor([1, 0])],
