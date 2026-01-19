@@ -9,16 +9,15 @@ class TokenMaskTransform(BaseTransform):
     """
     For the feature tensor specified by ``token_field``, randomly masks items
     in the sequence based on a uniform distribution with specified probability of masking.
-    In fact, this transform creates mask for the MLM task analog in the recommendations.
-    Requiered for BERT4Rec model.
+    In fact, this transform creates mask for the Masked Language Modeling (MLM) task analog in the recommendations.
 
     Example:
 
     .. code-block:: python
 
-        >>> _ = torch.manual_seed(0)
+        >>> torch.manual_seed(0)
         >>> input_tensor = {"padding_id": torch.BoolTensor([0, 1, 1])}
-        >>> transform = TokenMaskTransform("padding_id", generator=torch.default_generator)
+        >>> transform = TokenMaskTransform("padding_id")
         >>> output_tensor = transform(input_tensor)
         >>> output_tensor
         {'padding_id': tensor([False,  True,  True]),
@@ -47,6 +46,8 @@ class TokenMaskTransform(BaseTransform):
         self.generator = generator
 
     def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        output_batch = dict(batch.items())
+
         paddings = batch[self.token_field]
 
         assert paddings.dtype == torch.bool, "Source tensor for token mask should be boolean."
@@ -66,5 +67,5 @@ class TokenMaskTransform(BaseTransform):
         elif (not mask.any()) and (len(mask) > 1):
             mask[-2] = 1
 
-        batch[self.out_feature_name] = mask
-        return batch
+        output_batch[self.out_feature_name] = mask
+        return output_batch

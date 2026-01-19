@@ -163,7 +163,7 @@ class SasRec(torch.nn.Module):
         loss: LossProto,
     ):
         """
-        :param body: An object of SasRecBody.
+        :param body: An instance of SasRecBody.
         :param loss: An object of a class that performs loss calculation
             based on hidden states from the model, positive and optionally negative labels.
         """

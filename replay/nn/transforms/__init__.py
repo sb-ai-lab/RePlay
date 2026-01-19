@@ -8,7 +8,7 @@ from .rename import RenameTransform
 from .reshape import UnsqueezeTransform
 from .sequence_roll import SequenceRollTransform
 from .token_mask import TokenMaskTransform
-from .trim_transform import TrimTransform
+from .trim import TrimTransform
 
 __all__ = [
     "BaseTransform",

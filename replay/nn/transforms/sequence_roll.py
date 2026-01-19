@@ -38,6 +38,8 @@ class SequenceRollTransform(BaseTransform):
         self.padding_value = padding_value
 
     def forward(self: Self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        output_batch = {k: v for k, v in batch.items() if k != self.field_name}
+
         rolled_seq = batch[self.field_name].roll(self.roll, dims=1)
 
         if self.roll > 0:
@@ -45,5 +47,5 @@ class SequenceRollTransform(BaseTransform):
         else:
             rolled_seq[:, self.roll :, ...] = self.padding_value
 
-        batch[self.field_name] = rolled_seq
-        return batch
+        output_batch[self.field_name] = rolled_seq
+        return output_batch

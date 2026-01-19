@@ -11,13 +11,11 @@ class UnsqueezeTransform(BaseTransform):
 
     .. code-block:: python
 
-        >>> input_tensor = {"padding_id": torch.BoolTensor([False, True, True])}
+        >>> input_batch = {"padding_id": torch.BoolTensor([False, True, True])}
         >>> transform = UnsqueezeTransform("padding_id", dim=-1)
-        >>> output_tensor = transform(input_tensor)
-        >>> output_tensor
-        {'padding_id': tensor([[False],
-         [ True],
-         [ True]])}
+        >>> output_batch = transform(input_batch)
+        >>> output_batch
+        {'padding_id': tensor([[False,  True,  True]])}
 
     """
 
@@ -39,6 +37,7 @@ class UnsqueezeTransform(BaseTransform):
             )
             raise ValueError(msg)
 
-        batch[self.column_name].unsqueeze_(self.dim)
+        output_batch = {k: v for k, v in batch.items() if k != self.column_name}
+        output_batch[self.column_name] = batch[self.column_name].unsqueeze(self.dim)
 
-        return batch
+        return output_batch

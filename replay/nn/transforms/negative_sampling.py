@@ -7,7 +7,7 @@ from replay.nn.transforms.base import BaseTransform
 
 class UniformNegativeSamplingTransform(BaseTransform):
     """
-    Batch-independent negative sampling.
+    Transform for global negative sampling.
 
     For every batch, transform generates a vector of size ``(num_negative_samples)``
     consisting of random indices sampeled from a range of ``vocab_size``. Unless a custom sample
@@ -17,7 +17,7 @@ class UniformNegativeSamplingTransform(BaseTransform):
 
     .. code-block:: python
 
-        >>> _ = torch.manual_seed(0)
+        >>> torch.manual_seed(0)
         >>> input_batch = {"item_id": torch.LongTensor([[1, 0, 4]])}
         >>> transform = UniformNegativeSamplingTransform(vocab_size=4, num_negative_samples=2)
         >>> output_batch = transform(input_batch)
@@ -39,7 +39,7 @@ class UniformNegativeSamplingTransform(BaseTransform):
         :param vocab_size: The size of sample vocabulary.
         :param num_negative_samples: The size of negatives vector to generate.
         :param out_feature_name: The name of result feature in batch.
-        :param sample_distribution: The weightings of indices in the vocabulary. If specified, must
+        :param sample_distribution: The weighs of indices in the vocabulary. If specified, must
                 match the ``vocab_size``. Default: ``None``.
         :param generator: Random number generator to be used for sampling
                 from the distribution. Default: ``None``.
@@ -64,7 +64,6 @@ class UniformNegativeSamplingTransform(BaseTransform):
             self.sample_distribution = torch.ones(vocab_size)
 
     def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        # [num_negatives] - shape of negatives
         negatives = torch.multinomial(
             self.sample_distribution,
             num_samples=self.num_negative_samples,

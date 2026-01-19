@@ -11,10 +11,10 @@ class RenameTransform(BaseTransform):
 
     .. code-block:: python
 
-        >>> input_tensor = {"item_id_mask": torch.BoolTensor([False, True, True])}
+        >>> input_batch = {"item_id_mask": torch.BoolTensor([False, True, True])}
         >>> transform = RenameTransform({"item_id_mask" : "padding_id"})
-        >>> output_tensor = transform(input_tensor)
-        >>> output_tensor
+        >>> output_batch = transform(input_batch)
+        >>> output_batch
         {'padding_id': tensor([False,  True,  True])}
 
     """
@@ -27,7 +27,10 @@ class RenameTransform(BaseTransform):
         self.mapping = mapping
 
     def forward(self: Self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        for original_name, target_name in self.mapping.items():
-            batch[target_name] = batch.pop(original_name)
+        output_batch = {}
 
-        return batch
+        for original_name, tensor in batch.items():
+            target_name = self.mapping.get(original_name, original_name)
+            output_batch[target_name] = tensor
+
+        return output_batch

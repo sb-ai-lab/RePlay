@@ -6,20 +6,21 @@ from replay.nn.transforms.base import BaseTransform
 
 class GroupTransform(BaseTransform):
     """
-    Composes existing columns into named groups.
+    Combines existing tensors from a batch moving them to the common groups.
+    The name of the shared keys and the keys to be moved are specified in ``mapping``.
 
     Example:
 
     .. code-block:: python
 
-        >>> input_batch = {"item_id": torch.LongTensor([[30, 22, 1]]),
-        ...                 "item_feature": torch.LongTensor([[1, 11, 11]])}
-        >>> transform = GroupTransform({"tensor_features" : ["item_id", "item_feature"]})
+        >>> input_batch = {
+        ...     "item_id": torch.LongTensor([[30, 22, 1]]),
+        ...     "item_feature": torch.LongTensor([[1, 11, 11]])
+        ... }
+        >>> transform = GroupTransform({"feature_tensors" : ["item_id", "item_feature"]})
         >>> output_batch = transform(input_batch)
         >>> output_batch
-        {'item_id': tensor([[30, 22,  1]]),
-        'item_feature': tensor([[ 1, 11, 11]]),
-        'tensor_features': {'item_id': tensor([[30, 22,  1]]),
+        {'feature_tensors': {'item_id': tensor([[30, 22,  1]]),
         'item_feature': tensor([[ 1, 11, 11]])}}
 
     """
@@ -30,9 +31,12 @@ class GroupTransform(BaseTransform):
         """
         super().__init__()
         self.mapping = mapping
+        self._grouped_keys = set().union(*mapping.values())
 
     def forward(self: Self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        for group_name in self.mapping:
-            batch[group_name] = {feature_name: batch[feature_name] for feature_name in self.mapping[group_name]}
+        output_batch = {k: v for k, v in batch.items() if k not in self._grouped_keys}
 
-        return batch
+        for group_name, feature_names in self.mapping.items():
+            output_batch[group_name] = {name: batch[name] for name in feature_names if name in batch}
+
+        return output_batch

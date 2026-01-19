@@ -1,64 +1,3 @@
-.. _Transforms:
-
-Transforms for ParquetModule
-====================================================
-
-This submodule contains a set of standard PyTorch tensor transformations necessary for neural network models. 
-These Transforms are intended for use with the :ref:`Parquet-Module`. For applying specify a sequence of transformations for every data split as ParquetModule's ``transforms`` parameter. 
-Specified transformations will be applied per batch on device, then the resulting batch will be used as model input. 
-
-
-BatchingTransform
-__________________
-.. autoclass:: replay.nn.transforms.BatchingTransform
-    :members: __init__
-
-CopyTransform
-__________________
-.. autoclass:: replay.nn.transforms.CopyTransform
-    :members: __init__
-
-GroupTransform
-__________________
-.. autoclass:: replay.nn.transforms.GroupTransform
-    :members: __init__
-
-RenameTransform
-__________________
-.. autoclass:: replay.nn.transforms.RenameTransform
-    :members: __init__
-
-UnsqueezeTransform
-__________________
-.. autoclass:: replay.nn.transforms.UnsqueezeTransform
-    :members: __init__
-
-NextTokenTransform
-__________________
-.. autoclass:: replay.nn.transforms.NextTokenTransform
-    :members: __init__
-
-TokenMaskTransform
-__________________
-.. autoclass:: replay.nn.transforms.TokenMaskTransform
-    :members: __init__
-
-TrimTransform
-__________________
-.. autoclass:: replay.nn.transforms.TrimTransform
-    :members: __init__
-
-SequenceRollTransform
-______________________
-.. autoclass:: replay.nn.transforms.SequenceRollTransform
-    :members: __init__
-
-UniformNegativeSamplingTransform
-_________________________________
-.. autoclass:: replay.nn.transforms.UniformNegativeSamplingTransform
-
-
-
 SasRec
 ======
 
@@ -208,11 +147,11 @@ ________________
 Losses
 ======
 
-**Multi-positive labels support**
 
-   `BCE`_, `BCESampled`_, `CESampled`_, `LogInCE`_, `LogInCESampled`_, `LogOutCE`_ support the calculation of logits for the case of multi-positive labels (there are several labels for each position in the sequence).
 
-   Source: https://arxiv.org/abs/2205.04507
+`BCE`_, `BCESampled`_, `CESampled`_, `LogInCE`_, `LogInCESampled`_, `LogOutCE`_ support the calculation of logits for the case of multi-positive labels (there are several labels for each position in the sequence).
+
+Source: https://arxiv.org/abs/2205.04507
 
 BCE
 ___
@@ -353,6 +292,67 @@ _______________
 .. autoclass:: replay.nn.InferenceOutput
    :members:
 
+
+.. _Transforms:
+
+Transforms for ParquetModule
+====================================================
+
+This submodule contains a set of standard PyTorch tensor transformations necessary for neural network models. 
+These Transforms are intended for use with the :ref:`Parquet-Module`. For applying specify a sequence of transformations for every data split as ParquetModule's ``transforms`` parameter. 
+Specified transformations will be applied per batch on device, then the resulting batch will be used as model input. 
+
+
+BatchingTransform
+__________________
+.. autoclass:: replay.nn.transforms.BatchingTransform
+    :members: __init__
+
+CopyTransform
+__________________
+.. autoclass:: replay.nn.transforms.CopyTransform
+    :members: __init__
+
+GroupTransform
+__________________
+.. autoclass:: replay.nn.transforms.GroupTransform
+    :members: __init__
+
+RenameTransform
+__________________
+.. autoclass:: replay.nn.transforms.RenameTransform
+    :members: __init__
+
+UnsqueezeTransform
+__________________
+.. autoclass:: replay.nn.transforms.UnsqueezeTransform
+    :members: __init__
+
+NextTokenTransform
+__________________
+.. autoclass:: replay.nn.transforms.NextTokenTransform
+    :members: __init__
+
+TokenMaskTransform
+__________________
+.. autoclass:: replay.nn.transforms.TokenMaskTransform
+    :members: __init__
+
+TrimTransform
+__________________
+.. autoclass:: replay.nn.transforms.TrimTransform
+    :members: __init__
+
+SequenceRollTransform
+______________________
+.. autoclass:: replay.nn.transforms.SequenceRollTransform
+    :members: __init__
+
+UniformNegativeSamplingTransform
+_________________________________
+.. autoclass:: replay.nn.transforms.UniformNegativeSamplingTransform
+    :members: __init__
+
 Easy training, validation and inference with Lightning
 ========================================================
 Replay provides Callbacks and Postprocessors to make the model training, validation and inference process as convenient as possible.
@@ -368,6 +368,7 @@ During inference:
    In addition to outputting logits (scores) from the model, you can output any hidden states using ``HiddenStateCallback``.
 
 For a better understanding, you should look at examples of using neural network models.
+
 
 Callbacks
 _________
