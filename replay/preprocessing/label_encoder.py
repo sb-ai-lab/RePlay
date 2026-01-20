@@ -834,18 +834,18 @@ class LabelEncoder:
         self.rules = rules
 
     @property
-    def mapping(self) -> Mapping[str, Mapping]:
+    def mapping(self) -> dict[str, Mapping]:
         """
         Returns mapping of each column in given rules.
         """
-        return {r.column: r.get_mapping() for r in self.rules}
+        return dict(sorted({r.column: r.get_mapping() for r in self.rules}.items()))
 
     @property
-    def inverse_mapping(self) -> Mapping[str, Mapping]:
+    def inverse_mapping(self) -> dict[str, Mapping]:
         """
         Returns inverse mapping of each column in given rules.
         """
-        return {r.column: r.get_inverse_mapping() for r in self.rules}
+        return dict(sorted({r.column: r.get_inverse_mapping() for r in self.rules}.items()))
 
     def fit(self, df: DataFrameLike) -> "LabelEncoder":
         """
