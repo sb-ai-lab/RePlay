@@ -1,3 +1,4 @@
+import inspect
 from typing import Any, Optional, Union
 
 import lightning
@@ -57,7 +58,7 @@ class LightningModule(lightning.LightningModule):
         if "candidates_to_score" not in batch and self.candidates_to_score is not None and not self.training:
             batch["candidates_to_score"] = self.candidates_to_score
         # select only args for model.forward
-        modified_batch = {k: v for k, v in batch.items() if k in self.model.forward.__code__.co_varnames}
+        modified_batch = {k: v for k, v in batch.items() if k in inspect.signature(self.model.forward).parameters}
         return self.model(**modified_batch)
 
     def training_step(self, batch: dict) -> torch.Tensor:
