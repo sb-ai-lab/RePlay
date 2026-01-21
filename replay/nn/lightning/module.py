@@ -4,12 +4,12 @@ from typing import Any, Optional, Union
 import lightning
 import torch
 
-from replay.models.nn.optimizer_utils import (
-    FatOptimizerFactory,
-    LRSchedulerFactory,
+from replay.nn import InferenceOutput, TrainOutput
+from replay.nn.lightning.optimizer_utils import (
+    BaseLRSchedulerFactory,
+    BaseOptimizerFactory,
     OptimizerFactory,
 )
-from replay.nn import InferenceOutput, TrainOutput
 
 
 class LightningModule(lightning.LightningModule):
@@ -21,8 +21,8 @@ class LightningModule(lightning.LightningModule):
     def __init__(
         self,
         model: torch.nn.Module,
-        optimizer_factory: Optional[OptimizerFactory] = None,
-        lr_scheduler_factory: Optional[LRSchedulerFactory] = None,
+        optimizer_factory: Optional[BaseOptimizerFactory] = None,
+        lr_scheduler_factory: Optional[BaseLRSchedulerFactory] = None,
     ) -> None:
         """
         :param model: Initialized model.\n
@@ -94,7 +94,7 @@ class LightningModule(lightning.LightningModule):
             Tuple[List[torch.optim.Optimizer], List[torch.optim.lr_scheduler._LRScheduler]]:
                 Configured optimizer and lr scheduler.
         """
-        optimizer_factory = self._optimizer_factory or FatOptimizerFactory()
+        optimizer_factory = self._optimizer_factory or OptimizerFactory()
         optimizer = optimizer_factory.create(self.model.parameters())
 
         if self._lr_scheduler_factory is None:
@@ -107,7 +107,7 @@ class LightningModule(lightning.LightningModule):
     def candidates_to_score(self) -> Optional[torch.LongTensor]:
         """
         :getter: Returns a tensor containing the candidate IDs.
-            The tendor will be used during the inference stage of the model.\n
+            The tensor will be used during the inference stage of the model.\n
             If the parameter was not previously set, ``None`` will be returned.
         :setter: A one-dimensional tensor containing candidate IDs is expected.
         """

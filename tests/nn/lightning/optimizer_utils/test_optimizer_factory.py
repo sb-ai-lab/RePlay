@@ -5,9 +5,9 @@ import torch
 
 from replay.nn.lightning import LightningModule
 from replay.nn.lightning.optimizer_utils import (
-    FatLRSchedulerFactory,
-    FatOptimizerFactory,
     LambdaLRSchedulerFactory,
+    LRSchedulerFactory,
+    OptimizerFactory,
 )
 
 
@@ -15,12 +15,12 @@ from replay.nn.lightning.optimizer_utils import (
     "optimizer_factory, lr_scheduler_factory, optimizer_type",
     [
         (None, None, torch.optim.Adam),
-        (FatOptimizerFactory(), None, torch.optim.Adam),
-        (FatOptimizerFactory("sgd"), None, torch.optim.SGD),
-        (None, FatLRSchedulerFactory(), torch.optim.Adam),
-        (FatOptimizerFactory(), FatLRSchedulerFactory(), torch.optim.Adam),
+        (OptimizerFactory(), None, torch.optim.Adam),
+        (OptimizerFactory("sgd"), None, torch.optim.SGD),
+        (None, LRSchedulerFactory(), torch.optim.Adam),
+        (OptimizerFactory(), LRSchedulerFactory(), torch.optim.Adam),
         (None, LambdaLRSchedulerFactory(6), torch.optim.Adam),
-        (FatOptimizerFactory(), LambdaLRSchedulerFactory(6), torch.optim.Adam),
+        (OptimizerFactory(), LambdaLRSchedulerFactory(6), torch.optim.Adam),
     ],
 )
 def test_model_configure_optimizers(sasrec_model, optimizer_factory, lr_scheduler_factory, optimizer_type):
@@ -33,7 +33,7 @@ def test_model_configure_optimizers(sasrec_model, optimizer_factory, lr_schedule
     parameters = lit_model.configure_optimizers()
     if isinstance(parameters, tuple):
         assert isinstance(parameters[0][0], optimizer_type)
-        if isinstance(lr_scheduler_factory, FatLRSchedulerFactory):
+        if isinstance(lr_scheduler_factory, LRSchedulerFactory):
             assert isinstance(parameters[1][0], torch.optim.lr_scheduler.StepLR)
         if isinstance(lr_scheduler_factory, LambdaLRSchedulerFactory):
             assert isinstance(parameters[1][0]["scheduler"], torch.optim.lr_scheduler.LambdaLR)
@@ -42,11 +42,11 @@ def test_model_configure_optimizers(sasrec_model, optimizer_factory, lr_schedule
 
 
 def test_model_get_set_optim_factory(sasrec_model):
-    optim_factory = FatOptimizerFactory()
+    optim_factory = OptimizerFactory()
     lit_model = LightningModule(sasrec_model, optimizer_factory=optim_factory)
 
     assert lit_model._optimizer_factory is optim_factory
-    new_factory = FatOptimizerFactory(learning_rate=0.1)
+    new_factory = OptimizerFactory(learning_rate=0.1)
     lit_model._optimizer_factory = new_factory
     assert lit_model._optimizer_factory is new_factory
 
@@ -55,7 +55,7 @@ def test_model_get_set_optim_factory(sasrec_model):
 def test_model_configure_wrong_optimizer(sasrec_model):
     lit_model = LightningModule(
         sasrec_model,
-        optimizer_factory=FatOptimizerFactory(""),
+        optimizer_factory=OptimizerFactory(""),
     )
 
     with pytest.raises(ValueError) as exc:

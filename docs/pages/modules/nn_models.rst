@@ -156,8 +156,7 @@ Losses
 
 
 `BCE`_, `BCESampled`_, `CESampled`_, `LogInCE`_, `LogInCESampled`_, `LogOutCE`_ support the calculation of logits for the case of multi-positive labels (there are several labels for each position in the sequence).
-
-Source: https://arxiv.org/abs/2205.04507
+Source of multi-positive labels: https://arxiv.org/abs/2205.04507
 
 BCE
 ___

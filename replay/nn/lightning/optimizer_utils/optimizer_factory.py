@@ -6,7 +6,7 @@ from typing import Literal
 import torch
 
 
-class OptimizerFactory(abc.ABC):
+class BaseOptimizerFactory(abc.ABC):
     """
     Interface for optimizer factory
     """
@@ -22,7 +22,7 @@ class OptimizerFactory(abc.ABC):
         """
 
 
-class LRSchedulerFactory(abc.ABC):
+class BaseLRSchedulerFactory(abc.ABC):
     """
     Interface for learning rate scheduler factory
     """
@@ -38,7 +38,7 @@ class LRSchedulerFactory(abc.ABC):
         """
 
 
-class FatOptimizerFactory(OptimizerFactory):
+class OptimizerFactory(BaseOptimizerFactory):
     """
     Factory that creates optimizer depending on passed parameters
     """
@@ -77,7 +77,7 @@ class FatOptimizerFactory(OptimizerFactory):
         raise ValueError(msg)
 
 
-class FatLRSchedulerFactory(LRSchedulerFactory):
+class LRSchedulerFactory(BaseLRSchedulerFactory):
     """
     Factory that creates learning rate schedule depending on passed parameters
     """
@@ -98,7 +98,7 @@ class FatLRSchedulerFactory(LRSchedulerFactory):
         return torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.decay_step, gamma=self.gamma)
 
 
-class LambdaLRSchedulerFactory(LRSchedulerFactory):
+class LambdaLRSchedulerFactory(BaseLRSchedulerFactory):
     """
     Factory that creates learning rate schedule depending on passed parameters
     """
