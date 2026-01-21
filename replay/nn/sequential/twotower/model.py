@@ -465,9 +465,6 @@ class TwoTower(torch.nn.Module):
         from replay.nn.loss import CE
         from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
 
-        # check 463-468
-        # excluded_features = list(set(excluded_features or []))
-
         excluded_features = [
             schema.query_id_feature_name,
             schema.timestamp_feature_name,
