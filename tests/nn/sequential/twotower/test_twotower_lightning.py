@@ -16,16 +16,6 @@ def test_training_twotower_with_different_losses(twotower_parametrized, parquet_
     trainer.fit(sasrec, datamodule=parquet_module)
 
 
-# def test_twotower_with_default_transform(sasrec_model_only_items, parquet_module_with_default_sasrec_transform):
-#     sasrec = LightningModule(
-#         sasrec_model_only_items,
-#         optimizer_factory=FatOptimizerFactory(),
-#     )
-#     trainer = L.Trainer(max_epochs=1)
-#     trainer.fit(sasrec, datamodule=parquet_module_with_default_sasrec_transform)
-#     trainer.test(sasrec, datamodule=parquet_module_with_default_sasrec_transform)
-
-
 def test_twotower_checkpointing(twotower_model, parquet_module, tmp_path):
     twotower = LightningModule(twotower_model)
     trainer = L.Trainer(max_epochs=1)
@@ -74,7 +64,9 @@ def test_twotower_prediction_with_candidates(tensor_schema, twotower_model, parq
 
 
 @pytest.mark.parametrize("random_seed", [0, 1, 2, 3, 4])
-def test_predictions_twotower_equal_with_permuted_candidates(tensor_schema, twotower_model, parquet_module, random_seed):
+def test_predictions_twotower_equal_with_permuted_candidates(
+    tensor_schema, twotower_model, parquet_module, random_seed
+):
     twotower = LightningModule(twotower_model)
     trainer = L.Trainer(max_epochs=1)
     trainer.fit(twotower, datamodule=parquet_module)

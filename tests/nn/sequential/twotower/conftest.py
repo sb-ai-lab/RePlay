@@ -2,11 +2,12 @@ import pytest
 
 pytest.importorskip("torch")
 import torch
+
 from replay.data.nn.schema import TensorMap
-from replay.nn import ConcatAggregator, SumAggregator, DefaultAttentionMask, SequenceEmbedding, SwiGLUEncoder
+from replay.nn import ConcatAggregator, DefaultAttentionMask, SequenceEmbedding, SwiGLUEncoder
 from replay.nn.loss import BCE, CE, BCESampled, CESampled, LogInCE, LogInCESampled, LogOutCE
-from replay.nn.sequential.sasrec import DiffTransformerLayer, PositionAwareAggregator, SasRecTransformerLayer, SasRecBody
-from replay.nn.sequential.twotower import ItemReference, ItemTower, QueryTower, TwoTower, TwoTowerBody
+from replay.nn.sequential.sasrec import DiffTransformerLayer, PositionAwareAggregator
+from replay.nn.sequential.twotower import TwoTower
 
 
 @pytest.fixture(
@@ -84,7 +85,7 @@ class DummyContextMerger(torch.nn.Module):
     def forward(
         self,
         model_hidden_state: torch.Tensor,
-        feature_tensors: TensorMap,  # noqa: ARG002
+        feature_tensors: TensorMap,
     ) -> torch.Tensor:
         return model_hidden_state
 
@@ -93,8 +94,3 @@ class DummyContextMerger(torch.nn.Module):
 def twotower_model_with_context_merger(twotower_model):
     twotower_model.context_merger = DummyContextMerger()
     return twotower_model
-
-# @pytest.fixture
-# def twotower_with_tower_names(tensor_schema, item_features_path, query_tower_names, item_tower_names):
-#     # schema = tensor_schema.subset([set(query_tower_names) | set(item_tower_names)])
-#     return 

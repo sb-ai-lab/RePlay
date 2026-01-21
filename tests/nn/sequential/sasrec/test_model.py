@@ -39,7 +39,6 @@ def test_sasrec_model_train_forward(tensor_schema, sasrec_model, sequential_samp
     )
 
 
-
 @pytest.mark.parametrize("candidates_to_score", [torch.LongTensor([1]), torch.LongTensor([0, 1, 2]), None])
 def test_sasrec_inference_forward(tensor_schema, sasrec_model, sequential_sample, candidates_to_score):
     sasrec_model.eval()

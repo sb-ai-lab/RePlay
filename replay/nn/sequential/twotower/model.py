@@ -139,8 +139,41 @@ class ItemReference:
         :param item_reference_path: path to parquet with dataframe of item features.\n
             **Note:**\n
             1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
-            2. Item reference is constructed only on features with source of FeatureSource.ITEM_FEATURES
-            in tensor schema so an identificator of items ("item_id") should be marked as FeatureSource.ITEM_FEATURES too.
+            2. Item reference is constructed ONLY on features with source of FeatureSource.ITEM_FEATURES
+            or feature with hint of FeatureHint.ITEM_ID.
+            3. Every feature in `schema` must contain feature_sources with source names for creating correct
+            inverse mapping.
+
+            Example of correct `schema`:
+
+            .. code-block:: python
+
+            >>> from replay.data import FeatureHint, FeatureSource, FeatureType
+            >>> from replay.data.nn import TensorSchema, TensorFeatureInfo, TensorFeatureSource
+            >>> tensor_schema = TensorSchema(
+            ...        [
+            ...            TensorFeatureInfo(
+            ...                name="item_id",
+            ...                is_seq=True,
+            ...                cardinality=41,
+            ...                padding_value=40,
+            ...                embedding_dim=64,
+            ...                feature_type=FeatureType.CATEGORICAL,
+            ...                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+            ...                feature_hint=FeatureHint.ITEM_ID,
+            ...            ),
+            ...            TensorFeatureInfo(
+            ...                name="cat_list_feature",
+            ...                is_seq=True,
+            ...                cardinality=5,
+            ...                padding_value=4,
+            ...                embedding_dim=64,
+            ...                feature_type=FeatureType.CATEGORICAL_LIST,
+            ...                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "cat_list_feature")],
+            ...            ),
+            ...        ]
+            ...    )
+
         """
         inverse_feature_names_mapping = {
             schema.get(feature_name).feature_source.column: feature_name
@@ -197,7 +230,7 @@ class ItemTower(torch.nn.Module):
             Item encoder uses item reference which is created based on ``item_reference_path``.
         :param feature_names: sequence of names used in item tower.
         :param item_reference_path: Path to dataframe with
-            all items with features used in ``item_encoder`` (item "tower").
+            all items with encoded features used in ``item_encoder`` (item "tower").
         """
         super().__init__()
         self.embedder = embedder
@@ -502,7 +535,7 @@ class TwoTower(torch.nn.Module):
                 activation="relu",
             ),
             query_tower_output_normalization=torch.nn.LayerNorm(embedding_dim),
-            item_encoder=SwiGLUEncoder(embedding_dim=embedding_dim, hidden_dim=2*embedding_dim),
+            item_encoder=SwiGLUEncoder(embedding_dim=embedding_dim, hidden_dim=2 * embedding_dim),
             item_reference_path=item_reference_path,
             loss=CE(padding_idx=schema.item_id_features.item().padding_value),
             context_merger=None,
