@@ -136,7 +136,7 @@ def test_item_reference(tensor_schema, item_features_path):
     )
 
 
-def test_wrong_feature_type(item_features_path):
+def test_item_tower_wrong_feature_type(item_features_path):
     tensor_schema = TensorSchema(
         [
             TensorFeatureInfo(name="some_feature", is_seq=False, feature_type=FeatureType.CATEGORICAL),
