@@ -222,6 +222,7 @@ class BaseCompiledModel:
             input_names=model_input_names,
             output_names=["scores"],
             dynamic_axes=model_dynamic_axes_in_input,
+            dynamo=False,
         )
         del lightning_model
 
