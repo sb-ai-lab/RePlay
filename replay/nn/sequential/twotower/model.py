@@ -233,22 +233,19 @@ class ItemTower(torch.nn.Module):
             all items with encoded features used in ``item_encoder`` (item "tower").
         """
         super().__init__()
+        self.embedder = embedder
         self.feature_names = feature_names
+        self.embedding_aggregator = embedding_aggregator
+        self.encoder = encoder
+
         self.item_reference = ItemReference(schema, item_reference_path)
         for feature_name, tensor_info in schema.items():
-            if not tensor_info.is_seq:
-                msg = "Non-sequential features is not yet supported"
-                raise NotImplementedError(msg)
             if feature_name not in self.feature_names:
                 continue
 
             dtype = torch.float32 if tensor_info.is_num else torch.int64
             buffer = torch.asarray(self.item_reference[feature_name], dtype=dtype)
             self.register_buffer(f"item_reference_{feature_name}", buffer)
-
-        self.embedder = embedder
-        self.embedding_aggregator = embedding_aggregator
-        self.encoder = encoder
 
         self.cache = None
 
