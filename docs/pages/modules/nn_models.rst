@@ -30,7 +30,7 @@ MultiHead Differential Attention
 
 MultiHeadDifferentialAttention
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.. autoclass:: replay.nn.sequential.MultiHeadDifferentialAttention
+.. autoclass:: replay.nn.attention.MultiHeadDifferentialAttention
    :members: __init__, forward
 
 DiffTransformerBlock
@@ -46,7 +46,7 @@ DiffTransformerLayer
 
 SasRec Transforms
 _________________
-.. autofunction:: replay.nn.transforms.templates.sasrec.make_default_sasrec_transforms
+.. autofunction:: replay.nn.transforms.templates.make_default_sasrec_transforms
 
 
 Bert4Rec
@@ -214,17 +214,17 @@ __________
 
 SequenceEmbedding
 `````````````````
-.. autoclass:: replay.nn.SequenceEmbedding
+.. autoclass:: replay.nn.embedding.SequenceEmbedding
    :members: __init__, forward, embeddings_dim, get_item_weights
 
 CategoricalEmbedding
 ````````````````````
-.. autoclass:: replay.nn.CategoricalEmbedding
+.. autoclass:: replay.nn.embedding.CategoricalEmbedding
    :members: __init__, forward, embedding_dim, weight
 
 NumericalEmbedding
 ``````````````````
-.. autoclass:: replay.nn.NumericalEmbedding
+.. autoclass:: replay.nn.embedding.NumericalEmbedding
    :members: __init__, forward, embedding_dim, weight
 
 
@@ -235,12 +235,12 @@ But in general, you can use them to aggregate any type of tensors.
 
 SumAggregator
 `````````````
-.. autoclass:: replay.nn.SumAggregator
+.. autoclass:: replay.nn.agg.SumAggregator
    :members: __init__, forward, embedding_dim
 
 ConcatAggregator
 ````````````````
-.. autoclass:: replay.nn.ConcatAggregator
+.. autoclass:: replay.nn.agg.ConcatAggregator
    :members: __init__, forward, embedding_dim
 
 
@@ -249,17 +249,17 @@ _____________________
 
 PointWiseFeedForward
 ````````````````````
-.. autoclass:: replay.nn.PointWiseFeedForward
+.. autoclass:: replay.nn.ffn.PointWiseFeedForward
    :members: __init__, forward
 
 SwiGLU
 `````````````
-.. autoclass:: replay.nn.SwiGLU
+.. autoclass:: replay.nn.ffn.SwiGLU
    :members: __init__, forward
 
 SwiGLUEncoder
 `````````````
-.. autoclass:: replay.nn.SwiGLUEncoder
+.. autoclass:: replay.nn.ffn.SwiGLUEncoder
    :members: __init__, forward
 
 
@@ -268,7 +268,7 @@ _______________
 
 DefaultAttentionMask
 ````````````````````
-.. autoclass:: replay.nn.DefaultAttentionMask
+.. autoclass:: replay.nn.mask.DefaultAttentionMask
    :members: __init__, __call__
 
 
@@ -277,7 +277,7 @@ _________________
 
 EmbeddingTyingHead
 ``````````````````
-.. autoclass:: replay.nn.EmbeddingTyingHead
+.. autoclass:: replay.nn.head.EmbeddingTyingHead
    :members: forward
 
 Universal Lighting module
@@ -289,12 +289,12 @@ _______________
 
 TrainOutput
 ___________
-.. autoclass:: replay.nn.TrainOutput
+.. autoclass:: replay.nn.output.TrainOutput
    :members:
 
 InferenceOutput
 _______________
-.. autoclass:: replay.nn.InferenceOutput
+.. autoclass:: replay.nn.output.InferenceOutput
    :members:
 
 
