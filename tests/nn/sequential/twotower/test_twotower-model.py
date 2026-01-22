@@ -4,11 +4,13 @@ import pandas as pd
 import pytest
 import torch
 
+from replay.data import FeatureType
+from replay.data.nn.schema import TensorFeatureInfo, TensorSchema
 from replay.nn import DefaultAttentionMask, SequenceEmbedding, SumAggregator, SwiGLUEncoder
 from replay.nn.loss import CE
 from replay.nn.output import InferenceOutput, TrainOutput
 from replay.nn.sequential.sasrec import PositionAwareAggregator, SasRecTransformerLayer
-from replay.nn.sequential.twotower import ItemReference, TwoTower
+from replay.nn.sequential.twotower import ItemReference, ItemTower, TwoTower
 
 
 def test_query_tower_forward(twotower_model, sequential_sample):
@@ -132,3 +134,20 @@ def test_item_reference(tensor_schema, item_features_path):
         len(item_reference[tensor_schema.item_id_feature_name])
         == original_items_df[tensor_schema.item_id_feature_name].shape[0]
     )
+
+
+def test_wrong_feature_type(item_features_path):
+    tensor_schema = TensorSchema(
+        [
+            TensorFeatureInfo(name="some_feature", is_seq=False, feature_type=FeatureType.CATEGORICAL),
+        ]
+    )
+    with pytest.raises(NotImplementedError):
+        ItemTower(
+            tensor_schema,
+            embedder=SequenceEmbedding(schema=tensor_schema),
+            embedding_aggregator=SumAggregator(64),
+            encoder=SwiGLUEncoder(embedding_dim=64, hidden_dim=2 * 64),
+            feature_names=tensor_schema.names,
+            item_reference_path=item_features_path,
+        )
