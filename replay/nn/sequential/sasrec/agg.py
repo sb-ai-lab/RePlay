@@ -3,7 +3,7 @@ import contextlib
 import torch
 
 from replay.data.nn.schema import TensorMap
-from replay.nn import AggregatorProto
+from replay.nn.agg import AggregatorProto
 
 
 class PositionAwareAggregator(torch.nn.Module):

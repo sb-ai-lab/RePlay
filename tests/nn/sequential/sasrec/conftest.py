@@ -2,9 +2,11 @@ import pytest
 import torch
 
 from replay.data.nn import ParquetModule
-from replay.nn import ConcatAggregator, DefaultAttentionMask, SequenceEmbedding
+from replay.nn.agg import ConcatAggregator
+from replay.nn.embedding import SequenceEmbedding
 from replay.nn.loss import BCE, CE, BCESampled, CESampled, LogInCE, LogInCESampled, LogOutCE
-from replay.nn.sequential.sasrec import DiffTransformerLayer, PositionAwareAggregator, SasRec, SasRecBody
+from replay.nn.mask import DefaultAttentionMask
+from replay.nn.sequential import DiffTransformerLayer, PositionAwareAggregator, SasRec, SasRecBody
 from replay.nn.transforms.templates.sasrec import make_default_sasrec_transforms
 
 

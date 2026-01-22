@@ -4,7 +4,7 @@ from typing import Literal
 import torch
 
 from replay.data.nn import TensorMap
-from replay.nn import PointWiseFeedForward
+from replay.nn.ffn import PointWiseFeedForward
 
 
 class SasRecTransformerLayer(torch.nn.Module):

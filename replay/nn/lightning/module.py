@@ -4,12 +4,12 @@ from typing import Any, Optional, Union
 import lightning
 import torch
 
-from replay.nn import InferenceOutput, TrainOutput
 from replay.nn.lightning.optimizer_utils import (
     BaseLRSchedulerFactory,
     BaseOptimizerFactory,
     OptimizerFactory,
 )
+from replay.nn.output import InferenceOutput, TrainOutput
 
 
 class LightningModule(lightning.LightningModule):

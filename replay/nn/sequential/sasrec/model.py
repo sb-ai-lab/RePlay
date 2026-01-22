@@ -4,15 +4,12 @@ from typing import Literal, Optional, Protocol, Union
 import torch
 
 from replay.data.nn import TensorMap, TensorSchema
-from replay.nn import (
-    AggregatorProto,
-    AttentionMaskProto,
-    EmbeddingTyingHead,
-    InferenceOutput,
-    NormalizerProto,
-    TrainOutput,
-)
+from replay.nn.agg import AggregatorProto
+from replay.nn.head import EmbeddingTyingHead
 from replay.nn.loss import LossProto
+from replay.nn.mask import AttentionMaskProto
+from replay.nn.normalization import NormalizerProto
+from replay.nn.output import InferenceOutput, TrainOutput
 from replay.nn.utils import warning_is_not_none
 
 
@@ -187,8 +184,10 @@ class SasRec(torch.nn.Module):
         excluded_features: Optional[list[str]] = None,
         categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
     ) -> "SasRec":
-        from replay.nn import DefaultAttentionMask, SequenceEmbedding, SumAggregator
+        from replay.nn.agg import SumAggregator
+        from replay.nn.embedding import SequenceEmbedding
         from replay.nn.loss import CE
+        from replay.nn.mask import DefaultAttentionMask
 
         from .agg import PositionAwareAggregator
         from .transformer import SasRecTransformerLayer

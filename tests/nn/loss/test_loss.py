@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from replay.nn import EmbeddingTyingHead
+from replay.nn.head import EmbeddingTyingHead
 from replay.nn.loss import BCE, CE, BCESampled, CESampled, LogInCE, LogInCESampled, LogOutCE
 
 

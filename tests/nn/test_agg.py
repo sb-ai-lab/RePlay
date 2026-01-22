@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from replay.nn import ConcatAggregator
+from replay.nn.agg import ConcatAggregator
 
 
 @pytest.mark.parametrize("tensor_shapes", [[64, 128, 64], [64, 64, 64, 64, 64, 64, 64], [1, 3, 32], [64], [128, 1]])

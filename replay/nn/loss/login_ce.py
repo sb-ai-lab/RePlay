@@ -94,7 +94,7 @@ class LogInCEBase(SampledLossBase):
 
 class LogInCE(LogInCEBase):
     """
-    LogInCE loss (Log InfoNCE, modification of  Information Noise-Contrastive Estimation loss).
+    LogInCE loss.
 
     .. math::
 

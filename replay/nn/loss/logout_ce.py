@@ -9,7 +9,7 @@ from .base import mask_negative_logits
 
 class LogOutCE(torch.nn.Module):
     """
-    LogOutCE loss (InfoNCE, Information Noise-Contrastive Estimation loss).
+    LogOutCE loss.
 
         .. math::
 

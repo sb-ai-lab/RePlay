@@ -3,7 +3,7 @@ import torch
 
 from replay.data import FeatureType
 from replay.data.nn.schema import TensorFeatureInfo, TensorSchema
-from replay.nn import CategoricalEmbedding, SequenceEmbedding
+from replay.nn.embedding import CategoricalEmbedding, SequenceEmbedding
 
 
 @pytest.mark.parametrize("excluded_features", [None, ["num_feature"], ["item_id", "num_feature"]])

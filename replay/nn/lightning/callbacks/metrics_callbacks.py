@@ -10,9 +10,9 @@ from replay.metrics.torch_metrics_builder import (
     TorchMetricsBuilder,
     metrics_to_df,
 )
-from replay.nn import InferenceOutput
 from replay.nn.lightning import LightningModule
 from replay.nn.lightning.postprocessors import PostprocessorBase
+from replay.nn.output import InferenceOutput
 
 
 class ComputeMetricsCallback(lightning.Callback):

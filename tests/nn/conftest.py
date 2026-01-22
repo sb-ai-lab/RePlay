@@ -14,7 +14,7 @@ from replay.data.nn import (
     TensorFeatureSource,
     TensorSchema,
 )
-from replay.nn.sequential.sasrec import SasRec
+from replay.nn.sequential import SasRec
 from replay.nn.transforms import (
     CopyTransform,
     GroupTransform,

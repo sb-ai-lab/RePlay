@@ -4,9 +4,9 @@ from typing import Generic, Optional, TypeVar
 import lightning
 import torch
 
-from replay.nn import InferenceOutput
 from replay.nn.lightning import LightningModule
 from replay.nn.lightning.postprocessors import PostprocessorBase
+from replay.nn.output import InferenceOutput
 from replay.utils import (
     PYSPARK_AVAILABLE,
     MissingImport,
