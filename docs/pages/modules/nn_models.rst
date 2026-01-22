@@ -167,7 +167,6 @@ TwoTowerBody
 ``````````````````````````````
 
 .. autoclass:: replay.nn.sequential.TwoTowerBody
-   :members: __init__
 
 QueryTower
 ``````````````````````````````
