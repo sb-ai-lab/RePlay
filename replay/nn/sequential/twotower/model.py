@@ -371,20 +371,79 @@ class TwoTower(torch.nn.Module):
     which encode separate inputs. In recommender systems they are typically query tower and item tower.\n
     The output hidden states of each "tower" are fused via dot product in the model head.
 
-    Paper: https://doi.org/10.1145/3366424.3386195
+    Source: https://doi.org/10.1145/3366424.3386195
+
+    Example:
+
+    .. code-block:: python
+
+        from replay.data import FeatureHint, FeatureSource, FeatureType
+        from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
+        from replay.nn import DefaultAttentionMask, SequenceEmbedding, SumAggregator, SwiGLUEncoder
+        from replay.nn.loss import CESampled
+        from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
+
+        tensor_schema = TensorSchema(
+            [
+                TensorFeatureInfo(
+                    "item_id",
+                    is_seq=True,
+                    feature_type=FeatureType.CATEGORICAL,
+                    embedding_dim=256,
+                    padding_value=NUM_UNIQUE_ITEMS,
+                    cardinality=NUM_UNIQUE_ITEMS+1,
+                    feature_hint=FeatureHint.ITEM_ID,
+                    feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_id")]
+                ),
+            ]
+        )
+
+        common_aggregator = SumAggregator(embedding_dim=256)
+
+        twotower = TwoTower(
+            schema=tensor_schema,
+            embedder=SequenceEmbedding(
+                schema=tensor_schema,
+                categorical_list_feature_aggregation_method="sum",
+            ),
+            attn_mask_builder=DefaultAttentionMask(
+                reference_feature_name=tensor_schema.item_id_feature_name,
+                num_heads=2,
+            ),
+            query_tower_feature_names=tensor_schema.names,
+            item_tower_feature_names=tensor_schema.names,
+            query_embedding_aggregator=PositionAwareAggregator(
+                embedding_aggregator=common_aggregator,
+                max_sequence_length=100,
+                dropout=0.2,
+            ),
+            item_embedding_aggregator=common_aggregator,
+            query_encoder=SasRecTransformerLayer(
+               embedding_dim=256,
+               num_heads=2,
+               num_blocks=2,
+               dropout=0.3,
+               activation="relu",
+            ),
+            query_tower_output_normalization=torch.nn.LayerNorm(256),
+            item_encoder=SwiGLUEncoder(embedding_dim=256, hidden_dim=2*256),
+            item_reference_path="item_features.parquet",
+            loss=CESampled(padding_idx=tensor_schema.item_id_features.item().padding_value),
+        )
+
     """
 
     def __init__(
         self,
         schema: TensorSchema,
         embedder: EmbedderProto,
-        attn_mask_builder: AttentionMaskProto,
         query_tower_feature_names: Sequence[str],
         item_tower_feature_names: Sequence[str],
         query_embedding_aggregator: AggregatorProto,
         item_embedding_aggregator: AggregatorProto,
         query_encoder: QueryEncoderProto,
         query_tower_output_normalization: NormalizerProto,
+        attn_mask_builder: AttentionMaskProto,
         item_encoder: ItemEncoderProto,
         item_reference_path: str,
         loss: LossProto,
@@ -395,8 +454,6 @@ class TwoTower(torch.nn.Module):
         :param embedder: An object of a class that performs the logic of
             generating embeddings from an input set of tensors.\n
             An embedder with the same arguments is used for both towers, but each tower has its own instance.
-        :param attn_mask_builder: An object of a class that performs the logic of
-            generating an attention mask based on the features and padding mask given to the model.
         :param query_tower_feature_names: sequence of names used in query tower.
         :param item_tower_feature_names: sequence of names used in item tower.
         :param query_embedding_aggregator: An object of a class that performs
@@ -410,6 +467,8 @@ class TwoTower(torch.nn.Module):
         :param query_tower_output_normalization: An object of a class that performs the logic of
             normalization of the hidden state obtained from the query encoder.\n
             For example, it can be a ``torch.nn.LayerNorm`` or ``torch.nn.RMSNorm``.
+        :param attn_mask_builder: An object of a class that performs the logic of
+            generating an attention mask based on the features and padding mask given to the model.
         :param item_encoder: An object of a class that performs the logic of generating
             an item hidden embedding representation based on
             features and aggregated embeddings of ``item_tower_feature_names``.

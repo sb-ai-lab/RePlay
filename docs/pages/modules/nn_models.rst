@@ -160,6 +160,33 @@ _________
    :members: __init__, forward, from_params
 
 
+TwoTower Building Blocks
+_________________________
+
+TwoTowerBody
+``````````````````````````````
+
+.. autoclass:: replay.nn.sequential.TwoTowerBody
+   :members: __init__
+
+QueryTower
+``````````````````````````````
+
+.. autoclass:: replay.nn.sequential.QueryTower
+   :members: __init__, forward
+
+ItemReference 
+``````````````````````````````
+
+.. autoclass:: replay.nn.sequential.ItemReference
+   :members: __init__, keys
+
+ItemTower
+``````````````````````````````
+
+.. autoclass:: replay.nn.sequential.ItemTower
+   :members: __init__, forward
+
 Losses
 ======
 
