@@ -4,11 +4,8 @@ from typing import Any, Optional, Union
 import lightning
 import torch
 
-from replay.nn.lightning.optimizer_utils import (
-    BaseLRSchedulerFactory,
-    BaseOptimizerFactory,
-    OptimizerFactory,
-)
+from replay.nn.lightning.optimizers import BaseOptimizerFactory, OptimizerFactory
+from replay.nn.lightning.schedulers import BaseLRSchedulerFactory
 from replay.nn.output import InferenceOutput, TrainOutput
 
 

@@ -3,10 +3,9 @@ from typing import List, Union
 import torch
 
 from replay.data.nn.parquet.impl.masking import DEFAULT_MASK_POSTFIX
-from replay.nn.transforms.base import BaseTransform
 
 
-class NextTokenTransform(BaseTransform):
+class NextTokenTransform(torch.nn.Module):
     """
     For the tensor specified by key ``label_field`` (typically "item_id") in the batch, this transform creates
     a corresponding "labels" tensor with a key ``out_feature_name`` in the batch, shifted forward

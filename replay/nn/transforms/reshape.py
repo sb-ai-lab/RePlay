@@ -1,9 +1,7 @@
 import torch
 
-from replay.nn.transforms.base import BaseTransform
 
-
-class UnsqueezeTransform(BaseTransform):
+class UnsqueezeTransform(torch.nn.Module):
     """
     Unsqueeze specified tensor along specified dimension.
 

@@ -2,10 +2,8 @@ from typing import List, Union
 
 import torch
 
-from replay.nn.transforms.base import BaseTransform
 
-
-class TrimTransform(BaseTransform):
+class TrimTransform(torch.nn.Module):
     """
     Trims sequences of specified names `feature_names` keeping the specified sequence length `seq_len` on the right.
 

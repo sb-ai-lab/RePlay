@@ -1,12 +1,14 @@
 import copy
 
+import torch
+
 from replay.data.nn import TensorSchema
-from replay.nn.transforms import BaseTransform, GroupTransform, NextTokenTransform, RenameTransform, UnsqueezeTransform
+from replay.nn.transforms import GroupTransform, NextTokenTransform, RenameTransform, UnsqueezeTransform
 
 
 def make_default_sasrec_transforms(
     tensor_schema: TensorSchema, query_column: str = "query_id"
-) -> dict[str, list[BaseTransform]]:
+) -> dict[str, list[torch.nn.Module]]:
     """
     Creates a valid transformation pipeline for SasRec data batches.
 

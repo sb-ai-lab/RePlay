@@ -1,10 +1,7 @@
 import torch
-from typing_extensions import Self
-
-from replay.nn.transforms.base import BaseTransform
 
 
-class SequenceRollTransform(BaseTransform):
+class SequenceRollTransform(torch.nn.Module):
     """
     Rolls the data along axis 1 by the specified amount
     and fills the remaining positions by specified padding value.
@@ -22,7 +19,7 @@ class SequenceRollTransform(BaseTransform):
     """
 
     def __init__(
-        self: Self,
+        self,
         field_name: str,
         roll: int = -1,
         padding_value: int = 0,
@@ -37,7 +34,7 @@ class SequenceRollTransform(BaseTransform):
         self.roll = roll
         self.padding_value = padding_value
 
-    def forward(self: Self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         output_batch = {k: v for k, v in batch.items() if k != self.field_name}
 
         rolled_seq = batch[self.field_name].roll(self.roll, dims=1)

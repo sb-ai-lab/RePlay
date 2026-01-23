@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import torch
 
-from replay.nn.transforms.base import BaseTransform
 
-
-class CopyTransform(BaseTransform):
+class CopyTransform(torch.nn.Module):
     """
     Copies a set of columns according to the provided mapping.
     All copied columns are detached from the graph to prevent erroneous

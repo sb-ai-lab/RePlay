@@ -1,10 +1,7 @@
 import torch
-from typing_extensions import Self
-
-from replay.nn.transforms.base import BaseTransform
 
 
-class GroupTransform(BaseTransform):
+class GroupTransform(torch.nn.Module):
     """
     Combines existing tensors from a batch moving them to the common groups.
     The name of the shared keys and the keys to be moved are specified in ``mapping``.
@@ -25,7 +22,7 @@ class GroupTransform(BaseTransform):
 
     """
 
-    def __init__(self: Self, mapping: dict[str, list[str]]) -> None:
+    def __init__(self, mapping: dict[str, list[str]]) -> None:
         """
         :param mapping: A dict mapping new names to a list of existing names for grouping.
         """
@@ -33,7 +30,7 @@ class GroupTransform(BaseTransform):
         self.mapping = mapping
         self._grouped_keys = set().union(*mapping.values())
 
-    def forward(self: Self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         output_batch = {k: v for k, v in batch.items() if k not in self._grouped_keys}
 
         for group_name, feature_names in self.mapping.items():

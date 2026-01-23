@@ -1,10 +1,7 @@
 import torch
-from typing_extensions import Self
-
-from replay.nn.transforms.base import BaseTransform
 
 
-class RenameTransform(BaseTransform):
+class RenameTransform(torch.nn.Module):
     """
     Renames specific feature columns into new ones. Changes names in original dict, not creates a new dict.
     Example:
@@ -19,14 +16,14 @@ class RenameTransform(BaseTransform):
 
     """
 
-    def __init__(self: Self, mapping: dict[str, str]) -> None:
+    def __init__(self, mapping: dict[str, str]) -> None:
         """
         :param mapping: A dict mapping existing names into new ones.
         """
         super().__init__()
         self.mapping = mapping
 
-    def forward(self: Self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         output_batch = {}
 
         for original_name, tensor in batch.items():

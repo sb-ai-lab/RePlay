@@ -2,10 +2,8 @@ from typing import Optional
 
 import torch
 
-from replay.nn.transforms.base import BaseTransform
 
-
-class UniformNegativeSamplingTransform(BaseTransform):
+class UniformNegativeSamplingTransform(torch.nn.Module):
     """
     Transform for global negative sampling.
 

@@ -1,4 +1,3 @@
-from .base import BaseTransform
 from .copy import CopyTransform
 from .grouping import GroupTransform
 from .negative_sampling import UniformNegativeSamplingTransform
@@ -10,7 +9,6 @@ from .token_mask import TokenMaskTransform
 from .trim import TrimTransform
 
 __all__ = [
-    "BaseTransform",
     "CopyTransform",
     "GroupTransform",
     "NextTokenTransform",

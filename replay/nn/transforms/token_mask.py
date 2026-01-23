@@ -2,10 +2,8 @@ from typing import Optional
 
 import torch
 
-from replay.nn.transforms.base import BaseTransform
 
-
-class TokenMaskTransform(BaseTransform):
+class TokenMaskTransform(torch.nn.Module):
     """
     For the feature tensor specified by ``token_field``, randomly masks items
     in the sequence based on a uniform distribution with specified probability of masking.
