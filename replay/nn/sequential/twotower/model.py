@@ -130,10 +130,10 @@ class ItemReference:
     Prepares a dict of item features values that will be used for training and inference of the Item Tower.
     """
 
-    def __init__(self, schema: TensorSchema, item_reference_path: str):
+    def __init__(self, schema: TensorSchema, item_features_path: str):
         """
         :param schema: the same tensor schema used in TwoTower model.
-        :param item_reference_path: path to parquet with dataframe of item features.\n
+        :param item_features_path: path to parquet with dataframe of item features.\n
             **Note:**\n
 
             1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
@@ -180,7 +180,7 @@ class ItemReference:
             or schema.get(feature_name).feature_source.source == FeatureSource.ITEM_FEATURES
         }
 
-        item_reference = pd.read_parquet(item_reference_path)
+        item_reference = pd.read_parquet(item_features_path)
         item_reference = item_reference.rename(columns=inverse_feature_names_mapping)
         item_reference = item_reference.loc[:, inverse_feature_names_mapping.values()]
         item_reference: pd.DataFrame = item_reference.sort_values(schema.item_id_feature_name).reset_index(drop=True)
@@ -213,7 +213,7 @@ class ItemTower(torch.nn.Module):
         embedding_aggregator: AggregatorProto,
         encoder: ItemEncoderProto,
         feature_names: Sequence[str],
-        item_reference_path: str,
+        item_features_path: str,
     ):
         """
         :param schema: tensor schema object with metainformation about features.
@@ -225,9 +225,9 @@ class ItemTower(torch.nn.Module):
         :param encoder: An object of a class that performs the logic of generating
             an item hidden embedding representation based on
             features and aggregated embeddings of ``item_tower_feature_names``.
-            Item encoder uses item reference which is created based on ``item_reference_path``.
+            Item encoder uses item reference which is created based on ``item_features_path``.
         :param feature_names: sequence of names used in item tower.
-        :param item_reference_path: Path to dataframe with
+        :param item_features_path: Path to dataframe with
             all items with encoded features used in ``item_encoder`` (item "tower").
         """
         super().__init__()
@@ -236,7 +236,7 @@ class ItemTower(torch.nn.Module):
         self.embedding_aggregator = embedding_aggregator
         self.encoder = encoder
 
-        self.item_reference = ItemReference(schema, item_reference_path)
+        self.item_reference = ItemReference(schema, item_features_path)
         for feature_name, tensor_info in schema.items():
             if feature_name not in self.feature_names:
                 continue
@@ -320,7 +320,7 @@ class TwoTowerBody(torch.nn.Module):
         query_encoder: QueryEncoderProto,
         query_tower_output_normalization: NormalizerProto,
         item_encoder: ItemEncoderProto,
-        item_reference_path: str,
+        item_features_path: str,
     ):
         super().__init__()
         self.embedder = embedder
@@ -344,7 +344,7 @@ class TwoTowerBody(torch.nn.Module):
             item_embedding_aggregator,
             item_encoder,
             item_tower_feature_names,
-            item_reference_path,
+            item_features_path,
         )
 
     def reset_parameters(self) -> None:
@@ -428,7 +428,7 @@ class TwoTower(torch.nn.Module):
             ),
             query_tower_output_normalization=torch.nn.LayerNorm(256),
             item_encoder=SwiGLUEncoder(embedding_dim=256, hidden_dim=2*256),
-            item_reference_path="item_features.parquet",
+            item_features_path="item_features.parquet",
             loss=CESampled(padding_idx=tensor_schema.item_id_features.item().padding_value),
         )
 
@@ -446,7 +446,7 @@ class TwoTower(torch.nn.Module):
         query_tower_output_normalization: NormalizerProto,
         attn_mask_builder: AttentionMaskProto,
         item_encoder: ItemEncoderProto,
-        item_reference_path: str,
+        item_features_path: str,
         loss: LossProto,
         context_merger: Optional[ContextMergerProto] = None,
     ):
@@ -473,8 +473,8 @@ class TwoTower(torch.nn.Module):
         :param item_encoder: An object of a class that performs the logic of generating
             an item hidden embedding representation based on
             features and aggregated embeddings of ``item_tower_feature_names``.
-            Item encoder uses item reference which is created based on ``item_reference_path``.
-        :param item_reference_path: Path to dataframe
+            Item encoder uses item reference which is created based on ``item_features_path``.
+        :param item_features_path: Path to dataframe
             with all items with features used in ``item_encoder`` (item "tower").\n
             **Note:**\n
             1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
@@ -498,7 +498,7 @@ class TwoTower(torch.nn.Module):
             query_encoder=query_encoder,
             query_tower_output_normalization=query_tower_output_normalization,
             item_encoder=item_encoder,
-            item_reference_path=item_reference_path,
+            item_features_path=item_features_path,
         )
         self.head = EmbeddingTyingHead()
         self.loss = loss
@@ -511,7 +511,7 @@ class TwoTower(torch.nn.Module):
     def from_params(
         cls,
         schema: TensorSchema,
-        item_reference_path: str,
+        item_features_path: str,
         embedding_dim: int = 192,
         num_heads: int = 4,
         num_blocks: int = 2,
@@ -531,7 +531,7 @@ class TwoTower(torch.nn.Module):
         To create an instance of TwoTower with other types of blocks, use the class constructor.
 
         :param schema: tensor schema object with metainformation about features.
-        :param item_reference_path: Path to dataframe
+        :param item_features_path: Path to dataframe
             with all items with features used in ``item_encoder`` (item "tower").
             **Note:**\n
             1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
@@ -596,7 +596,7 @@ class TwoTower(torch.nn.Module):
             ),
             query_tower_output_normalization=torch.nn.LayerNorm(embedding_dim),
             item_encoder=SwiGLUEncoder(embedding_dim=embedding_dim, hidden_dim=2 * embedding_dim),
-            item_reference_path=item_reference_path,
+            item_features_path=item_features_path,
             loss=CE(padding_idx=schema.item_id_features.item().padding_value),
             context_merger=None,
         )

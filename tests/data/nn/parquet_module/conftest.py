@@ -11,11 +11,7 @@ from replay.data.nn import (
     TensorFeatureSource,
     TensorSchema,
 )
-<<<<<<< HEAD
 from replay.nn.transform.template import make_default_sasrec_transforms
-=======
-from replay.nn.transforms.templates.sasrec import make_default_sasrec_transforms
->>>>>>> 745b7218... squash all
 
 
 @pytest.fixture

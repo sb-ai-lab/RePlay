@@ -10,7 +10,8 @@ from replay.nn.ffn import SwiGLUEncoder
 from replay.nn.loss import CE
 from replay.nn.mask import DefaultAttentionMask
 from replay.nn.output import InferenceOutput, TrainOutput
-from replay.nn.sequential import ItemReference, PositionAwareAggregator, SasRecTransformerLayer, TwoTower
+from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
+from replay.nn.sequential.twotower import ItemReference, TwoTower
 
 
 def test_query_tower_forward(twotower_model, sequential_sample):
@@ -117,7 +118,7 @@ def test_twotower_with_different_tower_features(
             query_encoder=SasRecTransformerLayer(embedding_dim=64, num_heads=1, num_blocks=1, dropout=0.2),
             query_tower_output_normalization=torch.nn.LayerNorm(64),
             item_encoder=SwiGLUEncoder(embedding_dim=64, hidden_dim=2 * 64),
-            item_reference_path=item_features_path,
+            item_features_path=item_features_path,
             loss=CE(padding_idx=tensor_schema.item_id_features.item().padding_value),
         )
 

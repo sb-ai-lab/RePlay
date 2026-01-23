@@ -58,7 +58,7 @@ def twotower_parametrized(request, tensor_schema, item_features_path):
         ),
         query_tower_output_normalization=torch.nn.LayerNorm(64),
         item_encoder=SwiGLUEncoder(embedding_dim=64, hidden_dim=2 * 64),
-        item_reference_path=item_features_path,
+        item_features_path=item_features_path,
         loss=loss,
         context_merger=None,
     )
@@ -70,7 +70,7 @@ def twotower_parametrized(request, tensor_schema, item_features_path):
 def twotower_model(tensor_schema, item_features_path):
     model = TwoTower.from_params(
         schema=tensor_schema,
-        item_reference_path=item_features_path,
+        item_features_path=item_features_path,
         embedding_dim=64,
         num_heads=1,
         num_blocks=1,
