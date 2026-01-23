@@ -4,11 +4,13 @@ import pandas as pd
 import pytest
 import torch
 
-from replay.nn import DefaultAttentionMask, SequenceEmbedding, SumAggregator, SwiGLUEncoder
+from replay.nn.agg import SumAggregator
+from replay.nn.embedding import SequenceEmbedding
+from replay.nn.ffn import SwiGLUEncoder
 from replay.nn.loss import CE
+from replay.nn.mask import DefaultAttentionMask
 from replay.nn.output import InferenceOutput, TrainOutput
-from replay.nn.sequential.sasrec import PositionAwareAggregator, SasRecTransformerLayer
-from replay.nn.sequential.twotower import ItemReference, TwoTower
+from replay.nn.sequential import ItemReference, PositionAwareAggregator, SasRecTransformerLayer, TwoTower
 
 
 def test_query_tower_forward(twotower_model, sequential_sample):

@@ -3,13 +3,14 @@ import pytest
 import torch
 
 from replay.nn.lightning import LightningModule
-from replay.nn.lightning.optimizer_utils import FatOptimizerFactory, LambdaLRSchedulerFactory
+from replay.nn.lightning.optimizer import OptimizerFactory
+from replay.nn.lightning.scheduler import LambdaLRSchedulerFactory
 
 
 def test_training_twotower_with_different_losses(twotower_parametrized, parquet_module):
     sasrec = LightningModule(
         twotower_parametrized,
-        optimizer_factory=FatOptimizerFactory(),
+        optimizer_factory=OptimizerFactory(),
         lr_scheduler_factory=LambdaLRSchedulerFactory(warmup_steps=1),
     )
     trainer = L.Trainer(max_epochs=2)

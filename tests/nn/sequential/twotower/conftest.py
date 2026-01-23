@@ -4,10 +4,12 @@ pytest.importorskip("torch")
 import torch
 
 from replay.data.nn.schema import TensorMap
-from replay.nn import ConcatAggregator, DefaultAttentionMask, SequenceEmbedding, SwiGLUEncoder
+from replay.nn.agg import ConcatAggregator
+from replay.nn.embedding import SequenceEmbedding
+from replay.nn.ffn import SwiGLUEncoder
 from replay.nn.loss import BCE, CE, BCESampled, CESampled, LogInCE, LogInCESampled, LogOutCE
-from replay.nn.sequential.sasrec import DiffTransformerLayer, PositionAwareAggregator
-from replay.nn.sequential.twotower import TwoTower
+from replay.nn.mask import DefaultAttentionMask
+from replay.nn.sequential import DiffTransformerLayer, PositionAwareAggregator, TwoTower
 
 
 @pytest.fixture(

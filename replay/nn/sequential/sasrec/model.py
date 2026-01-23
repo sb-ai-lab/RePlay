@@ -127,7 +127,9 @@ class SasRec(torch.nn.Module):
 
         from replay.data import FeatureHint, FeatureSource, FeatureType
         from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
-        from replay.nn import DefaultAttentionMask, SequenceEmbedding, SumAggregator
+        from replay.nn.agg import SumAggregator
+        from replay.nn.embedding import SequenceEmbedding
+        from replay.nn.mask import DefaultAttentionMask
         from replay.nn.loss import CESampled
         from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
 

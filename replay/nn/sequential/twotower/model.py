@@ -6,15 +6,12 @@ import torch
 
 from replay.data import FeatureSource
 from replay.data.nn import TensorMap, TensorSchema
-from replay.nn import (
-    AggregatorProto,
-    AttentionMaskProto,
-    EmbeddingTyingHead,
-    InferenceOutput,
-    NormalizerProto,
-    TrainOutput,
-)
+from replay.nn.agg import AggregatorProto
+from replay.nn.head import EmbeddingTyingHead
 from replay.nn.loss import LossProto
+from replay.nn.mask import AttentionMaskProto
+from replay.nn.normalization import NormalizerProto
+from replay.nn.output import InferenceOutput, TrainOutput
 from replay.nn.utils import warning_is_not_none
 
 
@@ -372,7 +369,7 @@ class TwoTower(torch.nn.Module):
     which encode separate inputs. In recommender systems they are typically query tower and item tower.\n
     The output hidden states of each "tower" are fused via dot product in the model head.
 
-    Source: https://doi.org/10.1145/3366424.3386195
+    Source paper: https://doi.org/10.1145/3366424.3386195
 
     Example:
 
@@ -380,7 +377,10 @@ class TwoTower(torch.nn.Module):
 
         from replay.data import FeatureHint, FeatureSource, FeatureType
         from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
-        from replay.nn import DefaultAttentionMask, SequenceEmbedding, SumAggregator, SwiGLUEncoder
+        from replay.nn.agg import SumAggregator
+        from replay.nn.embedding import SequenceEmbedding
+        from replay.nn.ffn import SwiGLUEncoder
+        from replay.nn.mask import DefaultAttentionMask
         from replay.nn.loss import CESampled
         from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
 
@@ -551,8 +551,11 @@ class TwoTower(torch.nn.Module):
             Default: ``"sum"``.
         :return: an instance of TwoTower class.
         """
-        from replay.nn import DefaultAttentionMask, SequenceEmbedding, SumAggregator, SwiGLUEncoder
+        from replay.nn.agg import SumAggregator
+        from replay.nn.embedding import SequenceEmbedding
+        from replay.nn.ffn import SwiGLUEncoder
         from replay.nn.loss import CE
+        from replay.nn.mask import DefaultAttentionMask
         from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
 
         excluded_features = [

@@ -3,13 +3,14 @@ import pytest
 import torch
 
 from replay.nn.lightning import LightningModule
-from replay.nn.lightning.optimizer_utils import FatOptimizerFactory, LambdaLRSchedulerFactory
+from replay.nn.lightning.optimizer import OptimizerFactory
+from replay.nn.lightning.scheduler import LambdaLRSchedulerFactory
 
 
 def test_training_sasrec_with_different_losses(sasrec_parametrized, parquet_module):
     sasrec = LightningModule(
         sasrec_parametrized,
-        optimizer_factory=FatOptimizerFactory(),
+        optimizer_factory=OptimizerFactory(),
         lr_scheduler_factory=LambdaLRSchedulerFactory(warmup_steps=1),
     )
     trainer = L.Trainer(max_epochs=2)
@@ -19,7 +20,7 @@ def test_training_sasrec_with_different_losses(sasrec_parametrized, parquet_modu
 def test_sasrec_with_default_transform(sasrec_model_only_items, parquet_module_with_default_sasrec_transform):
     sasrec = LightningModule(
         sasrec_model_only_items,
-        optimizer_factory=FatOptimizerFactory(),
+        optimizer_factory=OptimizerFactory(),
     )
     trainer = L.Trainer(max_epochs=1)
     trainer.fit(sasrec, datamodule=parquet_module_with_default_sasrec_transform)
