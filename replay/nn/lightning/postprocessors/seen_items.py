@@ -48,25 +48,24 @@ class SeenItemsFilter(PostprocessorBase):
         self._candidates = None
 
     def on_validation(self, batch: dict, logits: torch.Tensor) -> torch.Tensor:
-        return self._compute_scores(batch, logits.detach().clone(), True)
+        return self._compute_scores(batch, logits.detach().clone())
 
     def on_prediction(self, batch: dict, logits: torch.Tensor) -> torch.Tensor:
-        return self._compute_scores(batch, logits.detach().clone(), False)
+        return self._compute_scores(batch, logits.detach().clone())
 
     def _compute_scores(
         self,
         batch: TensorMap,
         logits: torch.Tensor,
-        is_validation: bool,
     ) -> torch.Tensor:
         seen_ids_padded = batch[self.seen_items_column]
         padding_mask = (seen_ids_padded < self.item_count) & (seen_ids_padded >= 0)
 
-        batch_factors = torch.arange(0, batch["query_id"].numel()) * self.item_count
+        batch_factors = torch.arange(0, logits.size(0)) * self.item_count
         factored_ids = seen_ids_padded + batch_factors.unsqueeze(1)
         seen_ids_flat = factored_ids[padding_mask]
 
-        if not is_validation and self._candidates is not None:
+        if self._candidates is not None:
             _logits = torch.full((logits.size(0), self.item_count), -torch.inf)
             _logits[:, self._candidates] = torch.reshape(logits, _logits[:, self.candidates].shape)
             logits = _logits
@@ -78,7 +77,7 @@ class SeenItemsFilter(PostprocessorBase):
             flat_scores[seen_ids_flat] = -torch.inf
             logits = flat_scores.reshape(logits.shape)
 
-        if not is_validation and self._candidates is not None:
+        if self._candidates is not None:
             logits = logits[:, self._candidates]
 
         return logits
