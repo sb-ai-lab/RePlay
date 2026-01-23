@@ -4,7 +4,7 @@ import pytest
 import torch
 
 from replay.nn.lightning import LightningModule
-from replay.nn.lightning.callbacks import (
+from replay.nn.lightning.callback import (
     ComputeMetricsCallback,
     HiddenStatesCallback,
     PandasTopItemsCallback,
@@ -12,7 +12,7 @@ from replay.nn.lightning.callbacks import (
     SparkTopItemsCallback,
     TorchTopItemsCallback,
 )
-from replay.nn.lightning.postprocessors import SeenItemsFilter
+from replay.nn.lightning.postprocessor import SeenItemsFilter
 from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame
 from replay.utils.session_handler import get_spark_session
 

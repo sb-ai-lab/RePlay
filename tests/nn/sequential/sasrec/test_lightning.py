@@ -3,8 +3,8 @@ import pytest
 import torch
 
 from replay.nn.lightning import LightningModule
-from replay.nn.lightning.optimizers import OptimizerFactory
-from replay.nn.lightning.schedulers import LambdaLRSchedulerFactory
+from replay.nn.lightning.optimizer import OptimizerFactory
+from replay.nn.lightning.scheduler import LambdaLRSchedulerFactory
 
 
 def test_training_sasrec_with_different_losses(sasrec_parametrized, parquet_module):

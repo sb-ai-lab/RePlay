@@ -4,8 +4,8 @@ import pytest
 import torch
 
 from replay.nn.lightning import LightningModule
-from replay.nn.lightning.optimizers import OptimizerFactory
-from replay.nn.lightning.schedulers import LambdaLRSchedulerFactory, LRSchedulerFactory
+from replay.nn.lightning.optimizer import OptimizerFactory
+from replay.nn.lightning.scheduler import LambdaLRSchedulerFactory, LRSchedulerFactory
 
 
 @pytest.mark.parametrize(

@@ -11,7 +11,7 @@ from replay.metrics.torch_metrics_builder import (
     metrics_to_df,
 )
 from replay.nn.lightning import LightningModule
-from replay.nn.lightning.postprocessors import PostprocessorBase
+from replay.nn.lightning.postprocessor import PostprocessorBase
 from replay.nn.output import InferenceOutput
 
 

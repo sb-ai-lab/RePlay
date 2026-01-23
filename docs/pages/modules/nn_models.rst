@@ -46,7 +46,7 @@ DiffTransformerLayer
 
 SasRec Transforms
 _________________
-.. autofunction:: replay.nn.transforms.templates.make_default_sasrec_transforms
+.. autofunction:: replay.nn.transform.template.make_default_sasrec_transforms
 
 
 Bert4Rec
@@ -310,47 +310,47 @@ Specified transformations will be applied per batch on device, then the resultin
 
 CopyTransform
 __________________
-.. autoclass:: replay.nn.transforms.CopyTransform
+.. autoclass:: replay.nn.transform.CopyTransform
     :members: __init__
 
 GroupTransform
 __________________
-.. autoclass:: replay.nn.transforms.GroupTransform
+.. autoclass:: replay.nn.transform.GroupTransform
     :members: __init__
 
 RenameTransform
 __________________
-.. autoclass:: replay.nn.transforms.RenameTransform
+.. autoclass:: replay.nn.transform.RenameTransform
     :members: __init__
 
 UnsqueezeTransform
 __________________
-.. autoclass:: replay.nn.transforms.UnsqueezeTransform
+.. autoclass:: replay.nn.transform.UnsqueezeTransform
     :members: __init__
 
 NextTokenTransform
 __________________
-.. autoclass:: replay.nn.transforms.NextTokenTransform
+.. autoclass:: replay.nn.transform.NextTokenTransform
     :members: __init__
 
 TokenMaskTransform
 __________________
-.. autoclass:: replay.nn.transforms.TokenMaskTransform
+.. autoclass:: replay.nn.transform.TokenMaskTransform
     :members: __init__
 
 TrimTransform
 __________________
-.. autoclass:: replay.nn.transforms.TrimTransform
+.. autoclass:: replay.nn.transform.TrimTransform
     :members: __init__
 
 SequenceRollTransform
 ______________________
-.. autoclass:: replay.nn.transforms.SequenceRollTransform
+.. autoclass:: replay.nn.transform.SequenceRollTransform
     :members: __init__
 
 UniformNegativeSamplingTransform
 _________________________________
-.. autoclass:: replay.nn.transforms.UniformNegativeSamplingTransform
+.. autoclass:: replay.nn.transform.UniformNegativeSamplingTransform
     :members: __init__
 
 Easy training, validation and inference with Lightning
@@ -375,32 +375,32 @@ _________
 
 ComputeMetricsCallback
 `````````````````````````
-.. autoclass:: replay.nn.lightning.callbacks.ComputeMetricsCallback
+.. autoclass:: replay.nn.lightning.callback.ComputeMetricsCallback
    :members: __init__
 
 PandasTopItemsCallback
 ````````````````````````
-.. autoclass:: replay.nn.lightning.callbacks.PandasTopItemsCallback
+.. autoclass:: replay.nn.lightning.callback.PandasTopItemsCallback
    :members: __init__, get_result
 
 PolarsTopItemsCallback
 ````````````````````````
-.. autoclass:: replay.nn.lightning.callbacks.PolarsTopItemsCallback
+.. autoclass:: replay.nn.lightning.callback.PolarsTopItemsCallback
    :members: __init__, get_result
 
 SparkTopItemsCallback
 ```````````````````````
-.. autoclass:: replay.nn.lightning.callbacks.SparkTopItemsCallback
+.. autoclass:: replay.nn.lightning.callback.SparkTopItemsCallback
    :members: __init__, get_result
 
 TorchTopItemsCallback
 ```````````````````````
-.. autoclass:: replay.nn.lightning.callbacks.TorchTopItemsCallback
+.. autoclass:: replay.nn.lightning.callback.TorchTopItemsCallback
    :members: __init__, get_result
 
 HiddenStatesCallback
 `````````````````````
-.. autoclass:: replay.nn.lightning.callbacks.HiddenStatesCallback
+.. autoclass:: replay.nn.lightning.callback.HiddenStatesCallback
    :members: __init__, get_result
 
 Postprocessors
@@ -408,10 +408,10 @@ ______________
 
 PostprocessorBase
 `````````````````
-.. autoclass:: replay.nn.lightning.postprocessors.PostprocessorBase
+.. autoclass:: replay.nn.lightning.postprocessor.PostprocessorBase
    :members: __init__, on_validation, on_prediction
 
 SeenItemsFilter
 ```````````````
-.. autoclass:: replay.nn.lightning.postprocessors.SeenItemsFilter
+.. autoclass:: replay.nn.lightning.postprocessor.SeenItemsFilter
    :members: __init__, on_validation, on_prediction

@@ -15,7 +15,7 @@ from replay.data.nn import (
     TensorSchema,
 )
 from replay.nn.sequential import SasRec
-from replay.nn.transforms import (
+from replay.nn.transform import (
     CopyTransform,
     GroupTransform,
     NextTokenTransform,

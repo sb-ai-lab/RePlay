@@ -1,5 +1,5 @@
-from .metrics_callbacks import ComputeMetricsCallback
-from .predictions_callbacks import (
+from .metrics_callback import ComputeMetricsCallback
+from .predictions_callback import (
     HiddenStatesCallback,
     PandasTopItemsCallback,
     PolarsTopItemsCallback,

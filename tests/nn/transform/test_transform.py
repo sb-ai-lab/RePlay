@@ -3,7 +3,7 @@ import copy
 import pytest
 import torch
 
-from replay.nn.transforms import (
+from replay.nn.transform import (
     CopyTransform,
     GroupTransform,
     NextTokenTransform,

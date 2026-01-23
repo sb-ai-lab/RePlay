@@ -11,7 +11,7 @@ from replay.data.nn import (
     TensorFeatureSource,
     TensorSchema,
 )
-from replay.nn.transforms.templates.sasrec import make_default_sasrec_transforms
+from replay.nn.transform.template import make_default_sasrec_transforms
 
 
 @pytest.fixture

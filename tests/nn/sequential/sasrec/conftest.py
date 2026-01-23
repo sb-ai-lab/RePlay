@@ -7,7 +7,7 @@ from replay.nn.embedding import SequenceEmbedding
 from replay.nn.loss import BCE, CE, BCESampled, CESampled, LogInCE, LogInCESampled, LogOutCE
 from replay.nn.mask import DefaultAttentionMask
 from replay.nn.sequential import DiffTransformerLayer, PositionAwareAggregator, SasRec, SasRecBody
-from replay.nn.transforms.templates.sasrec import make_default_sasrec_transforms
+from replay.nn.transform.template import make_default_sasrec_transforms
 
 
 @pytest.fixture(

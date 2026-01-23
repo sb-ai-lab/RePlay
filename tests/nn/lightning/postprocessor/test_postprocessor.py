@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from replay.nn.lightning.postprocessors import SeenItemsFilter
+from replay.nn.lightning.postprocessor import SeenItemsFilter
 
 
 @pytest.mark.parametrize("calling_method", ["on_validation", "on_prediction"])

@@ -3,7 +3,7 @@ import copy
 import torch
 
 from replay.data.nn import TensorSchema
-from replay.nn.transforms import GroupTransform, NextTokenTransform, RenameTransform, UnsqueezeTransform
+from replay.nn.transform import GroupTransform, NextTokenTransform, RenameTransform, UnsqueezeTransform
 
 
 def make_default_sasrec_transforms(
