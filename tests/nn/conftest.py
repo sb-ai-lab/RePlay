@@ -74,7 +74,7 @@ def tensor_schema():
                 tensor_dim=64,
                 embedding_dim=64,
                 feature_type=FeatureType.NUMERICAL_LIST,
-                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_list_feature")],
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "emb_list_feature")],
             ),
         ]
     )
@@ -137,31 +137,58 @@ def generate_recsys_dataset(
 ):
     np.random.seed(seed)
 
+    features_dict = {name: {} for name in tensor_schema.names}
+
+    for feature_info in tensor_schema.all_features:
+        if not feature_info.is_seq or feature_info.name == "item_id":
+            continue
+
+        d = {}
+        for i in range(tensor_schema["item_id"].cardinality - 1):
+            if feature_info.feature_type == FeatureType.CATEGORICAL:
+                d[i] = np.random.randint(0, feature_info.cardinality - 1, size=None)
+
+            elif feature_info.feature_type == FeatureType.CATEGORICAL_LIST:
+                d[i] = np.random.randint(0, feature_info.cardinality - 1, size=cat_list_item_size)
+
+            elif feature_info.feature_type == FeatureType.NUMERICAL:
+                d[i] = np.random.random(size=None)
+
+            elif feature_info.feature_type == FeatureType.NUMERICAL_LIST:
+                d[i] = np.random.random(size=(feature_info.tensor_dim)).astype(np.float32)
+
+        features_dict[feature_info.name] = copy.deepcopy(d)
+
     rows = []
     for i in range(n_users):
         hist_len = np.random.randint(1, max_len + 1, size=None, dtype=int)
         row = {"user_id": i}
 
+        row["item_id"] = np.random.randint(0, tensor_schema["item_id"].cardinality - 2, size=hist_len).tolist()
+
         for feature_info in tensor_schema.all_features:
-            if not feature_info.is_seq:
+            if not feature_info.is_seq or feature_info.name == "item_id":
                 continue
 
-            if feature_info.feature_type == FeatureType.CATEGORICAL:
-                row[feature_info.name] = np.random.randint(0, feature_info.cardinality - 2, size=hist_len).tolist()
-            elif feature_info.feature_type == FeatureType.CATEGORICAL_LIST:
-                row[feature_info.name] = [
-                    np.random.randint(0, feature_info.cardinality - 2, size=hist_len) for _ in range(cat_list_item_size)
-                ]
-            elif feature_info.feature_type == FeatureType.NUMERICAL:
-                row[feature_info.name] = np.random.random(size=(hist_len,)).astype(np.float32)
-            elif feature_info.feature_type == FeatureType.NUMERICAL_LIST:
-                row[feature_info.name] = [
-                    np.random.random(size=(feature_info.tensor_dim)).astype(np.float32) for _ in range(hist_len)
-                ]
+            sequence = [features_dict[feature_info.name][i] for i in row["item_id"]]
+
+            if feature_info.feature_type == FeatureType.NUMERICAL:
+                row[feature_info.name] = np.array(sequence).astype(np.float32)
+            else:
+                row[feature_info.name] = sequence
 
         rows.append(row)
 
-    return pd.DataFrame.from_records(rows)
+    events_df = pd.DataFrame.from_records(rows)
+    item_features_df = pd.DataFrame.from_records(features_dict)
+    item_features_df["item_id"] = item_features_df.index
+
+    return events_df, item_features_df
+
+
+@pytest.fixture(scope="module")
+def generated_dfs(tensor_schema, seed, max_len):
+    return generate_recsys_dataset(tensor_schema, n_users=50, max_len=max_len, seed=seed)
 
 
 @pytest.fixture(scope="module")
@@ -175,11 +202,22 @@ def seed():
 
 
 @pytest.fixture(scope="module")
-def parquet_module_path(tmp_path_factory, tensor_schema, seed, max_len):
-    tmp_dir = tmp_path_factory.mktemp("parquet_module_")
+def item_features_path(tmp_path_factory, generated_dfs):
+    tmp_dir = tmp_path_factory.mktemp("parquet_module")
+    path = tmp_dir / f"item_features_tmp_{seed}.parquet"
+
+    _, item_features = generated_dfs
+    item_features.to_parquet(path, index=False)
+
+    return str(path)
+
+
+@pytest.fixture(scope="module")
+def parquet_module_path(tmp_path_factory, generated_dfs):
+    tmp_dir = tmp_path_factory.mktemp("parquet_module")
     path = tmp_dir / f"tmp_{seed}.parquet"
 
-    df = generate_recsys_dataset(tensor_schema, n_users=50, max_len=max_len, seed=seed)
+    df, _ = generated_dfs
     df.to_parquet(path, index=False)
 
     return str(path)

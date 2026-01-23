@@ -203,12 +203,14 @@ class CategoricalEmbedding(torch.nn.Module):
 
         :returns: Embeddings for specific items.
         """
-        assert indices.dim() >= 3
-
-        source_size = indices.size()
-        indices = indices.view(-1, source_size[-1])
-        embeddings = self.emb(indices)
-        embeddings = embeddings.view(*source_size[:-1], -1)
+        assert indices.dim() >= 2
+        if indices.dim() == 2:
+            embeddings: torch.Tensor = self.emb(indices)
+        else:
+            source_size = indices.size()
+            indices = indices.view(-1, source_size[-1])
+            embeddings = self.emb(indices)
+            embeddings = embeddings.view(*source_size[:-1], -1)
         return embeddings
 
 
@@ -230,10 +232,10 @@ class NumericalEmbedding(torch.nn.Module):
         assert feature_info.embedding_dim
         self._tensor_dim = feature_info.tensor_dim
         self._embedding_dim = feature_info.embedding_dim
-        self.linear = torch.nn.Linear(feature_info.tensor_dim, self.embedding_dim)
+        self.linear = torch.nn.Linear(feature_info.tensor_dim, self._embedding_dim)
 
         if feature_info.is_list:
-            if self.embedding_dim == feature_info.tensor_dim:
+            if self._embedding_dim == feature_info.tensor_dim:
                 torch.nn.init.eye_(self.linear.weight.data)
                 torch.nn.init.zeros_(self.linear.bias.data)
 
@@ -241,7 +243,7 @@ class NumericalEmbedding(torch.nn.Module):
                 self.linear.bias.requires_grad = False
         else:
             assert feature_info.tensor_dim == 1
-            self.linear = torch.nn.Linear(feature_info.tensor_dim, self.embedding_dim)
+            self.linear = torch.nn.Linear(feature_info.tensor_dim, self._embedding_dim)
 
     @property
     def weight(self) -> torch.Tensor:
@@ -260,10 +262,9 @@ class NumericalEmbedding(torch.nn.Module):
         :param values: feature values.
         :returns: Embeddings for specific items.
         """
-        if values.dim() <= 2:
+        if values.dim() <= 2 and self._tensor_dim == 1:
             values = values.unsqueeze(-1).contiguous()
 
-        assert values.dim() >= 3
         assert values.size(-1) == self._tensor_dim
         if self._tensor_dim != self._embedding_dim:
             return self.linear(values)

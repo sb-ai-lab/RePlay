@@ -150,6 +150,42 @@ ________________
    :members: compile, predict
 
 
+
+TwoTower
+=========
+
+TwoTower
+_________
+.. autoclass:: replay.nn.sequential.TwoTower
+   :members: __init__, forward, from_params
+
+
+TwoTower Building Blocks
+_________________________
+
+TwoTowerBody
+``````````````````````````````
+
+.. autoclass:: replay.nn.sequential.TwoTowerBody
+
+QueryTower
+``````````````````````````````
+
+.. autoclass:: replay.nn.sequential.QueryTower
+   :members: __init__, forward
+
+ItemReference 
+``````````````````````````````
+
+.. autoclass:: replay.nn.sequential.ItemReference
+   :members: __init__, keys
+
+ItemTower
+``````````````````````````````
+
+.. autoclass:: replay.nn.sequential.ItemTower
+   :members: __init__, forward
+
 Losses
 ======
 

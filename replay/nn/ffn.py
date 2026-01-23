@@ -99,7 +99,7 @@ class SwiGLU(torch.nn.Module):
         return self.W2(activation * linear)  # Element-wise multiplication and projection
 
 
-class SwiGLUEncoder(torch.nn.Module):  # pragma: no cover
+class SwiGLUEncoder(torch.nn.Module):
     """
     MLP block consists of SwiGLU Feed-Forward network followed by a RMSNorm layer with skip connection.
     """

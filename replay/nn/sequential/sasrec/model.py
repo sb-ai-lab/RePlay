@@ -46,7 +46,7 @@ class SasRecBody(torch.nn.Module):
     It can include various self-written blocks for modifying the model,
     but the sequence of applying layers is fixed in accordance with the original architecture.
 
-    Paper: https://arxiv.org/pdf/1808.09781.
+    Source paper: https://arxiv.org/pdf/1808.09781.
     """
 
     def __init__(
@@ -125,12 +125,33 @@ class SasRec(torch.nn.Module):
 
     .. code-block:: python
 
+        from replay.data import FeatureHint, FeatureSource, FeatureType
+        from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
+        from replay.nn import DefaultAttentionMask, SequenceEmbedding, SumAggregator
+        from replay.nn.loss import CESampled
+        from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
+
+        tensor_schema = TensorSchema(
+            [
+                TensorFeatureInfo(
+                    "item_id",
+                    is_seq=True,
+                    feature_type=FeatureType.CATEGORICAL,
+                    embedding_dim=256,
+                    padding_value=NUM_UNIQUE_ITEMS,
+                    cardinality=NUM_UNIQUE_ITEMS+1,
+                    feature_hint=FeatureHint.ITEM_ID,
+                    feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_id")]
+                ),
+            ]
+        )
+
         body = SasRecBody(
             embedder=SequenceEmbedding(
                 schema=tensor_schema,
             ),
             embedding_aggregator=PositionAwareAggregator(
-                embedding_aggregator=common_aggregator,
+                embedding_aggregator=SumAggregator(embedding_dim=256),
                 max_sequence_length=100,
                 dropout=0.2,
             ),

@@ -404,6 +404,7 @@ def metrics_to_df(metrics: Mapping[str, float]) -> PandasDataFrame:
 
     pivoted_metrics = metrics_df.pivot(index="metric", columns="k", values="v")
     pivoted_metrics.index.name = None
+    pivoted_metrics.columns = pivoted_metrics.columns.map(int)
 
     pivoted_metrics.sort_index(axis=0, inplace=True)
     pivoted_metrics.sort_index(axis=1, inplace=True)
