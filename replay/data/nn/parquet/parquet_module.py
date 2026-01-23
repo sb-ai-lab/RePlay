@@ -14,7 +14,6 @@ from replay.data.nn.parquet.impl.masking import (
     DEFAULT_REPLICAS_INFO,
 )
 from replay.data.nn.parquet.parquet_dataset import ParquetDataset
-from replay.nn.transforms.base import BaseTransform
 
 TransformStage: TypeAlias = Literal["train", "validate", "test", "predict"]
 
@@ -102,7 +101,7 @@ class ParquetModule(L.LightningDataModule):
         self.compiled_transforms = self.prepare_transforms(transforms)
 
     def prepare_transforms(
-        self, transforms: dict[TransformStage, list[BaseTransform]]
+        self, transforms: dict[TransformStage, list[torch.nn.Module]]
     ) -> dict[TransformStage, torch.nn.Sequential]:
         """
         Preform meta adjustments based on provided transform pipelines,

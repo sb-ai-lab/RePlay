@@ -30,13 +30,13 @@ class Bert4Rec(lightning.LightningModule):
         enable_embedding_tying: bool = False,
         loss_type: Literal["BCE", "CE", "CE_restricted"] = "CE",
         loss_sample_count: Optional[int] = None,
-        negative_sampling_strategy: str = "global_uniform",
+        negative_sampling_strategy: Literal["global_uniform", "inbatch"] = "global_uniform",
         negatives_sharing: bool = False,
         optimizer_factory: OptimizerFactory = FatOptimizerFactory(),
         lr_scheduler_factory: Optional[LRSchedulerFactory] = None,
     ):
         """
-        :param tensor_schema (TensorSchema): Tensor schema of features.
+        :param tensor_schema: Tensor schema of features.
         :param block_count: Number of Transformer blocks.
             Default: ``2``.
         :param head_count: Number of Attention heads.
@@ -45,7 +45,7 @@ class Bert4Rec(lightning.LightningModule):
             Default: ``256``.
         :param max_seq_len: Max length of sequence.
             Default: ``100``.
-        :param dropout_rate (float): Dropout rate.
+        :param dropout_rate: Dropout rate.
             Default: ``0.1``.
         :param pass_per_transformer_block_count: Number of times to pass data over each Transformer block.
             Default: ``1``.
@@ -55,19 +55,18 @@ class Bert4Rec(lightning.LightningModule):
             If `True` - result scores are calculated by dot product of input and output embeddings,
             if `False` - default linear layer is applied to calculate logits for each item.
             Default: ``False``.
-        :param loss_type: Loss type. Possible values: ``"CE"``, ``"BCE"``, ``"CE_restricted"``.
+        :param loss_type: Loss type.
             Default: ``CE``.
-        :param loss_sample_count (Optional[int]): Sample count to calculate loss.
+        :param loss_sample_count: Sample count to calculate loss.
             Default: ``None``.
         :param negative_sampling_strategy: Negative sampling strategy to calculate loss on sampled negatives.
-            Is used when large count of items in dataset.
-            Possible values: ``"global_uniform"``, ``"inbatch"``
+            Is used when large count of items in dataset.\n
             Default: ``global_uniform``.
-        :param negatives_sharing: Apply negative sharing in calculating sampled logits.
+        :param negatives_sharing: Apply negative sharing in calculating sampled logits.\n
             Default: ``False``.
-        :param optimizer_factory: Optimizer factory.
+        :param optimizer_factory: Optimizer factory.\n
             Default: ``FatOptimizerFactory``.
-        :param lr_scheduler_factory: Learning rate schedule factory.
+        :param lr_scheduler_factory: Learning rate schedule factory.\n
             Default: ``None``.
         """
         super().__init__()
@@ -140,7 +139,7 @@ class Bert4Rec(lightning.LightningModule):
         candidates_to_score: Optional[torch.LongTensor] = None,
     ) -> torch.Tensor:
         """
-        :param batch (Bert4RecPredictionBatch): Batch of prediction data.
+        :param batch: Batch of prediction data.
         :param candidates_to_score: Item ids to calculate scores.
             Default: ``None``.
 
