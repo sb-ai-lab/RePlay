@@ -135,42 +135,12 @@ class ItemReference:
         :param schema: the same tensor schema used in TwoTower model.
         :param item_features_path: path to parquet with dataframe of item features.\n
             **Note:**\n
-
             1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
-            2. Item reference is constructed ONLY on features with source of FeatureSource.ITEM_FEATURES or feature
-               with hint of FeatureHint.ITEM_ID.\n
-            3. Every feature in `schema` must contain feature_sources with source names for creating
-               correct inverse mapping.\n
-
-        Example of correct `schema`:
-
-        .. code-block:: python
-
-            >>> from replay.data import FeatureHint, FeatureSource, FeatureType
-            >>> from replay.data.nn import TensorSchema, TensorFeatureInfo, TensorFeatureSource
-            >>> tensor_schema = TensorSchema(
-            ...        [
-            ...            TensorFeatureInfo(
-            ...                name="item_id",
-            ...                is_seq=True,
-            ...                cardinality=41,
-            ...                padding_value=40,
-            ...                embedding_dim=64,
-            ...                feature_type=FeatureType.CATEGORICAL,
-            ...                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
-            ...                feature_hint=FeatureHint.ITEM_ID,
-            ...            ),
-            ...            TensorFeatureInfo(
-            ...                name="cat_list_feature",
-            ...                is_seq=True,
-            ...                cardinality=5,
-            ...                padding_value=4,
-            ...                embedding_dim=64,
-            ...                feature_type=FeatureType.CATEGORICAL_LIST,
-            ...                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "cat_list_feature")],
-            ...            ),
-            ...        ]
-            ...    )
+            2. Every feature for item "tower" in `schema` must contain ``feature_sources`` with the names
+               of the source features to create correct inverse mapping.
+               Also, for each such feature one of the requirements must be met: the ``schema`` for the feature must
+               contain ``feature_sources`` with a source of type FeatureSource.ITEM_FEATURES
+               or hint type FeatureHint.ITEM_ID.
 
         """
         inverse_feature_names_mapping = {
@@ -228,7 +198,7 @@ class ItemTower(torch.nn.Module):
             Item encoder uses item reference which is created based on ``item_features_path``.
         :param feature_names: sequence of names used in item tower.
         :param item_features_path: Path to dataframe with
-            all items with encoded features used in ``item_encoder`` (item "tower").
+            items with all encoded features used in ``item_encoder`` (item "tower").
         """
         super().__init__()
         self.embedder = embedder
@@ -304,8 +274,8 @@ class TwoTowerBody(torch.nn.Module):
     """
     Foundation for Two-Tower model which creates query "tower" and item "tower".\n
 
-    For usage of two tower model, it should be added a forward pass with any scoring function
-    for the hidden states of both towers, like a dot product.
+    For usage of two tower model, an instance of this class should be passed into `TwoTower`_ with any loss
+    from `Losses`_.
     """
 
     def __init__(
@@ -322,6 +292,71 @@ class TwoTowerBody(torch.nn.Module):
         item_encoder: ItemEncoderProto,
         item_features_path: str,
     ):
+        """
+        :param schema: tensor schema object with metainformation about features.
+        :param embedder: An object of a class that performs the logic of
+            generating embeddings from an input set of tensors.\n
+            An embedder with the same arguments is used for both towers, but each tower has its own instance.
+        :param query_tower_feature_names: sequence of names used in query tower.
+        :param item_tower_feature_names: sequence of names used in item tower.
+        :param query_embedding_aggregator: An object of a class that performs
+            the logic of aggregating multiple embeddings of query tower.
+        :param item_embedding_aggregator: An object of a class that performs
+            the logic of aggregating multiple embeddings of item tower.
+        :param query_encoder: An object of a class that performs the logic of generating
+            a query hidden embedding representation based on
+            features, padding masks, attention mask, and aggregated embedding of ``query_tower_feature_names``.
+            It's supposed to be a transformer.
+        :param query_tower_output_normalization: An object of a class that performs the logic of
+            normalization of the hidden state obtained from the query encoder.\n
+            For example, it can be a ``torch.nn.LayerNorm`` or ``torch.nn.RMSNorm``.
+        :param attn_mask_builder: An object of a class that performs the logic of
+            generating an attention mask based on the features and padding mask given to the model.
+        :param item_encoder: An object of a class that performs the logic of generating
+            an item hidden embedding representation based on
+            features and aggregated embeddings of ``item_tower_feature_names``.
+            Item encoder uses item reference which is created based on ``item_features_path``.
+        :param item_features_path: Path to dataframe
+            with all items with features used in ``item_encoder`` (item "tower").\n
+            **Note:**\n
+            1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
+            2. Every feature for item "tower" in `schema` must contain ``feature_sources`` with the names
+               of the source features to create correct inverse mapping.
+               Also, for each such feature one of the requirements must be met: the ``schema`` for the feature must
+               contain ``feature_sources`` with a source of type FeatureSource.ITEM_FEATURES
+               or hint type FeatureHint.ITEM_ID.
+
+            Example of correct `schema`:
+
+            .. code-block:: python
+
+                >>> from replay.data import FeatureHint, FeatureSource, FeatureType
+                >>> from replay.data.nn import TensorSchema, TensorFeatureInfo, TensorFeatureSource
+                >>> tensor_schema = TensorSchema(
+                ...        [
+                ...            TensorFeatureInfo(
+                ...                name="item_id",
+                ...                is_seq=True,
+                ...                cardinality=41,
+                ...                padding_value=40,
+                ...                embedding_dim=64,
+                ...                feature_type=FeatureType.CATEGORICAL,
+                ...                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+                ...                feature_hint=FeatureHint.ITEM_ID,
+                ...            ),
+                ...            TensorFeatureInfo(
+                ...                name="cat_feature",
+                ...                is_seq=True,
+                ...                cardinality=5,
+                ...                padding_value=4,
+                ...                embedding_dim=64,
+                ...                feature_type=FeatureType.CATEGORICAL_LIST,
+                ...                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "cat_feature")],
+                ...            ),
+                ...        ]
+                ...    )
+
+        """
         super().__init__()
         self.embedder = embedder
         feature_names_union = set(query_tower_feature_names) | set(item_tower_feature_names)
@@ -366,7 +401,7 @@ class ContextMergerProto(Protocol):
 class TwoTower(torch.nn.Module):
     """
     Implementation generic Two-Tower architecture with two independent "towers" (encoders)
-    which encode separate inputs. In recommender systems they are typically query tower and item tower.\n
+    which encode separate inputs. In recommender systems they are typically query tower and item tower.
     The output hidden states of each "tower" are fused via dot product in the model head.
 
     Source paper: https://doi.org/10.1145/3366424.3386195
@@ -401,12 +436,9 @@ class TwoTower(torch.nn.Module):
 
         common_aggregator = SumAggregator(embedding_dim=256)
 
-        twotower = TwoTower(
+        body = TwoTowerBody(
             schema=tensor_schema,
-            embedder=SequenceEmbedding(
-                schema=tensor_schema,
-                categorical_list_feature_aggregation_method="sum",
-            ),
+            embedder=SequenceEmbedding(schema=tensor_schema),
             attn_mask_builder=DefaultAttentionMask(
                 reference_feature_name=tensor_schema.item_id_feature_name,
                 num_heads=2,
@@ -429,6 +461,9 @@ class TwoTower(torch.nn.Module):
             query_tower_output_normalization=torch.nn.LayerNorm(256),
             item_encoder=SwiGLUEncoder(embedding_dim=256, hidden_dim=2*256),
             item_features_path="item_features.parquet",
+        )
+        twotower = TwoTower(
+            body=body,
             loss=CESampled(padding_idx=tensor_schema.item_id_features.item().padding_value),
         )
 
@@ -436,50 +471,12 @@ class TwoTower(torch.nn.Module):
 
     def __init__(
         self,
-        schema: TensorSchema,
-        embedder: EmbedderProto,
-        query_tower_feature_names: Sequence[str],
-        item_tower_feature_names: Sequence[str],
-        query_embedding_aggregator: AggregatorProto,
-        item_embedding_aggregator: AggregatorProto,
-        query_encoder: QueryEncoderProto,
-        query_tower_output_normalization: NormalizerProto,
-        attn_mask_builder: AttentionMaskProto,
-        item_encoder: ItemEncoderProto,
-        item_features_path: str,
+        body: TwoTowerBody,
         loss: LossProto,
         context_merger: Optional[ContextMergerProto] = None,
     ):
         """
-        :param schema: tensor schema object with metainformation about features.
-        :param embedder: An object of a class that performs the logic of
-            generating embeddings from an input set of tensors.\n
-            An embedder with the same arguments is used for both towers, but each tower has its own instance.
-        :param query_tower_feature_names: sequence of names used in query tower.
-        :param item_tower_feature_names: sequence of names used in item tower.
-        :param query_embedding_aggregator: An object of a class that performs
-            the logic of aggregating multiple embeddings of query tower.
-        :param item_embedding_aggregator: An object of a class that performs
-            the logic of aggregating multiple embeddings of item tower.
-        :param query_encoder: An object of a class that performs the logic of generating
-            a query hidden embedding representation based on
-            features, padding masks, attention mask, and aggregated embedding of ``query_tower_feature_names``.
-            It's supposed to be a transformer.
-        :param query_tower_output_normalization: An object of a class that performs the logic of
-            normalization of the hidden state obtained from the query encoder.\n
-            For example, it can be a ``torch.nn.LayerNorm`` or ``torch.nn.RMSNorm``.
-        :param attn_mask_builder: An object of a class that performs the logic of
-            generating an attention mask based on the features and padding mask given to the model.
-        :param item_encoder: An object of a class that performs the logic of generating
-            an item hidden embedding representation based on
-            features and aggregated embeddings of ``item_tower_feature_names``.
-            Item encoder uses item reference which is created based on ``item_features_path``.
-        :param item_features_path: Path to dataframe
-            with all items with features used in ``item_encoder`` (item "tower").\n
-            **Note:**\n
-            1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
-            2. Item reference is constructed only on features with source of FeatureSource.ITEM_FEATURES in tensor
-            schema so an identificator of items ("item_id") should be marked as FeatureSource.ITEM_FEATURES too.
+        :param body: An instance of TwoTowerBody.
         :param loss: An object of a class that performs loss calculation
             based on hidden states from the model, positive and optionally negative labels.
         :param context_merger: An object of class that performs fusing query encoder hidden state
@@ -487,19 +484,7 @@ class TwoTower(torch.nn.Module):
             Default: ``None``.
         """
         super().__init__()
-        self.body = TwoTowerBody(
-            schema=schema,
-            embedder=embedder,
-            attn_mask_builder=attn_mask_builder,
-            query_tower_feature_names=query_tower_feature_names,
-            item_tower_feature_names=item_tower_feature_names,
-            query_embedding_aggregator=query_embedding_aggregator,
-            item_embedding_aggregator=item_embedding_aggregator,
-            query_encoder=query_encoder,
-            query_tower_output_normalization=query_tower_output_normalization,
-            item_encoder=item_encoder,
-            item_features_path=item_features_path,
-        )
+        self.body = body
         self.head = EmbeddingTyingHead()
         self.loss = loss
         self.context_merger = context_merger
@@ -528,15 +513,18 @@ class TwoTower(torch.nn.Module):
         Embeddings of every feature in both "towers" are aggregated via sum.
         The same features are be used in both "towers",
         that is, the features specified in the tensor schema with the exception of `excluded_features`.\n
-        To create an instance of TwoTower with other types of blocks, use the class constructor.
+        To create an instance of TwoTower with other types of blocks, please use the class constructor.
 
         :param schema: tensor schema object with metainformation about features.
         :param item_features_path: Path to dataframe
             with all items with features used in ``item_encoder`` (item "tower").
             **Note:**\n
             1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
-            2. Item reference is constructed only on features with source of FeatureSource.ITEM_FEATURES in tensor
-            schema so an identificator of items ("item_id") should be marked as FeatureSource.ITEM_FEATURES too.
+            2. Every feature for item "tower" in `schema` must contain ``feature_sources`` with the names
+               of the source features to create correct inverse mapping.
+               Also, for each such feature one of the requirements must be met: the ``schema`` for the feature must
+               contain ``feature_sources`` with a source of type FeatureSource.ITEM_FEATURES
+               or hint type FeatureHint.ITEM_ID.
         :param embedding_dim: embeddings dimension in both towers. Default: ``192``.
         :param num_heads: number of heads  in user tower SasRec layers. Default: ``4``.
         :param num_blocks: number of blocks  in user tower SasRec layers. Default: ``2``.
@@ -569,34 +557,36 @@ class TwoTower(torch.nn.Module):
 
         common_aggregator = SumAggregator(embedding_dim=embedding_dim)
         return cls(
-            schema=schema,
-            embedder=SequenceEmbedding(
+            TwoTowerBody(
                 schema=schema,
-                categorical_list_feature_aggregation_method=categorical_list_feature_aggregation_method,
-                excluded_features=excluded_features,
+                embedder=SequenceEmbedding(
+                    schema=schema,
+                    categorical_list_feature_aggregation_method=categorical_list_feature_aggregation_method,
+                    excluded_features=excluded_features,
+                ),
+                attn_mask_builder=DefaultAttentionMask(
+                    reference_feature_name=schema.item_id_feature_name,
+                    num_heads=num_heads,
+                ),
+                query_tower_feature_names=feature_names,
+                item_tower_feature_names=feature_names,
+                query_embedding_aggregator=PositionAwareAggregator(
+                    embedding_aggregator=common_aggregator,
+                    max_sequence_length=max_sequence_length,
+                    dropout=dropout,
+                ),
+                item_embedding_aggregator=common_aggregator,
+                query_encoder=SasRecTransformerLayer(
+                    embedding_dim=embedding_dim,
+                    num_heads=num_heads,
+                    num_blocks=num_blocks,
+                    dropout=dropout,
+                    activation="relu",
+                ),
+                query_tower_output_normalization=torch.nn.LayerNorm(embedding_dim),
+                item_encoder=SwiGLUEncoder(embedding_dim=embedding_dim, hidden_dim=2 * embedding_dim),
+                item_features_path=item_features_path,
             ),
-            attn_mask_builder=DefaultAttentionMask(
-                reference_feature_name=schema.item_id_feature_name,
-                num_heads=num_heads,
-            ),
-            query_tower_feature_names=feature_names,
-            item_tower_feature_names=feature_names,
-            query_embedding_aggregator=PositionAwareAggregator(
-                embedding_aggregator=common_aggregator,
-                max_sequence_length=max_sequence_length,
-                dropout=dropout,
-            ),
-            item_embedding_aggregator=common_aggregator,
-            query_encoder=SasRecTransformerLayer(
-                embedding_dim=embedding_dim,
-                num_heads=num_heads,
-                num_blocks=num_blocks,
-                dropout=dropout,
-                activation="relu",
-            ),
-            query_tower_output_normalization=torch.nn.LayerNorm(embedding_dim),
-            item_encoder=SwiGLUEncoder(embedding_dim=embedding_dim, hidden_dim=2 * embedding_dim),
-            item_features_path=item_features_path,
             loss=CE(padding_idx=schema.item_id_features.item().padding_value),
             context_merger=None,
         )

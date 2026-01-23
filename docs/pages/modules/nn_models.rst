@@ -154,11 +154,12 @@ ________________
 TwoTower
 =========
 
+.. _TwoTower:
+
 TwoTower
 _________
 .. autoclass:: replay.nn.sequential.TwoTower
    :members: __init__, forward, from_params
-
 
 TwoTower Building Blocks
 _________________________
@@ -174,22 +175,16 @@ QueryTower
 .. autoclass:: replay.nn.sequential.QueryTower
    :members: __init__, forward
 
-ItemReference 
-``````````````````````````````
-
-.. autoclass:: replay.nn.sequential.ItemReference
-   :members: __init__, keys
-
 ItemTower
 ``````````````````````````````
 
 .. autoclass:: replay.nn.sequential.ItemTower
    :members: __init__, forward
 
+.. _Losses:
+
 Losses
 ======
-
-
 
 `BCE`_, `BCESampled`_, `CESampled`_, `LogInCE`_, `LogInCESampled`_, `LogOutCE`_ support the calculation of logits for the case of multi-positive labels (there are several labels for each position in the sequence).
 Source of multi-positive labels: https://arxiv.org/abs/2205.04507
@@ -261,7 +256,7 @@ CategoricalEmbedding
 NumericalEmbedding
 ``````````````````
 .. autoclass:: replay.nn.embedding.NumericalEmbedding
-   :members: __init__, forward, embedding_dim, weight
+   :members: __init__, forward, weight
 
 
 Aggregators
@@ -318,6 +313,7 @@ EmbeddingTyingHead
 
 Universal Lighting module
 =========================
+
 LightningModule
 _______________
 .. autoclass:: replay.nn.lightning.LightningModule

@@ -269,8 +269,3 @@ class NumericalEmbedding(torch.nn.Module):
         if self.tensor_dim != self.embedding_dim:
             return self.linear(values)
         return values
-
-    @property
-    def embedding_dim(self) -> int:
-        """Embedding dimension after applying the layer"""
-        return self.embedding_dim

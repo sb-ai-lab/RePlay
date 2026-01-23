@@ -7,11 +7,10 @@ import torch
 from replay.nn.agg import SumAggregator
 from replay.nn.embedding import SequenceEmbedding
 from replay.nn.ffn import SwiGLUEncoder
-from replay.nn.loss import CE
 from replay.nn.mask import DefaultAttentionMask
 from replay.nn.output import InferenceOutput, TrainOutput
 from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
-from replay.nn.sequential.twotower import ItemReference, TwoTower
+from replay.nn.sequential.twotower import ItemReference, TwoTowerBody
 
 
 def test_query_tower_forward(twotower_model, sequential_sample):
@@ -100,7 +99,7 @@ def test_twotower_with_different_tower_features(
     tensor_schema, item_features_path, query_tower_names, item_tower_names, expected_exception
 ):
     with expected_exception:
-        TwoTower(
+        TwoTowerBody(
             schema=tensor_schema,
             embedder=SequenceEmbedding(schema=tensor_schema),
             attn_mask_builder=DefaultAttentionMask(
@@ -119,7 +118,6 @@ def test_twotower_with_different_tower_features(
             query_tower_output_normalization=torch.nn.LayerNorm(64),
             item_encoder=SwiGLUEncoder(embedding_dim=64, hidden_dim=2 * 64),
             item_features_path=item_features_path,
-            loss=CE(padding_idx=tensor_schema.item_id_features.item().padding_value),
         )
 
 

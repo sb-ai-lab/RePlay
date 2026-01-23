@@ -12,7 +12,7 @@ class DiffTransformerBlock(torch.nn.Module):
     Single Block of the DiffTransformer Architecture.
     Consists of Multi-Head Differential Attention followed by a SwiGLU Feed-Forward Network.
 
-    Paper: https://arxiv.org/pdf/2410.05258
+    Source paper: https://arxiv.org/pdf/2410.05258
     """
 
     def __init__(self, embedding_dim: int, num_heads: int, lambda_init: float):

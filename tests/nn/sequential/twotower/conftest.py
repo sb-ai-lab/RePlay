@@ -9,7 +9,7 @@ from replay.nn.embedding import SequenceEmbedding
 from replay.nn.ffn import SwiGLUEncoder
 from replay.nn.loss import BCE, CE, BCESampled, CESampled, LogInCE, LogInCESampled, LogOutCE
 from replay.nn.mask import DefaultAttentionMask
-from replay.nn.sequential import DiffTransformerLayer, PositionAwareAggregator, TwoTower
+from replay.nn.sequential import DiffTransformerLayer, PositionAwareAggregator, TwoTower, TwoTowerBody
 
 
 @pytest.fixture(
@@ -33,7 +33,7 @@ def twotower_parametrized(request, tensor_schema, item_features_path):
         output_embedding_dim=64,
     )
 
-    model = TwoTower(
+    body = TwoTowerBody(
         schema=tensor_schema,
         embedder=SequenceEmbedding(
             schema=tensor_schema,
@@ -59,6 +59,9 @@ def twotower_parametrized(request, tensor_schema, item_features_path):
         query_tower_output_normalization=torch.nn.LayerNorm(64),
         item_encoder=SwiGLUEncoder(embedding_dim=64, hidden_dim=2 * 64),
         item_features_path=item_features_path,
+    )
+    model = TwoTower(
+        body=body,
         loss=loss,
         context_merger=None,
     )

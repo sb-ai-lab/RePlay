@@ -45,8 +45,6 @@ class SasRecBody(torch.nn.Module):
     Implementation of the architecture of the SasRec model.\n
     It can include various self-written blocks for modifying the model,
     but the sequence of applying layers is fixed in accordance with the original architecture.
-
-    Source paper: https://arxiv.org/pdf/1808.09781.
     """
 
     def __init__(
@@ -120,6 +118,8 @@ class SasRec(torch.nn.Module):
     A model using the SasRec architecture as a hidden state generator.
     The hidden states are multiplied by the item embeddings,
     resulting in logits for each of the items.
+
+    Source paper: https://arxiv.org/pdf/1808.09781.
 
     Example:
 

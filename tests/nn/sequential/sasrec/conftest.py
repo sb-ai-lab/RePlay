@@ -17,7 +17,7 @@ from replay.nn.transform.template import make_default_sasrec_transforms
         (BCE, {}),
         (BCESampled, {}),
         (LogOutCE, {"padding_idx": 40, "vocab_size": 40}),
-        (LogInCE, {"vocab_size": 40}),  # 41?
+        (LogInCE, {"vocab_size": 40}),
         (LogInCESampled, {}),
     ],
     ids=["CE", "CE sampled", "BCE", "BCE sampled", "LogOutCE", "LogInCE", "LogInCESampled"],

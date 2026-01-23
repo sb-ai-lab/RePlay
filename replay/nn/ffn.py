@@ -12,7 +12,7 @@ class PointWiseFeedForward(torch.nn.Module):
     """
     Point wise feed forward network layer.
 
-    Link: https://arxiv.org/pdf/1808.09781.pdf
+    Source paper: https://arxiv.org/pdf/1808.09781.pdf
     """
 
     def __init__(
