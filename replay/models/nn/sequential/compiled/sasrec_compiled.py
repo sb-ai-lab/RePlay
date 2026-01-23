@@ -87,15 +87,14 @@ class SasRecCompiled(BaseCompiledModel):
         Model compilation.
 
         :param model: Path to lightning SasRec model saved in .ckpt format or the SasRec object itself.
-        :param mode: Inference mode, defines shape of inputs.
-            Could be one of [``one_query``, ``batch``, ``dynamic_batch_size``].\n
+        :param mode: Inference mode, defines shape of inputs.\n
             ``one_query`` - sets input shape to [1, max_seq_len]\n
             ``batch`` - sets input shape to [batch_size, max_seq_len]\n
             ``dynamic_batch_size`` - sets batch_size to dynamic range [?, max_seq_len]\n
             Default: ``one_query``.
         :param batch_size: Batch size, required for ``batch`` mode.
             Default: ``None``.
-        :param num_candidates_to_score: Number of item ids to calculate scores.
+        :param num_candidates_to_score: Number of item ids to calculate scores.\n
             Could be one of [``None``, ``-1``, ``N``].\n
             ``-1`` - sets candidates_to_score shape to dynamic range [1, ?]\n
             ``N`` - sets candidates_to_score shape to [1, N]\n
