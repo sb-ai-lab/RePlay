@@ -1,6 +1,6 @@
 from .copy import CopyTransform
 from .grouping import GroupTransform
-from .negative_sampling import UniformNegativeSamplingTransform
+from .negative_sampling import MultiClassNegativeSamplingTransform, UniformNegativeSamplingTransform
 from .next_token import NextTokenTransform
 from .rename import RenameTransform
 from .reshape import UnsqueezeTransform
@@ -11,6 +11,7 @@ from .trim import TrimTransform
 __all__ = [
     "CopyTransform",
     "GroupTransform",
+    "MultiClassNegativeSamplingTransform",
     "NextTokenTransform",
     "RenameTransform",
     "SequenceRollTransform",

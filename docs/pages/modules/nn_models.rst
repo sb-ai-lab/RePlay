@@ -386,6 +386,11 @@ _________________________________
 .. autoclass:: replay.nn.transform.UniformNegativeSamplingTransform
     :members: __init__
 
+MultiClassNegativeSamplingTransform
+____________________________________
+.. autoclass:: replay.nn.transform.MultiClassNegativeSamplingTransform
+    :members: __init__
+
 Easy training, validation and inference with Lightning
 ========================================================
 Replay provides Callbacks and Postprocessors to make the model training, validation and inference process as convenient as possible.

@@ -22,6 +22,7 @@ def hidden_simple_batch():
 
 
 @pytest.fixture
+<<<<<<< HEAD
 def hidden_simple_batch_multipositive():
     seq_len = 6
     num_multipositives = 5
@@ -37,5 +38,36 @@ def hidden_simple_batch_multipositive():
         "negative_labels": torch.LongTensor([2, 0]),
         "target_padding_mask": torch.BoolTensor([[[False], [False], [True], [True], [True], [True]]]).repeat(
             1, 1, num_multipositives
+=======
+def hidden_simple_batch_multipositive(hidden_simple_batch):
+    hidden_simple_batch["positive_labels"] = hidden_simple_batch["positive_labels"].repeat(1, 1, 5)
+    hidden_simple_batch["target_padding_mask"] = hidden_simple_batch["target_padding_mask"].repeat(1, 1, 5)
+    return hidden_simple_batch
+
+
+@pytest.fixture
+def hidden_simple_batch_multiclass_negatives():
+    return {
+        "model_embeddings": torch.rand(2, 6, 32),
+        "feature_tensors": {"item_id": torch.LongTensor([[3, 3, 3, 2, 0, 1], [3, 3, 3, 3, 0, 0]])},
+        "padding_mask": torch.BoolTensor(
+            [[False, False, False, True, True, True], [False, False, False, False, True, True]]
+        ),
+        "positive_labels": torch.LongTensor([[[3], [3], [2], [0], [1], [2]], [[3], [3], [3], [0], [0], [2]]]),
+        "negative_labels": torch.LongTensor([[2, 0], [1, 2]]),
+        "target_padding_mask": torch.BoolTensor(
+            [[[False], [False], [True], [True], [True], [True]], [[False], [False], [False], [True], [True], [True]]]
+>>>>>>> Merge main
         ),
     }
+
+
+@pytest.fixture
+def hidden_simple_batch_multiclass_negatives_multipositive(hidden_simple_batch_multiclass_negatives):
+    hidden_simple_batch_multiclass_negatives["positive_labels"] = hidden_simple_batch_multiclass_negatives[
+        "positive_labels"
+    ].repeat(1, 1, 5)
+    hidden_simple_batch_multiclass_negatives["target_padding_mask"] = hidden_simple_batch_multiclass_negatives[
+        "target_padding_mask"
+    ].repeat(1, 1, 5)
+    return hidden_simple_batch_multiclass_negatives

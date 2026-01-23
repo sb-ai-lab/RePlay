@@ -36,7 +36,8 @@ class LogInCEBase(SampledLossBase):
             Expected shape: ``(batch_size, sequence_length, num_positives)``
         :param negative_labels: a tensor containing labels with negative events.
             Expected shape:
-                - ``(batch_size, sequence_length, num_negatives)``.
+                - ``(batch_size, sequence_length, num_negatives)``
+                - ``(batch_size, num_negatives)``
                 - ``(num_negatives)`` - a case where the same negative events are used for the entire batch.
         :param target_padding_mask: Padding mask for ``positive_labels`` (targets).
             ``False`` value indicates that the corresponding ``key`` value will be ignored.
@@ -48,6 +49,11 @@ class LogInCEBase(SampledLossBase):
         batch_size, seq_len, num_positives = positive_labels.size()
         assert target_padding_mask.size() == (batch_size, seq_len, num_positives)
         num_negatives = negative_labels.size(-1)
+
+        if negative_labels.size() == (batch_size, num_negatives):
+            # [batch_size, num_negatives] -> [batch_size, 1, num_negatives]
+            negative_labels = negative_labels.unsqueeze(1).repeat(1, seq_len, 1)
+
         assert negative_labels.size() == (batch_size, seq_len, num_negatives) or negative_labels.dim() == 1
         ################## SHAPE CHECKING STAGE END ##################
 
@@ -307,12 +313,19 @@ class LogInCESampled(LogInCEBase):
     ) -> torch.Tensor:
         """
         forward(model_embeddings, positive_labels, negative_labels, target_padding_mask)
+
         :param model_embeddings: model output of shape ``(batch_size, sequence_length, embedding_dim)``.
         :param positive_labels: labels of positive events
             of shape ``(batch_size, sequence_length, num_positives)``.
-        :param negative_labels: labels of sampled negative events of shape (num_negatives).
+        :param negative_labels: labels of sampled negative events.
+
+            Expected shape:
+                    - ``(batch_size, sequence_length, num_negatives)``
+                    - ``(batch_size, num_negatives)``
+                    - ``(num_negatives)`` - a case where the same negative events are used for the entire batch.
         :param target_padding_mask: padding mask corresponding for ``positive_labels``
             of shape ``(batch_size, sequence_length, num_positives)``
+
         :return: computed loss value.
         """
         sampled = self.get_sampled_logits(

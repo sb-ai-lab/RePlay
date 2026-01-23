@@ -6,6 +6,7 @@ import torch
 from replay.nn.transform import (
     CopyTransform,
     GroupTransform,
+    MultiClassNegativeSamplingTransform,
     NextTokenTransform,
     RenameTransform,
     SequenceRollTransform,
@@ -19,21 +20,21 @@ from replay.nn.transform import (
 @pytest.mark.parametrize(
     "random_batch",
     [
-        ({"batch_size": 5, "max_len": 10, "vocab_size": 30}),
-        ({"batch_size": 64, "max_len": 200, "vocab_size": 3}),
-        ({"batch_size": 1024, "max_len": 500, "vocab_size": 300}),
+        ({"batch_size": 5, "max_len": 10, "cardinality": 30}),
+        ({"batch_size": 64, "max_len": 200, "cardinality": 3}),
+        ({"batch_size": 1024, "max_len": 500, "cardinality": 300}),
     ],
     indirect=True,
 )
 @pytest.mark.parametrize("shift", [1, 5])
 def test_next_token_label_transform(random_batch, shift):
     label_field = "item_id"
-    query_field = "user_id"
+    query_field = ["user_id", "user_id_mask", "negative_selector"]
     transform = NextTokenTransform(label_field=label_field, query_features=query_field, shift=shift)
     transformed_batch = transform(random_batch)
 
     for feature in random_batch.keys():
-        if feature.startswith(query_field):
+        if any(feature.startswith(q) for q in query_field):
             torch.testing.assert_close(transformed_batch[feature], random_batch[feature])
         else:
             torch.testing.assert_close(transformed_batch[feature], random_batch[feature][:, :-shift])
@@ -72,21 +73,21 @@ def test_rename_transform(random_batch):
 
 
 @pytest.mark.parametrize(
-    "random_batch, vocab_size, num_negative_samples",
+    "random_batch, cardinality, num_negative_samples",
     [
-        ({"batch_size": 5, "max_len": 10, "vocab_size": 30}, 30, 29),
-        ({"batch_size": 64, "max_len": 200, "vocab_size": 3}, 3, 1),
+        ({"batch_size": 5, "max_len": 10, "cardinality": 30}, 30, 29),
+        ({"batch_size": 64, "max_len": 200, "cardinality": 3}, 3, 1),
     ],
     indirect=["random_batch"],
 )
 @pytest.mark.parametrize("generate_sample_distribution", [True, False])
-def test_negative_sampling_transform(random_batch, vocab_size, num_negative_samples, generate_sample_distribution):
+def test_negative_sampling_transform(random_batch, cardinality, num_negative_samples, generate_sample_distribution):
     sample_distribution = None
     if generate_sample_distribution:
-        sample_distribution = torch.rand(vocab_size)
+        sample_distribution = torch.rand(cardinality)
 
     transform = UniformNegativeSamplingTransform(
-        vocab_size=vocab_size, num_negative_samples=num_negative_samples, sample_distribution=sample_distribution
+        cardinality=cardinality, num_negative_samples=num_negative_samples, sample_distribution=sample_distribution
     )
 
     transformed_batch = transform(random_batch)
@@ -96,15 +97,57 @@ def test_negative_sampling_transform(random_batch, vocab_size, num_negative_samp
 
 
 @pytest.mark.parametrize(
-    "vocab_size, num_negative_samples, sample_distribution, expected_exception",
-    [(10, 1, torch.rand(100), pytest.raises(ValueError)), (10, 100, None, pytest.raises(AssertionError))],
-    ids=["Incorrect sample distribution size", "Incorrect num_negative_samples"],
+    "random_batch, cardinality, num_classes, num_negative_samples",
+    [
+        ({"batch_size": 5, "max_len": 10, "cardinality": 30, "num_classes": 3}, 30, 3, 5),
+        ({"batch_size": 64, "max_len": 200, "cardinality": 3, "num_classes": 2}, 3, 2, 1),
+    ],
+    indirect=["random_batch"],
 )
-def test_negative_sampling_raises(vocab_size, num_negative_samples, sample_distribution, expected_exception):
-    with expected_exception:
+def test_multiclass_negative_sampling_transform(random_batch, cardinality, num_classes, num_negative_samples):
+    batch_size = random_batch["negative_selector"].size(0)
+
+    generator = torch.Generator().manual_seed(0)
+    sample_mask = torch.nn.functional.one_hot(torch.randint(0, num_classes, (cardinality,), generator=generator)).T
+
+    transform = MultiClassNegativeSamplingTransform(
+        num_negative_samples=num_negative_samples, sample_mask=sample_mask, generator=generator
+    )
+
+    transformed_batch = transform(random_batch)
+
+    assert "negative_labels" in transformed_batch.keys()
+    assert transformed_batch["negative_labels"].size() == (batch_size, num_negative_samples)
+    for i in range(batch_size):
+        class_i = transformed_batch["negative_selector"][i]
+        all_class_ids = torch.where(sample_mask[class_i] > 0)[0]
+        generated_negatives = transformed_batch["negative_labels"][i]
+        assert torch.isin(generated_negatives, all_class_ids).all()
+
+
+@pytest.mark.parametrize(
+    "cardinality, num_negative_samples, sample_distribution",
+    [(10, 1, torch.rand(100)), (10, 100, None)],
+    ids=["Incorrect sample distribution last shape", "Incorrect num_negative_samples"],
+)
+def test_negative_sampling_raises(cardinality, num_negative_samples, sample_distribution):
+    with pytest.raises(ValueError):
         UniformNegativeSamplingTransform(
-            vocab_size=vocab_size, num_negative_samples=num_negative_samples, sample_distribution=sample_distribution
+            cardinality=cardinality, num_negative_samples=num_negative_samples, sample_distribution=sample_distribution
         )
+
+
+@pytest.mark.parametrize(
+    "num_negative_samples, sample_mask",
+    [
+        (100, torch.rand(5)),
+        (100, torch.rand((2, 100))),
+    ],
+    ids=["Incorrect sample mask dim", "Incorrect num_negative_samples"],
+)
+def test_multiclass_negative_sampling_raises(num_negative_samples, sample_mask):
+    with pytest.raises(ValueError):
+        MultiClassNegativeSamplingTransform(num_negative_samples=num_negative_samples, sample_mask=sample_mask)
 
 
 def test_unsqueeze_transform(random_batch):
@@ -156,7 +199,7 @@ def test_group_transform(random_batch):
 
 @pytest.mark.parametrize(
     "random_batch",
-    [{"batch_size": 64, "max_len": 200, "vocab_size": 3}],
+    [{"batch_size": 64, "max_len": 200, "cardinality": 3}],
     indirect=True,
 )
 def test_token_mask_transform(random_batch):
@@ -220,8 +263,12 @@ def test_trim_transform_wrong_length(random_batch):
         pytest.param(TokenMaskTransform(token_field="item_id_mask"), id="TokenMaskTransform"),
         pytest.param(TrimTransform(seq_len=2, feature_names=["item_id"]), id="TrimTransform"),
         pytest.param(
-            UniformNegativeSamplingTransform(vocab_size=4, num_negative_samples=2),
+            UniformNegativeSamplingTransform(cardinality=4, num_negative_samples=2),
             id="UniformNegativeSamplingTransform",
+        ),
+        pytest.param(
+            MultiClassNegativeSamplingTransform(num_negative_samples=2, sample_mask=torch.rand((3, 4))),
+            id="MultiClassNegativeSamplingTransform",
         ),
         pytest.param(UnsqueezeTransform(column_name="item_id", dim=-1), id="UnsqueezeTransform"),
     ],

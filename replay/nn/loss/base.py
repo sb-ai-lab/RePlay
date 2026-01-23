@@ -65,7 +65,8 @@ class SampledLossBase(torch.nn.Module):
             Expected shape: ``(batch_size, sequence_length, num_positives)``
         :param negative_labels: a tensor containing labels with negative events.
             Expected shape:
-                - ``(batch_size, sequence_length, num_negatives)``.
+                - ``(batch_size, sequence_length, num_negatives)``
+                - ``(batch_size, num_negatives)``
                 - ``(num_negatives)`` - a case where the same negative events are used for the entire batch.
         :param target_padding_mask: Padding mask for ``positive_labels`` (targets).
             ``False`` value indicates that the corresponding ``key`` value will be ignored.
@@ -79,6 +80,11 @@ class SampledLossBase(torch.nn.Module):
         batch_size, seq_len, num_positives = positive_labels.size()
         assert target_padding_mask.size() == (batch_size, seq_len, num_positives)
         num_negatives = negative_labels.size(-1)
+
+        if negative_labels.size() == (batch_size, num_negatives):
+            # [batch_size, num_negatives] -> [batch_size, 1, num_negatives]
+            negative_labels = negative_labels.unsqueeze(1).repeat(1, seq_len, 1)
+
         if negative_labels.dim() == 3:  # pragma: no cover
             # [batch_size, seq_len, num_negatives] -> [batch_size, seq_len, 1, num_negatives]
             negative_labels = negative_labels.unsqueeze(-2)
