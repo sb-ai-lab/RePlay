@@ -1,1 +1,1 @@
-from .model import ItemReference, ItemTower, QueryTower, TwoTower, TwoTowerBody
+from .model import ItemTower, QueryTower, TwoTower, TwoTowerBody

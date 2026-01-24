@@ -1,6 +1,5 @@
 from contextlib import nullcontext as no_exception
 
-import pandas as pd
 import pytest
 import torch
 
@@ -10,7 +9,7 @@ from replay.nn.ffn import SwiGLUEncoder
 from replay.nn.mask import DefaultAttentionMask
 from replay.nn.output import InferenceOutput, TrainOutput
 from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
-from replay.nn.sequential.twotower import ItemReference, TwoTowerBody
+from replay.nn.sequential.twotower import TwoTowerBody
 
 
 def test_query_tower_forward(twotower_model, sequential_sample):
@@ -22,14 +21,14 @@ def test_query_tower_forward(twotower_model, sequential_sample):
 
 
 @pytest.mark.parametrize("candidates_to_score", [torch.LongTensor([1]), torch.LongTensor([0, 1, 2]), None])
-def test_item_tower_forward(tensor_schema, twotower_model, candidates_to_score):
+def test_item_tower_forward(tensor_schema_with_equal_embedding_dims, twotower_model, candidates_to_score):
     output = twotower_model.body.item_tower(candidates_to_score)
 
     if candidates_to_score is not None:
         num_items = candidates_to_score.shape[0]
     else:
-        num_items = tensor_schema["item_id"].cardinality - 1
-    assert output.shape == (num_items, tensor_schema["item_id"].embedding_dim)
+        num_items = tensor_schema_with_equal_embedding_dims["item_id"].cardinality - 1
+    assert output.shape == (num_items, tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim)
 
 
 @pytest.mark.parametrize(
@@ -47,7 +46,9 @@ def test_wrong_input(twotower_model, wrong_sequential_sample):
 
 
 @pytest.mark.parametrize("model_fixture", ["twotower_model", "twotower_model_with_context_merger"])
-def test_twotower_model_train_forward(tensor_schema, request, model_fixture, sequential_sample):
+def test_twotower_model_train_forward(
+    tensor_schema_with_equal_embedding_dims, request, model_fixture, sequential_sample
+):
     model = request.getfixturevalue(model_fixture)
     model.train()
     output: TrainOutput = model(
@@ -60,13 +61,15 @@ def test_twotower_model_train_forward(tensor_schema, request, model_fixture, seq
     assert output["loss"].ndim == 0
     assert output["hidden_states"][0].size() == (
         *sequential_sample["feature_tensors"]["item_id"].shape,
-        tensor_schema["item_id"].embedding_dim,
+        tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim,
     )
 
 
 @pytest.mark.parametrize("model_fixture", ["twotower_model", "twotower_model_with_context_merger"])
 @pytest.mark.parametrize("candidates_to_score", [torch.LongTensor([1]), torch.LongTensor([0, 1, 2]), None])
-def test_twotower_inference_forward(tensor_schema, request, model_fixture, sequential_sample, candidates_to_score):
+def test_twotower_inference_forward(
+    tensor_schema_with_equal_embedding_dims, request, model_fixture, sequential_sample, candidates_to_score
+):
     model = request.getfixturevalue(model_fixture)
     model.eval()
     output: InferenceOutput = model(
@@ -76,12 +79,12 @@ def test_twotower_inference_forward(tensor_schema, request, model_fixture, seque
     if candidates_to_score is not None:
         num_items = candidates_to_score.shape[0]
     else:
-        num_items = tensor_schema["item_id"].cardinality - 1
+        num_items = tensor_schema_with_equal_embedding_dims["item_id"].cardinality - 1
 
     assert output["logits"].size() == (sequential_sample["padding_mask"].shape[0], num_items)
     assert output["hidden_states"][0].size() == (
         *sequential_sample["feature_tensors"]["item_id"].shape,
-        tensor_schema["item_id"].embedding_dim,
+        tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim,
     )
 
 
@@ -119,17 +122,3 @@ def test_twotower_with_different_tower_features(
             item_encoder=SwiGLUEncoder(embedding_dim=64, hidden_dim=2 * 64),
             item_features_path=item_features_path,
         )
-
-
-def test_item_reference(tensor_schema, item_features_path):
-    original_items_df = pd.read_parquet(item_features_path)
-
-    item_reference = ItemReference(tensor_schema, item_features_path)
-
-    assert set(item_reference.keys()) == set(original_items_df.columns)
-    assert tensor_schema.item_id_feature_name in item_reference
-    assert "wrong_feature" not in item_reference
-    assert (
-        len(item_reference[tensor_schema.item_id_feature_name])
-        == original_items_df[tensor_schema.item_id_feature_name].shape[0]
-    )

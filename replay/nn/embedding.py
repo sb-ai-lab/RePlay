@@ -230,8 +230,8 @@ class NumericalEmbedding(torch.nn.Module):
         super().__init__()
         assert feature_info.tensor_dim
         assert feature_info.embedding_dim
-        self.tensor_dim = feature_info.tensor_dim
-        self.embedding_dim = feature_info.embedding_dim
+        self._tensor_dim = feature_info.tensor_dim
+        self._embedding_dim = feature_info.embedding_dim
         self.linear = torch.nn.Linear(feature_info.tensor_dim, self.embedding_dim)
 
         if feature_info.is_list:
@@ -262,10 +262,15 @@ class NumericalEmbedding(torch.nn.Module):
         :param values: feature values.
         :returns: Embeddings for specific items.
         """
-        if values.dim() <= 2 and self.tensor_dim == 1:
+        if values.dim() <= 2 and self._tensor_dim == 1:
             values = values.unsqueeze(-1).contiguous()
 
-        assert values.size(-1) == self.tensor_dim
-        if self.tensor_dim != self.embedding_dim:
+        assert values.size(-1) == self._tensor_dim
+        if self._tensor_dim != self.embedding_dim:
             return self.linear(values)
         return values
+
+    @property
+    def embedding_dim(self) -> int:
+        """Embedding dimension after applying the layer"""
+        return self._embedding_dim

@@ -31,7 +31,7 @@ def sasrec_parametrized(request, tensor_schema):
         embedding_aggregator=(
             PositionAwareAggregator(
                 ConcatAggregator(
-                    input_embedding_dims=[64, 64, 64, 64, 64],
+                    input_embedding_dims=[x.embedding_dim for x in tensor_schema.values()],
                     output_embedding_dim=64,
                 ),
                 max_sequence_length=7,
@@ -47,10 +47,10 @@ def sasrec_parametrized(request, tensor_schema):
 
 
 @pytest.fixture
-def sasrec_model_only_items(tensor_schema):
+def sasrec_model_only_items(tensor_schema_with_equal_embedding_dims):
     model = SasRec.from_params(
-        schema=tensor_schema.filter(name="item_id"),
-        embedding_dim=64,
+        schema=tensor_schema_with_equal_embedding_dims.filter(name="item_id"),
+        embedding_dim=60,
         num_heads=1,
         num_blocks=1,
         max_sequence_length=7,

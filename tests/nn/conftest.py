@@ -45,7 +45,7 @@ def tensor_schema():
                 is_seq=True,
                 cardinality=5,
                 padding_value=4,
-                embedding_dim=64,
+                embedding_dim=65,
                 feature_type=FeatureType.CATEGORICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "cat_list_feature")],
             ),
@@ -54,7 +54,7 @@ def tensor_schema():
                 is_seq=True,
                 tensor_dim=1,
                 padding_value=0,
-                embedding_dim=64,
+                embedding_dim=66,
                 feature_type=FeatureType.NUMERICAL,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_feature")],
             ),
@@ -63,7 +63,7 @@ def tensor_schema():
                 is_seq=True,
                 padding_value=0,
                 tensor_dim=6,
-                embedding_dim=64,
+                embedding_dim=67,
                 feature_type=FeatureType.NUMERICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_list_feature")],
             ),
@@ -72,7 +72,62 @@ def tensor_schema():
                 is_seq=True,
                 padding_value=0,
                 tensor_dim=64,
-                embedding_dim=64,
+                embedding_dim=68,
+                feature_type=FeatureType.NUMERICAL_LIST,
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "emb_list_feature")],
+            ),
+        ]
+    )
+    return tensor_schema
+
+
+@pytest.fixture(scope="module")
+def tensor_schema_with_equal_embedding_dims():
+    tensor_schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                name="item_id",
+                is_seq=True,
+                cardinality=41,
+                padding_value=40,
+                embedding_dim=60,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                name="cat_list_feature",
+                is_seq=True,
+                cardinality=5,
+                padding_value=4,
+                embedding_dim=60,
+                feature_type=FeatureType.CATEGORICAL_LIST,
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "cat_list_feature")],
+            ),
+            TensorFeatureInfo(
+                name="num_feature",
+                is_seq=True,
+                tensor_dim=1,
+                padding_value=0,
+                embedding_dim=60,
+                feature_type=FeatureType.NUMERICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_feature")],
+            ),
+            TensorFeatureInfo(
+                name="num_list_feature",
+                is_seq=True,
+                padding_value=0,
+                tensor_dim=6,
+                embedding_dim=60,
+                feature_type=FeatureType.NUMERICAL_LIST,
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_list_feature")],
+            ),
+            TensorFeatureInfo(
+                name="emb_list_feature",
+                is_seq=True,
+                padding_value=0,
+                tensor_dim=64,
+                embedding_dim=60,
                 feature_type=FeatureType.NUMERICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "emb_list_feature")],
             ),
@@ -315,8 +370,13 @@ def wrong_sequential_sample(request, sequential_sample):
 
 
 @pytest.fixture
-def sasrec_model(tensor_schema):
+def sasrec_model(tensor_schema_with_equal_embedding_dims):
     model = SasRec.from_params(
-        schema=tensor_schema, embedding_dim=64, num_heads=1, num_blocks=1, max_sequence_length=7, dropout=0.2
+        schema=tensor_schema_with_equal_embedding_dims,
+        embedding_dim=60,
+        num_heads=1,
+        num_blocks=1,
+        max_sequence_length=7,
+        dropout=0.2,
     )
     return model

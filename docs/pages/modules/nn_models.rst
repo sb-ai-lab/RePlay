@@ -48,6 +48,36 @@ SasRec Transforms
 _________________
 .. autofunction:: replay.nn.transform.template.make_default_sasrec_transforms
 
+TwoTower
+=========
+
+.. _TwoTower:
+
+TwoTower
+_________
+.. autoclass:: replay.nn.sequential.TwoTower
+   :members: __init__, forward, from_params
+
+TwoTower Building Blocks
+_________________________
+
+TwoTowerBody
+``````````````````````````````
+
+.. autoclass:: replay.nn.sequential.TwoTowerBody
+
+QueryTower
+``````````````````````````````
+
+.. autoclass:: replay.nn.sequential.QueryTower
+   :members: __init__, forward
+
+ItemTower
+``````````````````````````````
+
+.. autoclass:: replay.nn.sequential.ItemTower
+   :members: __init__, forward
+
 
 Bert4Rec
 ========
@@ -149,38 +179,6 @@ ________________
 .. autoclass:: replay.models.nn.sequential.compiled.Bert4RecCompiled
    :members: compile, predict
 
-
-
-TwoTower
-=========
-
-.. _TwoTower:
-
-TwoTower
-_________
-.. autoclass:: replay.nn.sequential.TwoTower
-   :members: __init__, forward, from_params
-
-TwoTower Building Blocks
-_________________________
-
-TwoTowerBody
-``````````````````````````````
-
-.. autoclass:: replay.nn.sequential.TwoTowerBody
-
-QueryTower
-``````````````````````````````
-
-.. autoclass:: replay.nn.sequential.QueryTower
-   :members: __init__, forward
-
-ItemTower
-``````````````````````````````
-
-.. autoclass:: replay.nn.sequential.ItemTower
-   :members: __init__, forward
-
 .. _Losses:
 
 Losses
@@ -256,7 +254,7 @@ CategoricalEmbedding
 NumericalEmbedding
 ``````````````````
 .. autoclass:: replay.nn.embedding.NumericalEmbedding
-   :members: __init__, forward, weight
+   :members: __init__, forward, embedding_dim, weight
 
 
 Aggregators

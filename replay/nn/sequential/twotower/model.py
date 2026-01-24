@@ -1,4 +1,4 @@
-from collections.abc import Generator, Sequence
+from collections.abc import Sequence
 from typing import Optional, Protocol, Union
 
 import pandas as pd
@@ -125,7 +125,7 @@ class QueryTower(torch.nn.Module):
         return hidden_state
 
 
-class ItemReference:
+class _ItemTowerInputBuilder:
     """
     Prepares a dict of item features values that will be used for training and inference of the Item Tower.
     """
@@ -135,7 +135,7 @@ class ItemReference:
         :param schema: the same tensor schema used in TwoTower model.
         :param item_features_path: path to parquet with dataframe of item features.\n
             **Note:**\n
-            1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
+            1. Dataframe columns must be already encoded.\n
             2. Every feature for item "tower" in `schema` must contain ``feature_sources`` with the names
                of the source features to create correct inverse mapping.
                Also, for each such feature one of the requirements must be met: the ``schema`` for the feature must
@@ -150,23 +150,17 @@ class ItemReference:
             or schema.get(feature_name).feature_source.source == FeatureSource.ITEM_FEATURES
         }
 
-        item_reference = pd.read_parquet(item_features_path)
-        item_reference = item_reference.rename(columns=inverse_feature_names_mapping)
-        item_reference = item_reference.loc[:, inverse_feature_names_mapping.values()]
-        item_reference: pd.DataFrame = item_reference.sort_values(schema.item_id_feature_name).reset_index(drop=True)
-        item_reference = {
-            feature_name: item_reference[feature_name].tolist() for feature_name in item_reference.columns
-        }
-        self.item_reference = item_reference
-
-    def keys(self) -> Generator[str, None, None]:
-        return self.item_reference.keys()
-
-    def __contains__(self, key: str) -> bool:
-        return key in self.item_reference
+        features = pd.read_parquet(
+            path=item_features_path,
+            columns=inverse_feature_names_mapping.values(),
+        )
+        features.rename(columns=inverse_feature_names_mapping, inplace=True)
+        features.sort_values(by=schema.item_id_feature_name, inplace=True)
+        features.reset_index(drop=True, inplace=True)
+        self._features = {feature_name: features[feature_name].tolist() for feature_name in features.columns}
 
     def __getitem__(self, key: str) -> dict[Union[str, int, float], int]:
-        return self.item_reference[key]
+        return self._features[key]
 
 
 class ItemTower(torch.nn.Module):
@@ -206,13 +200,13 @@ class ItemTower(torch.nn.Module):
         self.embedding_aggregator = embedding_aggregator
         self.encoder = encoder
 
-        self.item_reference = ItemReference(schema, item_features_path)
+        self._input = _ItemTowerInputBuilder(schema, item_features_path)
         for feature_name, tensor_info in schema.items():
             if feature_name not in self.feature_names:
                 continue
 
             dtype = torch.float32 if tensor_info.is_num else torch.int64
-            buffer = torch.asarray(self.item_reference[feature_name], dtype=dtype)
+            buffer = torch.asarray(self._input[feature_name], dtype=dtype)
             self.register_buffer(f"item_reference_{feature_name}", buffer)
 
         self.cache = None
@@ -319,7 +313,7 @@ class TwoTowerBody(torch.nn.Module):
         :param item_features_path: Path to dataframe
             with all items with features used in ``item_encoder`` (item "tower").\n
             **Note:**\n
-            1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
+            1. Dataframe columns must be already encoded.\n
             2. Every feature for item "tower" in `schema` must contain ``feature_sources`` with the names
                of the source features to create correct inverse mapping.
                Also, for each such feature one of the requirements must be met: the ``schema`` for the feature must

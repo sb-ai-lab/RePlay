@@ -143,7 +143,7 @@ class SasRec(torch.nn.Module):
                     padding_value=NUM_UNIQUE_ITEMS,
                     cardinality=NUM_UNIQUE_ITEMS+1,
                     feature_hint=FeatureHint.ITEM_ID,
-                    feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_id")]
+                    feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")]
                 ),
             ]
         )
