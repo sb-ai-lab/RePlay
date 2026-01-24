@@ -78,6 +78,9 @@ ItemTower
 .. autoclass:: replay.nn.sequential.ItemTower
    :members: __init__, forward
 
+TwoTower Transforms
+_________________
+.. autofunction:: replay.nn.transform.template.make_default_twotower_transforms
 
 Bert4Rec
 ========
