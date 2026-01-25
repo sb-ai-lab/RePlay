@@ -6,7 +6,7 @@ from replay.nn.output import InferenceOutput, TrainOutput
 
 def test_body_forward(sasrec_model, sequential_sample):
     output = sasrec_model.body(sequential_sample["feature_tensors"], sequential_sample["padding_mask"])
-    assert output.shape == (4, 7, 60)
+    assert output.shape == (4, 7, 70)
 
 
 @pytest.mark.parametrize(

@@ -74,7 +74,7 @@ def twotower_model(tensor_schema_with_equal_embedding_dims, item_features_path):
     model = TwoTower.from_params(
         schema=tensor_schema_with_equal_embedding_dims,
         item_features_path=item_features_path,
-        embedding_dim=60,
+        embedding_dim=70,
         num_heads=1,
         num_blocks=1,
         max_sequence_length=7,

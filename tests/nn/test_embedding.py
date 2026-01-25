@@ -15,13 +15,13 @@ def test_sequence_embedding_forward(tensor_schema, simple_batch, excluded_featur
         if excluded_features is not None and feature in excluded_features:
             assert feature not in output_tensors.keys()
         else:
-            assert output_tensors[feature].size() == (4, 5, 64)
+            assert output_tensors[feature].size() == (4, 5, tensor_schema[feature].embedding_dim)
 
 
 def test_sequence_embedding_get_embedding_dim(tensor_schema):
     embedder = SequenceEmbedding(tensor_schema)
     for feature in tensor_schema.keys():
-        assert embedder.embeddings_dim[feature] == 64
+        assert embedder.embeddings_dim[feature] == tensor_schema[feature].embedding_dim
 
 
 @pytest.mark.parametrize(
@@ -48,11 +48,11 @@ def test_sequence_embedding_get_features_weights(tensor_schema):
     for feature in tensor_schema.categorical_features.keys():
         emb = embedder.feature_embedders[feature].weight
         feature_cardinality_wo_pad = tensor_schema[feature].cardinality - 1
-        assert emb.shape == (feature_cardinality_wo_pad, 64)
+        assert emb.shape == (feature_cardinality_wo_pad, tensor_schema[feature].embedding_dim)
 
     for feature in tensor_schema.numerical_features.keys():
         emb = embedder.feature_embedders[feature].weight
-        assert emb.shape == (64, tensor_schema[feature].tensor_dim)
+        assert emb.shape == (tensor_schema[feature].embedding_dim, tensor_schema[feature].tensor_dim)
 
 
 def test_wrong_feature_type():

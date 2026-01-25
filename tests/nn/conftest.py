@@ -71,8 +71,8 @@ def tensor_schema():
                 name="emb_list_feature",
                 is_seq=True,
                 padding_value=0,
-                tensor_dim=64,
-                embedding_dim=68,
+                tensor_dim=70,
+                embedding_dim=62,
                 feature_type=FeatureType.NUMERICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "emb_list_feature")],
             ),
@@ -90,7 +90,7 @@ def tensor_schema_with_equal_embedding_dims():
                 is_seq=True,
                 cardinality=41,
                 padding_value=40,
-                embedding_dim=60,
+                embedding_dim=70,
                 feature_type=FeatureType.CATEGORICAL,
                 feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
@@ -100,7 +100,7 @@ def tensor_schema_with_equal_embedding_dims():
                 is_seq=True,
                 cardinality=5,
                 padding_value=4,
-                embedding_dim=60,
+                embedding_dim=70,
                 feature_type=FeatureType.CATEGORICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "cat_list_feature")],
             ),
@@ -109,7 +109,7 @@ def tensor_schema_with_equal_embedding_dims():
                 is_seq=True,
                 tensor_dim=1,
                 padding_value=0,
-                embedding_dim=60,
+                embedding_dim=70,
                 feature_type=FeatureType.NUMERICAL,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_feature")],
             ),
@@ -118,7 +118,7 @@ def tensor_schema_with_equal_embedding_dims():
                 is_seq=True,
                 padding_value=0,
                 tensor_dim=6,
-                embedding_dim=60,
+                embedding_dim=70,
                 feature_type=FeatureType.NUMERICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_list_feature")],
             ),
@@ -126,8 +126,8 @@ def tensor_schema_with_equal_embedding_dims():
                 name="emb_list_feature",
                 is_seq=True,
                 padding_value=0,
-                tensor_dim=64,
-                embedding_dim=60,
+                tensor_dim=70,
+                embedding_dim=70,
                 feature_type=FeatureType.NUMERICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "emb_list_feature")],
             ),
@@ -158,7 +158,7 @@ def simple_batch():
         [[0.0, 0.0, 0.0, 1.0, 2.0], [0, 0.0, 1.0, 1.0, 3.0], [1.0, 2.0, 3.0, 4.0, 5.0], [0.0, 0.0, 2.0, 2.0, 2.0]]
     )
     num_list_feature_sequences = torch.rand(4, 5, 6)
-    emb_list_feature_sequences = torch.rand(4, 5, 64)
+    emb_list_feature_sequences = torch.rand(4, 5, 70)
 
     padding_mask = torch.BoolTensor(
         [
@@ -324,7 +324,10 @@ def parquet_module(parquet_module_path, tensor_schema, max_len, batch_size=4):
             "cat_list_feature": {"shape": [shape, 3], "padding": tensor_schema["cat_list_feature"].padding_value},
             "num_feature": {"shape": shape, "padding": tensor_schema["num_feature"].padding_value},
             "num_list_feature": {"shape": [shape, 6], "padding": tensor_schema["num_list_feature"].padding_value},
-            "emb_list_feature": {"shape": [shape, 64], "padding": tensor_schema["emb_list_feature"].padding_value},
+            "emb_list_feature": {
+                "shape": [shape, tensor_schema["emb_list_feature"].tensor_dim],
+                "padding": tensor_schema["emb_list_feature"].padding_value,
+            },
         }
         return shared_meta
 
@@ -373,7 +376,7 @@ def wrong_sequential_sample(request, sequential_sample):
 def sasrec_model(tensor_schema_with_equal_embedding_dims):
     model = SasRec.from_params(
         schema=tensor_schema_with_equal_embedding_dims,
-        embedding_dim=60,
+        embedding_dim=70,
         num_heads=1,
         num_blocks=1,
         max_sequence_length=7,

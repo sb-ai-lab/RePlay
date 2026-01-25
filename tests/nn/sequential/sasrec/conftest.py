@@ -50,7 +50,7 @@ def sasrec_parametrized(request, tensor_schema):
 def sasrec_model_only_items(tensor_schema_with_equal_embedding_dims):
     model = SasRec.from_params(
         schema=tensor_schema_with_equal_embedding_dims.filter(name="item_id"),
-        embedding_dim=60,
+        embedding_dim=70,
         num_heads=1,
         num_blocks=1,
         max_sequence_length=7,

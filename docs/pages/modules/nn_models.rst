@@ -79,7 +79,7 @@ ItemTower
    :members: __init__, forward
 
 TwoTower Transforms
-_________________
+___________________
 .. autofunction:: replay.nn.transform.template.make_default_twotower_transforms
 
 Bert4Rec
