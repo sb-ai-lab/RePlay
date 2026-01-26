@@ -1,9 +1,9 @@
-import warnings
 from typing import Any, Literal, Optional, Protocol, Union
 
 import lightning
 import torch
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
+from typing_extensions import deprecated
 
 from replay.metrics.torch_metrics_builder import TorchMetricsBuilder, metrics_to_df
 from replay.models.nn.sequential.postprocessors import BasePostProcessor
@@ -19,6 +19,7 @@ CallbackMetricName = Literal[
 ]
 
 
+@deprecated("`ValidationBatch` class is deprecated.")
 class ValidationBatch(Protocol):
     """
     Validation callback batch
@@ -29,6 +30,10 @@ class ValidationBatch(Protocol):
     train: torch.LongTensor
 
 
+@deprecated(
+    "`ValidationMetricsCallback` class is deprecated. "
+    "Use `replay.nn.lightning.callback.ComputeMetricsCallback` instead."
+)
 class ValidationMetricsCallback(lightning.Callback):
     """
     Callback for validation and testing stages.
@@ -53,13 +58,6 @@ class ValidationMetricsCallback(lightning.Callback):
         :param postprocessors: postprocessors to validation stage.
         :param item_count: the total number of items in the dataset, required only for Coverage calculations.
         """
-        deprecation_msg = (
-            f"The {self.__class__.__name__} class is deprecated. "
-            "The class will be removed in next major release.\n"
-            "Instead of this class, you can use the similar class located in the replay.nn.callbacks module."
-        )
-        warnings.warn(deprecation_msg, DeprecationWarning, stacklevel=2)
-
         self._metrics = metrics
         self._ks = ks
         self._item_count = item_count

@@ -4,6 +4,7 @@ from typing import Any, Literal, Optional, Union, cast
 
 import lightning
 import torch
+from typing_extensions import deprecated
 
 from replay.data.nn import TensorMap, TensorSchema
 from replay.models.nn.loss import ScalableCrossEntropyLoss, SCEParams
@@ -13,6 +14,11 @@ from .dataset import SasRecPredictionBatch, SasRecTrainingBatch, SasRecValidatio
 from .model import SasRecModel
 
 
+@deprecated(
+    "`SasRec` class is deprecated. "
+    "Use `replay.nn.sequential.SasRec` "
+    "and `replay.nn.lightning.LightningModule` instead."
+)
 class SasRec(lightning.LightningModule):
     """
     SASRec Lightning module.
@@ -75,15 +81,6 @@ class SasRec(lightning.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters()
-
-        deprecation_msg = (
-            "The SasRec class is deprecated. "
-            "The class will be removed in next major release.\n"
-            "Instead of this class, you can use the decomposed SasRec model class located in the replay.nn module.\n"
-            "To train and infer a model via Lightning, "
-            "you can use the universal class for all models, the LightingModule class located in the replay.nn module."
-        )
-        warnings.warn(deprecation_msg, DeprecationWarning, stacklevel=2)
 
         self._model = SasRecModel(
             schema=tensor_schema,

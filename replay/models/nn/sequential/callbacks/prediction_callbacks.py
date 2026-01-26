@@ -1,10 +1,10 @@
 import abc
 import inspect
-import warnings
 from typing import Generic, Optional, Protocol, TypeVar, Union, cast
 
 import lightning
 import torch
+from typing_extensions import deprecated
 
 from replay.models.nn.sequential import Bert4Rec
 from replay.models.nn.sequential.postprocessors import BasePostProcessor
@@ -29,6 +29,9 @@ class PredictionBatch(Protocol):
 _T = TypeVar("_T")
 
 
+@deprecated(
+    "`BasePredictionCallback` class is deprecated. Use `replay.nn.lightning.callback.TopItemsCallbackBase` instead."
+)
 class BasePredictionCallback(lightning.Callback, Generic[_T]):
     """
     Base callback for prediction stage
@@ -50,13 +53,6 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
         :param postprocessors: postprocessors to apply.
         """
         super().__init__()
-
-        deprecation_msg = (
-            f"The {self.__class__.__name__} class is deprecated. "
-            "The class will be removed in next major release.\n"
-            "Instead of this class, you can use the similar class located in the replay.nn.callbacks module."
-        )
-        warnings.warn(deprecation_msg, DeprecationWarning, stacklevel=2)
 
         self.query_column = query_column
         self.item_column = item_column
@@ -125,6 +121,10 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
         pass
 
 
+@deprecated(
+    "`PandasPredictionCallback` class is deprecated. "
+    "Use `replay.nn.lightning.callback.PandasTopItemsCallback` instead."
+)
 class PandasPredictionCallback(BasePredictionCallback[PandasDataFrame]):
     """
     Callback for predition stage with pandas data frame
@@ -146,6 +146,10 @@ class PandasPredictionCallback(BasePredictionCallback[PandasDataFrame]):
         return prediction.explode([self.item_column, self.rating_column])
 
 
+@deprecated(
+    "`PolarsPredictionCallback` class is deprecated. "
+    "Use `replay.nn.lightning.callback.PolarsTopItemsCallback` instead."
+)
 class PolarsPredictionCallback(BasePredictionCallback[PolarsDataFrame]):
     """
     Callback for predition stage with polars data frame
@@ -167,6 +171,10 @@ class PolarsPredictionCallback(BasePredictionCallback[PolarsDataFrame]):
         return prediction.explode([self.item_column, self.rating_column])
 
 
+@deprecated(
+    "`SparkPredictionCallback` class is deprecated. "
+    "Use `replay.nn.lightning.callback.SparkTopItemsCallback` instead."
+)
 class SparkPredictionCallback(BasePredictionCallback[SparkDataFrame]):
     """
     Callback for prediction stage with spark data frame
@@ -226,6 +234,10 @@ class SparkPredictionCallback(BasePredictionCallback[SparkDataFrame]):
         return prediction
 
 
+@deprecated(
+    "`TorchPredictionCallback` class is deprecated. "
+    "Use `replay.nn.lightning.callback.TorchTopItemsCallback` instead."
+)
 class TorchPredictionCallback(BasePredictionCallback[tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]]):
     """
     Callback for predition stage with tuple of tensors
@@ -261,6 +273,10 @@ class TorchPredictionCallback(BasePredictionCallback[tuple[torch.LongTensor, tor
         )
 
 
+@deprecated(
+    "`QueryEmbeddingsPredictionCallback` class is deprecated. "
+    "Use `replay.nn.lightning.callback.HiddenStatesCallback` instead."
+)
 class QueryEmbeddingsPredictionCallback(lightning.Callback):
     """
     Callback for prediction stage to get query embeddings.
