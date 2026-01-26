@@ -8,13 +8,20 @@ from replay.nn.lightning.scheduler import LambdaLRSchedulerFactory
 
 
 def test_training_twotower_with_different_losses(twotower_parametrized, parquet_module):
-    sasrec = LightningModule(
+    twotower = LightningModule(
         twotower_parametrized,
         optimizer_factory=OptimizerFactory(),
         lr_scheduler_factory=LambdaLRSchedulerFactory(warmup_steps=1),
     )
     trainer = L.Trainer(max_epochs=2)
-    trainer.fit(sasrec, datamodule=parquet_module)
+    trainer.fit(twotower, datamodule=parquet_module)
+
+
+def test_twotower_with_default_transform(twotower_model_only_items, parquet_module_with_default_twotower_transform):
+    twotower = LightningModule(twotower_model_only_items)
+    trainer = L.Trainer(max_epochs=1)
+    trainer.fit(twotower, datamodule=parquet_module_with_default_twotower_transform)
+    trainer.test(twotower, datamodule=parquet_module_with_default_twotower_transform)
 
 
 def test_twotower_checkpointing(twotower_model, parquet_module, tmp_path):
@@ -25,15 +32,15 @@ def test_twotower_checkpointing(twotower_model, parquet_module, tmp_path):
     ckpt_path = tmp_path / "checkpoints/last.ckpt"
     trainer.save_checkpoint(ckpt_path)
 
-    loaded_sasrec = LightningModule.load_from_checkpoint(ckpt_path, model=twotower_model)
+    loaded_twotower = LightningModule.load_from_checkpoint(ckpt_path, model=twotower_model)
 
     batch = parquet_module.compiled_transforms["train"](next(iter(parquet_module.train_dataloader())))
 
     twotower.eval()
-    loaded_sasrec.eval()
+    loaded_twotower.eval()
 
     output1 = twotower(batch)
-    output2 = loaded_sasrec(batch)
+    output2 = loaded_twotower(batch)
 
     torch.testing.assert_close(output1["logits"], output2["logits"])
     torch.testing.assert_close(output1["hidden_states"][0], output2["hidden_states"][0])
