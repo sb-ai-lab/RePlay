@@ -118,7 +118,9 @@ def twotower_model_only_items(tensor_schema_with_equal_embedding_dims, item_feat
 
 
 @pytest.fixture
-def parquet_module_with_default_twotower_transform(parquet_module_path, tensor_schema_with_equal_embedding_dims, max_len, batch_size=4):
+def parquet_module_with_default_twotower_transform(
+    parquet_module_path, tensor_schema_with_equal_embedding_dims, max_len, batch_size=4
+):
     transforms = make_default_twotower_transforms(tensor_schema_with_equal_embedding_dims, query_column="user_id")
 
     def create_meta(shape):
