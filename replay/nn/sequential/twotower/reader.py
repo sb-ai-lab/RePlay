@@ -17,17 +17,12 @@ class FeaturesReader:
     Prepares a dict of item features values that will be used for training and inference of the Item Tower.
     """
 
-    def __init__(
-        self,
-        schema: TensorSchema,
-        metadata: dict,
-        path: str,
-    ):
+    def __init__(self, schema: TensorSchema, metadata: dict, path: str):
         """
         :param schema: the same tensor schema used in TwoTower model.
-        :param metadata: A dictionary that each data split maps to a dictionary of feature names
-            with each feature is associated with its shape and padding_value.\n
-            Example: {"train": {"item_id" : {"shape": 100, "padding_value": 7657}}}.\n
+        :param metadata: A dictionary of feature names that
+            associated with its shape and padding_value.\n
+            Example: {"item_id" : {"shape": 100, "padding": 7657}}.\n
             For details, see the section :ref:`parquet-processing`.
         :param path: path to parquet with dataframe of item features.\n
             **Note:**\n
@@ -46,16 +41,22 @@ class FeaturesReader:
         ]
         metadata_names = metadata.keys()
 
-        if missing_names := (set(metadata_names) - set(item_feature_names)):
-            msg = (
-                "The metadata contains information about the following columns,"
-                f"which are not described in schema: {missing_names}"
-            )
-            raise ValueError(msg)
+        if (unique_metadata_names := set(metadata_names)) != (unique_schema_names := set(item_feature_names)):
+            extra_metadata_names = unique_metadata_names - unique_schema_names
+            if extra_metadata_names:
+                msg = (
+                    "The metadata contains information about the following columns,"
+                    f"which are not described in schema: {extra_metadata_names}."
+                )
+                raise ValueError(msg)
 
-        inverse_feature_names_mapping = {
-            schema[feature].feature_source.column: feature for feature in item_feature_names
-        }
+            extra_schema_names = unique_schema_names - unique_metadata_names
+            if extra_schema_names:
+                msg = (
+                    "The schema contains information about the following columns,"
+                    f"which are not described in metadata: {extra_schema_names}."
+                )
+                raise ValueError(msg)
 
         features = pd.read_parquet(
             path=path,
@@ -70,6 +71,9 @@ class FeaturesReader:
                 continue
             features[k] = features[k].apply(add_padding, args=(v["shape"], v["padding"]))
 
+        inverse_feature_names_mapping = {
+            schema[feature].feature_source.column: feature for feature in item_feature_names
+        }
         features.rename(columns=inverse_feature_names_mapping, inplace=True)
         features.sort_values(by=schema.item_id_feature_name, inplace=True)
         features.reset_index(drop=True, inplace=True)

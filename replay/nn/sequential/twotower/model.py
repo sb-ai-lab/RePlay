@@ -151,8 +151,11 @@ class ItemTower(torch.nn.Module):
             features and aggregated embeddings of ``item_tower_feature_names``.
             Item encoder uses item reference which is created based on ``item_features_path``.
         :param feature_names: sequence of names used in item tower.
-        :param item_features_path: Path to dataframe with
-            items with all encoded features used in ``item_encoder`` (item "tower").
+        :param item_features_reader: A class that implements reading features,
+            processing them, and converting them to ``torch.Tensor`` for ItemTower.
+            You can use ``replay.nn.sequential.twotower.FeaturesReader`` as a standard class.\n
+            But you can implement your own feature processing,
+            just follow the ``replay.nn.sequential.twotower.FeaturesReaderProtocol`` protocol.
         """
         super().__init__()
         self.embedder = embedder
@@ -267,45 +270,11 @@ class TwoTowerBody(torch.nn.Module):
             an item hidden embedding representation based on
             features and aggregated embeddings of ``item_tower_feature_names``.
             Item encoder uses item reference which is created based on ``item_features_path``.
-        :param item_features_path: Path to dataframe
-            with all items with features used in ``item_encoder`` (item "tower").\n
-            **Note:**\n
-            1. Dataframe columns must be already encoded.\n
-            2. Every feature for item "tower" in `schema` must contain ``feature_sources`` with the names
-               of the source features to create correct inverse mapping.
-               Also, for each such feature one of the requirements must be met: the ``schema`` for the feature must
-               contain ``feature_sources`` with a source of type FeatureSource.ITEM_FEATURES
-               or hint type FeatureHint.ITEM_ID.
-
-            Example of correct `schema`:
-
-            .. code-block:: python
-
-                >>> from replay.data import FeatureHint, FeatureSource, FeatureType
-                >>> from replay.data.nn import TensorSchema, TensorFeatureInfo, TensorFeatureSource
-                >>> tensor_schema = TensorSchema(
-                ...        [
-                ...            TensorFeatureInfo(
-                ...                name="item_id",
-                ...                is_seq=True,
-                ...                cardinality=41,
-                ...                padding_value=40,
-                ...                embedding_dim=64,
-                ...                feature_type=FeatureType.CATEGORICAL,
-                ...                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
-                ...                feature_hint=FeatureHint.ITEM_ID,
-                ...            ),
-                ...            TensorFeatureInfo(
-                ...                name="cat_feature",
-                ...                is_seq=True,
-                ...                cardinality=5,
-                ...                padding_value=4,
-                ...                embedding_dim=64,
-                ...                feature_type=FeatureType.CATEGORICAL_LIST,
-                ...                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "cat_feature")],
-                ...            ),
-                ...        ]
-                ...    )
+        :param item_features_reader: A class that implements reading features,
+            processing them, and converting them to ``torch.Tensor`` for ItemTower.
+            You can use ``replay.nn.sequential.twotower.FeaturesReader`` as a standard class.\n
+            But you can implement your own feature processing,
+            just follow the ``replay.nn.sequential.twotower.FeaturesReaderProtocol`` protocol.
 
         """
         super().__init__()
@@ -467,15 +436,11 @@ class TwoTower(torch.nn.Module):
         To create an instance of TwoTower with other types of blocks, please use the class constructor.
 
         :param schema: tensor schema object with metainformation about features.
-        :param item_features_path: Path to dataframe
-            with all items with features used in ``item_encoder`` (item "tower").
-            **Note:**\n
-            1. Dataframe columns must be already encoded via the same encoders used in `query_encoder` (user "tower").\n
-            2. Every feature for item "tower" in `schema` must contain ``feature_sources`` with the names
-               of the source features to create correct inverse mapping.
-               Also, for each such feature one of the requirements must be met: the ``schema`` for the feature must
-               contain ``feature_sources`` with a source of type FeatureSource.ITEM_FEATURES
-               or hint type FeatureHint.ITEM_ID.
+        :param item_features_reader: A class that implements reading features,
+            processing them, and converting them to ``torch.Tensor`` for ItemTower.
+            You can use ``replay.nn.sequential.twotower.FeaturesReader`` as a standard class.\n
+            But you can implement your own feature processing,
+            just follow the ``replay.nn.sequential.twotower.FeaturesReaderProtocol`` protocol.
         :param embedding_dim: embeddings dimension in both towers. Default: ``192``.
         :param num_heads: number of heads  in user tower SasRec layers. Default: ``4``.
         :param num_blocks: number of blocks  in user tower SasRec layers. Default: ``2``.
