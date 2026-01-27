@@ -800,9 +800,9 @@ class LabelEncoder:
     >>> mapped_interactions = encoder.fit_transform(user_interactions)
     >>> mapped_interactions
        user_id  item_1  item_2  list
-    0        0       0       0  [0, 1, 2]
-    1        1       1       1  [2, 3, 4]
-    2        2       2       2  [5, 6, 3]
+    0        0       0       0  [2, 3, 4]
+    1        1       1       1  [4, 5, 6]
+    2        2       2       2  [1, 0, 5]
     >>> encoder.mapping
     {'item_1': {'item_1': 0, 'item_2': 1, 'item_3': 2},
     'item_2': {'item_1': 0, 'item_2': 1, 'item_3': 2},
