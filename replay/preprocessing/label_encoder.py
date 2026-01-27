@@ -185,11 +185,11 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         self._mapping = mapping_on_spark.rdd.collectAsMap()
 
     def _fit_pandas(self, df: PandasDataFrame) -> None:
-        unique_col_values = df[self._col].drop_duplicates().reset_index(drop=True)
+        unique_col_values = df[self._col].sort_values().drop_duplicates().reset_index(drop=True)
         self._mapping = {val: key for key, val in unique_col_values.to_dict().items()}
 
     def _fit_polars(self, df: PolarsDataFrame) -> None:
-        unique_col_values = df.select(self._col).unique()
+        unique_col_values = df.sort(self._col).select(self._col).unique()
         self._mapping = {key: val for val, key in enumerate(unique_col_values.to_series().to_list())}
 
     def fit(self, df: DataFrameLike) -> "LabelEncodingRule":

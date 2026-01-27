@@ -165,11 +165,23 @@ def test_matching_mapping_order(
     encoder_other = LabelEncoder(rules_other)
     encoder_other.fit(other_dataframe)
 
-    assert all(id_spark == id_pandas for id_spark, id_pandas in zip(encoder_spark.mapping, encoder_other.mapping))
+    for (column_spark, mapping_spark), (column_other, mapping_other) in zip(
+        encoder_spark.mapping.items(), encoder_other.mapping.items()
+    ):
+        assert column_spark == column_other
+        assert all(
+            id_spark == id_other and items_spark == items_other
+            for (id_spark, items_spark), (id_other, items_other) in zip(mapping_spark.items(), mapping_other.items())
+        )
 
-    assert all(
-        id_spark == id_other for id_spark, id_other in zip(encoder_spark.inverse_mapping, encoder_other.inverse_mapping)
-    )
+    for (column_spark, mapping_spark), (column_other, mapping_other) in zip(
+        encoder_spark.inverse_mapping.items(), encoder_other.inverse_mapping.items()
+    ):
+        assert column_spark == column_other
+        assert all(
+            id_spark == id_other and items_spark == items_other
+            for (id_spark, items_spark), (id_other, items_other) in zip(mapping_spark.items(), mapping_other.items())
+        )
 
 
 @pytest.mark.parametrize(
