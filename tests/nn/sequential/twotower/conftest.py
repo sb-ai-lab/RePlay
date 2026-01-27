@@ -16,12 +16,12 @@ from replay.nn.transform.template import make_default_twotower_transforms
 
 @pytest.fixture(
     params=[
-        (CE, {"padding_idx": 40}),
-        (CESampled, {"padding_idx": 40}),
+        (CE, {"ignore_index": 40}),
+        (CESampled, {"ignore_index": 40}),
         (BCE, {}),
         (BCESampled, {}),
-        (LogOutCE, {"padding_idx": 40, "vocab_size": 40}),
-        (LogInCE, {"vocab_size": 40}),
+        (LogOutCE, {"ignore_index": 40, "cardinality": 40}),
+        (LogInCE, {"cardinality": 40}),
         (LogInCESampled, {}),
     ],
     ids=["CE", "CE sampled", "BCE", "BCE sampled", "LogOutCE", "LogInCE", "LogInCESampled"],

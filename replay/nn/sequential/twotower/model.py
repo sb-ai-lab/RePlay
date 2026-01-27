@@ -66,8 +66,7 @@ class QueryTower(torch.nn.Module):
     ):
         """
         :param embedder: An object of a class that performs the logic of
-            generating embeddings from an input set of tensors.\n
-            An embedder with the same arguments is used for both towers, but each tower has its own instance.
+            generating embeddings from an input batch.
         :param feature_names: sequence of names used in query tower.
         :param attn_mask_builder: An object of a class that performs the logic of
             generating an attention mask based on the features and padding mask given to the model.
@@ -182,8 +181,7 @@ class ItemTower(torch.nn.Module):
         """
         :param schema: tensor schema object with metainformation about features.
         :param embedder: An object of a class that performs the logic of
-            generating embeddings from an input set of tensors.\n
-            An embedder with the same arguments is used for both towers, but each tower has its own instance.
+            generating embeddings from an input batch.
         :param embedding_aggregator: An object of a class that performs
             the logic of aggregating multiple embeddings of item tower.
         :param encoder: An object of a class that performs the logic of generating
@@ -289,8 +287,8 @@ class TwoTowerBody(torch.nn.Module):
         """
         :param schema: tensor schema object with metainformation about features.
         :param embedder: An object of a class that performs the logic of
-            generating embeddings from an input set of tensors.\n
-            An embedder with the same arguments is used for both towers, but each tower has its own instance.
+            generating embeddings from an input batch.\n
+            The same object is used to generate embeddings in different towers.
         :param query_tower_feature_names: sequence of names used in query tower.
         :param item_tower_feature_names: sequence of names used in item tower.
         :param query_embedding_aggregator: An object of a class that performs
@@ -581,7 +579,7 @@ class TwoTower(torch.nn.Module):
                 item_encoder=SwiGLUEncoder(embedding_dim=embedding_dim, hidden_dim=2 * embedding_dim),
                 item_features_path=item_features_path,
             ),
-            loss=CE(padding_idx=schema.item_id_features.item().padding_value),
+            loss=CE(ignore_index=schema.item_id_features.item().padding_value),
             context_merger=None,
         )
 

@@ -248,7 +248,7 @@ class SasRec(torch.nn.Module):
         )
         return cls(
             body=body,
-            loss=CE(padding_idx=schema.item_id_features.item().padding_value),
+            loss=CE(ignore_index=schema.item_id_features.item().padding_value),
         )
 
     def reset_parameters(self) -> None:
