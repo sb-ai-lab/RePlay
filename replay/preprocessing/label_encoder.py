@@ -26,7 +26,7 @@ from replay.utils import (
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import Window, functions as sf  # noqa: I001
-    from pyspark.sql.types import LongType, IntegerType, ArrayType
+    from pyspark.sql.types import LongType
     from replay.utils.session_handler import get_spark_session
 
 HandleUnknownStrategies = Literal["error", "use_default_value", "drop"]
@@ -630,37 +630,40 @@ class SequenceEncodingRule(LabelEncodingRule):
         return self
 
     def _transform_spark(self, df: SparkDataFrame, default_value: Optional[int]) -> SparkDataFrame:
-        def mapper_udf(x):
-            return [mapping.get(value) for value in x]  # pragma: no cover
+        other_columns = [col for col in df.columns if col != self._col]
 
-        mapping = self.get_mapping()
-        call_mapper_udf = sf.udf(mapper_udf, ArrayType(IntegerType()))
-        encoded_df = df.withColumn(self._target_col, call_mapper_udf(sf.col(self.column)))
+        mapping_on_spark = get_spark_session().createDataFrame(
+            data=list(self.get_mapping().items()), schema=[self._col, self._target_col]
+        )
+        encoded_df = (
+            df.select(*other_columns, sf.posexplode(self._col))
+            .withColumnRenamed("col", self._col)
+            .join(mapping_on_spark, on=self._col, how="left")
+        )
 
+        if self._handle_unknown == "error":
+            if encoded_df.filter(sf.col(self._target_col).isNull()).count() > 0:
+                msg = f"Found unknown labels in column {self._col} during transform"
+                raise ValueError(msg)
+        else:
+            if default_value is not None:
+                encoded_df = encoded_df.fillna(default_value, subset=[self._target_col])
+
+        result = encoded_df.groupBy(other_columns).agg(
+            sf.sort_array(sf.collect_list(sf.struct("pos", self._target_col)))
+            .getItem(self._target_col)
+            .alias(self._col)
+        )
         if self._handle_unknown == "drop":
-            encoded_df = encoded_df.withColumn(self._target_col, sf.filter(self._target_col, lambda x: x.isNotNull()))
-            if encoded_df.select(sf.max(sf.size(self._target_col))).first()[0] == 0:
+            result = result.withColumn(self._col, sf.filter(self._col, lambda x: x.isNotNull()))
+            if result.select(sf.max(sf.size(self._col))).first()[0] == 0:
                 warnings.warn(
                     f"You are trying to transform dataframe with all values are unknown for {self._col}, "
                     "with `handle_unknown_strategy=drop` leads to empty dataframe",
                     LabelEncoderTransformWarning,
                 )
-        elif self._handle_unknown == "error":
-            if (
-                encoded_df.select(sf.sum(sf.array_contains(self._target_col, -1).isNull().cast("integer"))).first()[0]
-                != 0
-            ):
-                msg = f"Found unknown labels in column {self._col} during transform"
-                raise ValueError(msg)
-        else:
-            if default_value:
-                encoded_df = encoded_df.withColumn(
-                    self._target_col,
-                    sf.transform(self._target_col, lambda x: sf.when(x.isNull(), default_value).otherwise(x)),
-                )
 
-        result_df = encoded_df.drop(self._col).withColumnRenamed(self._target_col, self._col)
-        return result_df
+        return result
 
     def _transform_pandas(self, df: PandasDataFrame, default_value: Optional[int]) -> PandasDataFrame:
         mapping = self.get_mapping()
@@ -771,7 +774,7 @@ class SequenceEncodingRule(LabelEncodingRule):
     def _inverse_transform_spark(self, df: SparkDataFrame) -> SparkDataFrame:
         array_expr = sf.array([sf.lit(x) for x in self._inverse_mapping_list])
         decoded_df = df.withColumn(
-            self._target_col, sf.transform(self._col, lambda x: sf.element_at(array_expr, x + 1))
+            self._target_col, sf.transform(self._col, lambda x: sf.element_at(array_expr, x.cast("int") + 1))
         )
         return decoded_df.drop(self._col).withColumnRenamed(self._target_col, self._col)
 
