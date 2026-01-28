@@ -69,7 +69,7 @@ def test_sasrec_prediction_with_candidates(tensor_schema, sasrec_model, parquet_
 
     for pred in predictions[:-1]:
         if candidates_to_score is None:
-            assert pred["logits"].size() == (parquet_module.batch_size, tensor_schema["item_id"].cardinality - 1)
+            assert pred["logits"].size() == (parquet_module.batch_size, tensor_schema["item_id"].cardinality)
         else:
             assert pred["logits"].size() == (parquet_module.batch_size, candidates_to_score.shape[0])
 
