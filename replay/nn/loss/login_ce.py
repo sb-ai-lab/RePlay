@@ -114,6 +114,7 @@ class LogInCE(LogInCEBase):
         cardinality: int,
         log_epsilon: float = 1e-6,
         clamp_border: float = 100.0,
+        negative_labels_ignore_index: int = -100,
     ):
         """
         :param cardinality: number of unique items in vocabulary (catalog).
@@ -122,11 +123,17 @@ class LogInCE(LogInCEBase):
             Default: ``1e-6``.
         :param clamp_border: upper bound for clamping loss tensor, lower bound will be setted to ``-clamp_border``.
             Default: ``100.0``.
+        :param negative_labels_ignore_index: padding value for negative labels.
+            This may be the case when negative labels
+            are formed at the preprocessing level, rather than the negative sampler.
+            The index is ignored and does not contribute to the loss.
+            Default: ``-100``.
         """
         super().__init__()
         self.cardinality = cardinality
         self.log_epsilon = log_epsilon
         self.clamp_border = clamp_border
+        self.negative_labels_ignore_index = negative_labels_ignore_index
         self._logits_callback = None
 
     @property
@@ -197,6 +204,7 @@ class LogInCE(LogInCEBase):
             negative_logits,
             all_negative_labels,
             positive_labels,
+            self.negative_labels_ignore_index,
         )
 
         max_values = torch.max(
@@ -241,16 +249,27 @@ class LogInCESampled(LogInCEBase):
     (there are several labels for each position in the sequence).
     """
 
-    def __init__(self, log_epsilon: float = 1e-6, clamp_border: float = 100.0):
+    def __init__(
+        self,
+        log_epsilon: float = 1e-6,
+        clamp_border: float = 100.0,
+        negative_labels_ignore_index: int = -100,
+    ):
         """
         :param log_epsilon: correction to avoid zero in the logarithm during loss calculating.
             Default: 1e-6.
         :param clamp_border: upper bound for clamping loss tensor, lower bound will be setted to -`clamp_border`.
             Default: 100.0.
+        :param negative_labels_ignore_index: padding value for negative labels.
+            This may be the case when negative labels
+            are formed at the preprocessing level, rather than the negative sampler.
+            The index is ignored and does not contribute to the loss.
+            Default: ``-100``.
         """
         super().__init__()
         self.log_epsilon = log_epsilon
         self.clamp_border = clamp_border
+        self.negative_labels_ignore_index = negative_labels_ignore_index
         self._logits_callback = None
 
     @property
@@ -313,6 +332,7 @@ class LogInCESampled(LogInCEBase):
             negative_logits,
             negative_labels,
             positive_labels,
+            self.negative_labels_ignore_index,
         )
 
         max_values = torch.max(

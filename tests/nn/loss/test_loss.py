@@ -29,13 +29,23 @@ def test_setting_logits_callback_loss(loss, hidden_simple_batch):
     [
         (CE(ignore_index=3)),
         (CESampled(ignore_index=3)),
+        (CESampled(ignore_index=3, negative_labels_ignore_index=0)),
         (BCE()),
         (BCESampled()),
         (LogInCE(cardinality=3)),
         (LogInCESampled()),
         (LogOutCE(ignore_index=3, cardinality=3)),
     ],
-    ids=["CE", "CE sampled", "BCE", "BCE sampled", "LogInCE", "LogInCESampled", "LogOutCE"],
+    ids=[
+        "CE",
+        "CE sampled",
+        "CE sampled w/ negative ignore index",
+        "BCE",
+        "BCE sampled",
+        "LogInCE",
+        "LogInCESampled",
+        "LogOutCE",
+    ],
 )
 @pytest.mark.parametrize(
     "batch_name",

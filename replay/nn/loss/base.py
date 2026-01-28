@@ -151,6 +151,7 @@ def mask_negative_logits(
     negative_logits: torch.Tensor,
     negative_labels: torch.LongTensor,
     positive_labels: torch.LongTensor,
+    negative_labels_ignore_index: int,
 ) -> torch.Tensor:
     """
     Assign very small values in negative logits
@@ -164,10 +165,17 @@ def mask_negative_logits(
             - (num_negatives) - a case where the same negative events are used for the entire batch
     :param positive_labels: a tensor containing labels with positive events.
         Expected shape: (masked_batch_size, num_positives)
+    :param negative_labels_ignore_index: padding value for negative labels.
+        This may be the case when negative labels
+        are formed at the preprocessing level, rather than the negative sampler.
+        The index is ignored and does not contribute to the loss.
 
     :returns: Negative logits with modified elements in those positions
         where positive labels are equal to negative ones.
     """
+
+    if negative_labels_ignore_index >= 0:
+        negative_logits.masked_fill_(negative_labels == negative_labels_ignore_index, -1e9)
 
     if negative_labels.dim() > 1:  # pragma: no cover
         # [masked_batch_size, num_negatives] -> [masked_batch_size, 1, num_negatives]
@@ -178,6 +186,6 @@ def mask_negative_logits(
     negative_mask = positive_labels == negative_labels  # [masked_batch_size, num_positives, num_negatives]
 
     # [masked_batch_size, num_positives, num_negatives] -> [masked_batch_size, num_negatives]
-    negative_mask = negative_mask.sum(-2)
-    negative_logits = negative_logits - 1e9 * negative_mask
+    negative_mask = negative_mask.sum(-2).bool()
+    negative_logits.masked_fill_(negative_mask, -1e9)
     return negative_logits
