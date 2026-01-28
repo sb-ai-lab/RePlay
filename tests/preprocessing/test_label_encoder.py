@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from replay.preprocessing import LabelEncoder, LabelEncoderPartialFitWarning, LabelEncodingRule, SequenceEncodingRule
-from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame
+from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 from tests.utils import sparkDataFrameEqual
 
 if PYSPARK_AVAILABLE:
@@ -149,6 +149,39 @@ def test_label_encoder_on_many_columns(df_name, request):
     encoder.fit(df)
     assert len(encoder.mapping) == len(df.columns), "Not all columns are calculated"
     assert all(len(values) for values in encoder.mapping.values()), "Some columns are without mappings after fit"
+
+
+@pytest.mark.spark
+@pytest.mark.parametrize("other_fixture", ["simple_dataframe_pandas", "simple_dataframe_polars"])
+def test_matching_mapping_order(
+    simple_dataframe: SparkDataFrame, other_fixture: str, request: pytest.FixtureRequest
+) -> None:
+    other_dataframe: PandasDataFrame | PolarsDataFrame = request.getfixturevalue(other_fixture)
+    rules_spark = [LabelEncodingRule(column) for column in simple_dataframe.columns]
+    encoder_spark = LabelEncoder(rules_spark)
+    encoder_spark.fit(simple_dataframe)
+
+    rules_other = [LabelEncodingRule(column) for column in other_dataframe.columns]
+    encoder_other = LabelEncoder(rules_other)
+    encoder_other.fit(other_dataframe)
+
+    for (column_spark, mapping_spark), (column_other, mapping_other) in zip(
+        encoder_spark.mapping.items(), encoder_other.mapping.items()
+    ):
+        assert column_spark == column_other
+        assert all(
+            id_spark == id_other and items_spark == items_other
+            for (id_spark, items_spark), (id_other, items_other) in zip(mapping_spark.items(), mapping_other.items())
+        )
+
+    for (column_spark, mapping_spark), (column_other, mapping_other) in zip(
+        encoder_spark.inverse_mapping.items(), encoder_other.inverse_mapping.items()
+    ):
+        assert column_spark == column_other
+        assert all(
+            id_spark == id_other and items_spark == items_other
+            for (id_spark, items_spark), (id_other, items_other) in zip(mapping_spark.items(), mapping_other.items())
+        )
 
 
 @pytest.mark.parametrize(
