@@ -12,7 +12,7 @@ class SasRecTransformerLayer(torch.nn.Module):
     SasRec vanilla layer.
     Layer consists of Multi-Head Attention followed by a Point-Wise Feed-Forward Network.
 
-    Link: https://arxiv.org/pdf/1808.09781.pdf
+    Source paper: https://arxiv.org/pdf/1808.09781.pdf
     """
 
     def __init__(

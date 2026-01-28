@@ -16,9 +16,13 @@ class BCE(torch.nn.Module):
     (there are several labels for each position in the sequence).
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
+        """
+        To calculate the loss, ``torch.nn.BCEWithLogitsLoss`` is used with the parameter ``reduction="sum"``.
+        You can pass all other parameters for initializing the object via kwargs.
+        """
         super().__init__()
-        self._loss = torch.nn.BCEWithLogitsLoss(reduction="sum")
+        self._loss = torch.nn.BCEWithLogitsLoss(reduction="sum", **kwargs)
         self._logits_callback = None
 
     @property

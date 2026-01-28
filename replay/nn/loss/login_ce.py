@@ -111,19 +111,20 @@ class LogInCE(LogInCEBase):
 
     def __init__(
         self,
-        vocab_size: int,
+        cardinality: int,
         log_epsilon: float = 1e-6,
         clamp_border: float = 100.0,
     ):
         """
-        :param vocab_size: number of unique items in vocabulary (catalog).
+        :param cardinality: number of unique items in vocabulary (catalog).
+            The specified cardinality value must not take into account the padding value.
         :param log_epsilon: correction to avoid zero in the logarithm during loss calculating.
             Default: ``1e-6``.
         :param clamp_border: upper bound for clamping loss tensor, lower bound will be setted to ``-clamp_border``.
             Default: ``100.0``.
         """
         super().__init__()
-        self.vocab_size = vocab_size
+        self.cardinality = cardinality
         self.log_epsilon = log_epsilon
         self.clamp_border = clamp_border
         self._logits_callback = None
@@ -175,7 +176,7 @@ class LogInCE(LogInCEBase):
         :return: computed loss value.
         """
         all_negative_labels = torch.arange(
-            self.vocab_size,
+            self.cardinality,
             dtype=torch.long,
             device=positive_labels.device,
         )

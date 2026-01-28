@@ -15,6 +15,7 @@ from replay.data.nn import (
     TensorSchema,
 )
 from replay.nn.sequential import SasRec
+from replay.nn.sequential.twotower import FeaturesReader
 from replay.nn.transform import (
     CopyTransform,
     GroupTransform,
@@ -33,7 +34,7 @@ def tensor_schema():
             TensorFeatureInfo(
                 name="item_id",
                 is_seq=True,
-                cardinality=41,
+                cardinality=40,
                 padding_value=40,
                 embedding_dim=64,
                 feature_type=FeatureType.CATEGORICAL,
@@ -43,9 +44,9 @@ def tensor_schema():
             TensorFeatureInfo(
                 name="cat_list_feature",
                 is_seq=True,
-                cardinality=5,
+                cardinality=4,
                 padding_value=4,
-                embedding_dim=64,
+                embedding_dim=65,
                 feature_type=FeatureType.CATEGORICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "cat_list_feature")],
             ),
@@ -54,7 +55,7 @@ def tensor_schema():
                 is_seq=True,
                 tensor_dim=1,
                 padding_value=0,
-                embedding_dim=64,
+                embedding_dim=66,
                 feature_type=FeatureType.NUMERICAL,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_feature")],
             ),
@@ -63,7 +64,7 @@ def tensor_schema():
                 is_seq=True,
                 padding_value=0,
                 tensor_dim=6,
-                embedding_dim=64,
+                embedding_dim=67,
                 feature_type=FeatureType.NUMERICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_list_feature")],
             ),
@@ -71,10 +72,65 @@ def tensor_schema():
                 name="emb_list_feature",
                 is_seq=True,
                 padding_value=0,
-                tensor_dim=64,
-                embedding_dim=64,
+                tensor_dim=70,
+                embedding_dim=62,
+                feature_type=FeatureType.NUMERICAL_LIST,
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "emb_list_feature")],
+            ),
+        ]
+    )
+    return tensor_schema
+
+
+@pytest.fixture(scope="module")
+def tensor_schema_with_equal_embedding_dims():
+    tensor_schema = TensorSchema(
+        [
+            TensorFeatureInfo(
+                name="item_id",
+                is_seq=True,
+                cardinality=40,
+                padding_value=40,
+                embedding_dim=70,
+                feature_type=FeatureType.CATEGORICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
+                feature_hint=FeatureHint.ITEM_ID,
+            ),
+            TensorFeatureInfo(
+                name="cat_list_feature",
+                is_seq=True,
+                cardinality=4,
+                padding_value=4,
+                embedding_dim=70,
+                feature_type=FeatureType.CATEGORICAL_LIST,
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "cat_list_feature")],
+            ),
+            TensorFeatureInfo(
+                name="num_feature",
+                is_seq=True,
+                tensor_dim=1,
+                padding_value=0,
+                embedding_dim=70,
+                feature_type=FeatureType.NUMERICAL,
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_feature")],
+            ),
+            TensorFeatureInfo(
+                name="num_list_feature",
+                is_seq=True,
+                padding_value=0,
+                tensor_dim=6,
+                embedding_dim=70,
                 feature_type=FeatureType.NUMERICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_list_feature")],
+            ),
+            TensorFeatureInfo(
+                name="emb_list_feature",
+                is_seq=True,
+                padding_value=0,
+                tensor_dim=70,
+                embedding_dim=70,
+                feature_type=FeatureType.NUMERICAL_LIST,
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "emb_list_feature")],
             ),
         ]
     )
@@ -103,7 +159,7 @@ def simple_batch():
         [[0.0, 0.0, 0.0, 1.0, 2.0], [0, 0.0, 1.0, 1.0, 3.0], [1.0, 2.0, 3.0, 4.0, 5.0], [0.0, 0.0, 2.0, 2.0, 2.0]]
     )
     num_list_feature_sequences = torch.rand(4, 5, 6)
-    emb_list_feature_sequences = torch.rand(4, 5, 64)
+    emb_list_feature_sequences = torch.rand(4, 5, 70)
 
     padding_mask = torch.BoolTensor(
         [
@@ -137,31 +193,58 @@ def generate_recsys_dataset(
 ):
     np.random.seed(seed)
 
+    features_dict = {name: {} for name in tensor_schema.names}
+
+    for feature_info in tensor_schema.all_features:
+        if not feature_info.is_seq or feature_info.name == "item_id":
+            continue
+
+        d = {}
+        for i in range(tensor_schema["item_id"].cardinality):
+            if feature_info.feature_type == FeatureType.CATEGORICAL:
+                d[i] = np.random.randint(0, feature_info.cardinality, size=None)
+
+            elif feature_info.feature_type == FeatureType.CATEGORICAL_LIST:
+                d[i] = np.random.randint(0, feature_info.cardinality, size=cat_list_item_size)
+
+            elif feature_info.feature_type == FeatureType.NUMERICAL:
+                d[i] = np.random.random(size=None)
+
+            elif feature_info.feature_type == FeatureType.NUMERICAL_LIST:
+                d[i] = np.random.random(size=(feature_info.tensor_dim)).astype(np.float32)
+
+        features_dict[feature_info.name] = copy.deepcopy(d)
+
     rows = []
     for i in range(n_users):
         hist_len = np.random.randint(1, max_len + 1, size=None, dtype=int)
         row = {"user_id": i}
 
+        row["item_id"] = np.random.randint(0, tensor_schema["item_id"].cardinality, size=hist_len).tolist()
+
         for feature_info in tensor_schema.all_features:
-            if not feature_info.is_seq:
+            if not feature_info.is_seq or feature_info.name == "item_id":
                 continue
 
-            if feature_info.feature_type == FeatureType.CATEGORICAL:
-                row[feature_info.name] = np.random.randint(0, feature_info.cardinality - 2, size=hist_len).tolist()
-            elif feature_info.feature_type == FeatureType.CATEGORICAL_LIST:
-                row[feature_info.name] = [
-                    np.random.randint(0, feature_info.cardinality - 2, size=hist_len) for _ in range(cat_list_item_size)
-                ]
-            elif feature_info.feature_type == FeatureType.NUMERICAL:
-                row[feature_info.name] = np.random.random(size=(hist_len,)).astype(np.float32)
-            elif feature_info.feature_type == FeatureType.NUMERICAL_LIST:
-                row[feature_info.name] = [
-                    np.random.random(size=(feature_info.tensor_dim)).astype(np.float32) for _ in range(hist_len)
-                ]
+            sequence = [features_dict[feature_info.name][i] for i in row["item_id"]]
+
+            if feature_info.feature_type == FeatureType.NUMERICAL:
+                row[feature_info.name] = np.array(sequence).astype(np.float32)
+            else:
+                row[feature_info.name] = sequence
 
         rows.append(row)
 
-    return pd.DataFrame.from_records(rows)
+    events_df = pd.DataFrame.from_records(rows)
+    item_features_df = pd.DataFrame.from_records(features_dict)
+    item_features_df["item_id"] = item_features_df.index
+
+    return events_df, item_features_df
+
+
+@pytest.fixture(scope="module")
+def generated_dfs(tensor_schema, seed, max_len):
+    return generate_recsys_dataset(tensor_schema, n_users=50, max_len=max_len, seed=seed)
 
 
 @pytest.fixture(scope="module")
@@ -175,11 +258,22 @@ def seed():
 
 
 @pytest.fixture(scope="module")
-def parquet_module_path(tmp_path_factory, tensor_schema, seed, max_len):
-    tmp_dir = tmp_path_factory.mktemp("parquet_module_")
+def item_features_path(tmp_path_factory, generated_dfs):
+    tmp_dir = tmp_path_factory.mktemp("parquet_module")
+    path = tmp_dir / f"item_features_tmp_{seed}.parquet"
+
+    _, item_features = generated_dfs
+    item_features.to_parquet(path, index=False)
+
+    return str(path)
+
+
+@pytest.fixture(scope="module")
+def parquet_module_path(tmp_path_factory, generated_dfs):
+    tmp_dir = tmp_path_factory.mktemp("parquet_module")
     path = tmp_dir / f"tmp_{seed}.parquet"
 
-    df = generate_recsys_dataset(tensor_schema, n_users=50, max_len=max_len, seed=seed)
+    df, _ = generated_dfs
     df.to_parquet(path, index=False)
 
     return str(path)
@@ -230,8 +324,14 @@ def parquet_module(parquet_module_path, tensor_schema, max_len, batch_size=4):
             "item_id": {"shape": shape, "padding": tensor_schema["item_id"].padding_value},
             "cat_list_feature": {"shape": [shape, 3], "padding": tensor_schema["cat_list_feature"].padding_value},
             "num_feature": {"shape": shape, "padding": tensor_schema["num_feature"].padding_value},
-            "num_list_feature": {"shape": [shape, 6], "padding": tensor_schema["num_list_feature"].padding_value},
-            "emb_list_feature": {"shape": [shape, 64], "padding": tensor_schema["emb_list_feature"].padding_value},
+            "num_list_feature": {
+                "shape": [shape, tensor_schema["num_list_feature"].tensor_dim],
+                "padding": tensor_schema["num_list_feature"].padding_value,
+            },
+            "emb_list_feature": {
+                "shape": [shape, tensor_schema["emb_list_feature"].tensor_dim],
+                "padding": tensor_schema["emb_list_feature"].padding_value,
+            },
         }
         return shared_meta
 
@@ -252,6 +352,27 @@ def parquet_module(parquet_module_path, tensor_schema, max_len, batch_size=4):
         predict_path=parquet_module_path,
     )
     return parquet_module
+
+
+@pytest.fixture(scope="module")
+def item_features_reader(tensor_schema, item_features_path):
+    return FeaturesReader(
+        schema=tensor_schema,
+        path=item_features_path,
+        metadata={
+            "item_id": {},
+            "num_feature": {},
+            "cat_list_feature": {"shape": 3, "padding": tensor_schema["cat_list_feature"].padding_value},
+            "num_list_feature": {
+                "shape": tensor_schema["num_list_feature"].tensor_dim,
+                "padding": tensor_schema["num_list_feature"].padding_value,
+            },
+            "emb_list_feature": {
+                "shape": tensor_schema["emb_list_feature"].tensor_dim,
+                "padding": tensor_schema["emb_list_feature"].padding_value,
+            },
+        },
+    )
 
 
 @pytest.fixture(scope="module")
@@ -277,8 +398,13 @@ def wrong_sequential_sample(request, sequential_sample):
 
 
 @pytest.fixture
-def sasrec_model(tensor_schema):
+def sasrec_model(tensor_schema_with_equal_embedding_dims):
     model = SasRec.from_params(
-        schema=tensor_schema, embedding_dim=64, num_heads=1, num_blocks=1, max_sequence_length=7, dropout=0.2
+        schema=tensor_schema_with_equal_embedding_dims,
+        embedding_dim=70,
+        num_heads=1,
+        num_blocks=1,
+        max_sequence_length=7,
+        dropout=0.2,
     )
     return model

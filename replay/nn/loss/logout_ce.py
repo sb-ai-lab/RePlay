@@ -24,15 +24,17 @@ class LogOutCE(torch.nn.Module):
     (there are several labels for each position in the sequence).
     """
 
-    def __init__(self, vocab_size: int, padding_idx: int):
+    def __init__(self, cardinality: int, **kwargs):
         """
-        :param vocab_size: number of unique items in vocabulary (catalog).
-        :param padding_idx: padding id for label to be ignored during loss calculation.
+        To calculate the loss, ``torch.nn.CrossEntropyLoss`` is used.
+        You can pass all parameters for initializing the object via kwargs.
+
+        :param cardinality: number of unique items in vocabulary (catalog).
+            The specified cardinality value must not take into account the padding value.
         """
         super().__init__()
-        self.vocab_size = vocab_size
-        self.padding_idx = padding_idx
-        self._loss = torch.nn.CrossEntropyLoss(ignore_index=self.padding_idx)
+        self.cardinality = cardinality
+        self._loss = torch.nn.CrossEntropyLoss(**kwargs)
         self._logits_callback = None
 
     @property
@@ -91,7 +93,7 @@ class LogOutCE(torch.nn.Module):
         masked_batch_size = target_padding_mask.sum().item()
 
         logits: torch.Tensor = self.logits_callback(model_embeddings)  # [batch_size, seq_len, vocab_size]
-        all_negative_labels = torch.arange(self.vocab_size, dtype=torch.long, device=positive_labels.device)
+        all_negative_labels = torch.arange(self.cardinality, dtype=torch.long, device=positive_labels.device)
 
         # [batch_size, seq_len, vocab_size] -> [masked_batch_size, vocab_size]
         logits = logits[target_padding_mask]

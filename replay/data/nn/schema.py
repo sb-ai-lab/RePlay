@@ -86,11 +86,12 @@ class TensorFeatureInfo:
             default: ``None``.
         :param feature_sources: columns names and DataFrames feature came from,
             default: ``None``.
-        :param cardinality: cardinality of categorical feature, required for ids columns,
-            optional for others,
-            default: ``None``.
+        :param cardinality: cardinality of categorical feature.
+            number of unique items in vocabulary (catalog).
+            The specified cardinality value must not take into account the padding value.
+            Default: ``None``.
         :param padding_value: value to pad sequences to desired length.
-            It is recommended to set the padding value for categorical features in `cardinality` - 1.
+            It is recommended to set the padding value for categorical features in the `cardinality` value.
         :param embedding_dim: embedding dimensions of the feature.
             Default: ``None`` - it means will be used value of ``DEFAULT_EMBEDDING_DIM``.
         :param tensor_dim: tensor dimensions of numerical feature,
