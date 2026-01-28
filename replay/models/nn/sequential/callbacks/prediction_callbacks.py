@@ -18,6 +18,7 @@ else:
     SparkSession = MissingImport
 
 
+@deprecated("`PredictionBatch` class is deprecated.", stacklevel=2)
 class PredictionBatch(Protocol):
     """
     Prediction callback batch
@@ -30,7 +31,8 @@ _T = TypeVar("_T")
 
 
 @deprecated(
-    "`BasePredictionCallback` class is deprecated. Use `replay.nn.lightning.callback.TopItemsCallbackBase` instead."
+    "`BasePredictionCallback` class is deprecated. Use `replay.nn.lightning.callback.TopItemsCallbackBase` instead.",
+    stacklevel=2,
 )
 class BasePredictionCallback(lightning.Callback, Generic[_T]):
     """

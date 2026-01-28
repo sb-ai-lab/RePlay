@@ -10,9 +10,7 @@ from replay.data.nn import SequentialDataset
 from ._base import BasePostProcessor
 
 
-@deprecated(
-    "`RemoveSeenItems` class is deprecated. Use `replay.nn.lightning.postprocessor.SeenItemsFilter` instead."
-)
+@deprecated("`RemoveSeenItems` class is deprecated. Use `replay.nn.lightning.postprocessor.SeenItemsFilter` instead.")
 class RemoveSeenItems(BasePostProcessor):
     """
     Filters out the items that already have been seen in dataset.

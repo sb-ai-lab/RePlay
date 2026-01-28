@@ -2,8 +2,13 @@ import abc
 from collections.abc import Iterator
 
 import torch
+from typing_extensions import deprecated
 
 
+@deprecated(
+    "`OptimizerFactory` class is deprecated. " "Use `replay.nn.lightning.optimizer.BaseOptimizerFactory` instead.",
+    stacklevel=2,
+)
 class OptimizerFactory(abc.ABC):
     """
     Interface for optimizer factory
@@ -20,6 +25,10 @@ class OptimizerFactory(abc.ABC):
         """
 
 
+@deprecated(
+    "`LRSchedulerFactory` class is deprecated. " "Use `replay.nn.lightning.scheduler.BaseLRSchedulerFactory` instead.",
+    stacklevel=2,
+)
 class LRSchedulerFactory(abc.ABC):
     """
     Interface for learning rate scheduler factory
@@ -36,6 +45,9 @@ class LRSchedulerFactory(abc.ABC):
         """
 
 
+@deprecated(
+    "`FatOptimizerFactory` class is deprecated. " "Use `replay.nn.lightning.optimizer.OptimizerFactory` instead.",
+)
 class FatOptimizerFactory(OptimizerFactory):
     """
     Factory that creates optimizer depending on passed parameters
@@ -75,6 +87,9 @@ class FatOptimizerFactory(OptimizerFactory):
         raise ValueError(msg)
 
 
+@deprecated(
+    "`FatLRSchedulerFactory` class is deprecated. " "Use `replay.nn.lightning.scheduler.LRSchedulerFactory` instead.",
+)
 class FatLRSchedulerFactory(LRSchedulerFactory):
     """
     Factory that creates learning rate schedule depending on passed parameters

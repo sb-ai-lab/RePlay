@@ -19,7 +19,7 @@ CallbackMetricName = Literal[
 ]
 
 
-@deprecated("`ValidationBatch` class is deprecated.")
+@deprecated("`ValidationBatch` class is deprecated.", stacklevel=2)
 class ValidationBatch(Protocol):
     """
     Validation callback batch

@@ -1,8 +1,13 @@
 import abc
 
 import torch
+from typing_extensions import deprecated
 
 
+@deprecated(
+    "`BasePostProcessor` class is deprecated. Use `replay.nn.lightning.postprocessor.PostprocessorBase` instead.",
+    stacklevel=2,
+)
 class BasePostProcessor(abc.ABC):  # pragma: no cover
     """
     Abstract base class for post processor
