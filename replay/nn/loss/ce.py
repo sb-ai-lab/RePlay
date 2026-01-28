@@ -90,12 +90,20 @@ class CESampled(SampledLossBase):
     (there are several labels for each position in the sequence).
     """
 
-    def __init__(self, **kwargs):
+    def __init__(
+        self,
+        negative_labels_ignore_index: int = -100,
+        **kwargs,
+    ):
         """
-        To calculate the loss, ``torch.nn.CrossEntropyLoss`` is used.
-        You can pass all parameters for initializing the object via kwargs.
+        :param negative_labels_ignore_index: padding value for negative labels.
+            This may be the case when negative labels
+            are formed at the preprocessing level, rather than the negative sampler.
+            The index is ignored and does not contribute to the loss.
+            Default: ``-100``.
         """
         super().__init__()
+        self.negative_labels_ignore_index = negative_labels_ignore_index
         self._loss = torch.nn.CrossEntropyLoss(**kwargs)
         self._logits_callback = None
 
@@ -158,6 +166,7 @@ class CESampled(SampledLossBase):
             negative_logits,
             negative_labels,
             positive_labels,
+            self.negative_labels_ignore_index,
         )
         # [masked_batch_size, 1 + num_negatives] - all logits
         logits = torch.cat((positive_logits, negative_logits), dim=-1)
