@@ -99,7 +99,7 @@ def test_twotower_inference_forward(
     ],
 )
 def test_twotower_with_different_tower_features(
-    tensor_schema, item_features_path, query_tower_names, item_tower_names, expected_exception
+    tensor_schema, item_features_reader, query_tower_names, item_tower_names, expected_exception
 ):
     with expected_exception:
         TwoTowerBody(
@@ -120,5 +120,5 @@ def test_twotower_with_different_tower_features(
             query_encoder=SasRecTransformerLayer(embedding_dim=64, num_heads=1, num_blocks=1, dropout=0.2),
             query_tower_output_normalization=torch.nn.LayerNorm(64),
             item_encoder=SwiGLUEncoder(embedding_dim=64, hidden_dim=2 * 64),
-            item_features_path=item_features_path,
+            item_features_reader=item_features_reader,
         )
