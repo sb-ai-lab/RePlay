@@ -36,8 +36,7 @@ def test_sequence_embedding_get_embedding_dim(tensor_schema):
 )
 def test_sequence_embedding_get_item_weights(tensor_schema, indices):
     embedder = SequenceEmbedding(tensor_schema)
-    feature_cardinality_wo_pad = tensor_schema["item_id"].cardinality - 1
-    expected_shape = indices.shape if indices is not None else (feature_cardinality_wo_pad,)
+    expected_shape = indices.shape if indices is not None else [tensor_schema["item_id"].cardinality]
 
     assert embedder.get_item_weights(indices).size() == (*expected_shape, 64)
 
@@ -47,8 +46,7 @@ def test_sequence_embedding_get_features_weights(tensor_schema):
 
     for feature in tensor_schema.categorical_features.keys():
         emb = embedder.feature_embedders[feature].weight
-        feature_cardinality_wo_pad = tensor_schema[feature].cardinality - 1
-        assert emb.shape == (feature_cardinality_wo_pad, tensor_schema[feature].embedding_dim)
+        assert emb.shape == (tensor_schema[feature].cardinality, tensor_schema[feature].embedding_dim)
 
     for feature in tensor_schema.numerical_features.keys():
         emb = embedder.feature_embedders[feature].weight
@@ -77,7 +75,7 @@ def test_warnings_categorical_emb():
         is_seq=True,
         embedding_dim=64,
         feature_type=FeatureType.CATEGORICAL,
-        cardinality=5,
+        cardinality=4,
         padding_value=2,
     )
     with pytest.warns(UserWarning):
