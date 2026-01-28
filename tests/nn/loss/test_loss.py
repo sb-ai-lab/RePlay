@@ -8,13 +8,13 @@ from replay.nn.loss import BCE, CE, BCESampled, CESampled, LogInCE, LogInCESampl
 @pytest.mark.parametrize(
     "loss",
     [
-        (CE(padding_idx=3)),
-        (CESampled(padding_idx=3)),
+        (CE(ignore_index=3)),
+        (CESampled(ignore_index=3)),
         (BCE()),
         (BCESampled()),
-        (LogInCE(vocab_size=3)),
+        (LogInCE(cardinality=3)),
         (LogInCESampled()),
-        (LogOutCE(padding_idx=3, vocab_size=3)),
+        (LogOutCE(ignore_index=3, cardinality=3)),
     ],
     ids=["CE loss", "CE sampled", "BCE", "BCE sampled", "LogInCE", "LogInCESampled", "LogOutCE"],
 )
@@ -27,13 +27,13 @@ def test_setting_logits_callback_loss(loss, hidden_simple_batch):
 @pytest.mark.parametrize(
     "loss",
     [
-        (CE(padding_idx=3)),
-        (CESampled(padding_idx=3)),
+        (CE(ignore_index=3)),
+        (CESampled(ignore_index=3)),
         (BCE()),
         (BCESampled()),
-        (LogInCE(vocab_size=3)),
+        (LogInCE(cardinality=3)),
         (LogInCESampled()),
-        (LogOutCE(padding_idx=3, vocab_size=3)),
+        (LogOutCE(ignore_index=3, cardinality=3)),
     ],
     ids=["CE", "CE sampled", "BCE", "BCE sampled", "LogInCE", "LogInCESampled", "LogOutCE"],
 )

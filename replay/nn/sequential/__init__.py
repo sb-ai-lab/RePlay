@@ -6,3 +6,4 @@ from .sasrec import (
     SasRecBody,
     SasRecTransformerLayer,
 )
+from .twotower import ItemTower, QueryTower, TwoTower, TwoTowerBody

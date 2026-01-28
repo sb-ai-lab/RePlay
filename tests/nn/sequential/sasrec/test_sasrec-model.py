@@ -6,7 +6,7 @@ from replay.nn.output import InferenceOutput, TrainOutput
 
 def test_body_forward(sasrec_model, sequential_sample):
     output = sasrec_model.body(sequential_sample["feature_tensors"], sequential_sample["padding_mask"])
-    assert output.shape == (4, 7, 64)
+    assert output.shape == (4, 7, 70)
 
 
 @pytest.mark.parametrize(
@@ -23,7 +23,7 @@ def test_wrong_input(sasrec_model, wrong_sequential_sample):
         sasrec_model(**wrong_sequential_sample)
 
 
-def test_sasrec_model_train_forward(sasrec_model, sequential_sample):
+def test_sasrec_model_train_forward(tensor_schema_with_equal_embedding_dims, sasrec_model, sequential_sample):
     sasrec_model.train()
     output: TrainOutput = sasrec_model(
         feature_tensors=sequential_sample["feature_tensors"],
@@ -33,11 +33,16 @@ def test_sasrec_model_train_forward(sasrec_model, sequential_sample):
     )
 
     assert output["loss"].ndim == 0
-    assert output["hidden_states"][0].size() == (4, 7, 64)
+    assert output["hidden_states"][0].size() == (
+        *sequential_sample["feature_tensors"]["item_id"].shape,
+        tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim,
+    )
 
 
 @pytest.mark.parametrize("candidates_to_score", [torch.LongTensor([1]), torch.LongTensor([0, 1, 2]), None])
-def test_sasrec_test_model_inference_forward(tensor_schema, sasrec_model, sequential_sample, candidates_to_score):
+def test_sasrec_inference_forward(
+    tensor_schema_with_equal_embedding_dims, sasrec_model, sequential_sample, candidates_to_score
+):
     sasrec_model.eval()
     output: InferenceOutput = sasrec_model(
         sequential_sample["feature_tensors"], sequential_sample["padding_mask"], candidates_to_score
@@ -46,7 +51,10 @@ def test_sasrec_test_model_inference_forward(tensor_schema, sasrec_model, sequen
     if candidates_to_score is not None:
         num_items = candidates_to_score.shape[0]
     else:
-        num_items = tensor_schema["item_id"].cardinality - 1
+        num_items = tensor_schema_with_equal_embedding_dims["item_id"].cardinality
 
     assert output["logits"].size() == (sequential_sample["padding_mask"].shape[0], num_items)
-    assert output["hidden_states"][0].size() == (4, 7, 64)
+    assert output["hidden_states"][0].size() == (
+        *sequential_sample["feature_tensors"]["item_id"].shape,
+        tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim,
+    )

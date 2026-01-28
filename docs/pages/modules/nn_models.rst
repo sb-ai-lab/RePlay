@@ -48,6 +48,39 @@ SasRec Transforms
 _________________
 .. autofunction:: replay.nn.transform.template.make_default_sasrec_transforms
 
+TwoTower
+=========
+
+.. _TwoTower:
+
+TwoTower
+_________
+.. autoclass:: replay.nn.sequential.TwoTower
+   :members: __init__, forward, from_params
+
+TwoTower Building Blocks
+_________________________
+
+TwoTowerBody
+``````````````````````````````
+
+.. autoclass:: replay.nn.sequential.TwoTowerBody
+
+QueryTower
+``````````````````````````````
+
+.. autoclass:: replay.nn.sequential.QueryTower
+   :members: __init__, forward
+
+ItemTower
+``````````````````````````````
+
+.. autoclass:: replay.nn.sequential.ItemTower
+   :members: __init__, forward
+
+TwoTower Transforms
+___________________
+.. autofunction:: replay.nn.transform.template.make_default_twotower_transforms
 
 Bert4Rec
 ========
@@ -149,11 +182,10 @@ ________________
 .. autoclass:: replay.models.nn.sequential.compiled.Bert4RecCompiled
    :members: compile, predict
 
+.. _Losses:
 
 Losses
 ======
-
-
 
 `BCE`_, `BCESampled`_, `CESampled`_, `LogInCE`_, `LogInCESampled`_, `LogOutCE`_ support the calculation of logits for the case of multi-positive labels (there are several labels for each position in the sequence).
 Source of multi-positive labels: https://arxiv.org/abs/2205.04507
@@ -282,6 +314,7 @@ EmbeddingTyingHead
 
 Universal Lighting module
 =========================
+
 LightningModule
 _______________
 .. autoclass:: replay.nn.lightning.LightningModule

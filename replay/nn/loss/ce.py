@@ -13,13 +13,13 @@ class CE(torch.nn.Module):
     Calculates loss over all items catalog.
     """
 
-    def __init__(self, padding_idx: int):
+    def __init__(self, **kwargs):
         """
-        :param padding_idx: padding id for label to ignore during loss calculation.
+        To calculate the loss, ``torch.nn.CrossEntropyLoss`` is used.
+        You can pass all parameters for initializing the object via kwargs.
         """
         super().__init__()
-        self.padding_idx = padding_idx
-        self._loss = torch.nn.CrossEntropyLoss(ignore_index=padding_idx)
+        self._loss = torch.nn.CrossEntropyLoss(**kwargs)
         self._logits_callback = None
 
     @property
@@ -69,7 +69,8 @@ class CE(torch.nn.Module):
             raise NotImplementedError(msg)
         logits: torch.Tensor = self.logits_callback(model_embeddings)  # [batch_size, seq_len, vocab_size]
         labels = positive_labels.masked_fill(
-            mask=(~target_padding_mask), value=self.padding_idx
+            mask=(~target_padding_mask),
+            value=self._loss.ignore_index,
         )  # [batch_size, seq_len, 1]
 
         # [batch_size, seq_len, vocab_size] -> [batch_size * seq_len, vocab_size]
@@ -89,13 +90,13 @@ class CESampled(SampledLossBase):
     (there are several labels for each position in the sequence).
     """
 
-    def __init__(self, padding_idx: int):
+    def __init__(self, **kwargs):
         """
-        :param padding_idx: padding id for label to be ignored during loss calculation.
+        To calculate the loss, ``torch.nn.CrossEntropyLoss`` is used.
+        You can pass all parameters for initializing the object via kwargs.
         """
         super().__init__()
-        self.padding_idx = padding_idx
-        self._loss = torch.nn.CrossEntropyLoss(ignore_index=self.padding_idx)
+        self._loss = torch.nn.CrossEntropyLoss(**kwargs)
         self._logits_callback = None
 
     @property

@@ -15,6 +15,9 @@ class SequenceEmbedding(torch.nn.Module):
     The embedding size for each feature will be taken from ``TensorSchema`` (from field named ``embedding_dim``).
     For numerical features, it is expected that the last dimension of the tensor will be equal
     to ``tensor_dim`` field in ``TensorSchema``.
+
+    Keep in mind that the first dimension of the every categorical embedding (the size of embedding table)
+    will equal to the ``cardinality`` + 1. This is necessary to take into account the padding value.
     """
 
     def __init__(
@@ -108,6 +111,10 @@ class CategoricalEmbedding(torch.nn.Module):
     """
     The embedding generation class for categorical features.
     It supports working with single features for each event in sequence, as well as several (categorical list).
+
+    When using this class, keep in mind that
+    the first dimension of the embedding (the size of embedding table) will equal to the ``cardinality`` + 1.
+    This is necessary to take into account the padding value.
     """
 
     def __init__(
@@ -126,11 +133,11 @@ class CategoricalEmbedding(torch.nn.Module):
         assert feature_info.embedding_dim
 
         self._expect_padding_value_setted = True
-        if feature_info.cardinality - 1 != feature_info.padding_value:
+        if feature_info.cardinality != feature_info.padding_value:
             self._expect_padding_value_setted = False
             msg = (
                 f"The padding value={feature_info.padding_value} is set for the feature={feature_info.name}. "
-                f"The expected padding value for this feature should be {feature_info.cardinality - 1}. "
+                f"The expected padding value for this feature should be {feature_info.cardinality}. "
                 "Keep this in mind when getting the weights via the `weight` property, "
                 "because the weights are returned there without padding row. "
                 "Therefore, during the IDs scores generating, "
@@ -140,7 +147,7 @@ class CategoricalEmbedding(torch.nn.Module):
 
         if feature_info.is_list:
             self.emb = torch.nn.EmbeddingBag(
-                feature_info.cardinality,
+                feature_info.cardinality + 1,
                 feature_info.embedding_dim,
                 padding_idx=feature_info.padding_value,
                 mode=categorical_list_feature_aggregation_method,
@@ -148,7 +155,7 @@ class CategoricalEmbedding(torch.nn.Module):
             self._get_embeddings = self._get_cat_list_embeddings
         else:
             self.emb = torch.nn.Embedding(
-                feature_info.cardinality,
+                feature_info.cardinality + 1,
                 feature_info.embedding_dim,
                 padding_idx=feature_info.padding_value,
             )
@@ -203,12 +210,14 @@ class CategoricalEmbedding(torch.nn.Module):
 
         :returns: Embeddings for specific items.
         """
-        assert indices.dim() >= 3
-
-        source_size = indices.size()
-        indices = indices.view(-1, source_size[-1])
-        embeddings = self.emb(indices)
-        embeddings = embeddings.view(*source_size[:-1], -1)
+        assert indices.dim() >= 2
+        if indices.dim() == 2:
+            embeddings: torch.Tensor = self.emb(indices)
+        else:
+            source_size = indices.size()
+            indices = indices.view(-1, source_size[-1])
+            embeddings = self.emb(indices)
+            embeddings = embeddings.view(*source_size[:-1], -1)
         return embeddings
 
 
@@ -217,8 +226,8 @@ class NumericalEmbedding(torch.nn.Module):
     The embedding generation class for numerical features.
     It supports working with single features for each event in sequence, as well as several (numerical list).
 
-    **Note**: if the ``embedding_dim`` field in ``TensorSchema`` for an incoming feature matches its last dimension
-    (``tensor_dim`` field in ``TensorSchema``), then transformation will not be applied.
+    **Note**: if the ``embedding_dim`` field in ``TensorFeatureInfo`` for an incoming feature matches its last dimension
+    (``tensor_dim`` field in ``TensorFeatureInfo``), then transformation will not be applied.
     """
 
     def __init__(self, feature_info: TensorFeatureInfo) -> None:
@@ -260,12 +269,11 @@ class NumericalEmbedding(torch.nn.Module):
         :param values: feature values.
         :returns: Embeddings for specific items.
         """
-        if values.dim() <= 2:
+        if values.dim() <= 2 and self._tensor_dim == 1:
             values = values.unsqueeze(-1).contiguous()
 
-        assert values.dim() >= 3
         assert values.size(-1) == self._tensor_dim
-        if self._tensor_dim != self._embedding_dim:
+        if self._tensor_dim != self.embedding_dim:
             return self.linear(values)
         return values
 

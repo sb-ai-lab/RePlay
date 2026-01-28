@@ -45,8 +45,6 @@ class SasRecBody(torch.nn.Module):
     Implementation of the architecture of the SasRec model.\n
     It can include various self-written blocks for modifying the model,
     but the sequence of applying layers is fixed in accordance with the original architecture.
-
-    Paper: https://arxiv.org/pdf/1808.09781.
     """
 
     def __init__(
@@ -121,16 +119,41 @@ class SasRec(torch.nn.Module):
     The hidden states are multiplied by the item embeddings,
     resulting in logits for each of the items.
 
+    Source paper: https://arxiv.org/pdf/1808.09781.
+
     Example:
 
     .. code-block:: python
+
+        from replay.data import FeatureHint, FeatureSource, FeatureType
+        from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
+        from replay.nn.agg import SumAggregator
+        from replay.nn.embedding import SequenceEmbedding
+        from replay.nn.mask import DefaultAttentionMask
+        from replay.nn.loss import CESampled
+        from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
+
+        tensor_schema = TensorSchema(
+            [
+                TensorFeatureInfo(
+                    "item_id",
+                    is_seq=True,
+                    feature_type=FeatureType.CATEGORICAL,
+                    embedding_dim=256,
+                    padding_value=NUM_UNIQUE_ITEMS,
+                    cardinality=NUM_UNIQUE_ITEMS+1,
+                    feature_hint=FeatureHint.ITEM_ID,
+                    feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")]
+                ),
+            ]
+        )
 
         body = SasRecBody(
             embedder=SequenceEmbedding(
                 schema=tensor_schema,
             ),
             embedding_aggregator=PositionAwareAggregator(
-                embedding_aggregator=common_aggregator,
+                embedding_aggregator=SumAggregator(embedding_dim=256),
                 max_sequence_length=100,
                 dropout=0.2,
             ),
@@ -225,7 +248,7 @@ class SasRec(torch.nn.Module):
         )
         return cls(
             body=body,
-            loss=CE(padding_idx=schema.item_id_features.item().padding_value),
+            loss=CE(ignore_index=schema.item_id_features.item().padding_value),
         )
 
     def reset_parameters(self) -> None:

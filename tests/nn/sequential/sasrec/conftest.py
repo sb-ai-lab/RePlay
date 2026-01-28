@@ -12,12 +12,12 @@ from replay.nn.transform.template import make_default_sasrec_transforms
 
 @pytest.fixture(
     params=[
-        (CE, {"padding_idx": 40}),
-        (CESampled, {"padding_idx": 40}),
+        (CE, {"ignore_index": 40}),
+        (CESampled, {"ignore_index": 40}),
         (BCE, {}),
         (BCESampled, {}),
-        (LogOutCE, {"padding_idx": 40, "vocab_size": 40}),
-        (LogInCE, {"vocab_size": 41}),
+        (LogOutCE, {"ignore_index": 40, "cardinality": 40}),
+        (LogInCE, {"cardinality": 40}),
         (LogInCESampled, {}),
     ],
     ids=["CE", "CE sampled", "BCE", "BCE sampled", "LogOutCE", "LogInCE", "LogInCESampled"],
@@ -31,7 +31,7 @@ def sasrec_parametrized(request, tensor_schema):
         embedding_aggregator=(
             PositionAwareAggregator(
                 ConcatAggregator(
-                    input_embedding_dims=[64, 64, 64, 64, 64],
+                    input_embedding_dims=[x.embedding_dim for x in tensor_schema.values()],
                     output_embedding_dim=64,
                 ),
                 max_sequence_length=7,
@@ -47,10 +47,10 @@ def sasrec_parametrized(request, tensor_schema):
 
 
 @pytest.fixture
-def sasrec_model_only_items(tensor_schema):
+def sasrec_model_only_items(tensor_schema_with_equal_embedding_dims):
     model = SasRec.from_params(
-        schema=tensor_schema.filter(name="item_id"),
-        embedding_dim=64,
+        schema=tensor_schema_with_equal_embedding_dims.filter(name="item_id"),
+        embedding_dim=70,
         num_heads=1,
         num_blocks=1,
         max_sequence_length=7,
@@ -60,13 +60,15 @@ def sasrec_model_only_items(tensor_schema):
 
 
 @pytest.fixture
-def parquet_module_with_default_sasrec_transform(parquet_module_path, tensor_schema, max_len, batch_size=4):
-    transforms = make_default_sasrec_transforms(tensor_schema, query_column="user_id")
+def parquet_module_with_default_sasrec_transform(
+    parquet_module_path, tensor_schema_with_equal_embedding_dims, max_len, batch_size=4
+):
+    transforms = make_default_sasrec_transforms(tensor_schema_with_equal_embedding_dims, query_column="user_id")
 
     def create_meta(shape):
         shared_meta = {
             "user_id": {},
-            "item_id": {"shape": shape, "padding": tensor_schema["item_id"].padding_value},
+            "item_id": {"shape": shape, "padding": tensor_schema_with_equal_embedding_dims["item_id"].padding_value},
         }
         return shared_meta
 
