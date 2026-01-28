@@ -108,6 +108,9 @@ class CategoricalEmbedding(torch.nn.Module):
     """
     The embedding generation class for categorical features.
     It supports working with single features for each event in sequence, as well as several (categorical list).
+
+    When using this class, keep in mind that the embedding size will be 1 more than the cardinality.
+    This is necessary to take into account the padding value.
     """
 
     def __init__(
@@ -126,11 +129,11 @@ class CategoricalEmbedding(torch.nn.Module):
         assert feature_info.embedding_dim
 
         self._expect_padding_value_setted = True
-        if feature_info.cardinality - 1 != feature_info.padding_value:
+        if feature_info.cardinality != feature_info.padding_value:
             self._expect_padding_value_setted = False
             msg = (
                 f"The padding value={feature_info.padding_value} is set for the feature={feature_info.name}. "
-                f"The expected padding value for this feature should be {feature_info.cardinality - 1}. "
+                f"The expected padding value for this feature should be {feature_info.cardinality}. "
                 "Keep this in mind when getting the weights via the `weight` property, "
                 "because the weights are returned there without padding row. "
                 "Therefore, during the IDs scores generating, "
@@ -140,7 +143,7 @@ class CategoricalEmbedding(torch.nn.Module):
 
         if feature_info.is_list:
             self.emb = torch.nn.EmbeddingBag(
-                feature_info.cardinality,
+                feature_info.cardinality + 1,
                 feature_info.embedding_dim,
                 padding_idx=feature_info.padding_value,
                 mode=categorical_list_feature_aggregation_method,
@@ -148,7 +151,7 @@ class CategoricalEmbedding(torch.nn.Module):
             self._get_embeddings = self._get_cat_list_embeddings
         else:
             self.emb = torch.nn.Embedding(
-                feature_info.cardinality,
+                feature_info.cardinality + 1,
                 feature_info.embedding_dim,
                 padding_idx=feature_info.padding_value,
             )
@@ -219,8 +222,8 @@ class NumericalEmbedding(torch.nn.Module):
     The embedding generation class for numerical features.
     It supports working with single features for each event in sequence, as well as several (numerical list).
 
-    **Note**: if the ``embedding_dim`` field in ``TensorSchema`` for an incoming feature matches its last dimension
-    (``tensor_dim`` field in ``TensorSchema``), then transformation will not be applied.
+    **Note**: if the ``embedding_dim`` field in ``TensorFeatureInfo`` for an incoming feature matches its last dimension
+    (``tensor_dim`` field in ``TensorFeatureInfo``), then transformation will not be applied.
     """
 
     def __init__(self, feature_info: TensorFeatureInfo) -> None:

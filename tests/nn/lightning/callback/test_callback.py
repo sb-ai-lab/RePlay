@@ -45,12 +45,12 @@ def test_prediction_callbacks_fast_forward(
     is_postprocessor,
     candidates,
 ):
-    cardinality = tensor_schema["item_id"].cardinality - 1
+    cardinality = tensor_schema["item_id"].cardinality
 
     kwargs = {
         "top_k": 1,
         "postprocessors": (
-            [SeenItemsFilter(item_count=cardinality - 1, seen_items_column="seen_ids")] if is_postprocessor else None
+            [SeenItemsFilter(item_count=cardinality, seen_items_column="seen_ids")] if is_postprocessor else None
         ),
     }
     if callback_class != TorchTopItemsCallback:

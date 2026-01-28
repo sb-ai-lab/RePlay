@@ -33,7 +33,7 @@ def tensor_schema():
             TensorFeatureInfo(
                 name="item_id",
                 is_seq=True,
-                cardinality=41,
+                cardinality=40,
                 padding_value=40,
                 embedding_dim=64,
                 feature_type=FeatureType.CATEGORICAL,
@@ -43,7 +43,7 @@ def tensor_schema():
             TensorFeatureInfo(
                 name="cat_list_feature",
                 is_seq=True,
-                cardinality=5,
+                cardinality=4,
                 padding_value=4,
                 embedding_dim=65,
                 feature_type=FeatureType.CATEGORICAL_LIST,
@@ -88,7 +88,7 @@ def tensor_schema_with_equal_embedding_dims():
             TensorFeatureInfo(
                 name="item_id",
                 is_seq=True,
-                cardinality=41,
+                cardinality=40,
                 padding_value=40,
                 embedding_dim=70,
                 feature_type=FeatureType.CATEGORICAL,
@@ -98,7 +98,7 @@ def tensor_schema_with_equal_embedding_dims():
             TensorFeatureInfo(
                 name="cat_list_feature",
                 is_seq=True,
-                cardinality=5,
+                cardinality=4,
                 padding_value=4,
                 embedding_dim=70,
                 feature_type=FeatureType.CATEGORICAL_LIST,
@@ -199,12 +199,12 @@ def generate_recsys_dataset(
             continue
 
         d = {}
-        for i in range(tensor_schema["item_id"].cardinality - 1):
+        for i in range(tensor_schema["item_id"].cardinality):
             if feature_info.feature_type == FeatureType.CATEGORICAL:
-                d[i] = np.random.randint(0, feature_info.cardinality - 1, size=None)
+                d[i] = np.random.randint(0, feature_info.cardinality, size=None)
 
             elif feature_info.feature_type == FeatureType.CATEGORICAL_LIST:
-                d[i] = np.random.randint(0, feature_info.cardinality - 1, size=cat_list_item_size)
+                d[i] = np.random.randint(0, feature_info.cardinality, size=cat_list_item_size)
 
             elif feature_info.feature_type == FeatureType.NUMERICAL:
                 d[i] = np.random.random(size=None)
@@ -219,7 +219,7 @@ def generate_recsys_dataset(
         hist_len = np.random.randint(1, max_len + 1, size=None, dtype=int)
         row = {"user_id": i}
 
-        row["item_id"] = np.random.randint(0, tensor_schema["item_id"].cardinality - 2, size=hist_len).tolist()
+        row["item_id"] = np.random.randint(0, tensor_schema["item_id"].cardinality, size=hist_len).tolist()
 
         for feature_info in tensor_schema.all_features:
             if not feature_info.is_seq or feature_info.name == "item_id":

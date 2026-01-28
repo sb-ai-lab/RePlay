@@ -27,7 +27,7 @@ def test_item_tower_forward(tensor_schema_with_equal_embedding_dims, twotower_mo
     if candidates_to_score is not None:
         num_items = candidates_to_score.shape[0]
     else:
-        num_items = tensor_schema_with_equal_embedding_dims["item_id"].cardinality - 1
+        num_items = tensor_schema_with_equal_embedding_dims["item_id"].cardinality
     assert output.shape == (num_items, tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim)
 
 
@@ -79,7 +79,7 @@ def test_twotower_inference_forward(
     if candidates_to_score is not None:
         num_items = candidates_to_score.shape[0]
     else:
-        num_items = tensor_schema_with_equal_embedding_dims["item_id"].cardinality - 1
+        num_items = tensor_schema_with_equal_embedding_dims["item_id"].cardinality
 
     assert output["logits"].size() == (sequential_sample["padding_mask"].shape[0], num_items)
     assert output["hidden_states"][0].size() == (
