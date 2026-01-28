@@ -11,6 +11,7 @@ from replay.nn.ffn import SwiGLUEncoder
 from replay.nn.loss import BCE, CE, BCESampled, CESampled, LogInCE, LogInCESampled, LogOutCE
 from replay.nn.mask import DefaultAttentionMask
 from replay.nn.sequential import DiffTransformerLayer, PositionAwareAggregator, TwoTower, TwoTowerBody
+from replay.nn.sequential.twotower import FeaturesReader
 from replay.nn.transform.template import make_default_twotower_transforms
 
 
@@ -26,7 +27,7 @@ from replay.nn.transform.template import make_default_twotower_transforms
     ],
     ids=["CE", "CE sampled", "BCE", "BCE sampled", "LogOutCE", "LogInCE", "LogInCESampled"],
 )
-def twotower_parametrized(request, tensor_schema, item_features_path):
+def twotower_parametrized(request, tensor_schema, item_features_reader):
     loss_cls, kwargs = request.param
     loss = loss_cls(**kwargs)
 
@@ -60,7 +61,7 @@ def twotower_parametrized(request, tensor_schema, item_features_path):
         ),
         query_tower_output_normalization=torch.nn.LayerNorm(64),
         item_encoder=SwiGLUEncoder(embedding_dim=64, hidden_dim=2 * 64),
-        item_features_path=item_features_path,
+        item_features_reader=item_features_reader,
     )
     model = TwoTower(
         body=body,
@@ -72,10 +73,10 @@ def twotower_parametrized(request, tensor_schema, item_features_path):
 
 
 @pytest.fixture
-def twotower_model(tensor_schema_with_equal_embedding_dims, item_features_path):
+def twotower_model(tensor_schema_with_equal_embedding_dims, item_features_reader):
     model = TwoTower.from_params(
         schema=tensor_schema_with_equal_embedding_dims,
-        item_features_path=item_features_path,
+        item_features_reader=item_features_reader,
         embedding_dim=70,
         num_heads=1,
         num_blocks=1,
@@ -105,9 +106,14 @@ def twotower_model_with_context_merger(twotower_model):
 
 @pytest.fixture
 def twotower_model_only_items(tensor_schema_with_equal_embedding_dims, item_features_path):
+    tensor_schema_only_items = tensor_schema_with_equal_embedding_dims.filter(name="item_id")
     model = TwoTower.from_params(
-        schema=tensor_schema_with_equal_embedding_dims.filter(name="item_id"),
-        item_features_path=item_features_path,
+        schema=tensor_schema_only_items,
+        item_features_reader=FeaturesReader(
+            schema=tensor_schema_only_items,
+            path=item_features_path,
+            metadata={"item_id": {}},
+        ),
         embedding_dim=70,
         num_heads=1,
         num_blocks=1,

@@ -15,6 +15,7 @@ from replay.data.nn import (
     TensorSchema,
 )
 from replay.nn.sequential import SasRec
+from replay.nn.sequential.twotower import FeaturesReader
 from replay.nn.transform import (
     CopyTransform,
     GroupTransform,
@@ -323,7 +324,10 @@ def parquet_module(parquet_module_path, tensor_schema, max_len, batch_size=4):
             "item_id": {"shape": shape, "padding": tensor_schema["item_id"].padding_value},
             "cat_list_feature": {"shape": [shape, 3], "padding": tensor_schema["cat_list_feature"].padding_value},
             "num_feature": {"shape": shape, "padding": tensor_schema["num_feature"].padding_value},
-            "num_list_feature": {"shape": [shape, 6], "padding": tensor_schema["num_list_feature"].padding_value},
+            "num_list_feature": {
+                "shape": [shape, tensor_schema["num_list_feature"].tensor_dim],
+                "padding": tensor_schema["num_list_feature"].padding_value,
+            },
             "emb_list_feature": {
                 "shape": [shape, tensor_schema["emb_list_feature"].tensor_dim],
                 "padding": tensor_schema["emb_list_feature"].padding_value,
@@ -348,6 +352,27 @@ def parquet_module(parquet_module_path, tensor_schema, max_len, batch_size=4):
         predict_path=parquet_module_path,
     )
     return parquet_module
+
+
+@pytest.fixture(scope="module")
+def item_features_reader(tensor_schema, item_features_path):
+    return FeaturesReader(
+        schema=tensor_schema,
+        path=item_features_path,
+        metadata={
+            "item_id": {},
+            "num_feature": {},
+            "cat_list_feature": {"shape": 3, "padding": tensor_schema["cat_list_feature"].padding_value},
+            "num_list_feature": {
+                "shape": tensor_schema["num_list_feature"].tensor_dim,
+                "padding": tensor_schema["num_list_feature"].padding_value,
+            },
+            "emb_list_feature": {
+                "shape": tensor_schema["emb_list_feature"].tensor_dim,
+                "padding": tensor_schema["emb_list_feature"].padding_value,
+            },
+        },
+    )
 
 
 @pytest.fixture(scope="module")
