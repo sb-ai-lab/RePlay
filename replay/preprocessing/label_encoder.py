@@ -804,10 +804,10 @@ class LabelEncoder:
     1        1       1       1  [4, 5, 6]
     2        2       2       2  [1, 0, 5]
     >>> encoder.mapping
-    {'item_1': {'item_1': 0, 'item_2': 1, 'item_3': 2},
+    {'user_id': {'u1': 0, 'u2': 1, 'u3': 2},
+    'item_1': {'item_1': 0, 'item_2': 1, 'item_3': 2},
     'item_2': {'item_1': 0, 'item_2': 1, 'item_3': 2},
-    'list': {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, -1: 5, -2: 6},
-    'user_id': {'u1': 0, 'u2': 1, 'u3': 2}}
+    'list': {-2: 0, -1: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6}}
     >>> encoder.inverse_mapping
     {'item_1': {0: 'item_1', 1: 'item_2', 2: 'item_3'},
     'item_2': {0: 'item_1', 1: 'item_2', 2: 'item_3'},
