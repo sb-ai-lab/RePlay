@@ -812,7 +812,7 @@ class LabelEncoder:
     {'user_id': {0: 'u1', 1: 'u2', 2: 'u3'},
     'item_1': {0: 'item_1', 1: 'item_2', 2: 'item_3'},
     'item_2': {0: 'item_1', 1: 'item_2', 2: 'item_3'},
-    'list': {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: -1, 6: -2}}
+    'list': {0: -2, 1: -1, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5}}
     >>> new_encoder = LabelEncoder([
     ...    LabelEncodingRule("user_id", encoder.mapping["user_id"]),
     ...    LabelEncodingRule("item_1", encoder.mapping["item_1"]),
