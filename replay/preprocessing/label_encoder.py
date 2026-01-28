@@ -185,11 +185,11 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         self._mapping = mapping_on_spark.rdd.collectAsMap()
 
     def _fit_pandas(self, df: PandasDataFrame) -> None:
-        unique_col_values = df[self._col].drop_duplicates().reset_index(drop=True)
+        unique_col_values = df[self._col].sort_values().drop_duplicates().reset_index(drop=True)
         self._mapping = {val: key for key, val in unique_col_values.to_dict().items()}
 
     def _fit_polars(self, df: PolarsDataFrame) -> None:
-        unique_col_values = df.select(self._col).unique()
+        unique_col_values = df.sort(self._col).select(self._col).unique()
         self._mapping = {key: val for val, key in enumerate(unique_col_values.to_series().to_list())}
 
     def fit(self, df: DataFrameLike) -> "LabelEncodingRule":
@@ -800,19 +800,19 @@ class LabelEncoder:
     >>> mapped_interactions = encoder.fit_transform(user_interactions)
     >>> mapped_interactions
        user_id  item_1  item_2  list
-    0        0       0       0  [0, 1, 2]
-    1        1       1       1  [2, 3, 4]
-    2        2       2       2  [5, 6, 3]
+    0        0       0       0  [2, 3, 4]
+    1        1       1       1  [4, 5, 6]
+    2        2       2       2  [1, 0, 5]
     >>> encoder.mapping
     {'user_id': {'u1': 0, 'u2': 1, 'u3': 2},
     'item_1': {'item_1': 0, 'item_2': 1, 'item_3': 2},
     'item_2': {'item_1': 0, 'item_2': 1, 'item_3': 2},
-    'list': {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, -1: 5, -2: 6}}
+    'list': {-2: 0, -1: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6}}
     >>> encoder.inverse_mapping
     {'user_id': {0: 'u1', 1: 'u2', 2: 'u3'},
     'item_1': {0: 'item_1', 1: 'item_2', 2: 'item_3'},
     'item_2': {0: 'item_1', 1: 'item_2', 2: 'item_3'},
-    'list': {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: -1, 6: -2}}
+    'list': {0: -2, 1: -1, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5}}
     >>> new_encoder = LabelEncoder([
     ...    LabelEncodingRule("user_id", encoder.mapping["user_id"]),
     ...    LabelEncodingRule("item_1", encoder.mapping["item_1"]),
@@ -834,14 +834,14 @@ class LabelEncoder:
         self.rules = rules
 
     @property
-    def mapping(self) -> Mapping[str, Mapping]:
+    def mapping(self) -> dict[str, Mapping]:
         """
         Returns mapping of each column in given rules.
         """
         return {r.column: r.get_mapping() for r in self.rules}
 
     @property
-    def inverse_mapping(self) -> Mapping[str, Mapping]:
+    def inverse_mapping(self) -> dict[str, Mapping]:
         """
         Returns inverse mapping of each column in given rules.
         """
