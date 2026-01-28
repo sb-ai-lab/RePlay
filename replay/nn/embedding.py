@@ -15,6 +15,9 @@ class SequenceEmbedding(torch.nn.Module):
     The embedding size for each feature will be taken from ``TensorSchema`` (from field named ``embedding_dim``).
     For numerical features, it is expected that the last dimension of the tensor will be equal
     to ``tensor_dim`` field in ``TensorSchema``.
+
+    Keep in mind that the first dimension of the every categorical embedding (the size of embedding table)
+    will equal to the ``cardinality`` + 1. This is necessary to take into account the padding value.
     """
 
     def __init__(
@@ -109,7 +112,8 @@ class CategoricalEmbedding(torch.nn.Module):
     The embedding generation class for categorical features.
     It supports working with single features for each event in sequence, as well as several (categorical list).
 
-    When using this class, keep in mind that the embedding size will be 1 more than the cardinality.
+    When using this class, keep in mind that
+    the first dimension of the embedding (the size of embedding table) will equal to the ``cardinality`` + 1.
     This is necessary to take into account the padding value.
     """
 

@@ -57,21 +57,21 @@ class QueryTower(torch.nn.Module):
 
     def __init__(
         self,
-        embedder: EmbedderProto,
         feature_names: Sequence[str],
-        attn_mask_builder: AttentionMaskProto,
+        embedder: EmbedderProto,
         embedding_aggregator: AggregatorProto,
+        attn_mask_builder: AttentionMaskProto,
         encoder: QueryEncoderProto,
         output_normalization: NormalizerProto,
     ):
         """
+        :param feature_names: sequence of names used in query tower.
         :param embedder: An object of a class that performs the logic of
             generating embeddings from an input batch.
-        :param feature_names: sequence of names used in query tower.
-        :param attn_mask_builder: An object of a class that performs the logic of
-            generating an attention mask based on the features and padding mask given to the model.
         :param embedding_aggregator: An object of a class that performs
             the logic of aggregating multiple embeddings of query tower.
+        :param attn_mask_builder: An object of a class that performs the logic of
+            generating an attention mask based on the features and padding mask given to the model.
         :param encoder: An object of a class that performs the logic of generating
             a query hidden embedding representation based on
             features, padding masks, attention mask, and aggregated embedding of ``query_tower_feature_names``.
@@ -134,14 +134,20 @@ class ItemTower(torch.nn.Module):
     def __init__(
         self,
         schema: TensorSchema,
+        item_features_reader: FeaturesReaderProtocol,
+        feature_names: Sequence[str],
         embedder: EmbedderProto,
         embedding_aggregator: AggregatorProto,
         encoder: ItemEncoderProto,
-        feature_names: Sequence[str],
-        item_features_reader: FeaturesReaderProtocol,
     ):
         """
         :param schema: tensor schema object with metainformation about features.
+        :param item_features_reader: A class that implements reading features,
+            processing them, and converting them to ``torch.Tensor`` for ItemTower.
+            You can use ``replay.nn.sequential.twotower.FeaturesReader`` as a standard class.\n
+            But you can implement your own feature processing,
+            just follow the ``replay.nn.sequential.twotower.FeaturesReaderProtocol`` protocol.
+        :param feature_names: sequence of names used in item tower.
         :param embedder: An object of a class that performs the logic of
             generating embeddings from an input batch.
         :param embedding_aggregator: An object of a class that performs
@@ -150,12 +156,6 @@ class ItemTower(torch.nn.Module):
             an item hidden embedding representation based on
             features and aggregated embeddings of ``item_tower_feature_names``.
             Item encoder uses item reference which is created based on ``item_features_path``.
-        :param feature_names: sequence of names used in item tower.
-        :param item_features_reader: A class that implements reading features,
-            processing them, and converting them to ``torch.Tensor`` for ItemTower.
-            You can use ``replay.nn.sequential.twotower.FeaturesReader`` as a standard class.\n
-            But you can implement your own feature processing,
-            just follow the ``replay.nn.sequential.twotower.FeaturesReaderProtocol`` protocol.
         """
         super().__init__()
         self.embedder = embedder
@@ -286,20 +286,20 @@ class TwoTowerBody(torch.nn.Module):
             raise ValueError(msg)
 
         self.query_tower = QueryTower(
-            embedder,
             query_tower_feature_names,
-            attn_mask_builder,
+            embedder,
             query_embedding_aggregator,
+            attn_mask_builder,
             query_encoder,
             query_tower_output_normalization,
         )
         self.item_tower = ItemTower(
             schema,
+            item_features_reader,
+            item_tower_feature_names,
             embedder,
             item_embedding_aggregator,
             item_encoder,
-            item_tower_feature_names,
-            item_features_reader,
         )
 
     def reset_parameters(self) -> None:
@@ -338,6 +338,7 @@ class TwoTower(torch.nn.Module):
         from replay.nn.mask import DefaultAttentionMask
         from replay.nn.loss import CESampled
         from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
+        from replay.nn.sequential.twotower import FeaturesReader
 
         tensor_schema = TensorSchema(
             [
@@ -347,9 +348,9 @@ class TwoTower(torch.nn.Module):
                     feature_type=FeatureType.CATEGORICAL,
                     embedding_dim=256,
                     padding_value=NUM_UNIQUE_ITEMS,
-                    cardinality=NUM_UNIQUE_ITEMS+1,
+                    cardinality=NUM_UNIQUE_ITEMS,
                     feature_hint=FeatureHint.ITEM_ID,
-                    feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "item_id")]
+                    feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")]
                 ),
             ]
         )
@@ -380,11 +381,15 @@ class TwoTower(torch.nn.Module):
             ),
             query_tower_output_normalization=torch.nn.LayerNorm(256),
             item_encoder=SwiGLUEncoder(embedding_dim=256, hidden_dim=2*256),
-            item_features_path="item_features.parquet",
+            item_features_reader=FeaturesReader(
+                schema=tensor_schema,
+                metadata={"item_id": {}},
+                path="item_features.parquet",
+            ),
         )
         twotower = TwoTower(
             body=body,
-            loss=CESampled(padding_idx=tensor_schema.item_id_features.item().padding_value),
+            loss=CESampled(ignore_index=tensor_schema["item_id"].padding_value),
         )
 
     """
