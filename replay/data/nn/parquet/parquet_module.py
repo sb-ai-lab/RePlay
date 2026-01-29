@@ -1,11 +1,17 @@
 import copy
 import warnings
-from typing import Literal, Optional, get_args
+from collections.abc import Iterable
+from typing import Literal, Optional, Union, get_args
 
 import lightning as L  # noqa: N812
 import torch
 from lightning.pytorch.trainer.states import RunningStage
+from lightning.pytorch.utilities import CombinedLoader
 from typing_extensions import TypeAlias, override
+
+from replay.data.nn.parquet.constants.filesystem import DEFAULT_FILESYSTEM
+from replay.data.nn.parquet.impl.masking import (
+    DEFAULT_COLLATE_FN,
     DEFAULT_MAKE_MASK_NAME,
     DEFAULT_REPLICAS_INFO,
 )

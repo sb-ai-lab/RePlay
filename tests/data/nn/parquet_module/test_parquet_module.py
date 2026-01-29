@@ -11,16 +11,12 @@ def test_datamodule_raises_no_paths_provided(parquet_module_args):
         ParquetModule(**parquet_module_args)
 
 
-<<<<<<< HEAD
-def test_datamodule_raises_no_transforms_provided(parquet_module_path, parquet_module_args):
-=======
 def test_datamodule_invalid_train_path_provided(parquet_module_path: str, parquet_module_args) -> None:
     with pytest.raises(TypeError):
         ParquetModule(train_path=[parquet_module_path, parquet_module_path], **parquet_module_args)
 
 
 def test_datamodule_raises_no_transforms_provided(parquet_module_path: str, parquet_module_args):
->>>>>>> Add saving/loading `linucb_arms` in pickle format
     parquet_module_args_copy = copy.deepcopy(parquet_module_args)
     parquet_module_args_copy |= {"transforms": {}}
     with pytest.raises(KeyError):

@@ -14,14 +14,9 @@ from replay.data.nn import (
     TensorFeatureSource,
     TensorSchema,
 )
-<<<<<<< HEAD
 from replay.nn.sequential import SasRec
 from replay.nn.sequential.twotower import FeaturesReader
 from replay.nn.transform import (
-=======
-from replay.nn.sequential.sasrec import SasRec
-from replay.nn.transforms import (
->>>>>>> Add saving/loading `linucb_arms` in pickle format
     CopyTransform,
     GroupTransform,
     NextTokenTransform,
@@ -39,15 +34,9 @@ def tensor_schema():
             TensorFeatureInfo(
                 name="item_id",
                 is_seq=True,
-<<<<<<< HEAD
                 cardinality=15,
                 padding_value=15,
                 embedding_dim=10,
-=======
-                cardinality=40,
-                padding_value=40,
-                embedding_dim=64,
->>>>>>> Add saving/loading `linucb_arms` in pickle format
                 feature_type=FeatureType.CATEGORICAL,
                 feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
@@ -57,11 +46,7 @@ def tensor_schema():
                 is_seq=True,
                 cardinality=4,
                 padding_value=4,
-<<<<<<< HEAD
                 embedding_dim=11,
-=======
-                embedding_dim=65,
->>>>>>> Add saving/loading `linucb_arms` in pickle format
                 feature_type=FeatureType.CATEGORICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "cat_list_feature")],
             ),
@@ -70,11 +55,7 @@ def tensor_schema():
                 is_seq=True,
                 tensor_dim=1,
                 padding_value=0,
-<<<<<<< HEAD
                 embedding_dim=12,
-=======
-                embedding_dim=66,
->>>>>>> Add saving/loading `linucb_arms` in pickle format
                 feature_type=FeatureType.NUMERICAL,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_feature")],
             ),
@@ -83,11 +64,7 @@ def tensor_schema():
                 is_seq=True,
                 padding_value=0,
                 tensor_dim=6,
-<<<<<<< HEAD
                 embedding_dim=13,
-=======
-                embedding_dim=67,
->>>>>>> Add saving/loading `linucb_arms` in pickle format
                 feature_type=FeatureType.NUMERICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_list_feature")],
             ),
@@ -95,13 +72,8 @@ def tensor_schema():
                 name="emb_list_feature",
                 is_seq=True,
                 padding_value=0,
-<<<<<<< HEAD
                 tensor_dim=14,
                 embedding_dim=14,
-=======
-                tensor_dim=70,
-                embedding_dim=62,
->>>>>>> Add saving/loading `linucb_arms` in pickle format
                 feature_type=FeatureType.NUMERICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "emb_list_feature")],
             ),
@@ -117,15 +89,9 @@ def tensor_schema_with_equal_embedding_dims():
             TensorFeatureInfo(
                 name="item_id",
                 is_seq=True,
-<<<<<<< HEAD
                 cardinality=15,
                 padding_value=15,
                 embedding_dim=14,
-=======
-                cardinality=40,
-                padding_value=40,
-                embedding_dim=70,
->>>>>>> Add saving/loading `linucb_arms` in pickle format
                 feature_type=FeatureType.CATEGORICAL,
                 feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
@@ -135,11 +101,7 @@ def tensor_schema_with_equal_embedding_dims():
                 is_seq=True,
                 cardinality=4,
                 padding_value=4,
-<<<<<<< HEAD
                 embedding_dim=14,
-=======
-                embedding_dim=70,
->>>>>>> Add saving/loading `linucb_arms` in pickle format
                 feature_type=FeatureType.CATEGORICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "cat_list_feature")],
             ),
@@ -148,11 +110,7 @@ def tensor_schema_with_equal_embedding_dims():
                 is_seq=True,
                 tensor_dim=1,
                 padding_value=0,
-<<<<<<< HEAD
                 embedding_dim=14,
-=======
-                embedding_dim=70,
->>>>>>> Add saving/loading `linucb_arms` in pickle format
                 feature_type=FeatureType.NUMERICAL,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_feature")],
             ),
@@ -161,11 +119,7 @@ def tensor_schema_with_equal_embedding_dims():
                 is_seq=True,
                 padding_value=0,
                 tensor_dim=6,
-<<<<<<< HEAD
                 embedding_dim=14,
-=======
-                embedding_dim=70,
->>>>>>> Add saving/loading `linucb_arms` in pickle format
                 feature_type=FeatureType.NUMERICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_list_feature")],
             ),
@@ -173,13 +127,8 @@ def tensor_schema_with_equal_embedding_dims():
                 name="emb_list_feature",
                 is_seq=True,
                 padding_value=0,
-<<<<<<< HEAD
                 tensor_dim=14,
                 embedding_dim=14,
-=======
-                tensor_dim=70,
-                embedding_dim=70,
->>>>>>> Add saving/loading `linucb_arms` in pickle format
                 feature_type=FeatureType.NUMERICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "emb_list_feature")],
             ),
@@ -192,17 +141,10 @@ def tensor_schema_with_equal_embedding_dims():
 def simple_batch():
     item_sequences = torch.LongTensor(
         [
-<<<<<<< HEAD
             [15, 15, 15, 1, 2],
             [15, 0, 0, 1, 2],
             [2, 0, 2, 1, 2],
             [15, 15, 2, 1, 0],
-=======
-            [40, 40, 40, 1, 2],
-            [40, 0, 0, 1, 2],
-            [2, 0, 2, 1, 2],
-            [40, 40, 2, 1, 0],
->>>>>>> Add saving/loading `linucb_arms` in pickle format
         ],
     )
     cat_list_feature_sequences = torch.LongTensor(
@@ -217,11 +159,7 @@ def simple_batch():
         [[0.0, 0.0, 0.0, 1.0, 2.0], [0, 0.0, 1.0, 1.0, 3.0], [1.0, 2.0, 3.0, 4.0, 5.0], [0.0, 0.0, 2.0, 2.0, 2.0]]
     )
     num_list_feature_sequences = torch.rand(4, 5, 6)
-<<<<<<< HEAD
     emb_list_feature_sequences = torch.rand(4, 5, 14)
-=======
-    emb_list_feature_sequences = torch.rand(4, 5, 70)
->>>>>>> Add saving/loading `linucb_arms` in pickle format
 
     padding_mask = torch.BoolTensor(
         [
@@ -351,13 +289,7 @@ def parquet_module(parquet_module_path, tensor_schema, max_len, batch_size=4):
             RenameTransform(
                 {"user_id": "query_id", "item_id_mask": "padding_mask", "positive_labels_mask": "target_padding_mask"}
             ),
-<<<<<<< HEAD
             UniformNegativeSamplingTransform(vocab_size=tensor_schema["item_id"].cardinality, num_negative_samples=10),
-=======
-            UniformNegativeSamplingTransform(
-                vocab_size=tensor_schema["item_id"].cardinality - 2, num_negative_samples=10
-            ),
->>>>>>> Add saving/loading `linucb_arms` in pickle format
             UnsqueezeTransform("target_padding_mask", -1),
             UnsqueezeTransform("positive_labels", -1),
             GroupTransform({"feature_tensors": tensor_schema.names}),
@@ -467,11 +399,7 @@ def wrong_sequential_sample(request, sequential_sample):
 def sasrec_model(tensor_schema_with_equal_embedding_dims):
     model = SasRec.from_params(
         schema=tensor_schema_with_equal_embedding_dims,
-<<<<<<< HEAD
         embedding_dim=14,
-=======
-        embedding_dim=70,
->>>>>>> Add saving/loading `linucb_arms` in pickle format
         num_heads=1,
         num_blocks=1,
         max_sequence_length=7,

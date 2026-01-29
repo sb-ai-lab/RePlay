@@ -31,15 +31,9 @@ from replay.utils.session_handler import get_spark_session
     "candidates",
     [
         torch.LongTensor([0]),
-<<<<<<< HEAD
         torch.LongTensor([2, 13]),
         torch.LongTensor([1, 2, 3, 4]),
         torch.LongTensor([11, 6, 9]),
-=======
-        torch.LongTensor([2, 22]),
-        torch.LongTensor([1, 2, 3, 4]),
-        torch.LongTensor([11, 22, 33]),
->>>>>>> Add saving/loading `linucb_arms` in pickle format
         None,
     ],
 )

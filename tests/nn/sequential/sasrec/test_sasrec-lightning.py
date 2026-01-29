@@ -17,14 +17,25 @@ def test_training_sasrec_with_different_losses(sasrec_parametrized, parquet_modu
     trainer.fit(sasrec, datamodule=parquet_module)
 
 
-def test_sasrec_with_default_transform(sasrec_model_only_items, parquet_module_with_default_sasrec_transform):
+@pytest.mark.parametrize(
+    "parquet_fixture",
+    (
+        "parquet_module_with_default_sasrec_transform",
+        "parquet_module_with_multiple_val_paths",
+    ),
+)
+def test_sasrec_with_default_transform(
+    sasrec_model_only_items, parquet_fixture: str, request: pytest.FixtureRequest
+) -> None:
+    parquet_module = request.getfixturevalue(parquet_fixture)
+
     sasrec = LightningModule(
         sasrec_model_only_items,
         optimizer_factory=OptimizerFactory(),
     )
     trainer = L.Trainer(max_epochs=1)
-    trainer.fit(sasrec, datamodule=parquet_module_with_default_sasrec_transform)
-    trainer.test(sasrec, datamodule=parquet_module_with_default_sasrec_transform)
+    trainer.fit(sasrec, datamodule=parquet_module)
+    trainer.test(sasrec, datamodule=parquet_module)
 
 
 def test_sasrec_checkpointing(sasrec_model, parquet_module, tmp_path):
