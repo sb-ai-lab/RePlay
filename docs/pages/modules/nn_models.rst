@@ -314,10 +314,7 @@ EmbeddingTyingHead
 
 Universal Lighting module
 =========================
-<<<<<<< HEAD
 
-=======
->>>>>>> Add saving/loading `linucb_arms` in pickle format
 LightningModule
 _______________
 .. autoclass:: replay.nn.lightning.LightningModule
