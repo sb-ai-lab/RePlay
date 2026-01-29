@@ -21,10 +21,10 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
       - name: Install full package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.0 poetry-dynamic-versioning
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry cache clear PyPI --all
@@ -52,7 +52,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -60,7 +60,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install core package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3
+          pip install --upgrade pip wheel poetry==2.2.0
           ./poetry_wrapper.sh sync
       - name: pytest
         run: |
@@ -80,7 +80,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -88,7 +88,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install conditional package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.0 poetry-dynamic-versioning
           ./poetry_wrapper.sh --experimental --generate
           eval $(poetry env activate)
           poetry sync
@@ -111,7 +111,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -119,7 +119,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install torch package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.0 poetry-dynamic-versioning
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry sync -E torch
@@ -139,7 +139,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -147,7 +147,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install spark package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.0 poetry-dynamic-versioning
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry sync -E spark
@@ -167,7 +167,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -175,7 +175,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install full package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.0 poetry-dynamic-versioning
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry sync -E spark -E torch
@@ -195,7 +195,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -203,7 +203,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install experimental package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.0 poetry-dynamic-versioning
           ./poetry_wrapper.sh --experimental --generate
           eval $(poetry env activate)
           poetry sync
@@ -224,7 +224,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -232,7 +232,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install full package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.0 poetry-dynamic-versioning
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry sync -E spark -E torch
@@ -252,7 +252,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -260,7 +260,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install only dev package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.0 poetry-dynamic-versioning
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry sync --only dev
@@ -284,10 +284,10 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
       - name: Install production package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.0 poetry-dynamic-versioning
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry sync -E torch -E spark
@@ -305,10 +305,10 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
       - name: Install full package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.0 poetry-dynamic-versioning
           ./poetry_wrapper.sh --generate --experimental
           eval $(poetry env activate)
           poetry sync --with dev
