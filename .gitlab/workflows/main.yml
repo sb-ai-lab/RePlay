@@ -5,7 +5,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG
 
-image: "${CI_REGISTRY_IMAGE}:${VERSION}_py39"
+image: "${CI_REGISTRY_IMAGE}:${VERSION}_py310"
 
 variables:
   VERSION: "0.0.11"
@@ -120,7 +120,6 @@ sphinx-job:
 #   parallel:
 #     matrix:
 #       - py_version:
-#         - "py39"
 #         - "py310"
 #         - "py311"
 #         - "py312"
@@ -145,7 +144,6 @@ sphinx-job:
   parallel:
     matrix:
       - py_version:
-        - "py39"
         - "py310"
         - "py311"
         - "py312"
@@ -273,12 +271,6 @@ pytest-experimental:
       coverage_report:
         coverage_format: cobertura
         path: coverage.xml
-
-merge-coverage-py39:
-  <<: *merge-coverage-template
-  variables:
-    py_version: py39
-  needs: ["pytest-core: [py39]", "pytest-conditional: [py39]", "pytest-torch: [py39]", "pytest-spark: [py39]", "pytest-spark-and-torch: [py39]", "pytest-models: [py39]", "pytest-experimental: [py39]"]
 
 merge-coverage-py310:
   <<: *merge-coverage-template

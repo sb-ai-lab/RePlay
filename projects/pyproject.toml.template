@@ -12,7 +12,7 @@ dev = [
     "jupyter (>=1.0, <1.1)",
     "jupyterlab (>=3.6, <4)",
     "pyarrow-stubs",
-    "pytest (>=7.1.0)",
+    "pytest >=9.0.0",
     "pytest-mock (>3.15, <4.0)",
     "pytest-cov (>=3.0)",
     "statsmodels (>=0.14, <0.15)",
@@ -55,7 +55,7 @@ classifiers = [
     "Natural Language :: English",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-requires-python = ">=3.9, <3.13"
+requires-python = ">=3.10, <3.13"
 dependencies = [
     "setuptools",
     "numpy (>=1.20.0,<2)",
@@ -100,7 +100,7 @@ repository = "https://github.com/sb-ai-lab/RePlay"
 
 [tool.black]
 line-length = 120
-target-version = ["py39", "py310", "py311", "py312"]
+target-version = ["py310", "py311", "py312"]
 
 [tool.poetry]
 packages = [{include = "replay"}]
@@ -120,11 +120,14 @@ torch = [
 ]
 
 {% endif %}
+
+{% if project == "default" %}
 [[tool.poetry.source]]
 name = "torch-cpu-mirror"
 url = "https://download.pytorch.org/whl/cpu"
 priority = "explicit"
 
+{% endif %}
 [tool.poetry-dynamic-versioning]
 enable = true
 format-jinja = """0.21.0{{ env['PACKAGE_SUFFIX'] }}"""
@@ -166,3 +169,36 @@ in_place = true
 no_comments = true
 spaces_indent_inline_array = 4
 trailing_comma_inline_array = true
+
+[tool.pytest]
+doctest_optionflags = ["NORMALIZE_WHITESPACE"]
+addopts = [
+    "--cov=replay",
+    "--cov-report=term-missing",
+    "--cov-config=pyproject.toml",
+    "--doctest-modules",
+    "--junitxml=report.xml",
+    "--cov-report=xml",
+    "--durations=0",
+]
+testpaths = [
+    "replay/",
+    "tests/",
+]
+markers = [
+    "experimental: tests that requires experimental part of the library",
+    "core: tests that not requires additional dependencies",
+    "spark: tests that requires Spark",
+    "torch: tests that requires PyTorch",
+    "conditional: test that utilize conditional imports",
+]
+
+[tool.coverage.run]
+plugins = ["coverage_conditional_plugin"]
+omit = [
+    "replay/models/extensions/ann/index_stores/hdfs_index_store.py",
+    "replay/experimental/*"
+]
+
+[tool.coverage.coverage_conditional_plugin.rules]
+py-lt-311 = "sys_version_info < (3, 11)"
