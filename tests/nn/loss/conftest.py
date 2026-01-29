@@ -25,8 +25,9 @@ def hidden_simple_batch():
 def hidden_simple_batch_multipositive(hidden_simple_batch):
     hidden_simple_batch["positive_labels"] = hidden_simple_batch["positive_labels"].repeat(1, 1, 5)
     hidden_simple_batch["target_padding_mask"] = hidden_simple_batch["target_padding_mask"].repeat(1, 1, 5)
-    hidden_simple_batch["feature_tensors"]["sample_weight"] = \
-        hidden_simple_batch["feature_tensors"]["sample_weight"].repeat(1, 1, 5)
+    hidden_simple_batch["feature_tensors"]["sample_weight"] = hidden_simple_batch["feature_tensors"][
+        "sample_weight"
+    ].repeat(1, 1, 5)
     return hidden_simple_batch
 
 
