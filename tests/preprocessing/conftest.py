@@ -1140,7 +1140,7 @@ def simple_data_to_filter_spark(simple_data_to_filter_pandas, spark):
 
 @pytest.fixture(scope="module")
 def interactions_100k_pandas():
-    values = np.random.randint([1, 1], [1000, 10000], size=(int(1e5), 2))
+    values = np.random.randint([1, 1], [1000, 1000000], size=(int(1e5), 2))
     data = pd.DataFrame(values, columns=["user_id", "item_id"])
     return data
 
