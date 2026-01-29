@@ -145,3 +145,86 @@ class LogOutCE(torch.nn.Module):
         # [masked_batch_size] - loss for all recommendation points
         loss = self._loss(logits, target)
         return loss
+
+
+class LogOutCEWeighted(LogOutCE):
+    """
+    LogOutCE loss with sample weights enabling.
+
+        .. math::
+
+            L_{\\text{InfoNCE}} = - \\sum_{p \\in P} \\log \\frac{ \\exp(\\mathrm{sim}(q, p))}
+            {\\exp(\\mathrm{sim}(q, p))
+            + \\sum_{n \\in N} \\exp(\\mathrm{sim}(q, n))}.
+
+    where q -- query embedding, P -- set of positive logits, N -- set of negative logits,
+    :math:`sim(\\cdot, \\cdot)` -- similaruty function.\n
+
+    In addition to calculating the standard loss,
+    weights are applied for each sample.
+    Therefore, it is expected that the sample weights will be in the generated batch,
+    which is fed into the model.
+
+    The loss supports the calculation of logits for the case of multi-positive labels
+    (there are several labels for each position in the sequence).
+    """
+
+    def __init__(
+        self,
+        cardinality: int,
+        feature_name: str,
+        negative_labels_ignore_index: int = -100,
+        **kwargs,
+    ):
+        """
+        To calculate the loss, ``torch.nn.CrossEntropyLoss`` is used with the parameter ``reduction="none"``.
+        You can pass all other parameters for initializing the object via kwargs.
+
+        :param cardinality: number of unique items in vocabulary (catalog).
+            The specified cardinality value must not take into account the padding value.
+        :param feature_name: the name of the key in the batch.
+            The tensor is expected to contain sample weights.
+        :param negative_labels_ignore_index: padding value for negative labels.
+            This may be the case when negative labels
+            are formed at the preprocessing level, rather than the negative sampler.
+            The index is ignored and does not contribute to the loss.
+            Default: ``-100``.
+        """
+        super().__init__(
+            cardinality=cardinality,
+            negative_labels_ignore_index=negative_labels_ignore_index,
+        )
+        self.feature_name = feature_name
+        self._loss = torch.nn.CrossEntropyLoss(reduction="none", **kwargs)
+
+    def forward(
+        self,
+        model_embeddings: torch.Tensor,
+        feature_tensors: TensorMap,
+        positive_labels: torch.LongTensor,
+        negative_labels: torch.LongTensor,  # noqa: ARG002
+        padding_mask: torch.BoolTensor,  # noqa: ARG002
+        target_padding_mask: torch.BoolTensor,
+    ) -> torch.Tensor:
+        """
+        forward(model_embeddings, feature_tensors, positive_labels, target_padding_mask)
+        **Note**: At forward pass, the whole catalog of items is used as negatives.
+        Next, negative logits, corresponding to positions where negative labels
+        coincide with positive ones, are masked.
+
+        :param model_embeddings: model output of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param feature_tensors: a dictionary of tensors from dataloader.
+            This dictionary is expected to contain a key with the name ``feature_name``,
+            which is specified in the constructor.
+            Expected shape of tensor ``(batch_size, sequence_length, num_positives)``.
+        :param positive_labels: ground truth labels of positive events
+            of shape (batch_size, sequence_length, num_positives).
+        :param target_padding_mask: padding mask corresponding for ``positive_labels``
+            of shape (batch_size, sequence_length, num_positives).
+        :return: computed loss value.
+        """
+        loss: torch.Tensor = super().forward(model_embeddings, None, positive_labels, None, None, target_padding_mask)
+        sample_weight = feature_tensors[self.feature_name]
+        sample_weight = sample_weight[target_padding_mask]
+        loss = (loss * sample_weight).mean()
+        return loss

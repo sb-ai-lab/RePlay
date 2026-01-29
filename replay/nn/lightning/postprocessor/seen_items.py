@@ -61,7 +61,7 @@ class SeenItemsFilter(PostprocessorBase):
         seen_ids_padded = batch[self.seen_items_column]
         padding_mask = (seen_ids_padded < self.item_count) & (seen_ids_padded >= 0)
 
-        batch_factors = torch.arange(0, logits.size(0)) * self.item_count
+        batch_factors = torch.arange(0, logits.size(0), device=logits.device) * self.item_count
         factored_ids = seen_ids_padded + batch_factors.unsqueeze(1)
         seen_ids_flat = factored_ids[padding_mask]
 
