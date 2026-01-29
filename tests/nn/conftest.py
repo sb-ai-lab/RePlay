@@ -34,9 +34,9 @@ def tensor_schema():
             TensorFeatureInfo(
                 name="item_id",
                 is_seq=True,
-                cardinality=40,
-                padding_value=40,
-                embedding_dim=64,
+                cardinality=15,
+                padding_value=15,
+                embedding_dim=10,
                 feature_type=FeatureType.CATEGORICAL,
                 feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
@@ -46,7 +46,7 @@ def tensor_schema():
                 is_seq=True,
                 cardinality=4,
                 padding_value=4,
-                embedding_dim=65,
+                embedding_dim=11,
                 feature_type=FeatureType.CATEGORICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "cat_list_feature")],
             ),
@@ -55,7 +55,7 @@ def tensor_schema():
                 is_seq=True,
                 tensor_dim=1,
                 padding_value=0,
-                embedding_dim=66,
+                embedding_dim=12,
                 feature_type=FeatureType.NUMERICAL,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_feature")],
             ),
@@ -64,7 +64,7 @@ def tensor_schema():
                 is_seq=True,
                 padding_value=0,
                 tensor_dim=6,
-                embedding_dim=67,
+                embedding_dim=13,
                 feature_type=FeatureType.NUMERICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_list_feature")],
             ),
@@ -72,8 +72,8 @@ def tensor_schema():
                 name="emb_list_feature",
                 is_seq=True,
                 padding_value=0,
-                tensor_dim=70,
-                embedding_dim=62,
+                tensor_dim=9,
+                embedding_dim=14,
                 feature_type=FeatureType.NUMERICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "emb_list_feature")],
             ),
@@ -89,9 +89,9 @@ def tensor_schema_with_equal_embedding_dims():
             TensorFeatureInfo(
                 name="item_id",
                 is_seq=True,
-                cardinality=40,
-                padding_value=40,
-                embedding_dim=70,
+                cardinality=15,
+                padding_value=15,
+                embedding_dim=14,
                 feature_type=FeatureType.CATEGORICAL,
                 feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
                 feature_hint=FeatureHint.ITEM_ID,
@@ -101,7 +101,7 @@ def tensor_schema_with_equal_embedding_dims():
                 is_seq=True,
                 cardinality=4,
                 padding_value=4,
-                embedding_dim=70,
+                embedding_dim=14,
                 feature_type=FeatureType.CATEGORICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "cat_list_feature")],
             ),
@@ -110,7 +110,7 @@ def tensor_schema_with_equal_embedding_dims():
                 is_seq=True,
                 tensor_dim=1,
                 padding_value=0,
-                embedding_dim=70,
+                embedding_dim=14,
                 feature_type=FeatureType.NUMERICAL,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_feature")],
             ),
@@ -119,7 +119,7 @@ def tensor_schema_with_equal_embedding_dims():
                 is_seq=True,
                 padding_value=0,
                 tensor_dim=6,
-                embedding_dim=70,
+                embedding_dim=14,
                 feature_type=FeatureType.NUMERICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "num_list_feature")],
             ),
@@ -127,8 +127,8 @@ def tensor_schema_with_equal_embedding_dims():
                 name="emb_list_feature",
                 is_seq=True,
                 padding_value=0,
-                tensor_dim=70,
-                embedding_dim=70,
+                tensor_dim=9,
+                embedding_dim=14,
                 feature_type=FeatureType.NUMERICAL_LIST,
                 feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "emb_list_feature")],
             ),
@@ -141,10 +141,10 @@ def tensor_schema_with_equal_embedding_dims():
 def simple_batch():
     item_sequences = torch.LongTensor(
         [
-            [40, 40, 40, 1, 2],
-            [40, 0, 0, 1, 2],
+            [15, 15, 15, 1, 2],
+            [15, 0, 0, 1, 2],
             [2, 0, 2, 1, 2],
-            [40, 40, 2, 1, 0],
+            [15, 15, 2, 1, 0],
         ],
     )
     cat_list_feature_sequences = torch.LongTensor(
@@ -159,7 +159,7 @@ def simple_batch():
         [[0.0, 0.0, 0.0, 1.0, 2.0], [0, 0.0, 1.0, 1.0, 3.0], [1.0, 2.0, 3.0, 4.0, 5.0], [0.0, 0.0, 2.0, 2.0, 2.0]]
     )
     num_list_feature_sequences = torch.rand(4, 5, 6)
-    emb_list_feature_sequences = torch.rand(4, 5, 70)
+    emb_list_feature_sequences = torch.rand(4, 5, 9)
 
     padding_mask = torch.BoolTensor(
         [
@@ -289,9 +289,7 @@ def parquet_module(parquet_module_path, tensor_schema, max_len, batch_size=4):
             RenameTransform(
                 {"user_id": "query_id", "item_id_mask": "padding_mask", "positive_labels_mask": "target_padding_mask"}
             ),
-            UniformNegativeSamplingTransform(
-                vocab_size=tensor_schema["item_id"].cardinality - 2, num_negative_samples=10
-            ),
+            UniformNegativeSamplingTransform(vocab_size=tensor_schema["item_id"].cardinality, num_negative_samples=10),
             UnsqueezeTransform("target_padding_mask", -1),
             UnsqueezeTransform("positive_labels", -1),
             GroupTransform({"feature_tensors": tensor_schema.names}),
@@ -401,7 +399,7 @@ def wrong_sequential_sample(request, sequential_sample):
 def sasrec_model(tensor_schema_with_equal_embedding_dims):
     model = SasRec.from_params(
         schema=tensor_schema_with_equal_embedding_dims,
-        embedding_dim=70,
+        embedding_dim=14,
         num_heads=1,
         num_blocks=1,
         max_sequence_length=7,

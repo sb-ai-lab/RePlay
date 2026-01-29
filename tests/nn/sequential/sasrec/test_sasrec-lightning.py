@@ -51,7 +51,7 @@ def test_sasrec_checkpointing(sasrec_model, parquet_module, tmp_path):
 
 @pytest.mark.parametrize(
     "candidates_to_score",
-    [torch.LongTensor([1]), torch.LongTensor([1, 2]), torch.arange(0, 40, dtype=torch.long), None],
+    [torch.LongTensor([1]), torch.LongTensor([1, 2]), torch.arange(0, 15, dtype=torch.long), None],
 )
 def test_sasrec_prediction_with_candidates(tensor_schema, sasrec_model, parquet_module, candidates_to_score):
     sasrec = LightningModule(sasrec_model)
