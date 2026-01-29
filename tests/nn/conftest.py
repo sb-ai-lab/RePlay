@@ -289,7 +289,7 @@ def parquet_module(parquet_module_path, tensor_schema, max_len, batch_size=4):
             RenameTransform(
                 {"user_id": "query_id", "item_id_mask": "padding_mask", "positive_labels_mask": "target_padding_mask"}
             ),
-            UniformNegativeSamplingTransform(vocab_size=tensor_schema["item_id"].cardinality, num_negative_samples=10),
+            UniformNegativeSamplingTransform(cardinality=tensor_schema["item_id"].cardinality, num_negative_samples=10),
             UnsqueezeTransform("target_padding_mask", -1),
             UnsqueezeTransform("positive_labels", -1),
             GroupTransform({"feature_tensors": tensor_schema.names}),
