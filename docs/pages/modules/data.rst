@@ -114,9 +114,9 @@ An example column schema:
 .. code-block:: python
 
     schema = {
-        "user_id": {} # Empty metadata represents a categorical column.
-        "seq_1": {"shape": 5} # 1-D sequences of length 5
-        "seq_2": {"shape": [5, 6], "padding_value": -1} # 2-D sequences with custom padding values
+        "user_id": {} # Empty metadata represents a non-array column.
+        "seq_1": {"shape": 5} # 1-D sequences of length 5 using default padding value as -1.
+        "seq_2": {"shape": [5, 6], "padding": -2} # 2-D sequences with custom padding values
     }
 
 ParquetDataset
@@ -134,7 +134,7 @@ ____________________________________
 
 **Example**
 
-This is a minimal usage example of ParquetModule. It uses train data only, and the Transforms are defined to support further training of the SasRec model.
+This is a minimal usage example of ``ParquetModule``. It uses train data only, and the Transforms are defined to support further training of the SasRec model.
 
 ..
 
@@ -143,34 +143,13 @@ See the full example in `examples/09_sasrec_example.ipynb`.
     .. code-block:: python
 
         from replay.data.nn import ParquetModule
-        from replay.nn.transforms import (
-            GroupTransform,
-            RenameTransform,
-            NextTokenTransform,
-            UnsqueezeTransform,
-        )
+        from replay.nn.transform.template import make_default_sasrec_transforms
 
         metadata = {
             "user_id": {},
-            "item_id": {"shape": 50,"padding": 51},
+            "item_id": {"shape": 50, "padding": 51},
         }
-        transforms = {
-            "train": [
-                NextTokenTransform(
-                    label_field="item_id", 
-                    shift=1, 
-                    out_feature_name="positive_labels",
-                ),
-                RenameTransform({
-                    "user_id": "query_id", 
-                    "item_id_mask": "padding_mask", 
-                    "positive_labels_mask": "target_padding_mask"
-                }),
-                UnsqueezeTransform("target_padding_mask", -1),
-                UnsqueezeTransform("positive_labels", -1),
-                GroupTransform({"feature_tensors": ["item_id"]})
-            ]
-        }
+        transforms = make_default_sasrec_transforms(tensor_schema, query_column="user_id")
         parquet_datamodule = ParquetModule(
             batch_size=64,
             metadata=metadata,

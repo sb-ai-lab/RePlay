@@ -2,6 +2,7 @@ from typing import NamedTuple, Optional
 
 import torch
 from torch.utils.data import Dataset as TorchDataset
+from typing_extensions import deprecated
 
 from replay.data.nn import (
     MutableTensorMap,
@@ -12,6 +13,10 @@ from replay.data.nn import (
 )
 
 
+@deprecated(
+    "`SasRecTrainingBatch` class is deprecated.",
+    stacklevel=2,
+)
 class SasRecTrainingBatch(NamedTuple):
     """
     Batch of data for training.
@@ -34,6 +39,7 @@ class SasRecTrainingBatch(NamedTuple):
         }
 
 
+@deprecated("`SasRecTrainingDataset` class is deprecated. " "Use `replay.data.nn.ParquetModule` instead.")
 class SasRecTrainingDataset(TorchDataset):
     """
     Dataset that generates samples to train SasRec model.
@@ -120,6 +126,10 @@ class SasRecTrainingDataset(TorchDataset):
         }
 
 
+@deprecated(
+    "`SasRecPredictionBatch` class is deprecated.",
+    stacklevel=2,
+)
 class SasRecPredictionBatch(NamedTuple):
     """
     Batch of data for model inference.
@@ -138,6 +148,7 @@ class SasRecPredictionBatch(NamedTuple):
         }
 
 
+@deprecated("`SasRecPredictionDataset` class is deprecated. " "Use `replay.data.nn.ParquetModule` instead.")
 class SasRecPredictionDataset(TorchDataset):
     """
     Dataset that generates samples to infer SasRec model
@@ -177,6 +188,10 @@ class SasRecPredictionDataset(TorchDataset):
         }
 
 
+@deprecated(
+    "`SasRecValidationBatch` class is deprecated.",
+    stacklevel=2,
+)
 class SasRecValidationBatch(NamedTuple):
     """
     Batch of data for validation.
@@ -199,6 +214,7 @@ class SasRecValidationBatch(NamedTuple):
         }
 
 
+@deprecated("`SasRecValidationDataset` class is deprecated. " "Use `replay.data.nn.ParquetModule` instead.")
 class SasRecValidationDataset(TorchDataset):
     """
     Dataset that generates samples to infer and validate SasRec model.

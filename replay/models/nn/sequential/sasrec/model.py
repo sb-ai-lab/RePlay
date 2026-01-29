@@ -3,10 +3,15 @@ import contextlib
 from typing import Any, Optional, Union, cast
 
 import torch
+from typing_extensions import deprecated
 
 from replay.data.nn import TensorMap, TensorSchema
 
 
+@deprecated(
+    "`SasRecModel` class is deprecated. " "Use `replay.nn.sequential.SasRec` instead.",
+    stacklevel=2,
+)
 class SasRecModel(torch.nn.Module):
     """
     SasRec model
