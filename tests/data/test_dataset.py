@@ -258,6 +258,34 @@ def test_wrong_features_type(data_dict, request):
         create_dataset(request.getfixturevalue(data_dict))
 
 
+def test_duplicate_feature_schema(interactions_full_pandas_dataset: dict) -> None:
+    schema = get_features(interactions_full_pandas_dataset)
+
+    dataset_1 = Dataset(
+        feature_schema=schema,
+        interactions=interactions_full_pandas_dataset["interactions"],
+        query_features=interactions_full_pandas_dataset.get("users", None),
+        item_features=interactions_full_pandas_dataset.get("items", None),
+        check_consistency=True,
+        categorical_encoded=True,
+    )
+
+    schema["user_id"]._cardinality = 15
+    dataset_2 = Dataset(
+        feature_schema=schema,
+        interactions=interactions_full_pandas_dataset["interactions"],
+        query_features=interactions_full_pandas_dataset.get("users", None),
+        item_features=interactions_full_pandas_dataset.get("items", None),
+        check_consistency=True,
+        categorical_encoded=True,
+    )
+
+    assert dataset_1._feature_schema is not dataset_2._feature_schema
+    assert (
+        dataset_1._feature_schema["user_id"].cardinality == 3
+        and dataset_2._feature_schema["user_id"].cardinality == 15
+    )
+
 @pytest.mark.core
 def test_type_pandas(interactions_full_pandas_dataset):
     dataset = create_dataset(interactions_full_pandas_dataset, check_consistency=True, categorical_encoded=False)
