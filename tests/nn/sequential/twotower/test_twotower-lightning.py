@@ -52,6 +52,9 @@ def test_twotower_checkpointing(twotower_model, parquet_module, tmp_path):
 )
 def test_twotower_prediction_with_candidates(tensor_schema, twotower_model, parquet_module, candidates_to_score):
     twotower = LightningModule(twotower_model)
+    trainer = L.Trainer(max_epochs=1)
+    _ = trainer.validate(twotower, datamodule=parquet_module)
+
     trainer = L.Trainer(inference_mode=True)
     twotower.eval()
     twotower.candidates_to_score = candidates_to_score
@@ -89,7 +92,6 @@ def test_predictions_twotower_equal_with_permuted_candidates(
     sorted_candidates, ordering = torch.sort(permuted_candidates)
 
     trainer = L.Trainer(inference_mode=True)
-    twotower.eval()
 
     twotower.candidates_to_score = sorted_candidates
     predictions_sorted_candidates = trainer.predict(twotower, datamodule=parquet_module)
@@ -112,7 +114,6 @@ def test_predictions_twotower_equal_with_permuted_candidates(
 def test_twotower_prediction_invalid_candidates_to_score(twotower_model, parquet_module, candidates_to_score):
     twotower = LightningModule(twotower_model)
     trainer = L.Trainer(inference_mode=True)
-    twotower.eval()
 
     with pytest.raises((RuntimeError, ValueError, IndexError)):
         twotower.candidates_to_score = candidates_to_score
