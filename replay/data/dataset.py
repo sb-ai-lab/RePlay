@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import warnings
 from collections.abc import Iterable, Sequence
@@ -90,7 +91,7 @@ class Dataset:
         self._get_feature_source_map()
         self._get_ids_source_map()
 
-        self._feature_schema = self._fill_feature_schema(feature_schema)
+        self._feature_schema = self._fill_feature_schema(copy.deepcopy(feature_schema))
 
         if check_consistency:
             if self.query_features is not None:
