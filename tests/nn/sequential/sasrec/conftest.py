@@ -12,14 +12,14 @@ from replay.nn.transform.template import make_default_sasrec_transforms
 
 @pytest.fixture(
     params=[
-        (CE, {"ignore_index": 40}),
-        (CESampled, {"ignore_index": 40}),
-        (CESampled, {"ignore_index": 40, "negative_labels_ignore_index": 0}),
+        (CE, {"ignore_index": 15}),
+        (CESampled, {"ignore_index": 15}),
+        (CESampled, {"ignore_index": 15, "negative_labels_ignore_index": 0}),
         (BCE, {}),
         (BCESampled, {}),
-        (LogOutCE, {"ignore_index": 40, "cardinality": 40}),
-        (LogInCE, {"cardinality": 40}),
-        (LogInCE, {"cardinality": 40, "negative_labels_ignore_index": 0}),
+        (LogOutCE, {"ignore_index": 15, "cardinality": 15}),
+        (LogInCE, {"cardinality": 15}),
+        (LogInCE, {"cardinality": 15, "negative_labels_ignore_index": 0}),
         (LogInCESampled, {}),
         (LogInCESampled, {"negative_labels_ignore_index": 0}),
     ],
@@ -39,22 +39,22 @@ from replay.nn.transform.template import make_default_sasrec_transforms
 def sasrec_parametrized(request, tensor_schema):
     loss_cls, kwargs = request.param
     loss = loss_cls(**kwargs)
-
+    model_hidden_size = tensor_schema["item_id"].embedding_dim
     body = SasRecBody(
         embedder=SequenceEmbedding(tensor_schema, categorical_list_feature_aggregation_method="sum"),
         embedding_aggregator=(
             PositionAwareAggregator(
                 ConcatAggregator(
                     input_embedding_dims=[x.embedding_dim for x in tensor_schema.values()],
-                    output_embedding_dim=64,
+                    output_embedding_dim=model_hidden_size,
                 ),
                 max_sequence_length=7,
                 dropout=0.2,
             )
         ),
         attn_mask_builder=DefaultAttentionMask("item_id", 1),
-        encoder=DiffTransformerLayer(embedding_dim=64, num_heads=1, num_blocks=1),
-        output_normalization=torch.nn.LayerNorm(64),
+        encoder=DiffTransformerLayer(embedding_dim=model_hidden_size, num_heads=1, num_blocks=1),
+        output_normalization=torch.nn.LayerNorm(model_hidden_size),
     )
     model = SasRec(body=body, loss=loss)
     return model
@@ -64,7 +64,7 @@ def sasrec_parametrized(request, tensor_schema):
 def sasrec_model_only_items(tensor_schema_with_equal_embedding_dims):
     model = SasRec.from_params(
         schema=tensor_schema_with_equal_embedding_dims.filter(name="item_id"),
-        embedding_dim=70,
+        embedding_dim=14,
         num_heads=1,
         num_blocks=1,
         max_sequence_length=7,

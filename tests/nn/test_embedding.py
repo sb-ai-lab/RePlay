@@ -38,7 +38,7 @@ def test_sequence_embedding_get_item_weights(tensor_schema, indices):
     embedder = SequenceEmbedding(tensor_schema)
     expected_shape = indices.shape if indices is not None else [tensor_schema["item_id"].cardinality]
 
-    assert embedder.get_item_weights(indices).size() == (*expected_shape, 64)
+    assert embedder.get_item_weights(indices).size() == (*expected_shape, tensor_schema["item_id"].embedding_dim)
 
 
 def test_sequence_embedding_get_features_weights(tensor_schema):

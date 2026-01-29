@@ -17,12 +17,12 @@ from replay.nn.transform.template import make_default_twotower_transforms
 
 @pytest.fixture(
     params=[
-        (CE, {"ignore_index": 40}),
-        (CESampled, {"ignore_index": 40}),
+        (CE, {"ignore_index": 15}),
+        (CESampled, {"ignore_index": 15}),
         (BCE, {}),
         (BCESampled, {}),
-        (LogOutCE, {"ignore_index": 40, "cardinality": 40}),
-        (LogInCE, {"cardinality": 40}),
+        (LogOutCE, {"ignore_index": 15, "cardinality": 15}),
+        (LogInCE, {"cardinality": 15}),
         (LogInCESampled, {}),
     ],
     ids=["CE", "CE sampled", "BCE", "BCE sampled", "LogOutCE", "LogInCE", "LogInCESampled"],
@@ -31,9 +31,11 @@ def twotower_parametrized(request, tensor_schema, item_features_reader):
     loss_cls, kwargs = request.param
     loss = loss_cls(**kwargs)
 
+    model_hidden_size = 8
+
     common_aggregator = ConcatAggregator(
         input_embedding_dims=[x.embedding_dim for x in tensor_schema.values()],
-        output_embedding_dim=64,
+        output_embedding_dim=model_hidden_size,
     )
 
     body = TwoTowerBody(
@@ -55,12 +57,12 @@ def twotower_parametrized(request, tensor_schema, item_features_reader):
         ),
         item_embedding_aggregator=common_aggregator,
         query_encoder=DiffTransformerLayer(
-            embedding_dim=64,
+            embedding_dim=model_hidden_size,
             num_heads=1,
             num_blocks=1,
         ),
-        query_tower_output_normalization=torch.nn.LayerNorm(64),
-        item_encoder=SwiGLUEncoder(embedding_dim=64, hidden_dim=2 * 64),
+        query_tower_output_normalization=torch.nn.LayerNorm(model_hidden_size),
+        item_encoder=SwiGLUEncoder(embedding_dim=model_hidden_size, hidden_dim=2 * model_hidden_size),
         item_features_reader=item_features_reader,
     )
     model = TwoTower(
@@ -77,7 +79,7 @@ def twotower_model(tensor_schema_with_equal_embedding_dims, item_features_reader
     model = TwoTower.from_params(
         schema=tensor_schema_with_equal_embedding_dims,
         item_features_reader=item_features_reader,
-        embedding_dim=70,
+        embedding_dim=tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim,
         num_heads=1,
         num_blocks=1,
         max_sequence_length=7,
@@ -114,7 +116,7 @@ def twotower_model_only_items(tensor_schema_with_equal_embedding_dims, item_feat
             path=item_features_path,
             metadata={"item_id": {}},
         ),
-        embedding_dim=70,
+        embedding_dim=tensor_schema_only_items["item_id"].embedding_dim,
         num_heads=1,
         num_blocks=1,
         max_sequence_length=7,

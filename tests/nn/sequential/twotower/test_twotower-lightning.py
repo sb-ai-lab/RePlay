@@ -48,7 +48,7 @@ def test_twotower_checkpointing(twotower_model, parquet_module, tmp_path):
 
 @pytest.mark.parametrize(
     "candidates_to_score",
-    [torch.LongTensor([1]), torch.LongTensor([1, 2]), torch.arange(0, 40, dtype=torch.long), None],
+    [torch.LongTensor([1]), torch.LongTensor([1, 2]), torch.arange(0, 15, dtype=torch.long), None],
 )
 def test_twotower_prediction_with_candidates(tensor_schema, twotower_model, parquet_module, candidates_to_score):
     twotower = LightningModule(twotower_model)

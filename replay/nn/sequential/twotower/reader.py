@@ -39,7 +39,7 @@ class FeaturesReader:
             for name, info in schema.items()
             if info.feature_source.source == FeatureSource.ITEM_FEATURES or name == schema.item_id_feature_name
         ]
-        metadata_names = metadata.keys()
+        metadata_names = list(metadata.keys())
 
         if (unique_metadata_names := set(metadata_names)) != (unique_schema_names := set(item_feature_names)):
             extra_metadata_names = unique_metadata_names - unique_schema_names

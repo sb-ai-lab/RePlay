@@ -155,7 +155,7 @@ def mask_negative_logits(
 ) -> torch.Tensor:
     """
     Assign very small values in negative logits
-    for those positions in which positive labels equal to negative ones.
+    for positions where positive labels equal to negative ones.
 
     :param negative_logits: Logits from the model for ``negative labels``.
         Expected shape: (masked_batch_size, num_negatives)
