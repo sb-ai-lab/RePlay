@@ -39,7 +39,7 @@ class SasRecTrainingBatch(NamedTuple):
         }
 
 
-@deprecated("`SasRecTrainingDataset` class is deprecated. " "Use `replay.data.nn.ParquetModule` instead.")
+@deprecated("`SasRecTrainingDataset` class is deprecated. Use `replay.data.nn.ParquetModule` instead.")
 class SasRecTrainingDataset(TorchDataset):
     """
     Dataset that generates samples to train SasRec model.
@@ -148,7 +148,7 @@ class SasRecPredictionBatch(NamedTuple):
         }
 
 
-@deprecated("`SasRecPredictionDataset` class is deprecated. " "Use `replay.data.nn.ParquetModule` instead.")
+@deprecated("`SasRecPredictionDataset` class is deprecated. Use `replay.data.nn.ParquetModule` instead.")
 class SasRecPredictionDataset(TorchDataset):
     """
     Dataset that generates samples to infer SasRec model
@@ -214,7 +214,7 @@ class SasRecValidationBatch(NamedTuple):
         }
 
 
-@deprecated("`SasRecValidationDataset` class is deprecated. " "Use `replay.data.nn.ParquetModule` instead.")
+@deprecated("`SasRecValidationDataset` class is deprecated. Use `replay.data.nn.ParquetModule` instead.")
 class SasRecValidationDataset(TorchDataset):
     """
     Dataset that generates samples to infer and validate SasRec model.
