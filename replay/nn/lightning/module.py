@@ -3,6 +3,7 @@ from typing import Any, Optional, Union
 
 import lightning
 import torch
+from typing_extensions import override
 
 from replay.nn.lightning.optimizer import BaseOptimizerFactory, OptimizerFactory
 from replay.nn.lightning.scheduler import BaseLRSchedulerFactory
@@ -73,15 +74,18 @@ class LightningModule(lightning.LightningModule):
         )
         return loss
 
-    def predict_step(self, batch: dict) -> torch.Tensor:
+    @override
+    def predict_step(self, batch: dict, batch_idx: int, dataloader_idx: int = 0) -> torch.Tensor:
         model_output: InferenceOutput = self(batch)
         return model_output
 
-    def test_step(self, batch: dict) -> torch.Tensor:
+    @override
+    def test_step(self, batch: dict, batch_idx: int, dataloader_idx: int = 0) -> torch.Tensor:
         model_output: InferenceOutput = self(batch)
         return model_output
 
-    def validation_step(self, batch: dict) -> torch.Tensor:
+    @override
+    def validation_step(self, batch: dict, batch_idx: int, dataloader_idx: int = 0) -> torch.Tensor:
         model_output: InferenceOutput = self(batch)
         return model_output
 
