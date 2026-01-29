@@ -2,6 +2,7 @@ import pytest
 import torch
 
 from replay.data.nn import ParquetModule
+from replay.data.nn.schema import TensorSchema
 from replay.nn.agg import ConcatAggregator
 from replay.nn.embedding import SequenceEmbedding
 from replay.nn.loss import BCE, CE, BCESampled, CESampled, LogInCE, LogInCESampled, LogOutCE
@@ -73,24 +74,26 @@ def sasrec_model_only_items(tensor_schema_with_equal_embedding_dims):
     return model
 
 
+def create_shared_meta(shape: int, tensor_schema: TensorSchema):
+    shared_meta = {
+        "user_id": {},
+        "item_id": {"shape": shape, "padding": tensor_schema["item_id"].padding_value},
+    }
+    return shared_meta
+
+
 @pytest.fixture
 def parquet_module_with_default_sasrec_transform(
     parquet_module_path, tensor_schema_with_equal_embedding_dims, max_len, batch_size=4
 ):
     transforms = make_default_sasrec_transforms(tensor_schema_with_equal_embedding_dims, query_column="user_id")
 
-    def create_meta(shape):
-        shared_meta = {
-            "user_id": {},
-            "item_id": {"shape": shape, "padding": tensor_schema_with_equal_embedding_dims["item_id"].padding_value},
-        }
-        return shared_meta
-
+    tensor_schema = tensor_schema_with_equal_embedding_dims
     metadata = {
-        "train": create_meta(shape=max_len + 1),
-        "validate": create_meta(shape=max_len),
-        "test": create_meta(shape=max_len),
-        "predict": create_meta(shape=max_len),
+        "train": create_shared_meta(shape=max_len + 1, tensor_schema=tensor_schema),
+        "validate": create_shared_meta(shape=max_len, tensor_schema=tensor_schema),
+        "test": create_shared_meta(shape=max_len, tensor_schema=tensor_schema),
+        "predict": create_shared_meta(shape=max_len, tensor_schema=tensor_schema),
     }
 
     parquet_module = ParquetModule(
@@ -99,6 +102,29 @@ def parquet_module_with_default_sasrec_transform(
         batch_size=batch_size,
         train_path=parquet_module_path,
         validate_path=parquet_module_path,
+        test_path=parquet_module_path,
+        predict_path=parquet_module_path,
+    )
+    return parquet_module
+
+
+@pytest.fixture
+def parquet_module_with_multiple_val_paths(parquet_module_path, tensor_schema, max_len, batch_size=4):
+    transforms = make_default_sasrec_transforms(tensor_schema, query_column="user_id")
+
+    metadata = {
+        "train": create_shared_meta(shape=max_len + 1, tensor_schema=tensor_schema),
+        "validate": create_shared_meta(shape=max_len, tensor_schema=tensor_schema),
+        "test": create_shared_meta(shape=max_len, tensor_schema=tensor_schema),
+        "predict": create_shared_meta(shape=max_len, tensor_schema=tensor_schema),
+    }
+
+    parquet_module = ParquetModule(
+        metadata=metadata,
+        transforms=transforms,
+        batch_size=batch_size,
+        train_path=parquet_module_path,
+        validate_path=[parquet_module_path, parquet_module_path],
         test_path=parquet_module_path,
         predict_path=parquet_module_path,
     )

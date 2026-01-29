@@ -1,10 +1,12 @@
 import copy
 import warnings
-from typing import Literal, Optional, get_args
+from collections.abc import Iterable
+from typing import Literal, Optional, Union, get_args
 
 import lightning as L  # noqa: N812
 import torch
 from lightning.pytorch.trainer.states import RunningStage
+from lightning.pytorch.utilities import CombinedLoader
 from typing_extensions import TypeAlias, override
 
 from replay.data.nn.parquet.constants.filesystem import DEFAULT_FILESYSTEM
@@ -53,9 +55,9 @@ class ParquetModule(L.LightningDataModule):
         config: Optional[dict] = None,
         *,
         train_path: Optional[str] = None,
-        validate_path: Optional[str] = None,
-        test_path: Optional[str] = None,
-        predict_path: Optional[str] = None,
+        validate_path: Optional[Union[str, list[str]]] = None,
+        test_path: Optional[Union[str, list[str]]] = None,
+        predict_path: Optional[Union[str, list[str]]] = None,
     ) -> None:
         """
         :param batch_size: Target batch size.
@@ -69,9 +71,9 @@ class ParquetModule(L.LightningDataModule):
             In most scenarios, the default configuration is sufficient.
         :param transforms: Dict specifying sequence of Transform modules for each data split.
         :param train_path: Path to the Parquet file containing train data split. Default: ``None``.
-        :param validate_path: Path to the Parquet file containing validation data split. Default: ``None``.
-        :param test_path: Path to the Parquet file containing testing data split. Default: ``None``.
-        :param predict_path: Path to the Parquet file containing prediction data split. Default: ``None``.
+        :param validate_path: Path to the Parquet file or files containing validation data split. Default: ``None``.
+        :param test_path: Path to the Parquet file or files containing testing data split. Default: ``None``.
+        :param predict_path: Path to the Parquet file or files containing prediction data split. Default: ``None``.
         """
         if not any([train_path, validate_path, test_path, predict_path]):
             msg = (
@@ -79,6 +81,10 @@ class ParquetModule(L.LightningDataModule):
                 "['train_path', 'val_path', 'test_path', 'predict_path], but none were provided."
             )
             raise KeyError(msg)
+
+        if train_path and not isinstance(train_path, str) and isinstance(train_path, Iterable):
+            msg = "'train_path' does not support multiple datapaths."
+            raise TypeError(msg)
 
         super().__init__()
         if config is None:
@@ -97,6 +103,7 @@ class ParquetModule(L.LightningDataModule):
         self.batch_size = batch_size
         self.config = config
 
+        self.datasets: dict[str, Union[ParquetDataset, CombinedLoader]] = {}
         self.transforms = transforms
         self.compiled_transforms = self.prepare_transforms(transforms)
 
@@ -126,13 +133,11 @@ class ParquetModule(L.LightningDataModule):
 
     @override
     def setup(self, stage):
-        self.datasets = {}
-
         for subset in get_args(TransformStage):
-            if self.datapaths.get(subset, None) is not None:
+            subset_datapaths = self.datapaths.get(subset, None)
+            if subset_datapaths is not None:
                 subset_config = self.config.get(subset, {})
-                kwargs = {
-                    "source": self.datapaths[subset],
+                shared_kwargs = {
                     "metadata": self.metadata[subset],
                     "batch_size": self.batch_size,
                     "partition_size": subset_config.get("partition_size", 2**17),
@@ -143,7 +148,11 @@ class ParquetModule(L.LightningDataModule):
                     "collate_fn": subset_config.get("collate_fn", DEFAULT_COLLATE_FN),
                 }
 
-                self.datasets[subset] = ParquetDataset(**kwargs)
+                if isinstance(subset_datapaths, list):
+                    loaders = [ParquetDataset(**{"source": path, **shared_kwargs}) for path in subset_datapaths]
+                    self.datasets[subset] = CombinedLoader(loaders, mode="sequential")
+                else:
+                    self.datasets[subset] = ParquetDataset(**{"source": subset_datapaths, **shared_kwargs})
 
     @override
     def train_dataloader(self):
