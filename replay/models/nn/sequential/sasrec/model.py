@@ -9,7 +9,7 @@ from replay.data.nn import TensorMap, TensorSchema
 
 
 @deprecated(
-    "`SasRecModel` class is deprecated. " "Use `replay.nn.sequential.SasRec` instead.",
+    "`SasRecModel` class is deprecated. Use `replay.nn.sequential.SasRec` instead.",
     stacklevel=2,
 )
 class SasRecModel(torch.nn.Module):
