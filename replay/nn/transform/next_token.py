@@ -45,7 +45,7 @@ class NextTokenTransform(torch.nn.Module):
         self,
         label_field: str,
         shift: int = 1,
-        query_features: Union[List[str], str] = "query_id",
+        query_features: Union[List[str], str] = ["query_id", "query_id_mask"],
         out_feature_name: str = "positive_labels",
         mask_postfix: str = DEFAULT_MASK_POSTFIX,
     ) -> None:
@@ -53,7 +53,8 @@ class NextTokenTransform(torch.nn.Module):
         :param label_field: Name of target feature tensor to convert into labels.
         :param shift: Number of sequence items to shift by. Default: `1`.
         :param query_features: Name of the query column or list of user features.
-            These columns will be excepted from the shifting and will be stayed unchanged. Default: ``"query_id"``.
+            These columns will be excepted from the shifting and will be stayed unchanged.
+            Default: ``["query_id", "query_id_mask"]``.
         :param out_feature_name: The name of result feature in batch. Default: ``"positive_labels"``.
         :param mask_postfix: Postfix to append to the mask feature corresponding to resulting feature.
             Default: ``"_mask"``.

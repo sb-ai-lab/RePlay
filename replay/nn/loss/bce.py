@@ -162,13 +162,20 @@ class BCESampled(SampledLossBase):
     ) -> torch.Tensor:
         """
         forward(model_embeddings, positive_labels, negative_labels, target_padding_mask)
+
         :param model_embeddings: model output of shape ``(batch_size, sequence_length, embedding_dim)``.
         :param positive_labels: labels of positive events
             of shape ``(batch_size, sequence_length, num_positives)``.
-        :param negative_labels: labels of sampled negative events of shape (num_negatives).
+        :param negative_labels: labels of sampled negative events.
+            Expected shape:
+
+                - ``(batch_size, sequence_length, num_negatives)``
+                - ``(batch_size, num_negatives)``
+                - ``(num_negatives)`` - a case where the same negative events are used for the entire batch.
         :param target_padding_mask: padding mask corresponding for ``positive_labels``
             of shape ``(batch_size, sequence_length, num_positives)``
         :return: computed loss value.
+
         """
         sampled = self.get_sampled_logits(
             model_embeddings,
