@@ -282,9 +282,9 @@ def test_duplicate_feature_schema(interactions_full_pandas_dataset: dict) -> Non
 
     assert dataset_1._feature_schema is not dataset_2._feature_schema
     assert (
-        dataset_1._feature_schema["user_id"].cardinality == 3
-        and dataset_2._feature_schema["user_id"].cardinality == 15
+        dataset_1._feature_schema["user_id"].cardinality == 3 and dataset_2._feature_schema["user_id"].cardinality == 15
     )
+
 
 @pytest.mark.core
 def test_type_pandas(interactions_full_pandas_dataset):
