@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Callable, Optional, Union
@@ -45,6 +46,7 @@ class Dataset:
     ):
         """
         :param feature_schema: mapping of columns names and feature infos.
+            All features not specified in the schema will be assumed numerical by default.
         :param interactions: dataframe with interactions.
         :param query_features: dataframe with query features,
             defaults: ```None```.
@@ -498,6 +500,15 @@ class Dataset:
                 source=FeatureSource.QUERY_FEATURES,
                 feature_schema=updated_feature_schema,
             )
+
+        if filled_features:
+            msg = (
+                "The following features are present in the dataset but have not been specified "
+                f"by the feature schema: {[(info.column, info.feature_source.value) for info in filled_features]}. "
+                "These features will be interpreted as NUMERICAL."
+            )
+            warnings.warn(msg, stacklevel=2)
+
         return FeatureSchema(features_list=features_list + filled_features)
 
     def _fill_unlabeled_features_sources(self, feature_schema: FeatureSchema) -> list[FeatureInfo]:
