@@ -8,11 +8,13 @@ import pandas as pd
 import polars as pl
 from pandas import DataFrame as PandasDataFrame
 from polars import DataFrame as PolarsDataFrame
+from typing_extensions import deprecated
 
 if TYPE_CHECKING:
     from .schema import TensorSchema
 
 
+@deprecated("`SequentialDataset` class is deprecated.", stacklevel=2)
 class SequentialDataset(abc.ABC):
     """
     Abstract base class for sequential dataset
@@ -138,6 +140,7 @@ class SequentialDataset(abc.ABC):
         return df_converted
 
 
+@deprecated("`PandasSequentialDataset` class is deprecated.")
 class PandasSequentialDataset(SequentialDataset):
     """
     Sequential dataset that stores sequences in PandasDataFrame format.
@@ -234,6 +237,7 @@ class PandasSequentialDataset(SequentialDataset):
         return dataset
 
 
+@deprecated("`PolarsSequentialDataset` class is deprecated.")
 class PolarsSequentialDataset(PandasSequentialDataset):
     """
     Sequential dataset that stores sequences in PolarsDataFrame format.
