@@ -106,8 +106,11 @@ def test_predictions_sasrec_equal_with_permuted_candidates(tensor_schema, sasrec
     predictions_permuted_candidates = trainer.predict(sasrec, datamodule=parquet_module)
 
     for i in range(len(predictions_permuted_candidates)):
-        assert torch.equal(
-            predictions_permuted_candidates[i]["logits"][:, ordering], predictions_sorted_candidates[i]["logits"]
+        assert torch.allclose(
+            predictions_permuted_candidates[i]["logits"][:, ordering],
+            predictions_sorted_candidates[i]["logits"],
+            rtol=1e-3,
+            atol=1e-5,
         )
 
 

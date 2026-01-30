@@ -10,6 +10,7 @@ import numpy as np
 import polars as pl
 from pandas import DataFrame as PandasDataFrame
 from polars import DataFrame as PolarsDataFrame
+from typing_extensions import deprecated
 
 from replay.data import Dataset, FeatureHint, FeatureSchema, FeatureSource, FeatureType
 from replay.data.dataset_utils import DatasetLabelEncoder
@@ -24,6 +25,7 @@ SequenceDataFrameLike = Union[PandasDataFrame, PolarsDataFrame]
 _T = TypeVar("_T")
 
 
+@deprecated("`SequenceTokenizer` class is deprecated.")
 class SequenceTokenizer:
     """
     Data tokenizer for transformers;
@@ -507,6 +509,7 @@ class SequenceTokenizer:
                 pickle.dump(self, file)
 
 
+@deprecated("`_BaseSequenceProcessor` class is deprecated.", stacklevel=2)
 class _BaseSequenceProcessor(Generic[_T]):
     """
     Base class for sequence processing
@@ -600,6 +603,7 @@ class _BaseSequenceProcessor(Generic[_T]):
         pass
 
 
+@deprecated("`_PandasSequenceProcessor` class is deprecated.", stacklevel=2)
 class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
     """
     Class to process sequences of different categorical and numerical features.
@@ -780,6 +784,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
         return values
 
 
+@deprecated("`_PolarsSequenceProcessor` class is deprecated.", stacklevel=2)
 class _PolarsSequenceProcessor(_BaseSequenceProcessor[PolarsDataFrame]):
     """
     Class to process sequences of different categorical and numerical features.

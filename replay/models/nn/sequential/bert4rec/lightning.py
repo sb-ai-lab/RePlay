@@ -311,7 +311,7 @@ class Bert4Rec(lightning.LightningModule):
         padding_mask: torch.BoolTensor,
         tokens_mask: torch.BoolTensor,
     ) -> torch.Tensor:
-        (positive_logits, negative_logits, *_) = self._get_sampled_logits(
+        positive_logits, negative_logits, *_ = self._get_sampled_logits(
             feature_tensors, positive_labels, padding_mask, tokens_mask
         )
 
@@ -358,7 +358,7 @@ class Bert4Rec(lightning.LightningModule):
         tokens_mask: torch.BoolTensor,
     ) -> torch.Tensor:
         assert self._loss_sample_count is not None
-        (positive_logits, negative_logits, positive_labels, negative_labels, vocab_size) = self._get_sampled_logits(
+        positive_logits, negative_logits, positive_labels, negative_labels, vocab_size = self._get_sampled_logits(
             feature_tensors, positive_labels, padding_mask, tokens_mask
         )
         n_negative_samples = min(self._loss_sample_count, vocab_size)
@@ -383,7 +383,7 @@ class Bert4Rec(lightning.LightningModule):
         padding_mask: torch.BoolTensor,
         tokens_mask: torch.BoolTensor,
     ) -> torch.Tensor:
-        (logits, labels) = self._get_restricted_logits_for_ce_loss(
+        logits, labels = self._get_restricted_logits_for_ce_loss(
             feature_tensors, positive_labels, padding_mask, tokens_mask
         )
 
