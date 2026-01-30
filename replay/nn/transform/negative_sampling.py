@@ -100,22 +100,23 @@ class MultiClassNegativeSamplingTransform(torch.nn.Module):
 
         >>> _ = torch.manual_seed(0)
         >>> sample_mask = torch.tensor([
-        ...     [1, 0, 1, 0, 0, 1],
+        ...     [1, 0, 1, 0, 0, 0],
         ...     [0, 0, 0, 1, 1, 0],
+        ...     [0, 1, 0, 0, 0, 1],
         ... ])
-        >>> input_batch = {"negative_selector": torch.tensor([0, 0, 1, 1, 0])}
+        >>> input_batch = {"negative_selector": torch.tensor([0, 2, 1, 1, 0])}
         >>> transform = MultiClassNegativeSamplingTransform(
         ...                 num_negative_samples=2,
         ...                 sample_mask=sample_mask
         ... )
         >>> output_batch = transform(input_batch)
         >>> output_batch
-        {'negative_selector': tensor([0, 0, 1, 1, 0]),
-         'negative_labels': tensor([[2, 5],
-                 [2, 5],
+        {'negative_selector': tensor([0, 2, 1, 1, 0]),
+         'negative_labels': tensor([[2, 0],
+                 [5, 1],
                  [3, 4],
                  [3, 4],
-                 [2, 5]])}
+                 [2, 0]])}
     """
 
     def __init__(

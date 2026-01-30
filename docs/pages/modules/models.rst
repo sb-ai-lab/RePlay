@@ -27,6 +27,7 @@ ___________________
     "Neural Matrix Factorization (Experimental)", "Python CPU/GPU"
     "Bert4Rec", "Python CPU/GPU"
     "SasRec", "Python CPU/GPU"
+    "TwoTower", "Python CPU/GPU"
     "MultVAE (Experimental)", "Python CPU/GPU"
     "DDPG (Experimental)", "Python CPU"
     "DT4Rec (Experimental)", "Python CPU/GPU"
@@ -39,6 +40,20 @@ ___________________
     "Hierarchical Recommender (Experimental)", "PySpark"
 
 To get more info on how to choose base model, please see this  :doc:`page </pages/useful_data/algorithm_selection>`.
+
+
+Redesigned Neural Networks recommenders
+_______________________________________
+Neural network models follow a **block-based architecture**, where:
+
+    - Models receive pre-built component instances instead of raw configuration parameters
+    - Core components (losses, embedders, heads, etc.) are implemented as reusable modules
+    - A single unified Lightning wrapper is shared across all models
+
+..  toctree::
+    :caption: Contents:
+
+    redesigned_nn_models
 
 
 Neural Networks recommenders
