@@ -125,11 +125,17 @@ class SequentialDataset(abc.ABC):
 
     @staticmethod
     def _convert_array_to_list(df):
-        return df.map(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+        df_converted = pd.DataFrame()
+        for feature in df.columns:
+            df_converted[feature] = df[feature].map(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+        return df_converted
 
     @staticmethod
     def _convert_list_to_array(df):
-        return df.map(lambda x: np.array(x) if isinstance(x, list) else x)
+        df_converted = pd.DataFrame()
+        for feature in df.columns:
+            df_converted[feature] = df[feature].map(lambda x: np.array(x) if isinstance(x, list) else x)
+        return df_converted
 
 
 class PandasSequentialDataset(SequentialDataset):
