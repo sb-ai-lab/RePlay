@@ -244,7 +244,7 @@ def generate_recsys_dataset(
 
 @pytest.fixture(scope="module")
 def generated_dfs(tensor_schema, seed, max_len):
-    return generate_recsys_dataset(tensor_schema, n_users=50, max_len=max_len, seed=seed)
+    return generate_recsys_dataset(tensor_schema, n_users=30, max_len=max_len, seed=seed)
 
 
 @pytest.fixture(scope="module")

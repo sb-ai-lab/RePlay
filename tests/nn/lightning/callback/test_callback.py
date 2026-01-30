@@ -109,25 +109,26 @@ def test_validation_callbacks(
     metrics,
     postprocessor,
 ):
-    cardinality = tensor_schema["item_id"].cardinality - 1
+    cardinality = tensor_schema["item_id"].cardinality
 
     callback = ComputeMetricsCallback(
         metrics=metrics,
         ks=[1],
         item_count=cardinality,
         postprocessors=(
-            [postprocessor(item_count=cardinality - 1, seen_items_column="seen_ids")] if postprocessor else None
+            [postprocessor(item_count=cardinality, seen_items_column="seen_ids")] if postprocessor else None
         ),
     )
     model = LightningModule(sasrec_model)
 
-    trainer = L.Trainer(max_epochs=1, callbacks=[callback], log_every_n_steps=4)
+    trainer = L.Trainer(max_epochs=1, callbacks=[callback])
     trainer.fit(model, datamodule=parquet_module)
 
     for metric in metrics:
         assert any(key.startswith(metric) for key in trainer.callback_metrics.keys())
 
-    trainer = L.Trainer(callbacks=[callback])
+    trainer = L.Trainer(callbacks=[callback], inference_mode=True)
+    model.eval()
     trainer.test(model, datamodule=parquet_module)
 
     for metric in metrics:

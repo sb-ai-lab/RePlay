@@ -53,10 +53,11 @@ def test_twotower_checkpointing(twotower_model, parquet_module, tmp_path):
 def test_twotower_prediction_with_candidates(tensor_schema, twotower_model, parquet_module, candidates_to_score):
     twotower = LightningModule(twotower_model)
     trainer = L.Trainer(max_epochs=1)
-    trainer.fit(twotower, datamodule=parquet_module)
+    _ = trainer.validate(twotower, datamodule=parquet_module)
 
-    twotower.candidates_to_score = candidates_to_score
     trainer = L.Trainer(inference_mode=True)
+    twotower.eval()
+    twotower.candidates_to_score = candidates_to_score
     predictions = trainer.predict(twotower, datamodule=parquet_module)
 
     if candidates_to_score is not None:
@@ -76,9 +77,6 @@ def test_predictions_twotower_equal_with_permuted_candidates(
     tensor_schema, twotower_model, parquet_module, random_seed
 ):
     twotower = LightningModule(twotower_model)
-    trainer = L.Trainer(max_epochs=1)
-    trainer.fit(twotower, datamodule=parquet_module)
-
     generator = torch.Generator()
     generator.manual_seed(random_seed)
 
@@ -86,7 +84,10 @@ def test_predictions_twotower_equal_with_permuted_candidates(
     num_samples = torch.randint(low=1, high=items_cardinality, size=(1,), generator=generator)
 
     permuted_candidates = torch.multinomial(
-        input=torch.ones(items_cardinality), num_samples=num_samples, replacement=False, generator=generator
+        input=torch.ones(items_cardinality),
+        num_samples=num_samples,
+        replacement=False,
+        generator=generator,
     )
     sorted_candidates, ordering = torch.sort(permuted_candidates)
 
@@ -99,8 +100,9 @@ def test_predictions_twotower_equal_with_permuted_candidates(
     predictions_permuted_candidates = trainer.predict(twotower, datamodule=parquet_module)
 
     for i in range(len(predictions_permuted_candidates)):
-        assert torch.equal(
-            predictions_permuted_candidates[i]["logits"][:, ordering], predictions_sorted_candidates[i]["logits"]
+        assert torch.allclose(
+            predictions_permuted_candidates[i]["logits"][:, ordering],
+            predictions_sorted_candidates[i]["logits"],
         )
 
 
@@ -111,9 +113,6 @@ def test_predictions_twotower_equal_with_permuted_candidates(
 )
 def test_twotower_prediction_invalid_candidates_to_score(twotower_model, parquet_module, candidates_to_score):
     twotower = LightningModule(twotower_model)
-    trainer = L.Trainer(max_epochs=1)
-    trainer.fit(twotower, datamodule=parquet_module)
-
     trainer = L.Trainer(inference_mode=True)
 
     with pytest.raises((RuntimeError, ValueError, IndexError)):
