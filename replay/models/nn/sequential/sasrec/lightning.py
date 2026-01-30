@@ -314,7 +314,7 @@ class SasRec(lightning.LightningModule):
         padding_mask: torch.BoolTensor,
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
-        (positive_logits, negative_logits, *_) = self._get_sampled_logits(
+        positive_logits, negative_logits, *_ = self._get_sampled_logits(
             feature_tensors, positive_labels, padding_mask, target_padding_mask
         )
 
@@ -362,7 +362,7 @@ class SasRec(lightning.LightningModule):
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
         assert self._loss_sample_count is not None
-        (positive_logits, negative_logits, positive_labels, negative_labels, vocab_size) = self._get_sampled_logits(
+        positive_logits, negative_logits, positive_labels, negative_labels, vocab_size = self._get_sampled_logits(
             feature_tensors, positive_labels, padding_mask, target_padding_mask
         )
         n_negative_samples = min(self._loss_sample_count, vocab_size)

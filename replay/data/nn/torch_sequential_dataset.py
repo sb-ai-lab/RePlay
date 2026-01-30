@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, NamedTuple, Optional, Union, cast
 import numpy as np
 import torch
 from torch.utils.data import Dataset as TorchDataset
+from typing_extensions import deprecated
 
 if TYPE_CHECKING:
     from .schema import TensorFeatureInfo, TensorMap, TensorSchema
@@ -13,6 +14,7 @@ if TYPE_CHECKING:
 
 # We do not use dataclasses as PyTorch default collate
 # function in dataloader supports only namedtuple
+@deprecated("`TorchSequentialBatch` class is deprecated.", stacklevel=2)
 class TorchSequentialBatch(NamedTuple):
     """
     Batch of TorchSequentialDataset
@@ -23,6 +25,7 @@ class TorchSequentialBatch(NamedTuple):
     features: "TensorMap"
 
 
+@deprecated("`TorchSequentialDataset` class is deprecated.")
 class TorchSequentialDataset(TorchDataset):
     """
     Torch dataset for sequential recommender models
@@ -160,6 +163,7 @@ class TorchSequentialDataset(TorchDataset):
                 yield (i, offset_from_seq_beginning)
 
 
+@deprecated("`TorchSequentialValidationBatch` class is deprecated.", stacklevel=2)
 class TorchSequentialValidationBatch(NamedTuple):
     """
     Batch of TorchSequentialValidationDataset
@@ -176,6 +180,7 @@ DEFAULT_GROUND_TRUTH_PADDING_VALUE = -1
 DEFAULT_TRAIN_PADDING_VALUE = -2
 
 
+@deprecated("`TorchSequentialValidationDataset` class is deprecated.")
 class TorchSequentialValidationDataset(TorchDataset):
     """
     Torch dataset for sequential recommender models that additionally stores ground truth

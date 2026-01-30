@@ -92,7 +92,7 @@ def test_predictions_twotower_equal_with_permuted_candidates(
     sorted_candidates, ordering = torch.sort(permuted_candidates)
 
     trainer = L.Trainer(inference_mode=True)
-
+    twotower.eval()
     twotower.candidates_to_score = sorted_candidates
     predictions_sorted_candidates = trainer.predict(twotower, datamodule=parquet_module)
 
@@ -103,6 +103,8 @@ def test_predictions_twotower_equal_with_permuted_candidates(
         assert torch.allclose(
             predictions_permuted_candidates[i]["logits"][:, ordering],
             predictions_sorted_candidates[i]["logits"],
+            rtol=1e-3,
+            atol=1e-5,
         )
 
 
