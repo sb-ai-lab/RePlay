@@ -65,12 +65,12 @@ If you are installing from the source, you will need Python 3.8.1-3.11.
 3. Install RePlay:
 
     ```bash
-    pip install poetry==2.1.3
+    pip install poetry==2.2.1
     ./poetry_wrapper.sh sync -E spark -E torch-cpu
     ```
     **If you need to install Replay with the experimental submodule**:
     ```bash
-    pip install poetry==2.1.3
+    pip install poetry==2.2.1
     ./poetry_wrapper.sh --experimental sync
     ```
     After that, there is an environment, where you can test and implement your own code.
