@@ -26,11 +26,11 @@ jobs:
 
       - name: Install experimental package
         run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
           ./poetry_wrapper.sh --experimental --generate
           eval $(poetry env activate)
           poetry cache clear PyPI --all
-          poetry sync
+          poetry sync --no-cache
 
       - name: Build Experimental
         run: |
@@ -59,11 +59,11 @@ jobs:
 
       - name: Install production package
         run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry cache clear PyPI --all
-          poetry sync -E torch -E spark
+          poetry sync -E torch -E spark --no-cache
 
       - name: Build Production
         run: |
