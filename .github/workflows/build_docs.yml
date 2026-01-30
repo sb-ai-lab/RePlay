@@ -22,7 +22,7 @@ jobs:
           python-version: "3.9"
       - name: Install full package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning
           poetry cache clear PyPI --all
           ./poetry_wrapper.sh --experimental --generate
           eval $(poetry env activate)

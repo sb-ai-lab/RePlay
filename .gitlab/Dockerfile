@@ -11,4 +11,4 @@ RUN update-alternatives --install /usr/bin/java java /usr/local/openjdk-11/bin/j
 
 WORKDIR /root
 
-RUN pip install --no-cache-dir --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+RUN pip install --no-cache-dir --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning

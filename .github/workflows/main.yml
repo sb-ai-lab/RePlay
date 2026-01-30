@@ -24,7 +24,7 @@ jobs:
           python-version: "3.9"
       - name: Install full package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry cache clear PyPI --all
@@ -60,7 +60,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install core package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3
+          pip install --upgrade pip wheel poetry==2.2.1
           ./poetry_wrapper.sh sync
       - name: pytest
         run: |
@@ -88,7 +88,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install conditional package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning
           ./poetry_wrapper.sh --experimental --generate
           eval $(poetry env activate)
           poetry sync
@@ -119,7 +119,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install torch package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry sync -E torch
@@ -147,7 +147,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install spark package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry sync -E spark
@@ -175,7 +175,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install full package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry sync -E spark -E torch
@@ -203,7 +203,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install experimental package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning
           ./poetry_wrapper.sh --experimental --generate
           eval $(poetry env activate)
           poetry sync
@@ -232,7 +232,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install full package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry sync -E spark -E torch
@@ -260,7 +260,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install only dev package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry sync --only dev
@@ -287,7 +287,7 @@ jobs:
           python-version: "3.9"
       - name: Install production package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry sync -E torch -E spark
@@ -308,7 +308,7 @@ jobs:
           python-version: "3.9"
       - name: Install full package
         run: |
-          pip install --upgrade pip wheel poetry==2.1.3 poetry-dynamic-versioning
+          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning
           ./poetry_wrapper.sh --generate --experimental
           eval $(poetry env activate)
           poetry sync --with dev

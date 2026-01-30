@@ -193,7 +193,7 @@ pip install optuna
 
 2) Model compilation via OpenVINO:
 ```bash
-pip install openvino onnx
+pip install openvino onnx onnxscript
 ```
 
 3) Vector database and hierarchical search support:
