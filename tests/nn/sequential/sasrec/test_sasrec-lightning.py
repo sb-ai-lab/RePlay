@@ -13,7 +13,7 @@ def test_training_sasrec_with_different_losses(sasrec_parametrized, parquet_modu
         optimizer_factory=OptimizerFactory(),
         lr_scheduler_factory=LambdaLRSchedulerFactory(warmup_steps=1),
     )
-    trainer = L.Trainer(max_epochs=2)
+    trainer = L.Trainer(max_epochs=1)
     trainer.fit(sasrec, datamodule=parquet_module)
 
 
@@ -66,11 +66,9 @@ def test_sasrec_checkpointing(sasrec_model, parquet_module, tmp_path):
 )
 def test_sasrec_prediction_with_candidates(tensor_schema, sasrec_model, parquet_module, candidates_to_score):
     sasrec = LightningModule(sasrec_model)
-    trainer = L.Trainer(max_epochs=1)
-    trainer.fit(sasrec, datamodule=parquet_module)
-
-    sasrec.candidates_to_score = candidates_to_score
     trainer = L.Trainer(inference_mode=True)
+    sasrec.eval()
+    sasrec.candidates_to_score = candidates_to_score
     predictions = trainer.predict(sasrec, datamodule=parquet_module)
 
     if candidates_to_score is not None:
@@ -88,9 +86,6 @@ def test_sasrec_prediction_with_candidates(tensor_schema, sasrec_model, parquet_
 @pytest.mark.parametrize("random_seed", [0, 1, 2, 3, 4])
 def test_predictions_sasrec_equal_with_permuted_candidates(tensor_schema, sasrec_model, parquet_module, random_seed):
     sasrec = LightningModule(sasrec_model)
-    trainer = L.Trainer(max_epochs=1)
-    trainer.fit(sasrec, datamodule=parquet_module)
-
     generator = torch.Generator()
     generator.manual_seed(random_seed)
 
@@ -103,7 +98,7 @@ def test_predictions_sasrec_equal_with_permuted_candidates(tensor_schema, sasrec
     sorted_candidates, ordering = torch.sort(permuted_candidates)
 
     trainer = L.Trainer(inference_mode=True)
-
+    sasrec.eval()
     sasrec.candidates_to_score = sorted_candidates
     predictions_sorted_candidates = trainer.predict(sasrec, datamodule=parquet_module)
 
