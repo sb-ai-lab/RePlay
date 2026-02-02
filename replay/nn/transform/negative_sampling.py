@@ -101,8 +101,10 @@ class FrequencyNegativeSamplingTransform(torch.nn.Module):
     Transform for global negative sampling.
 
     For every batch, transform generates a vector of size ``(num_negative_samples)``
-    consisting of random indices sampeled from a range of ``cardinality``. Unless a custom sample
-    distribution is provided, the indices are weighted equally.
+    consisting of random indices sampeled from a range of ``cardinality``.
+
+    Indices frequency will be computed and their sampling will be done
+    according to their respective frequencies.
 
     Example:
 
@@ -110,7 +112,7 @@ class FrequencyNegativeSamplingTransform(torch.nn.Module):
 
         >>> _ = torch.manual_seed(0)
         >>> input_batch = {"item_id": torch.LongTensor([[1, 0, 4]])}
-        >>> transform = UniformNegativeSamplingTransform(cardinality=4, num_negative_samples=2)
+        >>> transform = FrequencyNegativeSamplingTransform(cardinality=4, num_negative_samples=2)
         >>> output_batch = transform(input_batch)
         >>> output_batch
         {'item_id': tensor([[1, 0, 4]]), 'negative_labels': tensor([2, 1])}
@@ -130,10 +132,10 @@ class FrequencyNegativeSamplingTransform(torch.nn.Module):
         :param cardinality: The size of sample vocabulary.
         :param num_negative_samples: The size of negatives vector to generate.
         :param out_feature_name: The name of result feature in batch.
-        :param sample_distribution: The weighs of indices in the vocabulary. If specified, must
-                match the ``cardinality``. Default: ``None``.
         :param generator: Random number generator to be used for sampling
                 from the distribution. Default: ``None``.
+        :param mode: Mode of frequency-based samping for undersampled items.
+            Default: ``softmax``.
         """
         assert num_negative_samples < cardinality
 
@@ -187,8 +189,10 @@ class ThresholdNegativeSamplingTransform(torch.nn.Module):
     Transform for global negative sampling.
 
     For every batch, transform generates a vector of size ``(num_negative_samples)``
-    consisting of random indices sampeled from a range of ``cardinality``. Unless a custom sample
-    distribution is provided, the indices are weighted equally.
+    consisting of random indices sampeled from a range of ``cardinality``.
+
+    Indices that are oversampled at this point will be ignored, while
+    other samples will be chosen according to their respective frequency.
 
     Example:
 
@@ -196,7 +200,7 @@ class ThresholdNegativeSamplingTransform(torch.nn.Module):
 
         >>> _ = torch.manual_seed(0)
         >>> input_batch = {"item_id": torch.LongTensor([[1, 0, 4]])}
-        >>> transform = UniformNegativeSamplingTransform(cardinality=4, num_negative_samples=2)
+        >>> transform = ThresholdNegativeSamplingTransform(cardinality=4, num_negative_samples=2)
         >>> output_batch = transform(input_batch)
         >>> output_batch
         {'item_id': tensor([[1, 0, 4]]), 'negative_labels': tensor([2, 1])}
@@ -216,10 +220,10 @@ class ThresholdNegativeSamplingTransform(torch.nn.Module):
         :param cardinality: The size of sample vocabulary.
         :param num_negative_samples: The size of negatives vector to generate.
         :param out_feature_name: The name of result feature in batch.
-        :param sample_distribution: The weighs of indices in the vocabulary. If specified, must
-                match the ``cardinality``. Default: ``None``.
         :param generator: Random number generator to be used for sampling
                 from the distribution. Default: ``None``.
+        :param mode: Mode of frequency-based samping for undersampled items.
+            Default: ``softmax``.
         """
         assert num_negative_samples < cardinality
 
