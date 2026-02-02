@@ -1,6 +1,14 @@
 from .copy import CopyTransform
 from .grouping import GroupTransform
+<<<<<<< HEAD
 from .negative_sampling import MultiClassNegativeSamplingTransform, UniformNegativeSamplingTransform
+=======
+from .negative_sampling import (
+    UniformNegativeSamplingTransform, 
+    FrequencyNegativeSamplingTransform,
+    ThresholdNegativeSamplingTransform,
+)
+>>>>>>> 36b25601 (Gitignore updated to recent examples)
 from .next_token import NextTokenTransform
 from .rename import RenameTransform
 from .reshape import UnsqueezeTransform
@@ -18,5 +26,7 @@ __all__ = [
     "TokenMaskTransform",
     "TrimTransform",
     "UniformNegativeSamplingTransform",
+    "FrequencyNegativeSamplingTransform",
+    "ThresholdNegativeSamplingTransform",
     "UnsqueezeTransform",
 ]
