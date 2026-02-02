@@ -1,9 +1,8 @@
-from typing import Optional, Literal, cast
+import warnings
+from typing import Literal, Optional, cast
 
 import torch
 import torch.nn.functional as func
-
-import warnings
 
 
 class UniformNegativeSamplingTransform(torch.nn.Module):
@@ -73,11 +72,7 @@ class UniformNegativeSamplingTransform(torch.nn.Module):
         self.out_feature_name = out_feature_name
         self.num_negative_samples = num_negative_samples
         self.generator = generator
-        if sample_distribution is not None:
-            sample_distribution = sample_distribution
-        else:
-            sample_distribution = torch.ones(cardinality)
-        
+        sample_distribution = sample_distribution if sample_distribution is not None else torch.ones(cardinality)
         self.sample_distribution = torch.nn.Buffer(
             cast(torch.Tensor, sample_distribution)
         )
@@ -153,16 +148,15 @@ class FrequencyNegativeSamplingTransform(torch.nn.Module):
 
     def get_probas(self) -> torch.Tensor:
         raw: torch.Tensor = 1.0 / (1.0 + self.frequencies)
-        match self.mode:
-            case "softsum":
-                result: torch.Tensor = raw / torch.sum(raw)
-            case "softmax":
+        if self.mode == "softsum":
+            result: torch.Tensor = raw / torch.sum(raw)
+        elif self.mode == "softmax":
                 result: torch.Tensor = func.softmax(raw, dim = -1)
-            case _:
-                msg: str = f"Unsupported mode: {self.mode}."
-                raise TypeError(msg)
+        else:
+            msg: str = f"Unsupported mode: {self.mode}."
+            raise TypeError(msg)
         return result
-    
+
     def update_probas(self, selected: torch.Tensor) -> None:
         device = self.frequencies.device
         one = torch.ones(1, dtype = torch.int64, device = device)
@@ -243,20 +237,19 @@ class ThresholdNegativeSamplingTransform(torch.nn.Module):
         raw: torch.Tensor = 1.0 / (1.0 + self.frequencies)
         thr: torch.Tensor = torch.max(self.frequencies)
         mask: torch.Tensor = thr != self.frequencies
-        match self.mode:
-            case "softsum":
-                eps = torch.finfo(raw.dtype).eps
-                raw = torch.where(mask, raw, eps)
-                result: torch.Tensor = raw / torch.sum(raw)
-            case "softmax":
-                inf = torch.finfo(raw.dtype).min
-                raw = torch.where(mask, raw, inf)
-                result: torch.Tensor = func.softmax(raw, dim = -1)
-            case _:
-                msg: str = f"Unsupported mode: {self.mode}."
-                raise TypeError(msg)
+        if self.mode == "softsum":
+            eps = torch.finfo(raw.dtype).eps
+            raw = torch.where(mask, raw, eps)
+            result: torch.Tensor = raw / torch.sum(raw)
+        elif self.mode == "softmax":
+            inf = torch.finfo(raw.dtype).min
+            raw = torch.where(mask, raw, inf)
+            result: torch.Tensor = func.softmax(raw, dim = -1)
+        else:
+            msg: str = f"Unsupported mode: {self.mode}."
+            raise TypeError(msg)
         return result
-    
+
     def update_probas(self, selected: torch.Tensor) -> None:
         device = self.frequencies.device
         one = torch.ones(1, dtype = torch.int64, device = device)
