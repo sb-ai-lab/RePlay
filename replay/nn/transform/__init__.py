@@ -1,8 +1,8 @@
 from .copy import CopyTransform
 from .grouping import GroupTransform
 from .negative_sampling import (
-    MultiClassNegativeSamplingTransform,
     FrequencyNegativeSamplingTransform,
+    MultiClassNegativeSamplingTransform,
     ThresholdNegativeSamplingTransform,
     UniformNegativeSamplingTransform,
 )

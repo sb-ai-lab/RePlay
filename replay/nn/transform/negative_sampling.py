@@ -48,8 +48,7 @@ class UniformNegativeSamplingTransform(torch.nn.Module):
         if sample_distribution is not None:
             if sample_distribution.ndim != 1:
                 msg: str = (
-                    "The `sample_distribution` parameter must be 1D."
-                    f"Got {sample_distribution.ndim}, will be flattened."
+                    f"The `sample_distribution` parameter must be 1D.Got {sample_distribution.ndim}, will be flattened."
                 )
                 warnings.warn(msg)
                 sample_distribution = sample_distribution.flatten()
@@ -73,9 +72,7 @@ class UniformNegativeSamplingTransform(torch.nn.Module):
         self.num_negative_samples = num_negative_samples
         self.generator = generator
         sample_distribution = sample_distribution if sample_distribution is not None else torch.ones(cardinality)
-        self.sample_distribution = torch.nn.Buffer(
-            cast(torch.Tensor, sample_distribution)
-        )
+        self.sample_distribution = torch.nn.Buffer(cast(torch.Tensor, sample_distribution))
 
     def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         output_batch = dict(batch.items())
@@ -90,6 +87,7 @@ class UniformNegativeSamplingTransform(torch.nn.Module):
         device = next(iter(output_batch.values())).device
         output_batch[self.out_feature_name] = negatives.to(device)
         return output_batch
+
 
 class FrequencyNegativeSamplingTransform(torch.nn.Module):
     """
@@ -142,16 +140,14 @@ class FrequencyNegativeSamplingTransform(torch.nn.Module):
         self.generator = generator
         self.mode = mode
 
-        self.frequencies = torch.nn.Buffer(
-            torch.zeros(cardinality, dtype = torch.int64)
-        )
+        self.frequencies = torch.nn.Buffer(torch.zeros(cardinality, dtype=torch.int64))
 
     def get_probas(self) -> torch.Tensor:
         raw: torch.Tensor = 1.0 / (1.0 + self.frequencies)
         if self.mode == "softsum":
             result: torch.Tensor = raw / torch.sum(raw)
         elif self.mode == "softmax":
-                result: torch.Tensor = func.softmax(raw, dim = -1)
+            result: torch.Tensor = func.softmax(raw, dim=-1)
         else:
             msg: str = f"Unsupported mode: {self.mode}."
             raise TypeError(msg)
@@ -159,14 +155,14 @@ class FrequencyNegativeSamplingTransform(torch.nn.Module):
 
     def update_probas(self, selected: torch.Tensor) -> None:
         device = self.frequencies.device
-        one = torch.ones(1, dtype = torch.int64, device = device)
+        one = torch.ones(1, dtype=torch.int64, device=device)
         self.frequencies.index_add_(-1, selected, one.expand(selected.numel()))
 
     def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         output_batch = dict(batch.items())
 
         negatives = torch.multinomial(
-            input = self.get_probas(),
+            input=self.get_probas(),
             num_samples=self.num_negative_samples,
             replacement=False,
             generator=self.generator,
@@ -177,6 +173,7 @@ class FrequencyNegativeSamplingTransform(torch.nn.Module):
         device = next(iter(output_batch.values())).device
         output_batch[self.out_feature_name] = negatives.to(device)
         return output_batch
+
 
 class ThresholdNegativeSamplingTransform(torch.nn.Module):
     """
@@ -229,9 +226,7 @@ class ThresholdNegativeSamplingTransform(torch.nn.Module):
         self.generator = generator
         self.mode = mode
 
-        self.frequencies = torch.nn.Buffer(
-            torch.zeros(cardinality, dtype = torch.int64)
-        )
+        self.frequencies = torch.nn.Buffer(torch.zeros(cardinality, dtype=torch.int64))
 
     def get_probas(self) -> torch.Tensor:
         raw: torch.Tensor = 1.0 / (1.0 + self.frequencies)
@@ -244,7 +239,7 @@ class ThresholdNegativeSamplingTransform(torch.nn.Module):
         elif self.mode == "softmax":
             inf = torch.finfo(raw.dtype).min
             raw = torch.where(mask, raw, inf)
-            result: torch.Tensor = func.softmax(raw, dim = -1)
+            result: torch.Tensor = func.softmax(raw, dim=-1)
         else:
             msg: str = f"Unsupported mode: {self.mode}."
             raise TypeError(msg)
@@ -252,14 +247,14 @@ class ThresholdNegativeSamplingTransform(torch.nn.Module):
 
     def update_probas(self, selected: torch.Tensor) -> None:
         device = self.frequencies.device
-        one = torch.ones(1, dtype = torch.int64, device = device)
+        one = torch.ones(1, dtype=torch.int64, device=device)
         self.frequencies.index_add_(-1, selected, one.expand(selected.numel()))
 
     def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         output_batch = dict(batch.items())
 
         negatives = torch.multinomial(
-            input = self.get_probas(),
+            input=self.get_probas(),
             num_samples=self.num_negative_samples,
             replacement=False,
             generator=self.generator,
@@ -344,9 +339,7 @@ class MultiClassNegativeSamplingTransform(torch.nn.Module):
 
         super().__init__()
 
-        self.sample_mask = torch.nn.Buffer(
-            sample_mask.float()
-        )
+        self.sample_mask = torch.nn.Buffer(sample_mask.float())
 
         self.num_negative_samples = num_negative_samples
         self.negative_selector_name = negative_selector_name
