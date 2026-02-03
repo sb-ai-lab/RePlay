@@ -4,6 +4,8 @@ import torch
 
 from replay.data.nn import TensorMap
 
+LogitsCallback = Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]
+
 
 class LossProto(Protocol):
     """Class-protocol for working with losses inside models"""
@@ -11,10 +13,10 @@ class LossProto(Protocol):
     @property
     def logits_callback(
         self,
-    ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]: ...
+    ) -> LogitsCallback: ...
 
     @logits_callback.setter
-    def logits_callback(self, func: Optional[Callable]) -> None: ...
+    def logits_callback(self, func: LogitsCallback) -> None: ...
 
     def forward(
         self,
