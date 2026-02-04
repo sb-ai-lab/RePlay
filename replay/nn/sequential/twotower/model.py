@@ -661,6 +661,7 @@ class TwoTower(torch.nn.Module):
                 positive_labels=positive_labels,
                 negative_labels=negative_labels,
                 target_padding_mask=target_padding_mask,
+                return_info=return_info,
             )
 
         all(

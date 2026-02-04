@@ -54,7 +54,7 @@ class CE(torch.nn.Module):
         negative_labels: torch.LongTensor,  # noqa: ARG002
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
-        return_info: bool = False
+        return_info: bool = False,
     ) -> LossOutput:
         """
         forward(model_embeddings, positive_labels, target_padding_mask)
@@ -79,7 +79,7 @@ class CE(torch.nn.Module):
         # [batch_size, seq_len, 1] -> [batch_size * seq_len]
         labels_flat: torch.LongTensor = labels.view(-1)
         loss = self._loss(logits_flat, labels_flat)
-        
+
         if return_info:
             return (loss, {"CE": loss.detach()})
         else:
