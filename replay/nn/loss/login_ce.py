@@ -4,7 +4,7 @@ import torch
 
 from replay.data.nn import TensorMap
 
-from .base import SampledLossBase, mask_negative_logits
+from .base import LossOutput, SampledLossBase, mask_negative_logits
 
 
 class LogInCESampledOutput(TypedDict):
@@ -174,7 +174,8 @@ class LogInCE(LogInCEBase):
         negative_labels: torch.LongTensor,  # noqa: ARG002
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
-    ) -> torch.Tensor:
+        return_info: bool = False,
+    ) -> LossOutput:
         """
         forward(model_embeddings, positive_labels, target_padding_mask)
         **Note**: At forward pass, the whole catalog of items is used as negatives.
@@ -235,7 +236,12 @@ class LogInCE(LogInCEBase):
             -self.clamp_border,
             self.clamp_border,
         )
-        return loss.mean()
+        loss = loss.mean()
+
+        if return_info:
+            return (loss, {"LogInCE": loss.detach()})
+        else:
+            return (loss, None)
 
 
 class LogInCESampled(LogInCEBase):
@@ -310,7 +316,8 @@ class LogInCESampled(LogInCEBase):
         negative_labels: torch.LongTensor,
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
-    ) -> torch.Tensor:
+        return_info: bool = False,
+    ) -> LossOutput:
         """
         forward(model_embeddings, positive_labels, negative_labels, target_padding_mask)
 
@@ -370,4 +377,9 @@ class LogInCESampled(LogInCEBase):
             -self.clamp_border,
             self.clamp_border,
         )
-        return loss.mean()
+        loss = loss.mean()
+
+        if return_info:
+            return (loss, {"LogInCESampled": loss.detach()})
+        else:
+            return (loss, None)

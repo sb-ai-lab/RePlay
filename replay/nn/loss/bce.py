@@ -4,7 +4,7 @@ import torch
 
 from replay.data.nn import TensorMap
 
-from .base import SampledLossBase, mask_negative_logits
+from .base import LogitsCallback, LossOutput, SampledLossBase, mask_negative_logits
 
 
 class BCE(torch.nn.Module):
@@ -28,7 +28,7 @@ class BCE(torch.nn.Module):
     @property
     def logits_callback(
         self,
-    ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+    ) -> LogitsCallback:
         """
         Property for calling a function for the logits computation.\n
 
@@ -46,7 +46,7 @@ class BCE(torch.nn.Module):
         return self._logits_callback
 
     @logits_callback.setter
-    def logits_callback(self, func: Optional[Callable]) -> None:
+    def logits_callback(self, func: LogitsCallback) -> None:
         self._logits_callback = func
 
     def forward(
@@ -57,7 +57,8 @@ class BCE(torch.nn.Module):
         negative_labels: torch.LongTensor,  # noqa: ARG002
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
-    ) -> torch.Tensor:
+        return_info: bool = False,
+    ) -> LossOutput:
         """
         forward(model_embeddings, positive_labels, target_padding_mask)
         :param model_embeddings: model output of shape ``(batch_size, sequence_length, embedding_dim)``.
@@ -92,7 +93,11 @@ class BCE(torch.nn.Module):
         )
 
         loss = self._loss(logits, bce_labels) / logits.size(0)
-        return loss
+
+        if return_info:
+            return (loss, {"BCE": loss.detach()})
+        else:
+            return (loss, None)
 
 
 class BCESampled(SampledLossBase):
@@ -159,7 +164,8 @@ class BCESampled(SampledLossBase):
         negative_labels: torch.LongTensor,
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
-    ) -> torch.Tensor:
+        return_info: bool = False,
+    ) -> LossOutput:
         """
         forward(model_embeddings, positive_labels, negative_labels, target_padding_mask)
 
@@ -213,4 +219,7 @@ class BCESampled(SampledLossBase):
         loss = -(positive_loss + negative_loss)
         loss /= positive_logits.size(0)
 
-        return loss
+        if return_info:
+            return (loss, {"BCESampled": loss.detach()})
+        else:
+            return (loss, None)

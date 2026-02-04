@@ -4,7 +4,7 @@ import torch
 
 from replay.data.nn import TensorMap
 
-from .base import SampledLossBase, mask_negative_logits
+from .base import LogitsCallback, LossOutput, SampledLossBase, mask_negative_logits
 
 
 class CE(torch.nn.Module):
@@ -20,12 +20,12 @@ class CE(torch.nn.Module):
         """
         super().__init__()
         self._loss = torch.nn.CrossEntropyLoss(**kwargs)
-        self._logits_callback = None
+        self._logits_callback: LogitsCallback | None = None
 
     @property
     def logits_callback(
         self,
-    ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+    ) -> LossOutput:
         """
         Property for calling a function for the logits computation.\n
 
@@ -43,7 +43,7 @@ class CE(torch.nn.Module):
         return self._logits_callback
 
     @logits_callback.setter
-    def logits_callback(self, func: Optional[Callable]) -> None:
+    def logits_callback(self, func: LossOutput) -> None:
         self._logits_callback = func
 
     def forward(
@@ -54,7 +54,8 @@ class CE(torch.nn.Module):
         negative_labels: torch.LongTensor,  # noqa: ARG002
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
-    ) -> torch.Tensor:
+        return_info: bool = False
+    ) -> LossOutput:
         """
         forward(model_embeddings, positive_labels, target_padding_mask)
         :param model_embeddings: model output of shape ``(batch_size, sequence_length, embedding_dim)``.
@@ -78,7 +79,11 @@ class CE(torch.nn.Module):
         # [batch_size, seq_len, 1] -> [batch_size * seq_len]
         labels_flat: torch.LongTensor = labels.view(-1)
         loss = self._loss(logits_flat, labels_flat)
-        return loss
+        
+        if return_info:
+            return (loss, {"CE": loss.detach()})
+        else:
+            return (loss, None)
 
 
 class CEWeighted(CE):
@@ -116,7 +121,8 @@ class CEWeighted(CE):
         negative_labels: torch.LongTensor,  # noqa: ARG002
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
-    ) -> torch.Tensor:
+        return_info: bool = False,
+    ) -> LossOutput:
         """
         forward(model_embeddings, feature_tensors, positive_labels, target_padding_mask)
         :param feature_tensors: a dictionary of tensors from dataloader.
@@ -140,7 +146,11 @@ class CEWeighted(CE):
         )
         sample_weight = feature_tensors[self.feature_name]
         loss = (loss * sample_weight).mean()
-        return loss
+
+        if return_info:
+            return (loss, {"CEWeighted": loss.detach()})
+        else:
+            return (loss, None)
 
 
 class CESampled(SampledLossBase):
@@ -170,7 +180,7 @@ class CESampled(SampledLossBase):
         super().__init__()
         self.negative_labels_ignore_index = negative_labels_ignore_index
         self._loss = torch.nn.CrossEntropyLoss(**kwargs)
-        self._logits_callback = None
+        self._logits_callback: LogitsCallback | None = None
 
     @property
     def logits_callback(
@@ -193,7 +203,7 @@ class CESampled(SampledLossBase):
         return self._logits_callback
 
     @logits_callback.setter
-    def logits_callback(self, func: Optional[Callable]) -> None:
+    def logits_callback(self, func: LogitsCallback) -> None:
         self._logits_callback = func
 
     def forward(
@@ -204,7 +214,8 @@ class CESampled(SampledLossBase):
         negative_labels: torch.LongTensor,
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
-    ) -> torch.Tensor:
+        return_info: bool = False,
+    ) -> LossOutput:
         """
         forward(model_embeddings, positive_labels, negative_labels, target_padding_mask)
 
@@ -246,7 +257,11 @@ class CESampled(SampledLossBase):
         target = torch.zeros(positive_logits.size(0), dtype=torch.long, device=logits.device)
         # [masked_batch_size] - loss for all recommendation points
         loss = self._loss(logits, target)
-        return loss
+
+        if return_info:
+            return (loss, {"BCE": loss.detach()})
+        else:
+            return (loss, None)
 
 
 class CESampledWeighted(CESampled):
@@ -293,7 +308,8 @@ class CESampledWeighted(CESampled):
         negative_labels: torch.LongTensor,
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
-    ) -> torch.Tensor:
+        return_info: bool = False,
+    ) -> LossOutput:
         """
         forward(model_embeddings, feature_tensors, positive_labels, negative_labels, target_padding_mask)
         :param model_embeddings: model output of shape ``(batch_size, sequence_length, embedding_dim)``.
@@ -314,4 +330,8 @@ class CESampledWeighted(CESampled):
         sample_weight = feature_tensors[self.feature_name]
         sample_weight = sample_weight[target_padding_mask]
         loss = (loss * sample_weight).mean()
-        return loss
+
+        if return_info:
+            return (loss, {"CESampledWeighted": loss.detach()})
+        else:
+            return (loss, None)

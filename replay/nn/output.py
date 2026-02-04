@@ -3,6 +3,8 @@ from typing import TypedDict
 import torch
 from typing_extensions import NotRequired
 
+from .loss import LossInfo
+
 
 class TrainOutput(TypedDict):
     """
@@ -17,6 +19,7 @@ class TrainOutput(TypedDict):
     """
 
     loss: torch.Tensor
+    info: NotRequired[LossInfo | None]
     hidden_states: NotRequired[tuple[torch.Tensor, ...]]
 
 

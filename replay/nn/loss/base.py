@@ -4,6 +4,8 @@ import torch
 
 from replay.data.nn import TensorMap
 
+LossInfo = dict[str, torch.Tensor | float]
+LossOutput = tuple[torch.Tensor, None] | tuple[torch.Tensor, LossInfo]
 LogitsCallback = Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]
 
 
@@ -26,7 +28,19 @@ class LossProto(Protocol):
         negative_labels: torch.LongTensor,
         padding_mask: torch.BoolTensor,
         target_padding_mask: torch.BoolTensor,
-    ) -> torch.Tensor: ...
+        return_info: bool = False,
+    ) -> LossOutput: ...
+
+    def __call__(
+        self,
+        model_embeddings: torch.Tensor,
+        feature_tensors: TensorMap,
+        positive_labels: torch.LongTensor,
+        negative_labels: torch.LongTensor,
+        padding_mask: torch.BoolTensor,
+        target_padding_mask: torch.BoolTensor,
+        return_info: bool = False,
+    ) -> LossOutput: ...
 
 
 class SampledLossOutput(TypedDict):
@@ -40,6 +54,8 @@ class SampledLossOutput(TypedDict):
 
 class SampledLossBase(torch.nn.Module):
     """The base class for calculating sampled losses"""
+
+    _logits_callback: LogitsCallback | None
 
     @property
     def logits_callback(

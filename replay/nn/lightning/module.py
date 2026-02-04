@@ -40,7 +40,7 @@ class LightningModule(lightning.LightningModule):
         self._lr_scheduler_factory = lr_scheduler_factory
         self.candidates_to_score = None
 
-    def forward(self, batch: dict) -> Union[TrainOutput, InferenceOutput]:
+    def forward(self, batch: dict, return_info: bool = False) -> Union[TrainOutput, InferenceOutput]:
         """
         Implementation of the forward function.
 
@@ -57,12 +57,21 @@ class LightningModule(lightning.LightningModule):
             batch["candidates_to_score"] = self.candidates_to_score
         # select only args for model.forward
         modified_batch = {k: v for k, v in batch.items() if k in inspect.signature(self.model.forward).parameters}
-        return self.model(**modified_batch)
+        return self.model(**modified_batch, return_info=return_info)
 
     def training_step(self, batch: dict) -> torch.Tensor:
-        model_output: TrainOutput = self(batch)
-        loss = model_output["loss"]
+        model_output: TrainOutput = self(batch, return_info=True)
+        loss, info = model_output["loss"], model_output.get("info", None)
         lr = self.optimizers().param_groups[0]["lr"]  # Get current learning rate
+        if info is not None:
+            assert isinstance(info, dict)
+            self.log_dict(
+                dictionary=info,
+                on_step=True,
+                on_epoch=True,
+                prog_bar=True,
+                sync_dist=True,
+            )
         self.log("learning_rate", lr, on_step=True, on_epoch=True, prog_bar=True)
         self.log(
             "train_loss",

@@ -270,23 +270,26 @@ class SasRec(torch.nn.Module):
         positive_labels: torch.LongTensor,
         negative_labels: torch.LongTensor,
         target_padding_mask: torch.BoolTensor,
+        return_info: bool = False,
     ) -> TrainOutput:
         hidden_states: torch.Tensor = self.body(feature_tensors, padding_mask)
         assert hidden_states.dim() == 3
 
-        loss: torch.Tensor = self.loss(
+        loss, info = self.loss(
             model_embeddings=hidden_states,
             feature_tensors=feature_tensors,
             positive_labels=positive_labels,
             negative_labels=negative_labels,
             padding_mask=padding_mask,
             target_padding_mask=target_padding_mask,
+            return_info=return_info,
         )
 
-        return {
-            "loss": loss,
-            "hidden_states": (hidden_states,),
-        }
+        return TrainOutput(
+            loss=loss,
+            info=info,
+            hidden_states=(hidden_states,),
+        )
 
     def forward_inference(
         self,
@@ -313,6 +316,7 @@ class SasRec(torch.nn.Module):
         positive_labels: Optional[torch.LongTensor] = None,
         negative_labels: Optional[torch.LongTensor] = None,
         target_padding_mask: Optional[torch.BoolTensor] = None,
+        return_info: bool = False,
     ) -> Union[TrainOutput, InferenceOutput]:
         """
         :param feature_tensors: a dictionary of tensors to generate embeddings.
@@ -358,6 +362,7 @@ class SasRec(torch.nn.Module):
                 positive_labels=positive_labels,
                 negative_labels=negative_labels,
                 target_padding_mask=target_padding_mask,
+                return_info=return_info,
             )
 
         all(

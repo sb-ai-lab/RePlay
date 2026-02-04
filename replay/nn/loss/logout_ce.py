@@ -4,7 +4,7 @@ import torch
 
 from replay.data.nn import TensorMap
 
-from .base import mask_negative_logits
+from .base import LossOutput, mask_negative_logits
 
 
 class LogOutCE(torch.nn.Module):
@@ -80,7 +80,8 @@ class LogOutCE(torch.nn.Module):
         negative_labels: torch.LongTensor,  # noqa: ARG002
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
-    ) -> torch.Tensor:
+        return_info: bool = False,
+    ) -> LossOutput:
         """
         forward(model_embeddings, positive_labels, target_padding_mask)
         **Note**: At forward pass, the whole catalog of items is used as negatives.
@@ -144,7 +145,11 @@ class LogOutCE(torch.nn.Module):
         target = torch.zeros(logits.size(0), dtype=torch.long, device=positive_labels.device)
         # [masked_batch_size] - loss for all recommendation points
         loss = self._loss(logits, target)
-        return loss
+
+        if return_info:
+            return (loss, {"LogOutCE": loss.detach()})
+        else:
+            return (loss, None)
 
 
 class LogOutCEWeighted(LogOutCE):
@@ -205,7 +210,8 @@ class LogOutCEWeighted(LogOutCE):
         negative_labels: torch.LongTensor,  # noqa: ARG002
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
-    ) -> torch.Tensor:
+        return_info: bool = False,
+    ) -> LossOutput:
         """
         forward(model_embeddings, feature_tensors, positive_labels, target_padding_mask)
         **Note**: At forward pass, the whole catalog of items is used as negatives.
@@ -227,4 +233,8 @@ class LogOutCEWeighted(LogOutCE):
         sample_weight = feature_tensors[self.feature_name]
         sample_weight = sample_weight[target_padding_mask]
         loss = (loss * sample_weight).mean()
-        return loss
+
+        if return_info:
+            return (loss, {"LogOutCEWeighted": loss.detach()})
+        else:
+            return (loss, None)

@@ -5,7 +5,7 @@ import torch
 
 from replay.data.nn import TensorMap
 
-from .base import LogitsCallback, LossProto
+from .base import LogitsCallback, LossInfo, LossOutput, LossProto
 
 Weights = dict[str, torch.Tensor | float]
 
@@ -48,6 +48,9 @@ class ComposedLoss(torch.nn.Module):
                 continue
             elif isinstance(weight, torch.Tensor):
                 assert torch.is_tensor(weight)
+                if torch.numel(weight) > 1:
+                    msg: str = f"Too many values in weight: {torch.numel(weight)=}."
+                    raise ValueError(msg)
                 continue
             else:
                 msg: str = f"Unsupported type of weight value. Must be `float` or `Tensor`. Got: {type(weight)=}."
@@ -80,11 +83,11 @@ class ComposedLoss(torch.nn.Module):
         negative_labels: torch.LongTensor,
         padding_mask: torch.BoolTensor,
         target_padding_mask: torch.BoolTensor,
-    ) -> torch.Tensor:
-        losses = 0.0
+        return_info: bool = False,
+    ) -> LossOutput:
+        raw_losses: dict[str, torch.Tensor] = {}
         for name, loss in self.losses.items():
-            loss_weight = self.weights.get(name, 1.0)
-            loss_value: torch.Tensor = loss(
+            raw_losses[name] = loss(
                 model_embeddings,
                 feature_tensors,
                 positive_labels,
@@ -92,5 +95,14 @@ class ComposedLoss(torch.nn.Module):
                 padding_mask,
                 target_padding_mask,
             )
-            losses = losses + loss_weight * loss_value
-        return cast(torch.Tensor, losses)
+
+        loss = cast(torch.Tensor, sum(value * self.weights.get(name, 1.0) for name, value in raw_losses.items()))
+
+        if return_info:
+            info: LossInfo = {
+                "ComposedLoss": loss.detach(),
+                **{name: value.detach() for name, value in raw_losses.items()},
+            }
+            return (loss, info)
+        else:
+            return (loss, None)
