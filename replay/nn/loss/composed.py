@@ -151,7 +151,7 @@ class ComposedLoss(torch.nn.Module):
         loss: torch.Tensor = self._apply_weights(raw_losses)
 
         if return_info:
-            base_info: LossInfo = self._detach_dict(raw_losses)
+            base_info: dict[str, torch.Tensor] = self._detach_dict(raw_losses)
             info: LossInfo = {self.loss_name: loss.detach(), **base_info}
             return (loss, info)
         else:
