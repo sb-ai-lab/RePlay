@@ -13,7 +13,7 @@ def make_default_twotower_transforms(
 
     Generated pipeline expects input dataset to contain the following columns:
         1) Query ID column, specified by ``query_column``.
-        2) Item ID column, specified in the tensor schema.
+        2) All features specified in the ``tensor_schema``.
 
     :param tensor_schema: TensorSchema used to infer feature columns.
     :param query_column: Name of the column containing query IDs. Default: ``"query_id"``.

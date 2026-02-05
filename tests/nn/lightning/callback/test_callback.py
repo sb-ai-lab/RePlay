@@ -102,13 +102,22 @@ def test_prediction_callbacks_fast_forward(
         (["coverage"], None),
     ],
 )
+@pytest.mark.parametrize(
+    "parquet_fixture",
+    (
+        "parquet_module",
+        "parquet_module_with_multiple_val_paths",
+    ),
+)
 def test_validation_callbacks(
-    parquet_module,
+    parquet_fixture,
     tensor_schema,
     sasrec_model,
     metrics,
     postprocessor,
+    request: pytest.FixtureRequest,
 ):
+    parquet_module = request.getfixturevalue(parquet_fixture)
     cardinality = tensor_schema["item_id"].cardinality
 
     callback = ComputeMetricsCallback(
