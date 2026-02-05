@@ -12,7 +12,7 @@ import os
 import warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Literal, Optional, Union, get_args
 
 import polars as pl
 
@@ -79,7 +79,15 @@ class BaseLabelEncodingRule(abc.ABC):  # pragma: no cover
         raise NotImplementedError()
 
     @abc.abstractmethod
+    def with_default_value(self, default_value: Optional[Union[int, str]]) -> "BaseLabelEncodingRule":
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     def set_handle_unknown(self, handle_unknown: HandleUnknownStrategies) -> None:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def with_handle_unknown(self, handle_unknown: HandleUnknownStrategies) -> "BaseLabelEncodingRule":
         raise NotImplementedError()
 
 
@@ -91,7 +99,6 @@ class LabelEncodingRule(BaseLabelEncodingRule):
     """
 
     _ENCODED_COLUMN_SUFFIX: str = "_encoded"
-    _HANDLE_UNKNOWN_STRATEGIES = ("error", "use_default_value", "drop")
     _TRANSFORM_PERFORMANCE_THRESHOLD_FOR_PANDAS = 100_000
 
     def __init__(
@@ -122,7 +129,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             If ``str`` value, should be \"last\" only, then fill by ``n_classes`` value.
             Default: ``None``.
         """
-        if handle_unknown not in self._HANDLE_UNKNOWN_STRATEGIES:
+        if handle_unknown not in get_args(HandleUnknownStrategies):
             msg = f"handle_unknown should be either 'error' or 'use_default_value', got {handle_unknown}."
             raise ValueError(msg)
         self._handle_unknown = handle_unknown
@@ -141,6 +148,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         self._mapping = mapping
         self._is_fitted = False
         if self._mapping is not None:
+            self._is_fitted = True
             self._inverse_mapping = self._make_inverse_mapping()
             self._inverse_mapping_list = self._make_inverse_mapping_list()
 
@@ -482,7 +490,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             raise NotImplementedError(msg)
         return transformed_df
 
-    def set_default_value(self, default_value: Optional[Union[int, str]]) -> None:
+    def set_default_value(self, default_value: Optional[Union[int, str]], inplace: bool = True) -> None:
         """
         Sets default value to deal with unknown labels.
         Used when handle_unknown_strategy is 'use_default_value'.
@@ -492,18 +500,76 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         if default_value is not None and not isinstance(default_value, int) and default_value != "last":
             msg = "Default value should be None, int or 'last'"
             raise ValueError(msg)
-        self._default_value = default_value
 
-    def set_handle_unknown(self, handle_unknown: HandleUnknownStrategies) -> None:
+        if inplace:
+            warnings.warn(
+                f"In-place modification of {type(self)}._default_value will be removed in a future release. "
+                "To use the new replacement logic, call `set_default_value` with `inplace=False` and save "
+                "the return value to a variable.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self._default_value = default_value
+        else:
+            return self.with_default_value(default_value)
+
+    def with_default_value(self, default_value: Optional[Union[int, str]]) -> "LabelEncodingRule":
+        """
+        Creates a copy of the rule with a new default value.
+
+        :param default_value: default value.
+        """
+        if default_value is not None and not isinstance(default_value, int) and default_value != "last":
+            msg = "Default value should be None, int or 'last'"
+            raise ValueError(msg)
+
+        return type(self)(
+            column=self.column,
+            mapping=self.get_mapping(),
+            handle_unknown=self._handle_unknown,
+            default_value=default_value,
+        )
+
+    def set_handle_unknown(
+        self, handle_unknown: HandleUnknownStrategies, inplace: bool = True
+    ) -> "LabelEncodingRule" | None:
         """
         Sets strategy to handle unknown labels.
 
         :param handle_unknown: handle unknown strategy.
         """
-        if handle_unknown not in self._HANDLE_UNKNOWN_STRATEGIES:
+        if handle_unknown not in get_args(HandleUnknownStrategies):
             msg = f"handle_unknown should be either 'error' or 'use_default_value', got {handle_unknown}."
             raise ValueError(msg)
-        self._handle_unknown = handle_unknown
+
+        if inplace:
+            warnings.warn(
+                f"In-place modification of {type(self)}._handle_unknown will be removed in a future release. "
+                "To use the new replacement logic, call `set_handle_unknown` with `inplace=False` and save "
+                "the return value to a variable.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self._handle_unknown = handle_unknown
+        else:
+            return self.with_handle_unknown(handle_unknown)
+
+    def with_handle_unknown(self, handle_unknown: HandleUnknownStrategies) -> "LabelEncodingRule":
+        """
+        Creates a copy of the rule with a new unknown handling strategy.
+
+        :param default_value: default value.
+        """
+        if handle_unknown not in get_args(HandleUnknownStrategies):
+            msg = f"handle_unknown should be either 'error' or 'use_default_value', got {handle_unknown}."
+            raise ValueError(msg)
+
+        return type(self)(
+            column=self.column,
+            mapping=self.get_mapping(),
+            handle_unknown=handle_unknown,
+            default_value=self._default_value,
+        )
 
     def save(
         self,
@@ -905,7 +971,9 @@ class LabelEncoder:
         """
         return self.fit(df).transform(df)
 
-    def set_handle_unknowns(self, handle_unknown_rules: dict[str, HandleUnknownStrategies]) -> None:
+    def set_handle_unknowns(
+        self, handle_unknown_rules: dict[str, HandleUnknownStrategies], inplace: bool = True
+    ) -> None:
         """
         Modify handle unknown strategy on already fitted encoder.
 
@@ -919,17 +987,56 @@ class LabelEncoder:
             If ``str`` value, should be \"last\" only, then fill by n_classes number.
             Default ``None``.
         """
-        columns = [i.column for i in self.rules]
-        for column, handle_unknown in handle_unknown_rules.items():
-            if column not in columns:
-                msg = f"Column {column} not found."
-                raise ValueError(msg)
-            rule = list(filter(lambda x: x.column == column, self.rules))
-            rule[0].set_handle_unknown(handle_unknown)
+        if inplace:
+            warnings.warn(
+                "In-place modification of unknown value handlers on encoding "
+                "rules will be removed in a future release. "
+                "To use the new replacement logic, call `set_handle_unknowns` with `inplace=False` and save "
+                "the return value to a variable.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            with warnings.catch_warnings(category=DeprecationWarning):
+                columns = [i.column for i in self.rules]
+                for column, handle_unknown in handle_unknown_rules.items():
+                    if column not in columns:
+                        msg = f"Column {column} not found."
+                        raise ValueError(msg)
+                    rule = [rule for rule in self.rules if rule.column == column]
+                    rule[0].set_handle_unknown(handle_unknown)
+        else:
+            return self.with_handle_unknowns(handle_unknown_rules)
 
-    def set_default_values(self, default_value_rules: dict[str, Optional[Union[int, str]]]) -> None:
+    def with_handle_unknowns(self, handle_unknown_rules: dict[str, HandleUnknownStrategies]) -> None:
         """
-        Modify handle unknown strategy on already fitted encoder.
+        Create a new encoder instance with modified unknowns handling strategies.
+
+        :param handle_unknown_rules: new handle unknown rule.
+
+        Example: {"item_id" : None, "user_id" : -1, "category_column" : "last"}
+
+        Default value examples:
+            If ``None``, then keep null.
+            If ``int`` value, then fill by that value.
+            If ``str`` value, should be \"last\" only, then fill by n_classes number.
+            Default ``None``.
+        """
+        new_rules = [
+            (
+                rule
+                if rule.column not in handle_unknown_rules
+                else rule.with_handle_unknown(handle_unknown_rules[rule.column])
+            )
+            for rule in self.rules
+        ]
+
+        return type(self)(new_rules)
+
+    def set_default_values(
+        self, default_value_rules: dict[str, Optional[Union[int, str]]], inplace: bool = True
+    ) -> None:
+        """
+        Modify default column values on already fitted encoder.
         Default value that will fill the unknown labels
         after transform if handle_unknown is set to ``use_default_value``.
 
@@ -943,13 +1050,51 @@ class LabelEncoder:
             to the value given for the parameter default_value.
             Default: ``error``.
         """
-        columns = [i.column for i in self.rules]
-        for column, default_value in default_value_rules.items():
-            if column not in columns:
-                msg = f"Column {column} not found."
-                raise ValueError(msg)
-            rule = list(filter(lambda x: x.column == column, self.rules))
-            rule[0].set_default_value(default_value)
+        if inplace:
+            warnings.warn(
+                "In-place modification of default values on encoding rules will be removed in a future release. "
+                "To use the new replacement logic, call `set_default_values` with `inplace=False` and save "
+                "the return value to a variable.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            with warnings.catch_warnings(category=DeprecationWarning):
+                columns = [i.column for i in self.rules]
+                for column, default_value in default_value_rules.items():
+                    if column not in columns:
+                        msg = f"Column {column} not found."
+                        raise ValueError(msg)
+                    rule = [rule for rule in self.rules if rule.column == column]
+                    rule[0].set_default_value(default_value)
+        else:
+            return self.with_default_values(default_value_rules)
+
+    def with_default_values(self, default_value_rules: dict[str, Optional[Union[int, str]]]) -> None:
+        """
+        Create a new encoder instance with modified default_values.
+        Default value that will fill the unknown labels
+        after transform if handle_unknown is set to ``use_default_value``.
+
+        :param default_value_rules: Dictionary of default values to set for columns.
+
+        Example: {"item_id" : "error", "user_id" : "use_default_value"}
+
+        Default value examples:
+            When set to ``error`` an error will be raised in case an unknown label is present during transform.
+            When set to ``use_default_value``, the encoded value of unknown label will be set
+            to the value given for the parameter default_value.
+            Default: ``error``.
+        """
+        new_rules = [
+            (
+                rule
+                if rule.column not in default_value_rules
+                else rule.with_default_value(default_value_rules[rule.column])
+            )
+            for rule in self.rules
+        ]
+
+        return type(self)(new_rules)
 
     def save(
         self,

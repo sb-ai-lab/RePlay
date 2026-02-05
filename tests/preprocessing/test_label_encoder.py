@@ -308,6 +308,15 @@ def test_label_encoder_pandas_polars_wrong_inplace_transform(column, dataframe, 
 
 
 @pytest.mark.core
+def test_label_encoder_inplace_setters_deprecation():
+    encoder = LabelEncoder([LabelEncodingRule("item1"), LabelEncodingRule("item2")])
+    with pytest.warns(DeprecationWarning, match=r"In-place modification of unknown value"):
+        encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"})
+    with pytest.warns(DeprecationWarning, match=r"In-place modification of default values"):
+        encoder.set_default_values({"item1": "last", "item2": 5})
+
+
+@pytest.mark.core
 @pytest.mark.parametrize(
     "df_for_labelencoder, df_for_labelencoder_modified",
     [
@@ -324,8 +333,8 @@ def test_label_encoder_with_handled_null_values_pandas_polars(
     df_labelencoder_modified = request.getfixturevalue(df_for_labelencoder_modified)
     encoder = LabelEncoder([LabelEncodingRule("item1"), LabelEncodingRule("item2")])
     encoder.fit(df_labelencoder)
-    encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"})
-    encoder.set_default_values({"item1": "last", "item2": 5})
+    encoder = encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"}, inplace=False)
+    encoder = encoder.set_default_values({"item1": "last", "item2": 5}, inplace=False)
     mapped_interactions = encoder.transform(df_labelencoder_modified)
     assert mapped_interactions.tail(1)["item1"].to_list()[0] == 2
     assert mapped_interactions.tail(1)["item2"].to_list()[0] == 5
@@ -348,8 +357,8 @@ def test_grouped_label_encoder_with_handled_null_values_pandas_polars(
     df_labelencoder_modified = request.getfixturevalue(df_for_labelencoder_modified)
     encoder = LabelEncoder([SequenceEncodingRule("item1"), SequenceEncodingRule("item2")])
     encoder.fit(df_labelencoder)
-    encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"})
-    encoder.set_default_values({"item1": "last", "item2": 5})
+    encoder = encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"}, inplace=False)
+    encoder = encoder.set_default_values({"item1": "last", "item2": 5}, inplace=False)
     mapped_interactions = encoder.transform(df_labelencoder_modified)
 
     if isinstance(mapped_interactions, PandasDataFrame):
@@ -370,8 +379,8 @@ def test_grouped_label_encoder_with_handled_null_values_spark(
 ):
     encoder = LabelEncoder([SequenceEncodingRule("item1"), SequenceEncodingRule("item2")])
     encoder.fit(spark_df_for_grouped_labelencoder)
-    encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"})
-    encoder.set_default_values({"item1": "last", "item2": 5})
+    encoder = encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"}, inplace=False)
+    encoder = encoder.set_default_values({"item1": "last", "item2": 5}, inplace=False)
     mapped_interactions = encoder.transform(spark_df_for_grouped_labelencoder_modified)
 
     items1 = [x[0] for x in mapped_interactions.select(F.explode("item1")).collect()]
@@ -398,8 +407,8 @@ def test_none_type_passed_as_default_value_pandas_polars(
     df_labelencoder_modified = request.getfixturevalue(df_for_labelencoder_modified)
     encoder = LabelEncoder([LabelEncodingRule("item1"), LabelEncodingRule("item2")])
     encoder.fit(df_labelencoder)
-    encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"})
-    encoder.set_default_values({"item1": "last", "item2": None})
+    encoder = encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"}, inplace=False)
+    encoder = encoder.set_default_values({"item1": "last", "item2": None}, inplace=False)
     mapped_interactions = encoder.transform(df_labelencoder_modified)
 
     assert mapped_interactions.tail(1)["item2"].to_list()[0] is None
@@ -412,8 +421,8 @@ def test_label_encoder_with_handled_null_values_spark(
 ):
     encoder = LabelEncoder([LabelEncodingRule("item1"), LabelEncodingRule("item2")])
     encoder.fit(spark_df_for_labelencoder)
-    encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"})
-    encoder.set_default_values({"item1": None, "item2": "last"})
+    encoder = encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"}, inplace=False)
+    encoder = encoder.set_default_values({"item1": None, "item2": "last"}, inplace=False)
     mapped_interactions = encoder.transform(spark_df_for_labelencoder_modified).toPandas().sort_index()
     mapped_interactions.sort_values("user_id", inplace=True)
 
@@ -515,16 +524,16 @@ def test_label_encoder_value_errors():
     encoder = LabelEncoder([LabelEncodingRule("item1"), LabelEncodingRule("item2")])
 
     with pytest.raises(ValueError):
-        encoder.set_default_values({"item1": "some_text", "item2": None})
+        encoder = encoder.set_default_values({"item1": "some_text", "item2": None}, inplace=False)
 
     with pytest.raises(ValueError):
-        encoder.set_default_values({"item3": "some_text"})
+        encoder = encoder.set_default_values({"item3": "some_text"}, inplace=False)
 
     with pytest.raises(ValueError):
-        encoder.set_handle_unknowns({"item2": "some_text"})
+        encoder = encoder.set_handle_unknowns({"item2": "some_text"}, inplace=False)
 
     with pytest.raises(ValueError):
-        encoder.set_handle_unknowns({"item3": "some_text"})
+        encoder = encoder.set_handle_unknowns({"item3": "some_text"}, inplace=False)
 
 
 @pytest.mark.core
@@ -636,8 +645,8 @@ def test_default_value_after_partial_fit(
     df_modified = request.getfixturevalue(df_for_labelencoder_modified)
     df_new_data = request.getfixturevalue(df_for_labelencoder_new_data)
     encoder = LabelEncoder([LabelEncodingRule("item1"), LabelEncodingRule("item2")])
-    encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"})
-    encoder.set_default_values({"item1": "last", "item2": 5})
+    encoder = encoder.set_handle_unknowns({"item1": "use_default_value", "item2": "use_default_value"}, inplace=False)
+    encoder = encoder.set_default_values({"item1": "last", "item2": 5}, inplace=False)
     encoder.fit(df)
     after_fit = encoder.transform(df_modified)
 
