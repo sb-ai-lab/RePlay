@@ -106,7 +106,7 @@ class ComposedLoss(torch.nn.Module):
     ) -> dict[str, torch.Tensor]:
         raw_losses: dict[str, torch.Tensor] = {}
         for name, loss in self.losses.items():
-            raw_losses[name] = loss(
+            value, _ = loss(
                 model_embeddings,
                 feature_tensors,
                 positive_labels,
@@ -114,6 +114,7 @@ class ComposedLoss(torch.nn.Module):
                 padding_mask,
                 target_padding_mask,
             )
+            raw_losses[name] = value
         return raw_losses
 
     def _apply_weights(self: Self, raw_losses: dict[str, torch.Tensor]) -> torch.Tensor:
@@ -121,7 +122,7 @@ class ComposedLoss(torch.nn.Module):
 
         for name, value in raw_losses.items():
             weight = self.weights.get(name, 1.0)
-            losses_list.append(weight * value)
+            losses_list.append(weight * value[None])
 
         losses: torch.Tensor = torch.cat(losses_list)
         return torch.sum(losses)
