@@ -162,14 +162,24 @@ class ValidationMetricsCallback(lightning.Callback):
         @rank_zero_only
         def print_metrics() -> None:
             metrics = {}
+
             for name, value in trainer.logged_metrics.items():
                 if "@" in name:
                     metrics[name] = value.item()
 
-            if metrics:
-                metrics_df = metrics_to_df(metrics)
+            if not metrics:
+                return
 
-                print(metrics_df)  # noqa: T201
-                print()  # noqa: T201
+            if len(self._dataloaders_size) > 1:
+                for i in range(len(self._dataloaders_size)):
+                    suffix = trainer._results.DATALOADER_SUFFIX.format(i)[1:]
+                    cur_dataloader_metrics = {k.split("/")[0]: v for k, v in metrics.items() if suffix in k}
+                    metrics_df = metrics_to_df(cur_dataloader_metrics)
+
+                    print(suffix)  # noqa: T201
+                    print(metrics_df, "\n")  # noqa: T201
+            else:
+                metrics_df = metrics_to_df(metrics)
+                print(metrics_df, "\n")  # noqa: T201
 
         print_metrics()
