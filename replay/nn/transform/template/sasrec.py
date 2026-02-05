@@ -14,7 +14,7 @@ def make_default_sasrec_transforms(
 
     Generated pipeline expects input dataset to contain the following columns:
         1) Query ID column, specified by ``query_column``.
-        2) Item ID column, specified in the tensor schema.
+        2) All features specified in the ``tensor_schema``.
 
     :param tensor_schema: TensorSchema used to infer feature columns.
     :param query_column: Name of the column containing query IDs. Default: ``"query_id"``.
@@ -32,12 +32,12 @@ def make_default_sasrec_transforms(
         ),
         UnsqueezeTransform("target_padding_mask", -1),
         UnsqueezeTransform("positive_labels", -1),
-        GroupTransform({"feature_tensors": [item_column]}),
+        GroupTransform({"feature_tensors": tensor_schema.names}),
     ]
 
     val_transforms = [
         RenameTransform({query_column: "query_id", f"{item_column}_mask": "padding_mask"}),
-        GroupTransform({"feature_tensors": [item_column]}),
+        GroupTransform({"feature_tensors": tensor_schema.names}),
     ]
     test_transforms = copy.deepcopy(val_transforms)
 

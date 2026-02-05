@@ -22,7 +22,6 @@ class FeaturesReader:
         :param schema: the same tensor schema used in TwoTower model.
         :param metadata: A dictionary of feature names that
             associated with its shape and padding_value.\n
-            Example: {"item_id" : {"shape": 100, "padding": 7657}}.\n
             For details, see the section :ref:`parquet-processing`.
         :param path: path to parquet with dataframe of item features.\n
             **Note:**\n
@@ -30,8 +29,8 @@ class FeaturesReader:
             2. Every feature for item "tower" in `schema` must contain ``feature_sources`` with the names
                of the source features to create correct inverse mapping.
                Also, for each such feature one of the requirements must be met: the ``schema`` for the feature must
-               contain ``feature_sources`` with a source of type FeatureSource.ITEM_FEATURES
-               or hint type FeatureHint.ITEM_ID.
+               contain ``feature_sources`` with a source of type ``FeatureSource.ITEM_FEATURES``
+               or hint type ``FeatureHint.ITEM_ID``.
 
         """
         item_feature_names = [
@@ -81,8 +80,18 @@ class FeaturesReader:
         self._features = {}
 
         for k in features.columns:
-            dtype = torch.float32 if schema[k].is_num else torch.int64
-            feature_tensor = torch.asarray(features[k], dtype=dtype)
+            dtype = np.float32 if schema[k].is_num else np.int64
+            if schema[k].is_list:
+                feature = np.asarray(
+                    features[k].to_list(),
+                    dtype=dtype,
+                )
+            else:
+                feature = features[k].to_numpy(dtype=dtype)
+            feature_tensor = torch.asarray(
+                feature,
+                dtype=torch.float32 if schema[k].is_num else torch.int64,
+            )
             self._features[k] = feature_tensor
 
     def __getitem__(self, key: str) -> torch.Tensor:
