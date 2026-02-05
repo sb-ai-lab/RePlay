@@ -1,10 +1,8 @@
-from typing import Callable, Optional
-
 import torch
 
 from replay.data.nn import TensorMap
 
-from .base import LossOutput, mask_negative_logits
+from .base import LogitsCallback, LossOutput, mask_negative_logits
 
 
 class LogOutCE(torch.nn.Module):
@@ -28,6 +26,7 @@ class LogOutCE(torch.nn.Module):
         self,
         cardinality: int,
         negative_labels_ignore_index: int = -100,
+        loss_name: str = "LogOutCELoss",
         **kwargs,
     ):
         """
@@ -46,12 +45,13 @@ class LogOutCE(torch.nn.Module):
         self.cardinality = cardinality
         self.negative_labels_ignore_index = negative_labels_ignore_index
         self._loss = torch.nn.CrossEntropyLoss(**kwargs)
-        self._logits_callback = None
+        self._logits_callback: LogitsCallback | None = None
+        self.loss_name: str = loss_name
 
     @property
     def logits_callback(
         self,
-    ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+    ) -> LogitsCallback:
         """
         Property for calling a function for the logits computation.\n
 
@@ -69,7 +69,7 @@ class LogOutCE(torch.nn.Module):
         return self._logits_callback
 
     @logits_callback.setter
-    def logits_callback(self, func: Optional[Callable]) -> None:
+    def logits_callback(self, func: LogitsCallback) -> None:
         self._logits_callback = func
 
     def forward(
@@ -147,7 +147,7 @@ class LogOutCE(torch.nn.Module):
         loss = self._loss(logits, target)
 
         if return_info:
-            return (loss, {"LogOutCE": loss.detach()})
+            return (loss, {self.loss_name: loss.detach()})
         else:
             return (loss, None)
 
@@ -179,6 +179,7 @@ class LogOutCEWeighted(LogOutCE):
         cardinality: int,
         feature_name: str,
         negative_labels_ignore_index: int = -100,
+        loss_name: str = "LogOutCEWeightedLoss",
         **kwargs,
     ):
         """
@@ -201,6 +202,7 @@ class LogOutCEWeighted(LogOutCE):
         )
         self.feature_name = feature_name
         self._loss = torch.nn.CrossEntropyLoss(reduction="none", **kwargs)
+        self.loss_name: str = loss_name
 
     def forward(
         self,
@@ -235,6 +237,6 @@ class LogOutCEWeighted(LogOutCE):
         loss = (loss * sample_weight).mean()
 
         if return_info:
-            return (loss, {"LogOutCEWeighted": loss.detach()})
+            return (loss, {self.loss_name: loss.detach()})
         else:
             return (loss, None)

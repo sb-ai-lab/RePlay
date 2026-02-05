@@ -1,5 +1,5 @@
 import warnings
-from typing import Optional, Self, cast
+from typing import Iterable, Self, cast
 
 import torch
 
@@ -8,20 +8,41 @@ from replay.data.nn import TensorMap
 from .base import LogitsCallback, LossInfo, LossOutput, LossProto
 
 Weights = dict[str, torch.Tensor | float]
+Losses = Iterable[torch.nn.Module] | dict[str, torch.nn.Module] | torch.nn.ModuleDict
 
 
 class ComposedLoss(torch.nn.Module):
     def __init__(
-        self: Self, losses: dict[str, torch.nn.Module] | torch.nn.ModuleDict, weights: Weights | None = None
+        self: Self,
+        losses: Losses,
+        weights: Weights | None = None,
+        loss_name: str = "ComposedLoss",
     ) -> None:
         super().__init__()
 
-        if isinstance(losses, dict):
-            for loss in cast(dict, losses.values()):
-                if not isinstance(loss, torch.nn.Module):
-                    msg: str = f"Unsupported type of loss. Must be `Module`. Got: {type(loss)=}."
-                    raise TypeError(msg)
-            losses = torch.nn.ModuleDict(losses)
+        self.losses: torch.nn.ModuleDict = self._handle_losses(losses)
+        self.weights: Weights = self._handle_weights(weights)
+        self._logits_callback: LogitsCallback | None = None
+        self.loss_name: str = loss_name
+
+    def _handle_losses(self: Self, losses: Losses) -> torch.nn.ModuleDict:
+        if not isinstance(losses, torch.nn.ModuleDict):
+            if isinstance(losses, dict):
+                for loss in cast(dict, losses.values()):
+                    if not isinstance(loss, torch.nn.Module):
+                        msg: str = f"Unsupported type of loss. Must be `Module`. Got: {type(loss)=}."
+                        raise TypeError(msg)
+                losses_dict: dict[str, torch.nn.Module] = cast(dict[str, torch.nn.Module], losses)
+            else:
+                losses_dict: dict[str, torch.nn.Module] = {}
+                for loss in iter(losses):
+                    casted: LossProto = cast(LossProto, loss)
+                    name: str = casted.loss_name
+                    if name in losses_dict:
+                        msg: str = f"Loss names must be unique. Got {name} twice."
+                        raise KeyError(name)
+                    losses_dict[name] = loss
+            losses = torch.nn.ModuleDict(losses_dict)
 
         if not isinstance(losses, torch.nn.ModuleDict):
             msg: str = f"Unsupported type of `losses`. Must be `dict` or `ModuleDict`. Got {type(losses)=}."
@@ -31,13 +52,14 @@ class ComposedLoss(torch.nn.Module):
             msg: str = "Empty losses are not supported."
             raise ValueError(msg)
 
-        self.losses: torch.nn.ModuleDict = cast(torch.nn.ModuleDict, losses)
+        return cast(torch.nn.ModuleDict, losses)
 
+    def _handle_weights(self: Self, weights: Weights | None) -> Weights:
         if weights is None:
             weights = {}
-
-        if not isinstance(weights, dict):
+        elif not isinstance(weights, dict):
             msg: str = f"Unsupported type of `weights`. Must be `dict`. Got: {type(weights)=}."
+            raise TypeError(msg)
 
         for name, weight in cast(dict, weights):
             if name not in self.losses:
@@ -56,9 +78,7 @@ class ComposedLoss(torch.nn.Module):
                 msg: str = f"Unsupported type of weight value. Must be `float` or `Tensor`. Got: {type(weight)=}."
                 raise TypeError(msg)
 
-        self.weights: dict[str, torch.Tensor | float] = cast(Weights, weights)
-
-        self._logits_callback: Optional[LogitsCallback] = None
+        return cast(Weights, weights)
 
     @property
     def logits_callback(self: Self) -> LogitsCallback:
@@ -75,7 +95,7 @@ class ComposedLoss(torch.nn.Module):
             casted = cast(LossProto, loss)
             casted.logits_callback = func
 
-    def forward(
+    def _compute_raw_losses(
         self: Self,
         model_embeddings: torch.Tensor,
         feature_tensors: TensorMap,
@@ -83,8 +103,7 @@ class ComposedLoss(torch.nn.Module):
         negative_labels: torch.LongTensor,
         padding_mask: torch.BoolTensor,
         target_padding_mask: torch.BoolTensor,
-        return_info: bool = False,
-    ) -> LossOutput:
+    ) -> dict[str, torch.Tensor]:
         raw_losses: dict[str, torch.Tensor] = {}
         for name, loss in self.losses.items():
             raw_losses[name] = loss(
@@ -95,14 +114,45 @@ class ComposedLoss(torch.nn.Module):
                 padding_mask,
                 target_padding_mask,
             )
+        return raw_losses
 
-        loss = cast(torch.Tensor, sum(value * self.weights.get(name, 1.0) for name, value in raw_losses.items()))
+    def _apply_weights(self: Self, raw_losses: dict[str, torch.Tensor]) -> torch.Tensor:
+        losses_list: list[torch.Tensor] = []
+
+        for name, value in raw_losses.items():
+            weight = self.weights.get(name, 1.0)
+            losses_list.append(weight * value)
+
+        losses: torch.Tensor = torch.cat(losses_list)
+        return torch.sum(losses)
+
+    def _detach_dict(self: Self, raw_losses: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        return {name: value.detach() for name, value in raw_losses.items()}
+
+    def forward(
+        self: Self,
+        model_embeddings: torch.Tensor,
+        feature_tensors: TensorMap,
+        positive_labels: torch.LongTensor,
+        negative_labels: torch.LongTensor,
+        padding_mask: torch.BoolTensor,
+        target_padding_mask: torch.BoolTensor,
+        return_info: bool = False,
+    ) -> LossOutput:
+        raw_losses: dict[str, torch.Tensor] = self._compute_raw_losses(
+            model_embeddings=model_embeddings,
+            feature_tensors=feature_tensors,
+            positive_labels=positive_labels,
+            negative_labels=negative_labels,
+            padding_mask=padding_mask,
+            target_padding_mask=target_padding_mask,
+        )
+
+        loss: torch.Tensor = self._apply_weights(raw_losses)
 
         if return_info:
-            info: LossInfo = {
-                "ComposedLoss": loss.detach(),
-                **{name: value.detach() for name, value in raw_losses.items()},
-            }
+            base_info: LossInfo = self._detach_dict(raw_losses)
+            info: LossInfo = {self.loss_name: loss.detach(), **base_info}
             return (loss, info)
         else:
             return (loss, None)

@@ -1,5 +1,3 @@
-from typing import Callable, Optional
-
 import torch
 
 from replay.data.nn import TensorMap
@@ -16,14 +14,15 @@ class BCE(torch.nn.Module):
     (there are several labels for each position in the sequence).
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, loss_name: str = "BCELoss", **kwargs):
         """
         To calculate the loss, ``torch.nn.BCEWithLogitsLoss`` is used with the parameter ``reduction="sum"``.
         You can pass all other parameters for initializing the object via kwargs.
         """
         super().__init__()
         self._loss = torch.nn.BCEWithLogitsLoss(reduction="sum", **kwargs)
-        self._logits_callback = None
+        self._logits_callback: LogitsCallback | None = None
+        self.loss_name: str = loss_name
 
     @property
     def logits_callback(
@@ -95,7 +94,7 @@ class BCE(torch.nn.Module):
         loss = self._loss(logits, bce_labels) / logits.size(0)
 
         if return_info:
-            return (loss, {"BCE": loss.detach()})
+            return (loss, {self.loss_name: loss.detach()})
         else:
             return (loss, None)
 
@@ -114,7 +113,8 @@ class BCESampled(SampledLossBase):
         log_epsilon: float = 1e-6,
         clamp_border: float = 100.0,
         negative_labels_ignore_index: int = -100,
-    ):
+        loss_name: str = "BCESampledLoss",
+    ) -> None:
         """
         :param log_epsilon: correction to avoid zero in the logarithm during loss calculating.
             Default: ``1e-6``.
@@ -130,12 +130,13 @@ class BCESampled(SampledLossBase):
         self.log_epsilon = log_epsilon
         self.clamp_border = clamp_border
         self.negative_labels_ignore_index = negative_labels_ignore_index
-        self._logits_callback = None
+        self._logits_callback: LogitsCallback | None = None
+        self.loss_name: str = loss_name
 
     @property
     def logits_callback(
         self,
-    ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+    ) -> LogitsCallback:
         """
         Property for calling a function for the logits computation.\n
 
@@ -153,7 +154,7 @@ class BCESampled(SampledLossBase):
         return self._logits_callback
 
     @logits_callback.setter
-    def logits_callback(self, func: Optional[Callable]) -> None:
+    def logits_callback(self, func: LogitsCallback) -> None:
         self._logits_callback = func
 
     def forward(
@@ -220,6 +221,6 @@ class BCESampled(SampledLossBase):
         loss /= positive_logits.size(0)
 
         if return_info:
-            return (loss, {"BCESampled": loss.detach()})
+            return (loss, {self.loss_name: loss.detach()})
         else:
             return (loss, None)

@@ -1,5 +1,3 @@
-from typing import Callable, Optional
-
 import torch
 
 from replay.data.nn import TensorMap
@@ -13,19 +11,20 @@ class CE(torch.nn.Module):
     Calculates loss over all items catalog.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, loss_name: str = "CELoss", **kwargs):
         """
         To calculate the loss, ``torch.nn.CrossEntropyLoss`` is used.
         You can pass all parameters for initializing the object via kwargs.
         """
         super().__init__()
+        self.loss_name: str = loss_name
         self._loss = torch.nn.CrossEntropyLoss(**kwargs)
         self._logits_callback: LogitsCallback | None = None
 
     @property
     def logits_callback(
         self,
-    ) -> LossOutput:
+    ) -> LogitsCallback:
         """
         Property for calling a function for the logits computation.\n
 
@@ -43,7 +42,7 @@ class CE(torch.nn.Module):
         return self._logits_callback
 
     @logits_callback.setter
-    def logits_callback(self, func: LossOutput) -> None:
+    def logits_callback(self, func: LogitsCallback) -> None:
         self._logits_callback = func
 
     def forward(
@@ -97,11 +96,14 @@ class CEWeighted(CE):
     which is fed into the model.
     """
 
+    loss_name: str = "CEWeightedLoss"
+
     def __init__(
         self,
         feature_name: str,
+        loss_name: str = "CEWEightedLoss",
         **kwargs,
-    ):
+    ) -> None:
         """
         To calculate the loss, ``torch.nn.CrossEntropyLoss`` is used with the parameter ``reduction="none"``.
         You can pass all other parameters for initializing the object via kwargs.
@@ -110,7 +112,8 @@ class CEWeighted(CE):
             The tensor is expected to contain sample weights.
         """
         super().__init__()
-        self.feature_name = feature_name
+        self.loss_name: str = loss_name
+        self.feature_name: str = feature_name
         self._loss = torch.nn.CrossEntropyLoss(reduction="none", **kwargs)
 
     def forward(
@@ -148,7 +151,7 @@ class CEWeighted(CE):
         loss = (loss * sample_weight).mean()
 
         if return_info:
-            return (loss, {"CEWeighted": loss.detach()})
+            return (loss, {self.loss_name: loss.detach()})
         else:
             return (loss, None)
 
@@ -165,8 +168,9 @@ class CESampled(SampledLossBase):
     def __init__(
         self,
         negative_labels_ignore_index: int = -100,
+        loss_name: str = "CESampledLoss",
         **kwargs,
-    ):
+    ) -> None:
         """
         To calculate the loss, ``torch.nn.CrossEntropyLoss`` is used.
         You can pass all parameters for initializing the object via kwargs.
@@ -178,6 +182,7 @@ class CESampled(SampledLossBase):
             Default: ``-100``.
         """
         super().__init__()
+        self.loss_name: str = loss_name
         self.negative_labels_ignore_index = negative_labels_ignore_index
         self._loss = torch.nn.CrossEntropyLoss(**kwargs)
         self._logits_callback: LogitsCallback | None = None
@@ -185,7 +190,7 @@ class CESampled(SampledLossBase):
     @property
     def logits_callback(
         self,
-    ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+    ) -> LogitsCallback:
         """
         Property for calling a function for the logits computation.\n
 
@@ -259,7 +264,7 @@ class CESampled(SampledLossBase):
         loss = self._loss(logits, target)
 
         if return_info:
-            return (loss, {"BCE": loss.detach()})
+            return (loss, {self.loss_name: loss.detach()})
         else:
             return (loss, None)
 
@@ -282,8 +287,9 @@ class CESampledWeighted(CESampled):
         self,
         feature_name: str,
         negative_labels_ignore_index: int = -100,
+        loss_name: str = "CESampledWeighedLoss",
         **kwargs,
-    ):
+    ) -> None:
         """
         To calculate the loss, ``torch.nn.CrossEntropyLoss`` is used with the parameter ``reduction="none"``.
         You can pass all other parameters for initializing the object via kwargs.
@@ -297,7 +303,9 @@ class CESampledWeighted(CESampled):
             Default: ``-100``.
         """
         super().__init__(negative_labels_ignore_index=negative_labels_ignore_index)
-        self.feature_name = feature_name
+
+        self.loss_name: str = loss_name
+        self.feature_name: str = feature_name
         self._loss = torch.nn.CrossEntropyLoss(reduction="none", **kwargs)
 
     def forward(
@@ -332,6 +340,6 @@ class CESampledWeighted(CESampled):
         loss = (loss * sample_weight).mean()
 
         if return_info:
-            return (loss, {"CESampledWeighted": loss.detach()})
+            return (loss, {self.loss_name: loss.detach()})
         else:
             return (loss, None)

@@ -12,6 +12,8 @@ LogitsCallback = Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]
 class LossProto(Protocol):
     """Class-protocol for working with losses inside models"""
 
+    loss_name: str
+
     @property
     def logits_callback(
         self,
