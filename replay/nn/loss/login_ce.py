@@ -1,10 +1,10 @@
-from typing import Callable, Optional, TypedDict
+from typing import TypedDict
 
 import torch
 
 from replay.data.nn import TensorMap
 
-from .base import SampledLossBase, mask_negative_logits
+from .base import LogitsCallback, LossOutput, SampledLossBase, mask_negative_logits
 
 
 class LogInCESampledOutput(TypedDict):
@@ -121,7 +121,8 @@ class LogInCE(LogInCEBase):
         log_epsilon: float = 1e-6,
         clamp_border: float = 100.0,
         negative_labels_ignore_index: int = -100,
-    ):
+        loss_name: str = "LogInCELoss",
+    ) -> None:
         """
         :param cardinality: number of unique items in vocabulary (catalog).
             The specified cardinality value must not take into account the padding value.
@@ -140,12 +141,13 @@ class LogInCE(LogInCEBase):
         self.log_epsilon = log_epsilon
         self.clamp_border = clamp_border
         self.negative_labels_ignore_index = negative_labels_ignore_index
-        self._logits_callback = None
+        self._logits_callback: LogitsCallback | None = None
+        self.loss_name: str = loss_name
 
     @property
     def logits_callback(
         self,
-    ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+    ) -> LogitsCallback:
         """
         Property for calling a function for the logits computation.\n
 
@@ -163,7 +165,7 @@ class LogInCE(LogInCEBase):
         return self._logits_callback
 
     @logits_callback.setter
-    def logits_callback(self, func: Optional[Callable]) -> None:
+    def logits_callback(self, func: LogitsCallback) -> None:
         self._logits_callback = func
 
     def forward(
@@ -174,7 +176,8 @@ class LogInCE(LogInCEBase):
         negative_labels: torch.LongTensor,  # noqa: ARG002
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
-    ) -> torch.Tensor:
+        return_info: bool = False,
+    ) -> LossOutput:
         """
         forward(model_embeddings, positive_labels, target_padding_mask)
         **Note**: At forward pass, the whole catalog of items is used as negatives.
@@ -235,7 +238,12 @@ class LogInCE(LogInCEBase):
             -self.clamp_border,
             self.clamp_border,
         )
-        return loss.mean()
+        loss = loss.mean()
+
+        if return_info:
+            return (loss, {self.loss_name: loss.detach()})
+        else:
+            return (loss, None)
 
 
 class LogInCESampled(LogInCEBase):
@@ -260,6 +268,7 @@ class LogInCESampled(LogInCEBase):
         log_epsilon: float = 1e-6,
         clamp_border: float = 100.0,
         negative_labels_ignore_index: int = -100,
+        loss_name: str = "LogInCESampledLoss",
     ):
         """
         :param log_epsilon: correction to avoid zero in the logarithm during loss calculating.
@@ -276,12 +285,13 @@ class LogInCESampled(LogInCEBase):
         self.log_epsilon = log_epsilon
         self.clamp_border = clamp_border
         self.negative_labels_ignore_index = negative_labels_ignore_index
-        self._logits_callback = None
+        self._logits_callback: LogitsCallback | None = None
+        self.loss_name: str = loss_name
 
     @property
     def logits_callback(
         self,
-    ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+    ) -> LogitsCallback:
         """
         Property for calling a function for the logits computation.\n
 
@@ -299,7 +309,7 @@ class LogInCESampled(LogInCEBase):
         return self._logits_callback
 
     @logits_callback.setter
-    def logits_callback(self, func: Optional[Callable]) -> None:
+    def logits_callback(self, func: LogitsCallback) -> None:
         self._logits_callback = func
 
     def forward(
@@ -310,7 +320,8 @@ class LogInCESampled(LogInCEBase):
         negative_labels: torch.LongTensor,
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
-    ) -> torch.Tensor:
+        return_info: bool = False,
+    ) -> LossOutput:
         """
         forward(model_embeddings, positive_labels, negative_labels, target_padding_mask)
 
@@ -370,4 +381,9 @@ class LogInCESampled(LogInCEBase):
             -self.clamp_border,
             self.clamp_border,
         )
-        return loss.mean()
+        loss = loss.mean()
+
+        if return_info:
+            return (loss, {self.loss_name: loss.detach()})
+        else:
+            return (loss, None)

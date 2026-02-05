@@ -1,10 +1,8 @@
-from typing import Callable, Optional
-
 import torch
 
 from replay.data.nn import TensorMap
 
-from .base import mask_negative_logits
+from .base import LogitsCallback, LossOutput, mask_negative_logits
 
 
 class LogOutCE(torch.nn.Module):
@@ -28,6 +26,7 @@ class LogOutCE(torch.nn.Module):
         self,
         cardinality: int,
         negative_labels_ignore_index: int = -100,
+        loss_name: str = "LogOutCELoss",
         **kwargs,
     ):
         """
@@ -46,12 +45,13 @@ class LogOutCE(torch.nn.Module):
         self.cardinality = cardinality
         self.negative_labels_ignore_index = negative_labels_ignore_index
         self._loss = torch.nn.CrossEntropyLoss(**kwargs)
-        self._logits_callback = None
+        self._logits_callback: LogitsCallback | None = None
+        self.loss_name: str = loss_name
 
     @property
     def logits_callback(
         self,
-    ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+    ) -> LogitsCallback:
         """
         Property for calling a function for the logits computation.\n
 
@@ -69,7 +69,7 @@ class LogOutCE(torch.nn.Module):
         return self._logits_callback
 
     @logits_callback.setter
-    def logits_callback(self, func: Optional[Callable]) -> None:
+    def logits_callback(self, func: LogitsCallback) -> None:
         self._logits_callback = func
 
     def forward(
@@ -80,7 +80,8 @@ class LogOutCE(torch.nn.Module):
         negative_labels: torch.LongTensor,  # noqa: ARG002
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
-    ) -> torch.Tensor:
+        return_info: bool = False,
+    ) -> LossOutput:
         """
         forward(model_embeddings, positive_labels, target_padding_mask)
         **Note**: At forward pass, the whole catalog of items is used as negatives.
@@ -144,7 +145,11 @@ class LogOutCE(torch.nn.Module):
         target = torch.zeros(logits.size(0), dtype=torch.long, device=positive_labels.device)
         # [masked_batch_size] - loss for all recommendation points
         loss = self._loss(logits, target)
-        return loss
+
+        if return_info:
+            return (loss, {self.loss_name: loss.detach()})
+        else:
+            return (loss, None)
 
 
 class LogOutCEWeighted(LogOutCE):
@@ -174,6 +179,7 @@ class LogOutCEWeighted(LogOutCE):
         cardinality: int,
         feature_name: str,
         negative_labels_ignore_index: int = -100,
+        loss_name: str = "LogOutCEWeightedLoss",
         **kwargs,
     ):
         """
@@ -196,6 +202,7 @@ class LogOutCEWeighted(LogOutCE):
         )
         self.feature_name = feature_name
         self._loss = torch.nn.CrossEntropyLoss(reduction="none", **kwargs)
+        self.loss_name: str = loss_name
 
     def forward(
         self,
@@ -205,7 +212,8 @@ class LogOutCEWeighted(LogOutCE):
         negative_labels: torch.LongTensor,  # noqa: ARG002
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
-    ) -> torch.Tensor:
+        return_info: bool = False,
+    ) -> LossOutput:
         """
         forward(model_embeddings, feature_tensors, positive_labels, target_padding_mask)
         **Note**: At forward pass, the whole catalog of items is used as negatives.
@@ -227,4 +235,8 @@ class LogOutCEWeighted(LogOutCE):
         sample_weight = feature_tensors[self.feature_name]
         sample_weight = sample_weight[target_padding_mask]
         loss = (loss * sample_weight).mean()
-        return loss
+
+        if return_info:
+            return (loss, {self.loss_name: loss.detach()})
+        else:
+            return (loss, None)
