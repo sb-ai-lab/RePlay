@@ -78,6 +78,12 @@ ItemTower
 .. autoclass:: replay.nn.sequential.ItemTower
    :members: __init__, forward
 
+FeaturesReader
+``````````````````````````````
+
+.. autoclass:: replay.nn.sequential.twotower.FeaturesReader
+   :members: __init__
+
 TwoTower Transforms
 ___________________
 .. autofunction:: replay.nn.transform.template.make_default_twotower_transforms

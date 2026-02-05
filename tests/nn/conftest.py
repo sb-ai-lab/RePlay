@@ -229,7 +229,7 @@ def generate_recsys_dataset(
             sequence = [features_dict[feature_info.name][i] for i in row["item_id"]]
 
             if feature_info.feature_type == FeatureType.NUMERICAL:
-                row[feature_info.name] = np.array(sequence).astype(np.float32)
+                row[feature_info.name] = np.asarray(sequence, dtype=np.float32)
             else:
                 row[feature_info.name] = sequence
 
@@ -280,8 +280,8 @@ def parquet_module_path(tmp_path_factory, generated_dfs):
 
 
 @pytest.fixture(scope="module")
-def parquet_module(parquet_module_path, tensor_schema, max_len, batch_size=4):
-    transforms = {
+def transforms(tensor_schema, max_len):
+    return {
         "train": [
             NextTokenTransform(
                 label_field="item_id", query_features="user_id", shift=1, out_feature_name="positive_labels"
@@ -316,6 +316,9 @@ def parquet_module(parquet_module_path, tensor_schema, max_len, batch_size=4):
         ],
     }
 
+
+@pytest.fixture(scope="module")
+def parquet_module_metadata(tensor_schema: TensorSchema, max_len: int):
     def create_meta(shape):
         shared_meta = {
             "user_id": {},
@@ -333,19 +336,36 @@ def parquet_module(parquet_module_path, tensor_schema, max_len, batch_size=4):
         }
         return shared_meta
 
-    metadata = {
+    return {
         "train": create_meta(shape=max_len + 1),
         "validate": create_meta(shape=max_len),
         "test": create_meta(shape=max_len),
         "predict": create_meta(shape=max_len),
     }
 
+
+@pytest.fixture(scope="module")
+def parquet_module(parquet_module_path, transforms, parquet_module_metadata, batch_size=4):
     parquet_module = ParquetModule(
-        metadata=metadata,
+        metadata=parquet_module_metadata,
         transforms=transforms,
         batch_size=batch_size,
         train_path=parquet_module_path,
         validate_path=parquet_module_path,
+        test_path=parquet_module_path,
+        predict_path=parquet_module_path,
+    )
+    return parquet_module
+
+
+@pytest.fixture(scope="module")
+def parquet_module_with_multiple_val_paths(parquet_module_path, transforms, parquet_module_metadata, batch_size=4):
+    parquet_module = ParquetModule(
+        metadata=parquet_module_metadata,
+        transforms=transforms,
+        batch_size=batch_size,
+        train_path=parquet_module_path,
+        validate_path=[parquet_module_path, parquet_module_path],
         test_path=parquet_module_path,
         predict_path=parquet_module_path,
     )
