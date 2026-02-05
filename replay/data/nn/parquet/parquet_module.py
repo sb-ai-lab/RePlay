@@ -94,7 +94,7 @@ class ParquetModule(L.LightningDataModule):
         missing_splits = [split_name for split_name, split_path in self.datapaths.items() if split_path is None]
         if missing_splits:
             msg = (
-                f"The following dataset paths aren't provided: {','.join(missing_splits)}."
+                f"The following dataset paths aren't provided: {','.join(missing_splits)}. "
                 "Make sure to disable these stages in your Lightning Trainer configuration."
             )
             warnings.warn(msg, stacklevel=2)

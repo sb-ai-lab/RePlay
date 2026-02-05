@@ -85,7 +85,7 @@ class SampledLossBase(torch.nn.Module):
             # [batch_size, num_negatives] -> [batch_size, 1, num_negatives]
             negative_labels = negative_labels.unsqueeze(1).repeat(1, seq_len, 1)
 
-        if negative_labels.dim() == 3:  # pragma: no cover
+        if negative_labels.dim() == 3:
             # [batch_size, seq_len, num_negatives] -> [batch_size, seq_len, 1, num_negatives]
             negative_labels = negative_labels.unsqueeze(-2)
             if num_positives != 1:
@@ -119,7 +119,7 @@ class SampledLossBase(torch.nn.Module):
         positive_labels = positive_labels[target_padding_mask].unsqueeze(-1)
         assert positive_labels.size() == (masked_batch_size, 1)
 
-        if negative_labels.dim() != 1:  # pragma: no cover
+        if negative_labels.dim() != 1:
             # [batch_size, seq_len, num_positives, num_negatives] -> [masked_batch_size, num_negatives]
             negative_labels = negative_labels[target_padding_mask]
             assert negative_labels.size() == (masked_batch_size, num_negatives)
@@ -183,7 +183,7 @@ def mask_negative_logits(
     if negative_labels_ignore_index >= 0:
         negative_logits.masked_fill_(negative_labels == negative_labels_ignore_index, -1e9)
 
-    if negative_labels.dim() > 1:  # pragma: no cover
+    if negative_labels.dim() > 1:
         # [masked_batch_size, num_negatives] -> [masked_batch_size, 1, num_negatives]
         negative_labels = negative_labels.unsqueeze(-2)
 

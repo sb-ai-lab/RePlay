@@ -15,11 +15,11 @@ from replay.utils import (
     SparkDataFrame,
 )
 
-if PYSPARK_AVAILABLE:  # pragma: no cover
+if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
     from pyspark.sql import SparkSession
     from pyspark.sql.types import ArrayType, DoubleType, IntegerType, StructType
-else:  # pragma: no cover
+else:
     SparkSession = MissingImport
 
 

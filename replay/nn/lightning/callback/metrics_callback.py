@@ -2,7 +2,6 @@ from typing import Any, Optional
 
 import lightning
 import torch
-from lightning.pytorch.utilities.combined_loader import CombinedLoader
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
 
 from replay.metrics.torch_metrics_builder import (
@@ -64,8 +63,8 @@ class ComputeMetricsCallback(lightning.Callback):
         self._train_column = train_column
 
     def _get_dataloaders_size(self, dataloaders: Optional[Any]) -> list[int]:
-        if isinstance(dataloaders, CombinedLoader):
-            return [len(dataloader) for dataloader in dataloaders.flattened]  # pragma: no cover
+        if isinstance(dataloaders, list):
+            return [len(dataloader) for dataloader in dataloaders]
         return [len(dataloaders)]
 
     def on_validation_epoch_start(
@@ -123,7 +122,7 @@ class ComputeMetricsCallback(lightning.Callback):
         batch: dict,
         batch_idx: int,
         dataloader_idx: int = 0,
-    ) -> None:  # pragma: no cover
+    ) -> None:
         self._batch_end(
             trainer,
             pl_module,
@@ -159,7 +158,7 @@ class ComputeMetricsCallback(lightning.Callback):
     def on_validation_epoch_end(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:
         self._epoch_end(trainer, pl_module)
 
-    def on_test_epoch_end(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:  # pragma: no cover
+    def on_test_epoch_end(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:
         self._epoch_end(trainer, pl_module)
 
     def _epoch_end(
@@ -170,14 +169,24 @@ class ComputeMetricsCallback(lightning.Callback):
         @rank_zero_only
         def print_metrics() -> None:
             metrics = {}
+
             for name, value in trainer.logged_metrics.items():
                 if "@" in name:
                     metrics[name] = value.item()
 
-            if metrics:
-                metrics_df = metrics_to_df(metrics)
+            if not metrics:
+                return
 
-                print(metrics_df)  # noqa: T201
-                print()  # noqa: T201
+            if len(self._dataloaders_size) > 1:
+                for i in range(len(self._dataloaders_size)):
+                    suffix = trainer._results.DATALOADER_SUFFIX.format(i)[1:]
+                    cur_dataloader_metrics = {k.split("/")[0]: v for k, v in metrics.items() if suffix in k}
+                    metrics_df = metrics_to_df(cur_dataloader_metrics)
+
+                    print(suffix)  # noqa: T201
+                    print(metrics_df, "\n")  # noqa: T201
+            else:
+                metrics_df = metrics_to_df(metrics)
+                print(metrics_df, "\n")  # noqa: T201
 
         print_metrics()
