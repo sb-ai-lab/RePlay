@@ -80,10 +80,14 @@ class FeaturesReader:
         self._features = {}
 
         for k in features.columns:
+            dtype = np.float32 if schema[k].is_num else np.int64
             if schema[k].is_list:
-                feature = features[k].to_list()
+                feature = np.asarray(
+                    features[k].to_list(),
+                    dtype=dtype,
+                )
             else:
-                feature = features[k].to_numpy(dtype=np.float32 if schema[k].is_num else np.int64)
+                feature = features[k].to_numpy(dtype=dtype)
             feature_tensor = torch.asarray(
                 feature,
                 dtype=torch.float32 if schema[k].is_num else torch.int64,
