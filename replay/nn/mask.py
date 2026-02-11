@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import Protocol
 
 import torch
@@ -7,17 +7,15 @@ from replay.data.nn.schema import TensorMap
 
 
 class AttentionMaskProto(Protocol):
-    def __call__(self, feature_tensor: TensorMap, padding_mask: torch.BoolTensor) -> torch.Tensor: ...
+    def forward(self, feature_tensor: TensorMap, padding_mask: torch.BoolTensor) -> torch.Tensor: ...
 
 
-class AttentionMaskBase(ABC):
-    def __init__(
-        self,
-        num_heads: int,
-    ) -> None:
+class AttentionMaskBase(torch.nn.Module):
+    def __init__(self, num_heads: int) -> None:
+        super().__init__()
         self.num_heads = num_heads
 
-    def __call__(
+    def forward(
         self,
         feature_tensor: TensorMap,
         padding_mask: torch.BoolTensor,
@@ -38,10 +36,12 @@ class AttentionMaskBase(ABC):
         # (B, 1, 1, L) -> (B, 1, L, L), where 0 - PAD, 1 - otherwise
         key_padding_mask = key_padding_mask | diagonal_attention_mask
 
-        attention_mask = (attention_mask & key_padding_mask).float()
-        attention_mask = attention_mask.masked_fill(attention_mask == 0, float("-inf")).masked_fill(
-            attention_mask == 1, 0.0
+        attention_mask = attention_mask & key_padding_mask
+        min_value = -torch.inf if self.training else torch.finfo(torch.float32).min
+        attention_mask = torch.zeros_like(attention_mask, dtype=torch.float32).masked_fill_(
+            attention_mask.logical_not(), min_value
         )
+
         if attention_mask.size(1) != self.num_heads and attention_mask.shape[1] == 1:
             # for default attention_mask of shape (L, L) it becomes (B, 1, L, L)
             # (B, 1, L, L) -> (B, num_heads, L, L)
