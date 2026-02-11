@@ -90,7 +90,9 @@ class SasRecTransformerLayer(torch.nn.Module):
         :returns: torch.Tensor: Output tensor after processing through the layer.
         """
         seqs = input_embeddings
-
+        key_padding_mask = torch.zeros_like(padding_mask, dtype=torch.float32).masked_fill_(
+            padding_mask.logical_not(), -torch.inf if self.training else torch.finfo(torch.float32).min
+        )
         for i in range(self.num_blocks):
             query = self.attention_layernorms[i](seqs)
             attn_emb, _ = self.attention_layers[i](
@@ -98,7 +100,7 @@ class SasRecTransformerLayer(torch.nn.Module):
                 seqs,
                 seqs,
                 attn_mask=attention_mask,
-                key_padding_mask=padding_mask.logical_not(),
+                key_padding_mask=key_padding_mask,
                 need_weights=False,
             )
             seqs = query + attn_emb
