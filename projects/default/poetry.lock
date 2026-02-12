@@ -3829,15 +3829,15 @@ test = ["cloudpickle (>=1.3)", "coverage (==7.10.7) ; python_version < \"3.10\""
 
 [[package]]
 name = "pytorch-optimizer"
-version = "3.8.2"
+version = "3.9.0"
 description = "optimizer & lr scheduler & objective function collections in PyTorch"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"torch-cpu\" or extra == \"torch\""
 files = [
-    {file = "pytorch_optimizer-3.8.2-py3-none-any.whl", hash = "sha256:1719d8d3253696a78df9a448677341d8c4344bcda5e5b2212a10762329204a65"},
-    {file = "pytorch_optimizer-3.8.2.tar.gz", hash = "sha256:ec2a73dc1ecbd272c25f7caef15032c8b63f4103cd3e30529df76b39be589b08"},
+    {file = "pytorch_optimizer-3.9.0-py3-none-any.whl", hash = "sha256:4ec3415acdff2176e3d04d1538e5092cfcbf7cfc2e894cfa5666ed8b71167caf"},
+    {file = "pytorch_optimizer-3.9.0.tar.gz", hash = "sha256:0f960ae31f2e1611ec467a87176b01fb9c76fde0e0510e58cca1e9e171a55915"},
 ]
 
 [package.dependencies]
@@ -5723,4 +5723,4 @@ torch-cpu = ["lightning", "pytorch-optimizer", "torch"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <3.13"
-content-hash = "3f174d0913de09493a4a5e942f99667243ee88d227c479deb23012e6339b7f50"
+content-hash = "3a0bf5c9f4c9be0914b8aa9431168b064914b30ce51b994997e88468c650f0ea"
