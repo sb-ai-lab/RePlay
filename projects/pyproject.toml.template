@@ -65,33 +65,32 @@ dependencies = [
     "scikit-learn (>=1.6.1,<1.7.0)",
     "pyarrow (<22.0)",
     "tqdm (>=4.67,<5)",
-{% if project == "default" %}
-    "pyspark (>=3.0,<3.5); extra == 'spark'",
-    "psutil (<=7.0.0); extra == 'spark'",
-    "torch (>=1.8, <3.0.0); extra == 'torch' or extra == 'torch-cpu'",
-    "pytorch-optimizer (>=3.8.0,<3.9.0); extra == 'torch' or extra == 'torch-cpu'",
-    "lightning (<2.6.0); extra == 'torch' or extra == 'torch-cpu'",
-{% endif %}
 {% if project == "experimental" %}
-    "torch (>=1.8,<3.0.0)",
-    "lightning (>=2.0.2,<=2.4.0)",
-    "pytorch-optimizer (>=3.8.0,<4)",
     "lightautoml (>=0.4.1,<0.5)",
     "numba (>=0.50,<1)",
     "sb-obp (>=0.5.10,<0.6)",
     "d3rlpy (>=2.8.1,<2.9)",
     "implicit (>=0.7.2,<0.8)",
-    "pyspark (>=3.0,<3.5)",
-    "psutil (<=7.0.0)",
 {% endif %}
 ]
 dynamic = ["version", "dependencies"]
 
 {% if project == "default" %}
 [project.optional-dependencies]
-spark = ["pyspark", "psutil"]
-torch = ["torch", "pytorch-optimizer", "lightning"]
-torch-cpu = ["torch", "pytorch-optimizer", "lightning"]
+spark = [
+    "pyspark (>=3.0,<3.5)",
+    "psutil (<=7.0.0)",
+]
+torch-cpu = [
+    "torch (>=1.8, <3.0.0)",
+    "pytorch-optimizer (>=3.8.0,<3.9.0)",
+    "lightning (<2.6.0)",
+]
+torch = [
+    "torch (>=1.8, <3.0.0)",
+    "pytorch-optimizer (>=3.8.0,<3.9.0)",
+    "lightning (<2.6.0)",
+]
 
 {% endif %}
 [project.urls]
@@ -125,8 +124,8 @@ version = "0.0.0"
 {% if project == "default" %}
 [tool.poetry.dependencies]
 torch = [
-    {markers = "extra == 'torch-cpu' and extra !='torch'", source = "torch-cpu-mirror"},
-    {markers = "extra == 'torch' and extra !='torch-cpu'", source = "PyPI"},
+    {markers = "extra == 'torch' and extra != 'torch-cpu'", source = "PyPI"},
+    {markers = "extra == 'torch-cpu' and extra != 'torch'", source = "torch-cpu-mirror"},
 ]
 
 {% endif %}
