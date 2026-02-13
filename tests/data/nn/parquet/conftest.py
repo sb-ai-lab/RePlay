@@ -4,8 +4,8 @@ pytest.importorskip("torch", reason="Module 'torch' is required for ParquetDatas
 pytest_mark = pytest.mark.torch
 
 import os
-import sys
 from dataclasses import dataclass
+from itertools import pairwise
 from typing import Dict, Optional, Tuple
 
 import pyarrow as pa
@@ -16,20 +16,6 @@ from replay.data.nn.parquet.constants.metadata import PADDING_FLAG, SHAPE_FLAG
 from replay.data.nn.parquet.impl.indexing import get_offsets
 from replay.data.nn.parquet.metadata import Metadata
 from replay.data.utils.typing.dtype import torch_to_pyarrow
-
-if sys.version_info < (3, 10):  # pragma: py-lt-310
-
-    def pairwise(iterable):
-        iterator = iter(iterable)
-        a = next(iterator, None)
-
-        for b in iterator:
-            yield a, b
-            a = b
-
-else:
-    from itertools import pairwise
-
 
 PADDING: int = -2
 MAX_PHASE: float = 2.0 * torch.pi

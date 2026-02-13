@@ -706,11 +706,9 @@ if PYSPARK_AVAILABLE:
                 sf.when(sf.col(col_name) == cur_name, 1)
                 .otherwise(0)
                 .alias(
-                    f"""{self.alias}_{col_name}_{str(cur_name).translate(
-                            str.maketrans(
-                                "", "", string.punctuation + string.whitespace
-                            )
-                        )[:30]}"""
+                    f"{self.alias}_"
+                    f"{col_name}_"
+                    f"{str(cur_name).translate(str.maketrans('', '', string.punctuation + string.whitespace))[:30]}"
                 )
                 for col_name, col_values in cat_feat_values_dict.items()
                 for cur_name in col_values

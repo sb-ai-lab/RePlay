@@ -255,7 +255,10 @@ class MultVAE(TorchRecommender):
 
     def _batch_pass(self, batch, model):
         full_batch = self.train_user_batch if model.training else self.valid_user_batch
-        user_batch = torch.FloatTensor(full_batch[batch[0]].toarray()).to(self.device)
+        user_batch = torch.FloatTensor(
+            full_batch[batch[0].cpu().numpy()].toarray(),
+            device=self.device,
+        )
         pred_user_batch, latent_mu, latent_logvar = self.model.forward(user_batch)
         return {
             "y_pred": pred_user_batch,
