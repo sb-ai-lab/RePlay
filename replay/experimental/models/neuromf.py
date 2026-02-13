@@ -4,6 +4,7 @@ Multi-Layer Perceptron (MLP),
 Neural Matrix Factorization (MLP + GMF).
 """
 
+import itertools
 from typing import Optional
 
 import numpy as np
@@ -92,7 +93,7 @@ class MLP(nn.Module):
         if hidden_dims:
             full_hidden_dims = [2 * embedding_dim, *hidden_dims]
             self.hidden_layers = nn.ModuleList(
-                [nn.Linear(d_in, d_out) for d_in, d_out in zip(full_hidden_dims[:-1], full_hidden_dims[1:])]
+                [nn.Linear(d_in, d_out) for d_in, d_out in itertools.pairwise(full_hidden_dims)]
             )
 
         else:

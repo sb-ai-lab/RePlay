@@ -55,7 +55,7 @@ class SasRecTrainingDataset(TorchDataset):
         sequential: SequentialDataset,
         max_sequence_length: int,
         sequence_shift: int = 1,
-        sliding_window_step: Optional[None] = None,
+        sliding_window_step: Optional[int] = None,
         padding_value: Optional[int] = None,
         label_feature_name: Optional[str] = None,
     ) -> None:
