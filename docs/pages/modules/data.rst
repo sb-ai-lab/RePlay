@@ -145,10 +145,7 @@ See the full example in `examples/09_sasrec_example.ipynb`.
         from replay.data.nn import ParquetModule
         from replay.nn.transform.template import make_default_sasrec_transforms
 
-        metadata = {
-            "user_id": {},
-            "item_id": {"shape": 50, "padding": 51},
-        }
+        metadata = {"item_id": {"shape": 50, "padding": 51}}
         transforms = make_default_sasrec_transforms(tensor_schema, query_column="user_id")
         parquet_datamodule = ParquetModule(
             batch_size=64,

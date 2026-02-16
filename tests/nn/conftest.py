@@ -284,7 +284,10 @@ def transforms(tensor_schema, max_len):
     return {
         "train": [
             NextTokenTransform(
-                label_field="item_id", query_features="user_id", shift=1, out_feature_name="positive_labels"
+                label_field="item_id",
+                ignore_features=["user_id", "user_id_mask"],
+                shift=1,
+                out_feature_name="positive_labels",
             ),
             RenameTransform(
                 {"user_id": "query_id", "item_id_mask": "padding_mask", "positive_labels_mask": "target_padding_mask"}

@@ -9,6 +9,7 @@ from replay.nn.transform import (
     MultiClassNegativeSamplingTransform,
     NextTokenTransform,
     RenameTransform,
+    SelectTransform,
     SequenceRollTransform,
     TokenMaskTransform,
     TrimTransform,
@@ -29,12 +30,12 @@ from replay.nn.transform import (
 @pytest.mark.parametrize("shift", [1, 5])
 def test_next_token_label_transform(random_batch, shift):
     label_field = "item_id"
-    query_field = ["user_id", "user_id_mask", "negative_selector"]
-    transform = NextTokenTransform(label_field=label_field, query_features=query_field, shift=shift)
+    ignore_features = ["user_id", "user_id_mask", "negative_selector"]
+    transform = NextTokenTransform(label_field=label_field, ignore_features=ignore_features, shift=shift)
     transformed_batch = transform(random_batch)
 
     for feature in random_batch.keys():
-        if any(feature.startswith(q) for q in query_field):
+        if any(feature.startswith(q) for q in ignore_features):
             torch.testing.assert_close(transformed_batch[feature], random_batch[feature])
         else:
             torch.testing.assert_close(transformed_batch[feature], random_batch[feature][:, :-shift])
@@ -255,10 +256,11 @@ def test_trim_transform_wrong_length(random_batch):
         pytest.param(CopyTransform(mapping={"item_id_mask": "padding_id"}), id="CopyTransform"),
         pytest.param(GroupTransform(mapping={"feature_tensors": ["item_id"]}), id="GroupTransform"),
         pytest.param(
-            NextTokenTransform(label_field="item_id", query_features=["user_id", "user_id_mask"]),
+            NextTokenTransform(label_field="item_id", ignore_features=["user_id", "user_id_mask"]),
             id="NextTokenTransform",
         ),
         pytest.param(RenameTransform(mapping={"item_id_mask": "padding_id"}), id="RenameTransform"),
+        pytest.param(SelectTransform(["item_id"]), id="SequenceRollTransform"),
         pytest.param(SequenceRollTransform(field_name="item_id"), id="SequenceRollTransform"),
         pytest.param(TokenMaskTransform(token_field="item_id_mask"), id="TokenMaskTransform"),
         pytest.param(TrimTransform(seq_len=2, feature_names=["item_id"]), id="TrimTransform"),
@@ -285,3 +287,11 @@ def test_immutability_input_batch(transform, random_batch):
     assert id(random_batch) == input_batch_id
     assert set(random_batch.keys()) == input_batch_keys
     assert set(random_batch.items()) == input_batch_items
+
+
+def test_select_transform(random_batch):
+    features = ["item_id", "cat_feature"]
+    transform = SelectTransform(features)
+    transformed_batch = transform(random_batch)
+
+    assert set(features) == set(transformed_batch.keys())
