@@ -292,7 +292,6 @@ class NumericalEmbedding(torch.nn.Module):
 class IdentityEmbedding(torch.nn.Module):
     """
     Class that doesn't apply any transformations and returns input features as is in forward pass.
-    Should be used when ``embedding_dim`` and ``tensor_dim`` fields in ``TensorFeatureInfo`` are equal.
     """
 
     def __init__(self, feature_info: TensorFeatureInfo) -> None:
