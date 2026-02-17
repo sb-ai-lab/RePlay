@@ -1,6 +1,6 @@
 import warnings
-from collections.abc import Iterator
-from typing import Callable, Optional, Protocol, cast
+from collections.abc import Callable, Iterator
+from typing import Protocol, cast
 
 import torch
 from torch.utils.data import IterableDataset
@@ -20,7 +20,7 @@ def get_batch_size(batch: GeneralBatch, strict: bool = False) -> int:
 
     :return: Batch size.
     """
-    batch_size: Optional[int] = None
+    batch_size: int | None = None
 
     for key, value in batch.items():
         new_batch_size: int
@@ -75,7 +75,7 @@ class FixedBatchSizeDataset(IterableDataset):
     def __init__(
         self,
         dataset: DatasetProtocol,
-        batch_size: Optional[int] = None,
+        batch_size: int | None = None,
         collate_fn: GeneralCollateFn = DEFAULT_COLLATE_FN,
         strict_checks: bool = False,
     ) -> None:

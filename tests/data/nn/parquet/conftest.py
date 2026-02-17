@@ -6,7 +6,6 @@ pytest_mark = pytest.mark.torch
 import os
 from dataclasses import dataclass
 from itertools import pairwise
-from typing import Dict, Optional, Tuple
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -40,7 +39,7 @@ INDEX: str = "index"
 SIN_INDEX: str = "sin_index"
 COS_INDEX: str = "cos_index"
 
-Batch = Dict[str, torch.Tensor]
+Batch = dict[str, torch.Tensor]
 
 
 def get_absolute_indices(offsets: torch.LongTensor) -> torch.LongTensor:
@@ -60,7 +59,7 @@ def get_relative_indices(offsets: torch.LongTensor) -> torch.LongTensor:
     return abs_indices - offsets[rows]
 
 
-def get_mask(offsets: torch.LongTensor, length: int) -> Tuple[torch.BoolTensor, torch.LongTensor]:
+def get_mask(offsets: torch.LongTensor, length: int) -> tuple[torch.BoolTensor, torch.LongTensor]:
     last: torch.LongTensor = offsets[1:]
     first: torch.LongTensor = offsets[:-1]
     per_line: torch.LongTensor = length - (last - first)
@@ -71,7 +70,7 @@ def get_mask(offsets: torch.LongTensor, length: int) -> Tuple[torch.BoolTensor, 
     return (mask, indices)
 
 
-def get_padded(offsets: torch.LongTensor, series: torch.Tensor, length: int) -> Tuple[torch.BoolTensor, torch.Tensor]:
+def get_padded(offsets: torch.LongTensor, series: torch.Tensor, length: int) -> tuple[torch.BoolTensor, torch.Tensor]:
     mask, indices = get_mask(offsets, length)
     gathered: torch.Tensor = torch.take(series, indices)
     padded: torch.Tensor = torch.where(mask, gathered, PADDING)
@@ -90,7 +89,7 @@ class BatchGenerator:
 
     batch_size: int = 4_096
 
-    generator: Optional[torch.Generator] = None
+    generator: torch.Generator | None = None
 
     def generate_lengths(self) -> torch.LongTensor:
         ones: torch.Tensor = torch.ones(self.batch_size, dtype=torch.float32)
@@ -134,7 +133,7 @@ class BatchGenerator:
             COS_INDEX: cos_xs[INDEX],
         }
 
-    def sin(self, base: Batch) -> Tuple[torch.Tensor, torch.Tensor]:
+    def sin(self, base: Batch) -> tuple[torch.Tensor, torch.Tensor]:
         xs: torch.Tensor = base[SIN_X]
         phase: torch.Tensor = base[PHASE]
         frequency: torch.Tensor = base[FREQUENCY]
@@ -147,7 +146,7 @@ class BatchGenerator:
         sin: torch.Tensor = torch.sin(phases + frequencies * xs)
         return (cos, sin)
 
-    def cos(self, base: Batch) -> Tuple[torch.Tensor, torch.Tensor]:
+    def cos(self, base: Batch) -> tuple[torch.Tensor, torch.Tensor]:
         xs: torch.Tensor = base[COS_X]
         phase: torch.Tensor = base[PHASE]
         frequency: torch.Tensor = base[FREQUENCY]
@@ -273,7 +272,7 @@ def batch_to_pyarrow(batch: Batch) -> pa.Table:
 
 
 def write_dataset(batch_generator: BatchGenerator, path: str, batch_count: int, write_every_n_batch: int = 8) -> str:
-    writer: Optional[pq.ParquetWriter] = None
+    writer: pq.ParquetWriter | None = None
 
     batch_idx: int
     for batch_idx in range(batch_count):

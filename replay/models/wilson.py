@@ -1,5 +1,3 @@
-from typing import Optional
-
 from scipy.stats import norm
 
 from replay.data import Dataset
@@ -57,7 +55,7 @@ class Wilson(PopRec):
         add_cold_items: bool = True,
         cold_weight: float = 0.5,
         sample: bool = False,
-        seed: Optional[int] = None,
+        seed: int | None = None,
     ):
         """
         :param alpha: significance level, default 0.05

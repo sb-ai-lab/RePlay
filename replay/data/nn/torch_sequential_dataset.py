@@ -1,6 +1,6 @@
 import warnings
 from collections.abc import Generator, Sequence
-from typing import TYPE_CHECKING, NamedTuple, Optional, Union, cast
+from typing import TYPE_CHECKING, NamedTuple, cast
 
 import numpy as np
 import torch
@@ -35,8 +35,8 @@ class TorchSequentialDataset(TorchDataset):
         self,
         sequential: "SequentialDataset",
         max_sequence_length: int,
-        sliding_window_step: Optional[int] = None,
-        padding_value: Optional[int] = None,
+        sliding_window_step: int | None = None,
+        padding_value: int | None = None,
     ) -> None:
         """
         :param sequential: sequential dataset
@@ -118,7 +118,7 @@ class TorchSequentialDataset(TorchDataset):
             return sequence
 
         # form shape for padded_sequence. Now supported one and two-dimentions features
-        padded_sequence_shape: Union[tuple[int, int], tuple[int]]
+        padded_sequence_shape: tuple[int, int] | tuple[int]
         if len(sequence.shape) == 1:
             padded_sequence_shape = (self._max_sequence_length,)
         elif len(sequence.shape) == 2:
@@ -192,9 +192,9 @@ class TorchSequentialValidationDataset(TorchDataset):
         ground_truth: "SequentialDataset",
         train: "SequentialDataset",
         max_sequence_length: int,
-        padding_value: Optional[int] = None,
-        sliding_window_step: Optional[int] = None,
-        label_feature_name: Optional[str] = None,
+        padding_value: int | None = None,
+        sliding_window_step: int | None = None,
+        label_feature_name: str | None = None,
     ):
         """
         :param sequential: validation sequential dataset

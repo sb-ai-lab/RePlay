@@ -1,5 +1,4 @@
 from os.path import join
-from typing import Optional
 
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
@@ -19,7 +18,7 @@ class ALSWrap(Recommender, ItemVectorModel):
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
 
-    _seed: Optional[int] = None
+    _seed: int | None = None
     _search_space = {
         "rank": {"type": "loguniform_int", "args": [8, 256]},
     }
@@ -28,9 +27,9 @@ class ALSWrap(Recommender, ItemVectorModel):
         self,
         rank: int = 10,
         implicit_prefs: bool = True,
-        seed: Optional[int] = None,
-        num_item_blocks: Optional[int] = None,
-        num_query_blocks: Optional[int] = None,
+        seed: int | None = None,
+        num_item_blocks: int | None = None,
+        num_query_blocks: int | None = None,
     ):
         """
         :param rank: hidden dimension for the approximate matrix
@@ -57,7 +56,7 @@ class ALSWrap(Recommender, ItemVectorModel):
             "seed": self._seed,
         }
 
-    def _save_model(self, path: str, additional_params: Optional[dict] = None):
+    def _save_model(self, path: str, additional_params: dict | None = None):
         super()._save_model(path, additional_params)
         self.model.write().overwrite().save(join(path, "model"))
 
@@ -99,7 +98,7 @@ class ALSWrap(Recommender, ItemVectorModel):
 
     def _predict(
         self,
-        dataset: Optional[Dataset],
+        dataset: Dataset | None,
         k: int,
         queries: SparkDataFrame,
         items: SparkDataFrame,
@@ -138,7 +137,7 @@ class ALSWrap(Recommender, ItemVectorModel):
     def _predict_pairs(
         self,
         pairs: SparkDataFrame,
-        dataset: Optional[Dataset] = None,  # noqa: ARG002
+        dataset: Dataset | None = None,  # noqa: ARG002
     ) -> SparkDataFrame:
         return (
             self.model.transform(pairs)
@@ -147,8 +146,8 @@ class ALSWrap(Recommender, ItemVectorModel):
         )
 
     def _get_features(
-        self, ids: SparkDataFrame, features: Optional[SparkDataFrame]  # noqa: ARG002
-    ) -> tuple[Optional[SparkDataFrame], Optional[int]]:
+        self, ids: SparkDataFrame, features: SparkDataFrame | None  # noqa: ARG002
+    ) -> tuple[SparkDataFrame | None, int | None]:
         entity = "user" if self.query_column in ids.columns else "item"
         entity_col = self.query_column if self.query_column in ids.columns else self.item_column
 

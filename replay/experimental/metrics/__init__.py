@@ -3,10 +3,10 @@ Most metrics require dataframe with recommendations
 and dataframe with ground truth values —
 which objects each user interacted with.
 
-- recommendations (Union[pandas.DataFrame, spark.DataFrame]):
+- recommendations (pandas.DataFrame | spark.DataFrame):
     predictions of a recommender system,
     DataFrame with columns ``[user_id, item_id, relevance]``
-- ground_truth (Union[pandas.DataFrame, spark.DataFrame]):
+- ground_truth (pandas.DataFrame | spark.DataFrame):
     test data, DataFrame with columns
     ``[user_id, item_id, timestamp, relevance]``
 
@@ -20,7 +20,7 @@ those users will be ignored and metric will be overestimated.
 For such case we propose additional optional parameter ``ground_truth_users``,
 the dataframe with all users, which should be considered during the metric calculation.
 
-- ground_truth_users (Optional[Union[pandas.DataFrame, spark.DataFrame]]):
+- ground_truth_users (pandas.DataFrame | spark.DataFrame | None):
     full list of users to calculate metric for, DataFrame with ``user_id`` column
 
 Every metric is calculated using top ``K`` items for each user.
@@ -31,7 +31,7 @@ In this case the result will be a dictionary and not a number.
 Make sure your recommendations do not contain user-item duplicates
 as duplicates could lead to the wrong calculation results.
 
-- k (Union[Iterable[int], int]):
+- k (Iterable[int] | int):
     a single number or a list, specifying the
     truncation length for recommendation list for each user
 

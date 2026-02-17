@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -120,7 +120,7 @@ class LastNSplitter(Splitter):
         query_column: str = "query_id",
         item_column: str = "item_id",
         timestamp_column: str = "timestamp",
-        session_id_column: Optional[str] = None,
+        session_id_column: str | None = None,
         session_id_processing_strategy: str = "test",
     ):
         """

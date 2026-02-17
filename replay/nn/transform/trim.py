@@ -1,5 +1,3 @@
-from typing import List, Union
-
 import torch
 
 
@@ -28,7 +26,7 @@ class TrimTransform(torch.nn.Module):
     def __init__(
         self,
         seq_len: int,
-        feature_names: Union[List[str], str],
+        feature_names: list[str] | str,
     ) -> None:
         """
         :param seq_len: max sequence length used in model. Must be positive.

@@ -1,8 +1,10 @@
-from typing import Callable, Union
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import TypeAlias
 
 import torch
-from typing_extensions import TypeAlias
 
-GeneralValue: TypeAlias = Union[torch.Tensor, "GeneralBatch"]
+GeneralValue: TypeAlias = torch.Tensor | "GeneralBatch"
 GeneralBatch: TypeAlias = dict[str, GeneralValue]
 GeneralCollateFn: TypeAlias = Callable[[GeneralBatch], GeneralBatch]

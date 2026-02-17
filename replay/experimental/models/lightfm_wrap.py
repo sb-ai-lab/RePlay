@@ -1,6 +1,5 @@
 import os
 from os.path import join
-from typing import Optional
 
 import numpy as np
 from scipy.sparse import csr_matrix, diags, hstack
@@ -28,14 +27,14 @@ class LightFMWrap(HybridRecommender):
         },
         "no_components": {"type": "loguniform_int", "args": [8, 512]},
     }
-    user_feat_scaler: Optional[MinMaxScaler] = None
-    item_feat_scaler: Optional[MinMaxScaler] = None
+    user_feat_scaler: MinMaxScaler | None = None
+    item_feat_scaler: MinMaxScaler | None = None
 
     def __init__(
         self,
         no_components: int = 128,
         loss: str = "warp",
-        random_state: Optional[int] = None,
+        random_state: int | None = None,
     ):
         np.random.seed(42)
         self.no_components = no_components
@@ -65,8 +64,8 @@ class LightFMWrap(HybridRecommender):
     def _feature_table_to_csr(
         self,
         log_ids_list: SparkDataFrame,
-        feature_table: Optional[SparkDataFrame] = None,
-    ) -> Optional[csr_matrix]:
+        feature_table: SparkDataFrame | None = None,
+    ) -> csr_matrix | None:
         """
         Transform features to sparse matrix
         Matrix consists of two parts:
@@ -164,8 +163,8 @@ class LightFMWrap(HybridRecommender):
     def _fit(
         self,
         log: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        user_features: SparkDataFrame | None = None,
+        item_features: SparkDataFrame | None = None,
     ) -> None:
         from lightfm import LightFM
 
@@ -202,8 +201,8 @@ class LightFMWrap(HybridRecommender):
     def _predict_selected_pairs(
         self,
         pairs: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        user_features: SparkDataFrame | None = None,
+        item_features: SparkDataFrame | None = None,
     ):
         def predict_by_user(pandas_df: PandasDataFrame) -> PandasDataFrame:
             pandas_df["relevance"] = model.predict(
@@ -239,8 +238,8 @@ class LightFMWrap(HybridRecommender):
         k: int,  # noqa: ARG002
         users: SparkDataFrame,
         items: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        user_features: SparkDataFrame | None = None,
+        item_features: SparkDataFrame | None = None,
         filter_seen_items: bool = True,  # noqa: ARG002
     ) -> SparkDataFrame:
         return self._predict_selected_pairs(users.crossJoin(items), user_features, item_features)
@@ -248,15 +247,15 @@ class LightFMWrap(HybridRecommender):
     def _predict_pairs(
         self,
         pairs: SparkDataFrame,
-        log: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        log: SparkDataFrame | None = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,
+        item_features: SparkDataFrame | None = None,
     ) -> SparkDataFrame:
         return self._predict_selected_pairs(pairs, user_features, item_features)
 
     def _get_features(
-        self, ids: SparkDataFrame, features: Optional[SparkDataFrame]
-    ) -> tuple[Optional[SparkDataFrame], Optional[int]]:
+        self, ids: SparkDataFrame, features: SparkDataFrame | None
+    ) -> tuple[SparkDataFrame | None, int | None]:
         """
         Get features from LightFM.
         LightFM has methods get_item_representations/get_user_representations,

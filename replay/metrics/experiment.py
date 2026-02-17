@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 import pandas as pd
 
 from .base_metric import Metric, MetricsDataFrameLike
@@ -104,8 +102,8 @@ class Experiment:
         self,
         metrics: list[Metric],
         ground_truth: MetricsDataFrameLike,
-        train: Optional[MetricsDataFrameLike] = None,
-        base_recommendations: Optional[Union[MetricsDataFrameLike, dict[str, MetricsDataFrameLike]]] = None,
+        train: MetricsDataFrameLike | None = None,
+        base_recommendations: MetricsDataFrameLike | dict[str, MetricsDataFrameLike] | None = None,
         query_column: str = "query_id",
         item_column: str = "item_id",
         rating_column: str = "rating",

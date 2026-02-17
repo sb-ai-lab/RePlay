@@ -1,6 +1,5 @@
 import bisect
 import random
-from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -96,7 +95,7 @@ class ValidateDataset(Dataset):
 
 
 def pad_sequence(
-    sequences: Union[torch.Tensor, list[torch.Tensor]],
+    sequences: torch.Tensor | list[torch.Tensor],
     batch_first: bool = False,
     padding_value: float = 0.0,
     pos: str = "right",

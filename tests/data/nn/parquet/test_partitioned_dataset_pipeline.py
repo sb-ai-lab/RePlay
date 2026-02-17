@@ -1,6 +1,6 @@
 import os
 import tempfile
-from typing import Any, Dict
+from typing import Any
 
 import pyarrow.dataset as ds
 import pytest
@@ -45,9 +45,9 @@ def test_dataset_pipeline(seed: int, batch_size: int, batch_count: int):
             batch_size=batch_size,
         )
 
-        batch: Dict[str, torch.Tensor]
+        batch: dict[str, torch.Tensor]
         for batch in partitioned_dataset:
-            gtr_batch: Dict[str, torch.Tensor] = gtr_generator.generate_padded()
+            gtr_batch: dict[str, torch.Tensor] = gtr_generator.generate_padded()
 
             key: str
             for key in metadata:

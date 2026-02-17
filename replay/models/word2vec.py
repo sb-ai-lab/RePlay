@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
@@ -63,9 +63,9 @@ class Word2VecRec(ANNMixin, Recommender, ItemVectorModel):
         max_iter: int = 1,
         window_size: int = 1,
         use_idf: bool = False,
-        seed: Optional[int] = None,
-        num_partitions: Optional[int] = None,
-        index_builder: Optional[IndexBuilder] = None,
+        seed: int | None = None,
+        num_partitions: int | None = None,
+        index_builder: IndexBuilder | None = None,
     ):
         """
         :param rank: embedding size
@@ -104,7 +104,7 @@ class Word2VecRec(ANNMixin, Recommender, ItemVectorModel):
             "index_builder": self.index_builder.init_meta_as_dict() if self.index_builder else None,
         }
 
-    def _save_model(self, path: str, additional_params: Optional[dict] = None):
+    def _save_model(self, path: str, additional_params: dict | None = None):
         super()._save_model(path, additional_params)
         if self.index_builder:
             self._save_index(path)
@@ -230,7 +230,7 @@ class Word2VecRec(ANNMixin, Recommender, ItemVectorModel):
     def _predict_pairs(
         self,
         pairs: SparkDataFrame,
-        dataset: Optional[Dataset] = None,
+        dataset: Dataset | None = None,
     ) -> SparkDataFrame:
         return self._predict_pairs_inner(pairs, dataset)
 

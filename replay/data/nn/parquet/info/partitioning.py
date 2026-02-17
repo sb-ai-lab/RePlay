@@ -1,6 +1,5 @@
 from functools import lru_cache
 from math import ceil
-from typing import Optional, Union
 
 import torch
 
@@ -70,8 +69,8 @@ class Partitioning:
         self,
         curr_replica: int,
         num_replicas: int,
-        device: Union[torch.device, str] = DEFAULT_DEVICE,
-        generator: Optional[torch.Generator] = None,
+        device: torch.device | str = DEFAULT_DEVICE,
+        generator: torch.Generator | None = None,
     ) -> None:
         """
         :param curr_replica: Id of the curreent replica.
