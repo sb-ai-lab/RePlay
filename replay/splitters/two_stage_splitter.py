@@ -273,18 +273,14 @@ class TwoStageSplitter(Splitter):
                 query_column=self.query_column,
             )
         res = res.na.fill({"is_test": False})
-        train = res.filter(
-            f"""
+        train = res.filter(f"""
                     _row_num > {self.second_divide_size} OR
                     NOT is_test
-                """
-        ).drop("_rand", "_row_num", "is_test")
-        test = res.filter(
-            f"""
+                """).drop("_rand", "_row_num", "is_test")
+        test = res.filter(f"""
                     _row_num <= {self.second_divide_size} AND
                     is_test
-                """
-        ).drop("_rand", "_row_num", "is_test")
+                """).drop("_rand", "_row_num", "is_test")
 
         return train, test
 
