@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Any, Optional, Union
+from typing import Any
 
 from replay.experimental.models import ScalaALSWrap
 from replay.experimental.preprocessing.data_preparator import ToNumericFeatureTransformer
@@ -30,8 +30,8 @@ if PYSPARK_AVAILABLE:
 def get_first_level_model_features(
     model: SparkDataFrame,
     pairs: SparkDataFrame,
-    user_features: Optional[SparkDataFrame] = None,
-    item_features: Optional[SparkDataFrame] = None,
+    user_features: SparkDataFrame | None = None,
+    item_features: SparkDataFrame | None = None,
     add_factors_mult: bool = True,
     prefix: str = "",
 ) -> SparkDataFrame:
@@ -146,16 +146,16 @@ class TwoStagesScenario(HybridRecommender):
     def __init__(
         self,
         train_splitter: Splitter = RatioSplitter(test_size=0.5),
-        first_level_models: Union[list[BaseRecommender], BaseRecommender] = ScalaALSWrap(rank=128),
-        fallback_model: Optional[BaseRecommender] = PopRec(),
-        use_first_level_models_feat: Union[list[bool], bool] = False,
-        second_model_params: Optional[Union[dict, str]] = None,
-        second_model_config_path: Optional[str] = None,
+        first_level_models: list[BaseRecommender] | BaseRecommender = ScalaALSWrap(rank=128),
+        fallback_model: BaseRecommender | None = PopRec(),
+        use_first_level_models_feat: list[bool] | bool = False,
+        second_model_params: dict | str | None = None,
+        second_model_config_path: str | None = None,
         num_negatives: int = 100,
         negatives_type: str = "first_level",
         use_generated_features: bool = False,
-        user_cat_features_list: Optional[list] = None,
-        item_cat_features_list: Optional[list] = None,
+        user_cat_features_list: list | None = None,
+        item_cat_features_list: list | None = None,
         custom_features_processor: HistoryBasedFeaturesProcessor = None,
         seed: int = 123,
     ) -> None:
@@ -474,8 +474,8 @@ class TwoStagesScenario(HybridRecommender):
     def _fit(
         self,
         log: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        user_features: SparkDataFrame | None = None,
+        item_features: SparkDataFrame | None = None,
     ) -> None:
         self.cached_list = []
 
@@ -574,8 +574,8 @@ class TwoStagesScenario(HybridRecommender):
         k: int,
         users: SparkDataFrame,
         items: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        user_features: SparkDataFrame | None = None,
+        item_features: SparkDataFrame | None = None,
         filter_seen_items: bool = True,  # noqa: ARG002
     ) -> SparkDataFrame:
         State().logger.debug(msg="Generating candidates to rerank")
@@ -617,10 +617,10 @@ class TwoStagesScenario(HybridRecommender):
         self,
         log: DataFrameLike,
         k: int,
-        users: Optional[Union[DataFrameLike, Iterable]] = None,
-        items: Optional[Union[DataFrameLike, Iterable]] = None,
-        user_features: Optional[DataFrameLike] = None,
-        item_features: Optional[DataFrameLike] = None,
+        users: DataFrameLike | Iterable | None = None,
+        items: DataFrameLike | Iterable | None = None,
+        user_features: DataFrameLike | None = None,
+        item_features: DataFrameLike | None = None,
         filter_seen_items: bool = True,
     ) -> SparkDataFrame:
         """
@@ -649,9 +649,9 @@ class TwoStagesScenario(HybridRecommender):
         model: BaseRecommender,
         train: DataFrameLike,
         test: DataFrameLike,
-        user_features: Optional[DataFrameLike] = None,
-        item_features: Optional[DataFrameLike] = None,
-        param_borders: Optional[dict[str, list[Any]]] = None,
+        user_features: DataFrameLike | None = None,
+        item_features: DataFrameLike | None = None,
+        param_borders: dict[str, list[Any]] | None = None,
         criterion: Metric = Precision,
         k: int = 10,
         budget: int = 10,
@@ -674,14 +674,14 @@ class TwoStagesScenario(HybridRecommender):
         self,
         train: DataFrameLike,
         test: DataFrameLike,
-        user_features: Optional[DataFrameLike] = None,
-        item_features: Optional[DataFrameLike] = None,
-        param_borders: Optional[list[dict[str, list[Any]]]] = None,
+        user_features: DataFrameLike | None = None,
+        item_features: DataFrameLike | None = None,
+        param_borders: list[dict[str, list[Any]]] | None = None,
         criterion: Metric = Precision,
         k: int = 10,
         budget: int = 10,
         new_study: bool = True,
-    ) -> tuple[list[dict[str, Any]], Optional[dict[str, Any]]]:
+    ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
         """
         Optimize first level models with optuna.
 

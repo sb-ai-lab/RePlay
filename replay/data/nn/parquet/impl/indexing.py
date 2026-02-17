@@ -1,4 +1,4 @@
-from typing import Union
+from typing import TypeAlias
 
 import torch
 
@@ -36,7 +36,7 @@ def get_offsets(lengths: torch.LongTensor) -> torch.LongTensor:
     return raw_get_offsets(lengths)
 
 
-LengthType = Union[int, torch.LongTensor]
+LengthType: TypeAlias = int | torch.LongTensor
 
 
 def raw_get_mask(

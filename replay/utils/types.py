@@ -1,10 +1,9 @@
 from collections.abc import Iterable
 from importlib.util import find_spec
-from typing import Union
+from typing import TypeAlias
 
 from pandas import DataFrame as PandasDataFrame
 from polars import DataFrame as PolarsDataFrame
-from typing_extensions import TypeAlias
 
 
 class MissingImport:
@@ -32,9 +31,9 @@ else:
 
 TORCH_AVAILABLE = find_spec("torch") and find_spec("lightning")
 
-DataFrameLike = Union[PandasDataFrame, SparkDataFrame, PolarsDataFrame]
-IntOrList = Union[Iterable[int], int]
-NumType = Union[int, float]
+DataFrameLike: TypeAlias = PandasDataFrame | SparkDataFrame | PolarsDataFrame
+IntOrList: TypeAlias = Iterable[int] | int
+NumType: TypeAlias = int | float
 
 
 # Conditional import flags

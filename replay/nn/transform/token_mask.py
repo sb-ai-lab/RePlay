@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 
 
@@ -28,7 +26,7 @@ class TokenMaskTransform(torch.nn.Module):
         token_field: str,
         out_feature_name: str = "token_mask",
         mask_prob: float = 0.15,
-        generator: Optional[torch.Generator] = None,
+        generator: torch.Generator | None = None,
     ) -> None:
         """
         :param token_field: Name of the column containing the unmasked tokes.

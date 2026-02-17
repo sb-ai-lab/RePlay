@@ -1,9 +1,5 @@
 from collections import OrderedDict
 from collections.abc import ItemsView, Iterable, Iterator, KeysView, Mapping, Sequence, ValuesView
-from typing import (
-    Optional,
-    Union,
-)
 
 import torch
 
@@ -23,7 +19,7 @@ class TensorFeatureSource:
         self,
         source: FeatureSource,
         column: str,
-        index: Optional[int] = None,
+        index: int | None = None,
     ) -> None:
         """
         :param source: feature source
@@ -50,7 +46,7 @@ class TensorFeatureSource:
         return self._column
 
     @property
-    def index(self) -> Optional[int]:
+    def index(self) -> int | None:
         """
         :returns: provided index
         """
@@ -69,12 +65,12 @@ class TensorFeatureInfo:
         name: str,
         feature_type: FeatureType,
         is_seq: bool = False,
-        feature_hint: Optional[FeatureHint] = None,
-        feature_sources: Optional[list[TensorFeatureSource]] = None,
-        cardinality: Optional[int] = None,
+        feature_hint: FeatureHint | None = None,
+        feature_sources: list[TensorFeatureSource] | None = None,
+        cardinality: int | None = None,
         padding_value: int = 0,
-        embedding_dim: Optional[int] = None,
-        tensor_dim: Optional[int] = None,
+        embedding_dim: int | None = None,
+        tensor_dim: int | None = None,
     ) -> None:
         """
         :param name: name of feature.
@@ -136,7 +132,7 @@ class TensorFeatureInfo:
         return self._feature_type
 
     @property
-    def feature_hint(self) -> Optional[FeatureHint]:
+    def feature_hint(self) -> FeatureHint | None:
         """
         :returns: The feature hint.
         """
@@ -146,7 +142,7 @@ class TensorFeatureInfo:
         self._feature_hint = hint
 
     @property
-    def feature_sources(self) -> Optional[list[TensorFeatureSource]]:
+    def feature_sources(self) -> list[TensorFeatureSource] | None:
         """
         :returns: List of sources feature came from.
         """
@@ -156,7 +152,7 @@ class TensorFeatureInfo:
         self._feature_sources = sources
 
     @property
-    def feature_source(self) -> Optional[TensorFeatureSource]:
+    def feature_source(self) -> TensorFeatureSource | None:
         """
         :returns: Dataframe info of feature.
         """
@@ -207,7 +203,7 @@ class TensorFeatureInfo:
         return self._padding_value
 
     @property
-    def cardinality(self) -> Optional[int]:
+    def cardinality(self) -> int | None:
         """
         :returns: Cardinality of the feature.
         """
@@ -220,7 +216,7 @@ class TensorFeatureInfo:
         self._cardinality = cardinality
 
     @property
-    def tensor_dim(self) -> Optional[int]:
+    def tensor_dim(self) -> int | None:
         """
         :returns: Dimensions of the numerical feature.
         """
@@ -233,7 +229,7 @@ class TensorFeatureInfo:
         self._tensor_dim = tensor_dim
 
     @property
-    def embedding_dim(self) -> Optional[int]:
+    def embedding_dim(self) -> int | None:
         """
         :returns: Embedding dimensions of the feature.
         """
@@ -248,7 +244,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
     Key-value like collection that stores tensor features
     """
 
-    def __init__(self, features_list: Union[Sequence[TensorFeatureInfo], TensorFeatureInfo]) -> None:
+    def __init__(self, features_list: Sequence[TensorFeatureInfo] | TensorFeatureInfo) -> None:
         """
         :param features_list: list of tensor feature infos.
         """
@@ -291,8 +287,8 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
     def get(
         self,
         key: str,
-        default: Optional[TensorFeatureInfo] = None,
-    ) -> Optional[TensorFeatureInfo]:
+        default: TensorFeatureInfo | None = None,
+    ) -> TensorFeatureInfo | None:
         return self._tensor_schema.get(key, default)
 
     def __iter__(self) -> Iterator[str]:
@@ -382,7 +378,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
         return list(self._tensor_schema)
 
     @property
-    def query_id_feature_name(self) -> Optional[str]:
+    def query_id_feature_name(self) -> str | None:
         """
         :returns: Query id feature name.
         """
@@ -392,7 +388,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
         return query_id_features.item().name
 
     @property
-    def item_id_feature_name(self) -> Optional[str]:
+    def item_id_feature_name(self) -> str | None:
         """
         :returns: Item id feature name.
         """
@@ -402,7 +398,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
         return item_id_features.item().name
 
     @property
-    def timestamp_feature_name(self) -> Optional[str]:
+    def timestamp_feature_name(self) -> str | None:
         """
         :returns: Timestamp feature name.
         """
@@ -412,7 +408,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
         return timestamp_features.item().name
 
     @property
-    def rating_feature_name(self) -> Optional[str]:
+    def rating_feature_name(self) -> str | None:
         """
         :returns: Rating feature name.
         """
@@ -465,10 +461,10 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
 
     def filter(
         self,
-        name: Optional[str] = None,
-        feature_hint: Optional[FeatureHint] = None,
-        is_seq: Optional[bool] = None,
-        feature_type: Optional[FeatureType] = None,
+        name: str | None = None,
+        feature_hint: FeatureHint | None = None,
+        is_seq: bool | None = None,
+        feature_type: FeatureType | None = None,
     ) -> "TensorSchema":
         """Filter list by ``name``, ``feature_type``, ``is_seq`` and ``feature_hint``.
 

@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Optional, Protocol, Union
+from typing import Protocol
 
 import torch
 
@@ -22,7 +22,7 @@ class EmbedderProto(Protocol):
     def forward(
         self,
         feature_tensors: TensorMap,
-        feature_names: Optional[Sequence[str]] = None,
+        feature_names: Sequence[str] | None = None,
     ) -> TensorMap: ...
 
     def reset_parameters(self) -> None: ...
@@ -181,7 +181,7 @@ class ItemTower(torch.nn.Module):
 
     def forward(
         self,
-        candidates_to_score: Optional[torch.LongTensor] = None,
+        candidates_to_score: torch.LongTensor | None = None,
     ):
         """
         :param candidates_to_score: IDs of items using for obtaining item embeddings from item tower.
@@ -398,7 +398,7 @@ class TwoTower(torch.nn.Module):
         self,
         body: TwoTowerBody,
         loss: LossProto,
-        context_merger: Optional[ContextMergerProto] = None,
+        context_merger: ContextMergerProto | None = None,
     ):
         """
         :param body: An instance of TwoTowerBody.
@@ -427,7 +427,7 @@ class TwoTower(torch.nn.Module):
         num_blocks: int = 2,
         max_sequence_length: int = 50,
         dropout: float = 0.3,
-        excluded_features: Optional[list[str]] = None,
+        excluded_features: list[str] | None = None,
         categorical_list_feature_aggregation_method: str = "sum",
     ) -> "TwoTower":
         """
@@ -518,7 +518,7 @@ class TwoTower(torch.nn.Module):
     def get_logits(
         self,
         model_embeddings: torch.Tensor,
-        candidates_to_score: Optional[torch.LongTensor] = None,
+        candidates_to_score: torch.LongTensor | None = None,
     ) -> torch.Tensor:
         """
         Function for tying last hidden states of query "tower" and set of item embeddings from item "tower"
@@ -577,7 +577,7 @@ class TwoTower(torch.nn.Module):
         self,
         feature_tensors: TensorMap,
         padding_mask: torch.BoolTensor,
-        candidates_to_score: Optional[torch.LongTensor] = None,
+        candidates_to_score: torch.LongTensor | None = None,
     ) -> InferenceOutput:
         hidden_states = ()
         query_hidden_states: torch.Tensor = self.body.query_tower(
@@ -608,11 +608,11 @@ class TwoTower(torch.nn.Module):
         self,
         feature_tensors: TensorMap,
         padding_mask: torch.BoolTensor,
-        candidates_to_score: Optional[torch.LongTensor] = None,
-        positive_labels: Optional[torch.LongTensor] = None,
-        negative_labels: Optional[torch.LongTensor] = None,
-        target_padding_mask: Optional[torch.BoolTensor] = None,
-    ) -> Union[TrainOutput, InferenceOutput]:
+        candidates_to_score: torch.LongTensor | None = None,
+        positive_labels: torch.LongTensor | None = None,
+        negative_labels: torch.LongTensor | None = None,
+        target_padding_mask: torch.BoolTensor | None = None,
+    ) -> TrainOutput | InferenceOutput:
         """
         :param feature_tensors: a dictionary of tensors to generate embeddings.
         :param padding_mask: A mask of shape ``(batch_size, sequence_length)``

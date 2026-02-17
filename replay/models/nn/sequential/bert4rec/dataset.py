@@ -1,5 +1,5 @@
 import abc
-from typing import NamedTuple, Optional, cast
+from typing import NamedTuple, cast
 
 import torch
 from torch.utils.data import Dataset as TorchDataset
@@ -57,7 +57,7 @@ class Bert4RecUniformMasker(Bert4RecMasker):
     Token masking strategy that mask random token with uniform distribution.
     """
 
-    def __init__(self, mask_prob: float = 0.15, generator: Optional[torch.Generator] = None) -> None:
+    def __init__(self, mask_prob: float = 0.15, generator: torch.Generator | None = None) -> None:
         """
         :param mask_prob: Probability of masking each token in sequence.
             Default: ``0.15``.
@@ -107,10 +107,10 @@ class Bert4RecTrainingDataset(TorchDataset):
         sequential: SequentialDataset,
         max_sequence_length: int,
         mask_prob: float = 0.15,
-        sliding_window_step: Optional[int] = None,
-        label_feature_name: Optional[str] = None,
-        custom_masker: Optional[Bert4RecMasker] = None,
-        padding_value: Optional[int] = None,
+        sliding_window_step: int | None = None,
+        label_feature_name: str | None = None,
+        custom_masker: Bert4RecMasker | None = None,
+        padding_value: int | None = None,
     ) -> None:
         """
         :param sequential: Sequential dataset with training data.
@@ -206,7 +206,7 @@ class Bert4RecPredictionDataset(TorchDataset):
         self,
         sequential: SequentialDataset,
         max_sequence_length: int,
-        padding_value: Optional[int] = None,
+        padding_value: int | None = None,
     ) -> None:
         """
         :param sequential: Sequential dataset with data to make predictions at.
@@ -277,8 +277,8 @@ class Bert4RecValidationDataset(TorchDataset):
         ground_truth: SequentialDataset,
         train: SequentialDataset,
         max_sequence_length: int,
-        padding_value: Optional[int] = None,
-        label_feature_name: Optional[str] = None,
+        padding_value: int | None = None,
+        label_feature_name: str | None = None,
     ):
         """
         :param sequential: Sequential dataset with data to make predictions at.

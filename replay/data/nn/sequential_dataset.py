@@ -1,7 +1,7 @@
 import abc
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -55,7 +55,7 @@ class SequentialDataset(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_sequence(self, index: Union[int, np.ndarray], feature_name: str) -> np.ndarray:  # pragma: no cover
+    def get_sequence(self, index: int | np.ndarray, feature_name: str) -> np.ndarray:  # pragma: no cover
         """
         Getting a sequence based on a given index and feature name.
 
@@ -64,9 +64,7 @@ class SequentialDataset(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_sequence_by_query_id(
-        self, query_id: Union[int, np.ndarray], feature_name: str
-    ) -> np.ndarray:  # pragma: no cover
+    def get_sequence_by_query_id(self, query_id: int | np.ndarray, feature_name: str) -> np.ndarray:  # pragma: no cover
         """
         Getting a sequence based on a given query id and feature name.
 
@@ -185,10 +183,10 @@ class PandasSequentialDataset(SequentialDataset):
     def get_max_sequence_length(self) -> int:
         return max(len(seq) for seq in self._sequences[self._item_id_column])
 
-    def get_sequence(self, index: Union[int, np.ndarray], feature_name: str) -> np.ndarray:
+    def get_sequence(self, index: int | np.ndarray, feature_name: str) -> np.ndarray:
         return np.array(self._sequences[feature_name].iloc[index])
 
-    def get_sequence_by_query_id(self, query_id: Union[int, np.ndarray], feature_name: str) -> np.ndarray:
+    def get_sequence_by_query_id(self, query_id: int | np.ndarray, feature_name: str) -> np.ndarray:
         try:
             return np.array(self._sequences[feature_name].loc[query_id])
         except KeyError:

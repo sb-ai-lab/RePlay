@@ -1,5 +1,4 @@
 from collections.abc import Iterable
-from typing import Optional, Union
 
 from pandas.api.types import is_object_dtype
 
@@ -57,12 +56,12 @@ class Padder:
 
     def __init__(
         self,
-        pad_columns: Union[str, list[str]],
-        padding_side: Optional[str] = "right",
-        padding_value: Union[str, float, list, None] = 0,
-        array_size: Optional[int] = None,
-        cut_array: Optional[bool] = True,
-        cut_side: Optional[str] = "right",
+        pad_columns: str | list[str],
+        padding_side: str | None = "right",
+        padding_value: str | float | list | None = 0,
+        array_size: int | None = None,
+        cut_array: bool | None = True,
+        cut_side: str | None = "right",
     ):
         """
         :param pad_columns: Name of columns to pad.
@@ -141,7 +140,7 @@ class Padder:
         return df_transformed
 
     def _transform_pandas(
-        self, df_transformed: PandasDataFrame, col: str, pad_value: Union[str, float, list, None]
+        self, df_transformed: PandasDataFrame, col: str, pad_value: str | float | list | None
     ) -> PandasDataFrame:
         max_array_size = df_transformed[col].str.len().max() if self.array_size == -1 else self.array_size
 
@@ -176,7 +175,7 @@ class Padder:
         return res
 
     def _transform_spark(
-        self, df_transformed: SparkDataFrame, col: str, pad_value: Union[str, float, list, None]
+        self, df_transformed: SparkDataFrame, col: str, pad_value: str | float | list | None
     ) -> SparkDataFrame:
         if self.array_size == -1:
             max_array_size = df_transformed.agg(sf.max(sf.size(col)).alias("max_array_len")).first()[0]

@@ -1,6 +1,5 @@
 import contextlib
 from abc import ABC, abstractmethod
-from typing import Optional, Union
 
 import torch
 import torch.nn as nn
@@ -77,7 +76,7 @@ class Bert4RecModel(torch.nn.Module):
             ]
         )
 
-        self._head: Union[ClassificationHead, EmbeddingTyingHead]
+        self._head: ClassificationHead | EmbeddingTyingHead
         if self.enable_embedding_tying:
             self._head = EmbeddingTyingHead(self.item_embedder, self.item_count)
         else:
@@ -103,7 +102,7 @@ class Bert4RecModel(torch.nn.Module):
         inputs: TensorMap,
         pad_mask: torch.BoolTensor,
         token_mask: torch.BoolTensor,
-        candidates_to_score: Optional[torch.LongTensor] = None,
+        candidates_to_score: torch.LongTensor | None = None,
     ) -> torch.Tensor:
         """
         :param inputs: Batch of features.
@@ -143,7 +142,7 @@ class Bert4RecModel(torch.nn.Module):
 
         return x
 
-    def get_logits(self, out_embeddings: torch.Tensor, item_ids: Optional[torch.LongTensor] = None) -> torch.Tensor:
+    def get_logits(self, out_embeddings: torch.Tensor, item_ids: torch.LongTensor | None = None) -> torch.Tensor:
         """
         Apply head to output embeddings of `forward_step`.
 
@@ -364,7 +363,7 @@ class BaseHead(ABC, torch.nn.Module):
     def forward(
         self,
         out_embeddings: torch.Tensor,
-        item_ids: Optional[torch.LongTensor] = None,
+        item_ids: torch.LongTensor | None = None,
     ) -> torch.Tensor:
         """
         :param out_embeddings: Embeddings after `forward step`.

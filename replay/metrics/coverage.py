@@ -1,6 +1,5 @@
 import functools
 import operator
-from typing import Union
 
 import polars as pl
 
@@ -60,7 +59,7 @@ class Coverage(Metric):
 
     def __init__(
         self,
-        topk: Union[list, int],
+        topk: list | int,
         query_column: str = "query_id",
         item_column: str = "item_id",
         rating_column: str = "rating",
@@ -84,8 +83,8 @@ class Coverage(Metric):
 
     def _get_enriched_recommendations(
         self,
-        recommendations: Union[PolarsDataFrame, SparkDataFrame],
-    ) -> Union[PolarsDataFrame, SparkDataFrame]:
+        recommendations: PolarsDataFrame | SparkDataFrame,
+    ) -> PolarsDataFrame | SparkDataFrame:
         if isinstance(recommendations, SparkDataFrame):
             return self._get_enriched_recommendations_spark(recommendations)
         else:

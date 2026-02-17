@@ -4,7 +4,7 @@ import os
 import pickle
 import warnings
 from collections.abc import Iterable
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -65,7 +65,7 @@ def spark_to_pandas(
     return data.toPandas()
 
 
-def convert2spark(data_frame: Optional[DataFrameLike]) -> Optional[SparkDataFrame]:
+def convert2spark(data_frame: DataFrameLike | None) -> SparkDataFrame | None:
     """
     Converts Pandas DataFrame to Spark DataFrame
 
@@ -207,7 +207,7 @@ if PYSPARK_AVAILABLE:
         return float(one.dot(two))
 
     @sf.udf(returnType=VectorUDT())
-    def vector_mult(one: Union[DenseVector, NumType], two: DenseVector) -> DenseVector:  # pragma: no cover
+    def vector_mult(one: DenseVector | NumType, two: DenseVector) -> DenseVector:  # pragma: no cover
         """
         elementwise vector multiplication
 
@@ -488,7 +488,7 @@ def fallback(
     return recs
 
 
-def cache_if_exists(dataframe: Optional[SparkDataFrame]) -> Optional[SparkDataFrame]:
+def cache_if_exists(dataframe: SparkDataFrame | None) -> SparkDataFrame | None:
     """
     Cache a DataFrame
     :param dataframe: Spark DataFrame or None
@@ -499,7 +499,7 @@ def cache_if_exists(dataframe: Optional[SparkDataFrame]) -> Optional[SparkDataFr
     return dataframe
 
 
-def unpersist_if_exists(dataframe: Optional[SparkDataFrame]) -> None:
+def unpersist_if_exists(dataframe: SparkDataFrame | None) -> None:
     """
     :param dataframe: DataFrame or None
     """
@@ -510,7 +510,7 @@ def unpersist_if_exists(dataframe: Optional[SparkDataFrame]) -> None:
 def join_with_col_renaming(
     left: SparkDataFrame,
     right: SparkDataFrame,
-    on_col_name: Union[str, list],
+    on_col_name: str | list,
     how: str = "inner",
     suffix="join",
 ) -> SparkDataFrame:
@@ -547,7 +547,7 @@ def join_with_col_renaming(
 def process_timestamp_column(
     dataframe: SparkDataFrame,
     column_name: str,
-    date_format: Optional[str] = None,
+    date_format: str | None = None,
 ) -> SparkDataFrame:
     """
     Convert ``column_name`` column of numeric/string/timestamp type
@@ -642,7 +642,7 @@ def drop_temp_view(temp_view_name: str) -> None:
     spark.catalog.dropTempView(temp_view_name)
 
 
-def sample_top_k_recs(pairs: SparkDataFrame, k: int, seed: Optional[int] = None):
+def sample_top_k_recs(pairs: SparkDataFrame, k: int, seed: int | None = None):
     """
     Sample k items for each user with probability proportional to the relevance score.
 
@@ -696,10 +696,10 @@ def sample_top_k_recs(pairs: SparkDataFrame, k: int, seed: Optional[int] = None)
 
 
 def filter_cold(
-    df: Optional[SparkDataFrame],
+    df: SparkDataFrame | None,
     warm_df: SparkDataFrame,
     col_name: str,
-) -> tuple[int, Optional[SparkDataFrame]]:
+) -> tuple[int, SparkDataFrame | None]:
     """
     Filter out new user/item ids absent in `warm_df`.
     Return number of new users/items and filtered dataframe.
@@ -722,7 +722,7 @@ def filter_cold(
 
 
 def get_unique_entities(
-    df: Union[Iterable, SparkDataFrame],
+    df: Iterable | SparkDataFrame,
     column: str,
 ) -> SparkDataFrame:
     """
@@ -742,7 +742,7 @@ def get_unique_entities(
     return unique
 
 
-def return_recs(recs: SparkDataFrame, recs_file_path: Optional[str] = None) -> Optional[SparkDataFrame]:
+def return_recs(recs: SparkDataFrame, recs_file_path: str | None = None) -> SparkDataFrame | None:
     """
     Save dataframe `recs` to `recs_file_path` if presents otherwise cache
     and materialize the dataframe.

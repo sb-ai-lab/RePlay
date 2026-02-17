@@ -1,4 +1,5 @@
-from typing import Callable, Optional, Protocol, TypedDict
+from collections.abc import Callable
+from typing import Protocol, TypedDict
 
 import torch
 
@@ -11,10 +12,10 @@ class LossProto(Protocol):
     @property
     def logits_callback(
         self,
-    ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]: ...
+    ) -> Callable[[torch.Tensor, torch.Tensor | None], torch.Tensor]: ...
 
     @logits_callback.setter
-    def logits_callback(self, func: Optional[Callable]) -> None: ...
+    def logits_callback(self, func: Callable | None) -> None: ...
 
     def forward(
         self,
@@ -42,7 +43,7 @@ class SampledLossBase(torch.nn.Module):
     @property
     def logits_callback(
         self,
-    ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+    ) -> Callable[[torch.Tensor, torch.Tensor | None], torch.Tensor]:
         raise NotImplementedError()  # pragma: no cover
 
     def get_sampled_logits(

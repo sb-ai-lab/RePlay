@@ -11,7 +11,6 @@ import json
 import logging
 import string
 from os.path import join
-from typing import Optional
 
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, MissingImport, SparkDataFrame
 from replay.utils.session_handler import State
@@ -92,7 +91,7 @@ if PYSPARK_AVAILABLE:
                 labels=self.item_indexer.labels,
             )
 
-        def transform(self, df: SparkDataFrame) -> Optional[SparkDataFrame]:
+        def transform(self, df: SparkDataFrame) -> SparkDataFrame | None:
             """
             Convert raw ``user_col`` and ``item_col`` to numerical ``user_idx`` and ``item_idx``
 
@@ -465,7 +464,7 @@ if PYSPARK_AVAILABLE:
 
         """
 
-        _logger: Optional[logging.Logger] = None
+        _logger: logging.Logger | None = None
 
         @property
         def logger(self) -> logging.Logger:
@@ -478,9 +477,9 @@ if PYSPARK_AVAILABLE:
 
         @staticmethod
         def read_as_spark_df(
-            data: Optional[DataFrameLike] = None,
-            path: Optional[str] = None,
-            format_type: Optional[str] = None,
+            data: DataFrameLike | None = None,
+            path: str | None = None,
+            format_type: str | None = None,
             **kwargs,
         ) -> SparkDataFrame:
             """
@@ -594,7 +593,7 @@ if PYSPARK_AVAILABLE:
             return dataframe
 
         @staticmethod
-        def _rename(df: SparkDataFrame, mapping: dict) -> Optional[SparkDataFrame]:
+        def _rename(df: SparkDataFrame, mapping: dict) -> SparkDataFrame | None:
             """
             rename dataframe columns based on mapping
             """
@@ -608,11 +607,11 @@ if PYSPARK_AVAILABLE:
         def transform(
             self,
             columns_mapping: dict[str, str],
-            data: Optional[DataFrameLike] = None,
-            path: Optional[str] = None,
-            format_type: Optional[str] = None,
-            date_format: Optional[str] = None,
-            reader_kwargs: Optional[dict] = None,
+            data: DataFrameLike | None = None,
+            path: str | None = None,
+            format_type: str | None = None,
+            date_format: str | None = None,
+            reader_kwargs: dict | None = None,
         ) -> SparkDataFrame:
             """
             Transforms log, user or item features into a Spark DataFrame
@@ -691,7 +690,7 @@ if PYSPARK_AVAILABLE:
             self.expressions_list = []
             self.alias = alias
 
-        def fit(self, spark_df: Optional[SparkDataFrame]) -> None:
+        def fit(self, spark_df: SparkDataFrame | None) -> None:
             """
             Save categories for each column
             :param spark_df: Spark DataFrame with features
@@ -714,7 +713,7 @@ if PYSPARK_AVAILABLE:
                 for cur_name in col_values
             ]
 
-        def transform(self, spark_df: Optional[SparkDataFrame]):
+        def transform(self, spark_df: SparkDataFrame | None):
             """
             Transform categorical columns.
             If there are any new categories that were not present at fit stage, they will be ignored.
@@ -735,16 +734,16 @@ if PYSPARK_AVAILABLE:
             else all non-numeric columns are one-hot encoded
         """
 
-        cat_feat_transformer: Optional[CatFeaturesTransformer]
-        cols_to_ohe: Optional[list]
-        cols_to_del: Optional[list]
-        all_columns: Optional[list]
+        cat_feat_transformer: CatFeaturesTransformer | None
+        cols_to_ohe: list | None
+        cols_to_del: list | None
+        all_columns: list | None
 
-        def __init__(self, threshold: Optional[int] = 100):
+        def __init__(self, threshold: int | None = 100):
             self.threshold = threshold
             self.fitted = False
 
-        def fit(self, features: Optional[SparkDataFrame]) -> None:
+        def fit(self, features: SparkDataFrame | None) -> None:
             """
             Determine categorical columns for one-hot encoding.
             Non categorical columns with more values than threshold will be deleted.
@@ -795,7 +794,7 @@ if PYSPARK_AVAILABLE:
                 self.cat_feat_transformer = CatFeaturesTransformer(cat_cols_list=self.cols_to_ohe)
                 self.cat_feat_transformer.fit(features.drop(*self.cols_to_del))
 
-        def transform(self, spark_df: Optional[SparkDataFrame]) -> Optional[SparkDataFrame]:
+        def transform(self, spark_df: SparkDataFrame | None) -> SparkDataFrame | None:
             """
             Transform categorical features.
             Use one hot encoding for columns with the amount of unique values smaller

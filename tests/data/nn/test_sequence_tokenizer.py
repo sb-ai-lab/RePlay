@@ -1,6 +1,5 @@
 import os
 import shutil
-from typing import Optional
 
 import pandas as pd
 import polars as pl
@@ -32,7 +31,7 @@ def _compare_sequence(
     tokenizer: SequenceTokenizer,
     feature_name: str,
     answers: dict,
-    feature_inverse_mapping: Optional[dict] = None,
+    feature_inverse_mapping: dict | None = None,
 ):
     for query in dataset.get_all_query_ids():
         sequence = dataset.get_sequence_by_query_id(query, feature_name).tolist()

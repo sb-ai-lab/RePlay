@@ -1,5 +1,4 @@
 from collections import defaultdict
-from typing import Union
 
 import numpy as np
 import polars as pl
@@ -62,7 +61,7 @@ class CategoricalDiversity(Metric):
 
     def __init__(
         self,
-        topk: Union[list, int],
+        topk: list | int,
         query_column: str = "query_id",
         category_column: str = "category_id",
         rating_column: str = "rating",
@@ -110,8 +109,8 @@ class CategoricalDiversity(Metric):
 
     def _get_enriched_recommendations(
         self,
-        recommendations: Union[PolarsDataFrame, SparkDataFrame],
-    ) -> Union[PolarsDataFrame, SparkDataFrame]:
+        recommendations: PolarsDataFrame | SparkDataFrame,
+    ) -> PolarsDataFrame | SparkDataFrame:
         if isinstance(recommendations, SparkDataFrame):
             return self._get_enriched_recommendations_spark(recommendations)
         else:

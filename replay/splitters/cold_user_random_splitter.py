@@ -1,5 +1,3 @@
-from typing import Optional
-
 import polars as pl
 
 from replay.utils import (
@@ -33,9 +31,9 @@ class ColdUserRandomSplitter(Splitter):
         self,
         test_size: float,
         drop_cold_items: bool = False,
-        seed: Optional[int] = None,
+        seed: int | None = None,
         query_column: str = "query_id",
-        item_column: Optional[str] = "item_id",
+        item_column: str | None = "item_id",
     ):
         """
         :param test_size: The proportion of users to allocate to the test set.

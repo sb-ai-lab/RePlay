@@ -1,4 +1,4 @@
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 import torch
 from torch.utils.data import Dataset as TorchDataset
@@ -55,9 +55,9 @@ class SasRecTrainingDataset(TorchDataset):
         sequential: SequentialDataset,
         max_sequence_length: int,
         sequence_shift: int = 1,
-        sliding_window_step: Optional[int] = None,
-        padding_value: Optional[int] = None,
-        label_feature_name: Optional[str] = None,
+        sliding_window_step: int | None = None,
+        padding_value: int | None = None,
+        label_feature_name: str | None = None,
     ) -> None:
         """
         :param sequential: Sequential dataset with training data.
@@ -162,7 +162,7 @@ class SasRecPredictionDataset(TorchDataset):
         self,
         sequential: SequentialDataset,
         max_sequence_length: int,
-        padding_value: Optional[int] = None,
+        padding_value: int | None = None,
     ) -> None:
         """
         :param sequential: Sequential dataset with data to make predictions at.
@@ -231,8 +231,8 @@ class SasRecValidationDataset(TorchDataset):
         ground_truth: SequentialDataset,
         train: SequentialDataset,
         max_sequence_length: int,
-        padding_value: Optional[int] = None,
-        label_feature_name: Optional[str] = None,
+        padding_value: int | None = None,
+        label_feature_name: str | None = None,
     ):
         """
         :param sequential: Sequential dataset with data to make predictions at.

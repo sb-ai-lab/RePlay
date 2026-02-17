@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -17,9 +17,7 @@ from replay.models.base_rec import BaseRecommender
 from replay.utils.spark_utils import convert2spark
 
 
-def obp2df(
-    action: np.ndarray, reward: np.ndarray, timestamp: np.ndarray, feedback_column: str
-) -> Optional[pd.DataFrame]:
+def obp2df(action: np.ndarray, reward: np.ndarray, timestamp: np.ndarray, feedback_column: str) -> pd.DataFrame | None:
     """
     Converts OBP log to the pandas DataFrame
     """
@@ -38,7 +36,7 @@ def obp2df(
     return df
 
 
-def context2df(context: np.ndarray, idx_col: np.ndarray, idx_col_name: str) -> Optional[pd.DataFrame]:
+def context2df(context: np.ndarray, idx_col: np.ndarray, idx_col_name: str) -> pd.DataFrame | None:
     """
     Converts OBP log to the pandas DataFrame
     """
@@ -66,12 +64,12 @@ class OBPOfflinePolicyLearner(BaseOfflinePolicyLearner):
                 Constructing inside the fit method. Used for predict of replay_model.
     """
 
-    replay_model: Optional[Union[BaseRecommender, ExperimentalBaseRecommender]] = None
-    log: Optional[DataFrame] = None
+    replay_model: BaseRecommender | ExperimentalBaseRecommender | None = None
+    log: DataFrame | None = None
     max_usr_id: int = 0
     item_features: DataFrame = None
     _study = None
-    _logger: Optional[logging.Logger] = None
+    _logger: logging.Logger | None = None
     _objective = OBPObjective
 
     def __post_init__(self) -> None:
@@ -207,11 +205,11 @@ class OBPOfflinePolicyLearner(BaseOfflinePolicyLearner):
         self,
         bandit_feedback: dict[str, np.ndarray],
         val_size: float = 0.3,
-        param_borders: Optional[dict[str, list[Any]]] = None,
+        param_borders: dict[str, list[Any]] | None = None,
         criterion: str = "ipw",
         budget: int = 10,
         new_study: bool = True,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Optimize model parameters using optuna.
         Optimization is carried out over the IPW/DR/DM scores(IPW by default).
 

@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 import pytest
 from pytest import approx
@@ -71,7 +69,7 @@ def _compute_unseen_ground_truth(ground_truth: torch.LongTensor, train: torch.Lo
     return unseen_ground_truth
 
 
-def compute_builder_metrics(metric_list, train, test, recs, unseen_flag: bool, item_count: Optional[int] = None):
+def compute_builder_metrics(metric_list, train, test, recs, unseen_flag: bool, item_count: int | None = None):
     builder = TorchMetricsBuilder(metric_list, top_k=TOP_K, item_count=item_count)
     builder.reset()
     tensor_predictions = _convert_recs_to_tensor(recs)

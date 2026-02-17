@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 
 from replay.data.dataset import Dataset
@@ -24,7 +22,7 @@ class ThompsonSampling(NonPersonalizedRecommender):
     def __init__(
         self,
         sample: bool = False,
-        seed: Optional[int] = None,
+        seed: int | None = None,
     ):
         self.sample = sample
         self.seed = seed

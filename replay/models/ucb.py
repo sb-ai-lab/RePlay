@@ -1,5 +1,5 @@
 import math
-from typing import Any, Optional
+from typing import Any
 
 from replay.data.dataset import Dataset
 from replay.metrics import NDCG, Metric
@@ -76,7 +76,7 @@ class UCB(NonPersonalizedRecommender):
         self,
         exploration_coef: float = 2,
         sample: bool = False,
-        seed: Optional[int] = None,
+        seed: int | None = None,
     ):
         """
         :param exploration_coef: exploration coefficient
@@ -103,7 +103,7 @@ class UCB(NonPersonalizedRecommender):
         self,
         train_dataset: Dataset,  # noqa: ARG002
         test_dataset: Dataset,  # noqa: ARG002
-        param_borders: Optional[dict[str, list[Any]]] = None,  # noqa: ARG002
+        param_borders: dict[str, list[Any]] | None = None,  # noqa: ARG002
         criterion: Metric = NDCG,  # noqa: ARG002
         k: int = 10,  # noqa: ARG002
         budget: int = 10,  # noqa: ARG002

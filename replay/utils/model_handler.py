@@ -3,7 +3,6 @@ import os
 import pickle
 from os.path import join
 from pathlib import Path
-from typing import Union
 
 from replay.data.dataset_utils import DatasetLabelEncoder
 from replay.models.base_rec import BaseRecommender
@@ -40,7 +39,7 @@ if PYSPARK_AVAILABLE:
         return [str(f.getPath()) for f in statuses]
 
 
-def save(model: "BaseRecommender", path: Union[str, Path], overwrite: bool = False):
+def save(model: "BaseRecommender", path: str | Path, overwrite: bool = False):
     """
     Save fitted model to disk as a folder
 
@@ -119,7 +118,7 @@ def load(path: str, model_type=None) -> "BaseRecommender":
     return model
 
 
-def save_encoder(encoder: DatasetLabelEncoder, path: Union[str, Path]) -> None:
+def save_encoder(encoder: DatasetLabelEncoder, path: str | Path) -> None:
     """
     Save fitted DatasetLabelEncoder to disk as a folder
 
@@ -134,7 +133,7 @@ def save_encoder(encoder: DatasetLabelEncoder, path: Union[str, Path]) -> None:
         pickle.dump(encoder, cached_file)
 
 
-def load_encoder(path: Union[str, Path]) -> DatasetLabelEncoder:
+def load_encoder(path: str | Path) -> DatasetLabelEncoder:
     """
     Load saved encoder from disk
 

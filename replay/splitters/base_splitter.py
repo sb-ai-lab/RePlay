@@ -1,7 +1,6 @@
 import json
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
 
 import polars as pl
 
@@ -41,9 +40,9 @@ class Splitter(ABC):
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
         query_column: str = "query_id",
-        item_column: Optional[str] = "item_id",
-        timestamp_column: Optional[str] = "timestamp",
-        session_id_column: Optional[str] = None,
+        item_column: str | None = "item_id",
+        timestamp_column: str | None = "timestamp",
+        session_id_column: str | None = None,
         session_id_processing_strategy: str = "test",
     ):
         """

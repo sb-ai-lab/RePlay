@@ -1,6 +1,5 @@
 import contextlib
 import math
-from typing import Optional
 
 import torch
 
@@ -20,8 +19,8 @@ class MultiHeadDifferentialAttention(torch.nn.Module):
         num_heads: int,
         lambda_init: float,
         bias: bool = False,
-        kdim: Optional[int] = None,
-        vdim: Optional[int] = None,
+        kdim: int | None = None,
+        vdim: int | None = None,
     ):
         """
         :param embedding_dim: Total dimension of the model. Must be divisible by ``num_heads``.

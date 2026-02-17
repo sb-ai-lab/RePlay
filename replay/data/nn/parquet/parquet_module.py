@@ -1,13 +1,13 @@
 import copy
 import warnings
 from collections.abc import Iterable
-from typing import Literal, Optional, Union, get_args
+from typing import Literal, TypeAlias, get_args
 
 import lightning as L  # noqa: N812
 import torch
 from lightning.pytorch.trainer.states import RunningStage
 from lightning.pytorch.utilities import CombinedLoader
-from typing_extensions import TypeAlias, override
+from typing_extensions import override
 
 from replay.data.nn.parquet.constants.filesystem import DEFAULT_FILESYSTEM
 from replay.data.nn.parquet.impl.masking import (
@@ -52,12 +52,12 @@ class ParquetModule(L.LightningDataModule):
         batch_size: int,
         metadata: dict,
         transforms: dict[TransformStage, list[torch.nn.Module]],
-        config: Optional[dict] = None,
+        config: dict | None = None,
         *,
-        train_path: Optional[str] = None,
-        validate_path: Optional[Union[str, list[str]]] = None,
-        test_path: Optional[Union[str, list[str]]] = None,
-        predict_path: Optional[Union[str, list[str]]] = None,
+        train_path: str | None = None,
+        validate_path: str | list[str] | None = None,
+        test_path: str | list[str] | None = None,
+        predict_path: str | list[str] | None = None,
     ) -> None:
         """
         :param batch_size: Target batch size.
@@ -103,7 +103,7 @@ class ParquetModule(L.LightningDataModule):
         self.batch_size = batch_size
         self.config = config
 
-        self.datasets: dict[str, Union[ParquetDataset, CombinedLoader]] = {}
+        self.datasets: dict[str, ParquetDataset | CombinedLoader] = {}
         self.transforms = transforms
         self.compiled_transforms = self.prepare_transforms(transforms)
 

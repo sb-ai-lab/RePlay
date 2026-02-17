@@ -6,9 +6,8 @@ from __future__ import annotations
 
 import json
 import warnings
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Callable, Optional, Union
 
 import numpy as np
 from pandas import read_parquet as pd_read_parquet
@@ -39,8 +38,8 @@ class Dataset:
         self,
         feature_schema: FeatureSchema,
         interactions: DataFrameLike,
-        query_features: Optional[DataFrameLike] = None,
-        item_features: Optional[DataFrameLike] = None,
+        query_features: DataFrameLike | None = None,
+        item_features: DataFrameLike | None = None,
         check_consistency: bool = True,
         categorical_encoded: bool = False,
     ):
@@ -115,14 +114,14 @@ class Dataset:
         return self._interactions
 
     @property
-    def query_features(self) -> Optional[DataFrameLike]:
+    def query_features(self) -> DataFrameLike | None:
         """
         :returns: query features dataset.
         """
         return self._query_features
 
     @property
-    def item_features(self) -> Optional[DataFrameLike]:
+    def item_features(self) -> DataFrameLike | None:
         """
         :returns: item features dataset.
         """
@@ -229,7 +228,7 @@ class Dataset:
             raise TypeError(msg)
 
     @staticmethod
-    def _read_parquet(path: Path, mode: str) -> Union[SparkDataFrame, PandasDataFrame, PolarsDataFrame]:
+    def _read_parquet(path: Path, mode: str) -> SparkDataFrame | PandasDataFrame | PolarsDataFrame:
         """
         Read the parquet file as dataframe.
 
@@ -306,7 +305,7 @@ class Dataset:
     def load(
         cls,
         path: str,
-        dataframe_type: Optional[str] = None,
+        dataframe_type: str | None = None,
     ) -> Dataset:
         """
         Load the Dataset from the provided path.
@@ -604,7 +603,7 @@ class Dataset:
         column: str,
         source: FeatureSource,
         feature_type: FeatureType,
-        cardinality: Optional[int],
+        cardinality: int | None,
     ) -> None:
         """
         Checks that IDs are encoded:

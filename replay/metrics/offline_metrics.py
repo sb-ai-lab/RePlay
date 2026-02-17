@@ -1,5 +1,4 @@
 import warnings
-from typing import Optional, Union
 
 from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
@@ -195,10 +194,10 @@ class OfflineMetrics:
 
     def _get_enriched_recommendations(
         self,
-        recommendations: Union[SparkDataFrame, PolarsDataFrame],
-        ground_truth: Union[SparkDataFrame, PolarsDataFrame],
-        train: Optional[Union[SparkDataFrame, PolarsDataFrame]],
-    ) -> tuple[dict[str, Union[SparkDataFrame, PolarsDataFrame]], Optional[Union[SparkDataFrame, PolarsDataFrame]]]:
+        recommendations: SparkDataFrame | PolarsDataFrame,
+        ground_truth: SparkDataFrame | PolarsDataFrame,
+        train: SparkDataFrame | PolarsDataFrame | None,
+    ) -> tuple[dict[str, SparkDataFrame | PolarsDataFrame], SparkDataFrame | PolarsDataFrame | None]:
         if len(self.main_metrics) == 0:
             return {}, train
         result_dict = {}
@@ -267,8 +266,8 @@ class OfflineMetrics:
 
     def _calculate_metrics(
         self,
-        enriched_recs_dict: dict[str, Union[SparkDataFrame, PolarsDataFrame]],
-        train: Optional[Union[SparkDataFrame, PolarsDataFrame]] = None,
+        enriched_recs_dict: dict[str, SparkDataFrame | PolarsDataFrame],
+        train: SparkDataFrame | PolarsDataFrame | None = None,
         is_spark: bool = True,
     ) -> MetricsReturnType:
         result: dict = {}
@@ -294,8 +293,8 @@ class OfflineMetrics:
         self,
         recommendations: MetricsDataFrameLike,
         ground_truth: MetricsDataFrameLike,
-        train: Optional[MetricsDataFrameLike],
-        base_recommendations: Optional[Union[MetricsDataFrameLike, dict[str, MetricsDataFrameLike]]],
+        train: MetricsDataFrameLike | None,
+        base_recommendations: MetricsDataFrameLike | dict[str, MetricsDataFrameLike] | None,
     ) -> None:
         types = set()
         types.add(type(recommendations))
@@ -378,8 +377,8 @@ class OfflineMetrics:
         self,
         recommendations: MetricsDataFrameLike,
         ground_truth: MetricsDataFrameLike,
-        train: Optional[MetricsDataFrameLike] = None,
-        base_recommendations: Optional[Union[MetricsDataFrameLike, dict[str, MetricsDataFrameLike]]] = None,
+        train: MetricsDataFrameLike | None = None,
+        base_recommendations: MetricsDataFrameLike | dict[str, MetricsDataFrameLike] | None = None,
     ) -> dict[str, float]:
         """
         Compute metrics.
@@ -450,12 +449,12 @@ class OfflineMetrics:
             if is_spark and self._allow_caching:
                 self._unpersist_dataframes(enriched_recs_dict)
         else:  # Calculating metrics in dict format
-            current_map: dict[str, Union[PandasDataFrame, dict]] = {
+            current_map: dict[str, PandasDataFrame | dict] = {
                 "ground_truth": ground_truth,
                 "train": train,
             }
             for metric in self.metrics:
-                args_to_call: dict[str, Union[PandasDataFrame, dict]] = {"recommendations": recommendations}
+                args_to_call: dict[str, PandasDataFrame | dict] = {"recommendations": recommendations}
                 for data_name in self._metrics_call_requirement_map[str(metric.__class__.__name__)]:
                     args_to_call[data_name] = current_map[data_name]
                 result.update(metric(**args_to_call))

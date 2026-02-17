@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 from replay.utils import PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 from .base_metric import Metric, MetricsDataFrameLike, MetricsReturnType
@@ -64,9 +62,9 @@ class Unexpectedness(Metric):
 
     def _get_enriched_recommendations(
         self,
-        recommendations: Union[PolarsDataFrame, SparkDataFrame],
-        base_recommendations: Union[PolarsDataFrame, SparkDataFrame],
-    ) -> Union[PolarsDataFrame, SparkDataFrame]:
+        recommendations: PolarsDataFrame | SparkDataFrame,
+        base_recommendations: PolarsDataFrame | SparkDataFrame,
+    ) -> PolarsDataFrame | SparkDataFrame:
         if isinstance(recommendations, SparkDataFrame):
             return self._get_enriched_recommendations_spark(recommendations, base_recommendations)
         else:
@@ -152,7 +150,7 @@ class Unexpectedness(Metric):
         )
 
     @staticmethod
-    def _get_metric_value_by_user(ks: list[int], base_recs: Optional[list], recs: Optional[list]) -> list[float]:
+    def _get_metric_value_by_user(ks: list[int], base_recs: list | None, recs: list | None) -> list[float]:
         if not base_recs or not recs:
             return [0.0 for _ in ks]
         return [1.0 - len(set(recs[:k]) & set(base_recs[:k])) / k for k in ks]

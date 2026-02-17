@@ -1,6 +1,6 @@
 import warnings
 from collections.abc import Callable, Iterator
-from typing import Optional, Union, cast
+from typing import cast
 
 import pyarrow.dataset as ds
 import pyarrow.fs as fs
@@ -55,14 +55,14 @@ class ParquetDataset(IterableDataset):
 
     def __init__(
         self,
-        source: Union[str, list[str]],
+        source: str | list[str],
         metadata: Metadata,
         partition_size: int,
         batch_size: int,
-        filesystem: Union[str, fs.FileSystem] = DEFAULT_FILESYSTEM,
+        filesystem: str | fs.FileSystem = DEFAULT_FILESYSTEM,
         make_mask_name: Callable[[str], str] = DEFAULT_MAKE_MASK_NAME,
         device: torch.device = DEFAULT_DEVICE,
-        generator: Optional[torch.Generator] = None,
+        generator: torch.Generator | None = None,
         replicas_info: ReplicasInfoProtocol = DEFAULT_REPLICAS_INFO,
         collate_fn: GeneralCollateFn = DEFAULT_COLLATE_FN,
         **kwargs,

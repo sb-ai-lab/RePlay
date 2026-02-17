@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 from math import floor
-from typing import Any, Optional
+from typing import Any
 
 import psutil
 
@@ -20,9 +20,9 @@ else:
 
 
 def get_spark_session(
-    spark_memory: Optional[int] = None,
-    shuffle_partitions: Optional[int] = None,
-    core_count: Optional[int] = None,
+    spark_memory: int | None = None,
+    shuffle_partitions: int | None = None,
+    core_count: int | None = None,
 ) -> SparkSession:
     """
     Get default SparkSession
@@ -126,7 +126,7 @@ class State(Borg):
 
     def __init__(
         self,
-        session: Optional[SparkSession] = None,
+        session: SparkSession | None = None,
     ):
         Borg.__init__(self)
         if not hasattr(self, "logger_set"):

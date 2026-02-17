@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import importlib
 import logging
 import sys
 from abc import abstractmethod
 from collections.abc import Iterable
-from typing import Any, Optional, Union
+from typing import Any
 
 from replay.data import Dataset
 from replay.models.common import RecommenderCommons
@@ -28,9 +30,9 @@ class ANNMixin(RecommenderCommons):
     and an index inference in the `_predict_wrap` step.
     """
 
-    index_builder: Optional["IndexBuilder"] = None
+    index_builder: "IndexBuilder" | None = None
 
-    def init_index_builder(self, index_builder: Optional[IndexBuilder] = None) -> None:
+    def init_index_builder(self, index_builder: IndexBuilder | None = None) -> None:
         if index_builder is not None and not ANN_AVAILABLE:
             err = FeatureUnavailableError(
                 "`index_builder` can only be provided when all ANN dependencies are installed."
@@ -142,13 +144,13 @@ class ANNMixin(RecommenderCommons):
 
     def _predict_wrap(
         self,
-        dataset: Optional[Dataset],
+        dataset: Dataset | None,
         k: int,
-        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
-        items: Optional[Union[SparkDataFrame, Iterable]] = None,
+        queries: SparkDataFrame | Iterable | None = None,
+        items: SparkDataFrame | Iterable | None = None,
         filter_seen_items: bool = True,
-        recs_file_path: Optional[str] = None,
-    ) -> Optional[SparkDataFrame]:
+        recs_file_path: str | None = None,
+    ) -> SparkDataFrame | None:
         dataset, queries, items = self._filter_interactions_queries_items_dataframes(dataset, k, queries, items)
 
         if self._use_ann:

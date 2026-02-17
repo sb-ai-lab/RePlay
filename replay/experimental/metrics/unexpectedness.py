@@ -1,5 +1,3 @@
-from typing import Optional
-
 from replay.utils import DataFrameLike, SparkDataFrame
 from replay.utils.spark_utils import convert2spark, get_top_k_recs
 
@@ -54,7 +52,7 @@ class Unexpectedness(RecOnlyMetric):
         recommendations: SparkDataFrame,
         ground_truth: SparkDataFrame,  # noqa: ARG002
         max_k: int,
-        ground_truth_users: Optional[DataFrameLike] = None,
+        ground_truth_users: DataFrameLike | None = None,
     ) -> SparkDataFrame:
         recommendations = convert2spark(recommendations)
         ground_truth_users = convert2spark(ground_truth_users)

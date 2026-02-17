@@ -1,6 +1,5 @@
 import logging
 from collections.abc import Iterator
-from typing import Optional
 
 import pandas as pd
 
@@ -59,7 +58,7 @@ class ExecutorNmslibIndexBuilder(IndexBuilder):
         self,
         vectors: SparkDataFrame,
         features_col: str,  # noqa: ARG002
-        ids_col: Optional[str] = None,  # noqa: ARG002
+        ids_col: str | None = None,  # noqa: ARG002
     ):
         # to execution in one executor
         vectors = vectors.repartition(1)

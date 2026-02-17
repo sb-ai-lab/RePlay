@@ -12,7 +12,7 @@ import os
 import warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Literal
 
 import polars as pl
 
@@ -75,7 +75,7 @@ class BaseLabelEncodingRule(abc.ABC):  # pragma: no cover
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def set_default_value(self, default_value: Optional[Union[int, str]]) -> None:
+    def set_default_value(self, default_value: int | str | None) -> None:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -97,9 +97,9 @@ class LabelEncodingRule(BaseLabelEncodingRule):
     def __init__(
         self,
         column: str,
-        mapping: Optional[Mapping] = None,
+        mapping: Mapping | None = None,
         handle_unknown: HandleUnknownStrategies = "error",
-        default_value: Optional[Union[int, str]] = None,
+        default_value: int | str | None = None,
     ):
         """
         :param column: Name of the column to encode.
@@ -308,7 +308,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         self._is_fitted = True
         return self
 
-    def _transform_pandas(self, df: PandasDataFrame, default_value: Optional[int]) -> PandasDataFrame:
+    def _transform_pandas(self, df: PandasDataFrame, default_value: int | None) -> PandasDataFrame:
         is_unknown_label = False
         if df.shape[0] < self._TRANSFORM_PERFORMANCE_THRESHOLD_FOR_PANDAS:  # in order to speed up
             mapping = self.get_mapping()
@@ -349,7 +349,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         result_df = joined_df.drop(self._col, axis=1).rename(columns={self._target_col: self._col})
         return result_df
 
-    def _transform_spark(self, df: SparkDataFrame, default_value: Optional[int]) -> SparkDataFrame:
+    def _transform_spark(self, df: SparkDataFrame, default_value: int | None) -> SparkDataFrame:
         mapping_on_spark = get_spark_session().createDataFrame(
             data=list(self.get_mapping().items()), schema=[self._col, self._target_col]
         )
@@ -378,7 +378,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         result_df = transformed_df.drop(self._col, "unknown_mask").withColumnRenamed(self._target_col, self._col)
         return result_df
 
-    def _transform_polars(self, df: PolarsDataFrame, default_value: Optional[int]) -> SparkDataFrame:
+    def _transform_polars(self, df: PolarsDataFrame, default_value: int | None) -> SparkDataFrame:
         mapping_on_polars = pl.from_records(
             [list(self.get_mapping().keys()), list(self.get_mapping().values())],
             schema=[self._col, self._target_col],
@@ -482,7 +482,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             raise NotImplementedError(msg)
         return transformed_df
 
-    def set_default_value(self, default_value: Optional[Union[int, str]]) -> None:
+    def set_default_value(self, default_value: int | str | None) -> None:
         """
         Sets default value to deal with unknown labels.
         Used when handle_unknown_strategy is 'use_default_value'.
@@ -629,7 +629,7 @@ class SequenceEncodingRule(LabelEncodingRule):
         self._is_fitted = True
         return self
 
-    def _transform_spark(self, df: SparkDataFrame, default_value: Optional[int]) -> SparkDataFrame:
+    def _transform_spark(self, df: SparkDataFrame, default_value: int | None) -> SparkDataFrame:
         other_columns = [col for col in df.columns if col != self._col]
 
         mapping_on_spark = get_spark_session().createDataFrame(
@@ -665,7 +665,7 @@ class SequenceEncodingRule(LabelEncodingRule):
 
         return result
 
-    def _transform_pandas(self, df: PandasDataFrame, default_value: Optional[int]) -> PandasDataFrame:
+    def _transform_pandas(self, df: PandasDataFrame, default_value: int | None) -> PandasDataFrame:
         mapping = self.get_mapping()
         joined_df = df.copy()
         if self._handle_unknown == "drop":
@@ -719,7 +719,7 @@ class SequenceEncodingRule(LabelEncodingRule):
         result_df = joined_df.drop(self._col, axis=1).rename(columns={self._target_col: self._col})
         return result_df
 
-    def _transform_polars(self, df: PolarsDataFrame, default_value: Optional[int]) -> SparkDataFrame:
+    def _transform_polars(self, df: PolarsDataFrame, default_value: int | None) -> SparkDataFrame:
         transformed_df = df.with_columns(
             pl.col(self._col)
             .list.eval(
@@ -927,7 +927,7 @@ class LabelEncoder:
             rule = list(filter(lambda x: x.column == column, self.rules))
             rule[0].set_handle_unknown(handle_unknown)
 
-    def set_default_values(self, default_value_rules: dict[str, Optional[Union[int, str]]]) -> None:
+    def set_default_values(self, default_value_rules: dict[str, int | str | None]) -> None:
         """
         Modify handle unknown strategy on already fitted encoder.
         Default value that will fill the unknown labels

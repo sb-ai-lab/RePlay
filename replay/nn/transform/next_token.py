@@ -1,5 +1,3 @@
-from typing import List, Union
-
 import torch
 
 from replay.data.nn.parquet.impl.masking import DEFAULT_MASK_POSTFIX
@@ -45,7 +43,7 @@ class NextTokenTransform(torch.nn.Module):
         self,
         label_field: str,
         shift: int = 1,
-        query_features: Union[List[str], str] = ["query_id", "query_id_mask"],
+        query_features: list[str] | str = ["query_id", "query_id_mask"],
         out_feature_name: str = "positive_labels",
         mask_postfix: str = DEFAULT_MASK_POSTFIX,
     ) -> None:

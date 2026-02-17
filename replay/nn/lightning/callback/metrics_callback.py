@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import lightning
 import torch
@@ -33,10 +33,10 @@ class ComputeMetricsCallback(lightning.Callback):
 
     def __init__(
         self,
-        metrics: Optional[list[MetricName]] = None,
-        ks: Optional[list[int]] = None,
-        postprocessors: Optional[list[PostprocessorBase]] = None,
-        item_count: Optional[int] = None,
+        metrics: list[MetricName] | None = None,
+        ks: list[int] | None = None,
+        postprocessors: list[PostprocessorBase] | None = None,
+        item_count: int | None = None,
         ground_truth_column: str = "ground_truth",
         train_column: str = "train",
     ):
@@ -62,7 +62,7 @@ class ComputeMetricsCallback(lightning.Callback):
         self._ground_truth_column = ground_truth_column
         self._train_column = train_column
 
-    def _get_dataloaders_size(self, dataloaders: Optional[Any]) -> list[int]:
+    def _get_dataloaders_size(self, dataloaders: Any | None) -> list[int]:
         if isinstance(dataloaders, list):
             return [len(dataloader) for dataloader in dataloaders]
         return [len(dataloaders)]

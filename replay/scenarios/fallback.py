@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Any, Optional, Union
+from typing import Any
 
 from replay.data import Dataset
 from replay.metrics import NDCG, Metric
@@ -69,8 +69,8 @@ class Fallback(BaseRecommender):
         self,
         dataset: Dataset,
         k: int,
-        queries: Optional[Union[SparkDataFrame, Iterable]] = None,
-        items: Optional[Union[SparkDataFrame, Iterable]] = None,
+        queries: SparkDataFrame | Iterable | None = None,
+        items: SparkDataFrame | Iterable | None = None,
         filter_seen_items: bool = True,
     ) -> SparkDataFrame:
         """
@@ -126,7 +126,7 @@ class Fallback(BaseRecommender):
         self,
         train_dataset: Dataset,
         test_dataset: Dataset,
-        param_borders: Optional[dict[str, dict[str, list[Any]]]] = None,
+        param_borders: dict[str, dict[str, list[Any]]] | None = None,
         criterion: Metric = NDCG,
         k: int = 10,
         budget: int = 10,

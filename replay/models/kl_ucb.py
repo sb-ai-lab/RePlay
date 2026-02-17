@@ -1,5 +1,4 @@
 import math
-from typing import Optional
 
 from scipy.optimize import root_scalar
 
@@ -124,7 +123,7 @@ class KLUCB(UCB):
         self,
         exploration_coef: float = 0.0,
         sample: bool = False,
-        seed: Optional[int] = None,
+        seed: int | None = None,
     ):
         """
         :param exploration_coef: exploration coefficient

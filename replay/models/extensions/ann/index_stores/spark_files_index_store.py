@@ -3,7 +3,8 @@ import os
 import shutil
 import tempfile
 import weakref
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from pyarrow import fs
 

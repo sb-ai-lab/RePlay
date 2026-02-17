@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 import pandas as pd
 
@@ -57,10 +55,10 @@ class Sessionizer:
         session_column: str = "session_id",
         session_gap: int = 86400,
         time_column_format: str = "yyyy-MM-dd HH:mm:ss",
-        min_inter_per_session: Optional[int] = None,
-        max_inter_per_session: Optional[int] = None,
-        min_sessions_per_user: Optional[int] = None,
-        max_sessions_per_user: Optional[int] = None,
+        min_inter_per_session: int | None = None,
+        max_inter_per_session: int | None = None,
+        min_sessions_per_user: int | None = None,
+        max_sessions_per_user: int | None = None,
     ):
         """
         :param user_column: Name of user interaction column,

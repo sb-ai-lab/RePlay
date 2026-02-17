@@ -1,6 +1,6 @@
 import pathlib
 import warnings
-from typing import Optional, Union, get_args
+from typing import get_args
 
 import openvino as ov
 import torch
@@ -40,8 +40,8 @@ class SasRecCompiled(BaseCompiledModel):
 
     def predict(
         self,
-        batch: Union[SasRecPredictionBatch, dict],
-        candidates_to_score: Optional[torch.LongTensor] = None,
+        batch: SasRecPredictionBatch | dict,
+        candidates_to_score: torch.LongTensor | None = None,
     ) -> torch.Tensor:
         """
         Inference on one batch.
@@ -76,12 +76,12 @@ class SasRecCompiled(BaseCompiledModel):
     @classmethod
     def compile(
         cls,
-        model: Union[SasRec, str, pathlib.Path],
+        model: SasRec | str | pathlib.Path,
         mode: OptimizedModeType = "one_query",
-        batch_size: Optional[int] = None,
-        num_candidates_to_score: Optional[int] = None,
-        num_threads: Optional[int] = None,
-        onnx_path: Optional[str] = None,
+        batch_size: int | None = None,
+        num_candidates_to_score: int | None = None,
+        num_threads: int | None = None,
+        onnx_path: str | None = None,
     ) -> "SasRecCompiled":
         """
         Model compilation.

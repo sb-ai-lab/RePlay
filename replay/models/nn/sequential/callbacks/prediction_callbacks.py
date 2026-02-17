@@ -1,6 +1,6 @@
 import abc
 import inspect
-from typing import Generic, Optional, Protocol, TypeVar, Union, cast
+from typing import Generic, Protocol, TypeVar, cast
 
 import lightning
 import torch
@@ -45,7 +45,7 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
         query_column: str,
         item_column: str,
         rating_column: str = "rating",
-        postprocessors: Optional[list[BasePostProcessor]] = None,
+        postprocessors: list[BasePostProcessor] | None = None,
     ) -> None:
         """
         :param top_k: Takes the highest k scores in the ranking.
@@ -82,7 +82,7 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
         trainer: lightning.Trainer,  # noqa: ARG002
         pl_module: lightning.LightningModule,  # noqa: ARG002
         outputs: torch.Tensor,
-        batch: Union[PredictionBatch, dict],
+        batch: PredictionBatch | dict,
         batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> None:
@@ -189,7 +189,7 @@ class SparkPredictionCallback(BasePredictionCallback[SparkDataFrame]):
         item_column: str,
         rating_column: str,
         spark_session: SparkSession,
-        postprocessors: Optional[list[BasePostProcessor]] = None,
+        postprocessors: list[BasePostProcessor] | None = None,
     ) -> None:
         """
         :param top_k: Takes the highest k scores in the ranking.
@@ -248,7 +248,7 @@ class TorchPredictionCallback(BasePredictionCallback[tuple[torch.LongTensor, tor
     def __init__(
         self,
         top_k: int,
-        postprocessors: Optional[list[BasePostProcessor]] = None,
+        postprocessors: list[BasePostProcessor] | None = None,
     ) -> None:
         """
         :param top_k: Takes the highest k scores in the ranking.
@@ -297,7 +297,7 @@ class QueryEmbeddingsPredictionCallback(lightning.Callback):
         trainer: lightning.Trainer,  # noqa: ARG002
         pl_module: lightning.LightningModule,
         outputs: torch.Tensor,  # noqa: ARG002
-        batch: Union[PredictionBatch, dict],
+        batch: PredictionBatch | dict,
         batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> None:

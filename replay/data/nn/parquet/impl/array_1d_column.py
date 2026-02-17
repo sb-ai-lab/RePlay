@@ -1,4 +1,4 @@
-from typing import Any, Union
+from typing import Any
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -29,7 +29,7 @@ class Array1DColumn:
         self,
         data: torch.Tensor,
         lengths: torch.LongTensor,
-        shape: Union[int, list[int]],
+        shape: int | list[int],
         padding: Any = DEFAULT_PADDING,
     ) -> None:
         """

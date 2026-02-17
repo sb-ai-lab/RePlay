@@ -1,7 +1,7 @@
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from typing import Any, Optional, Union
+from typing import Any, TypeAlias
 
 import numpy as np
 import polars as pl
@@ -15,10 +15,10 @@ if PYSPARK_AVAILABLE:
     from pyspark.sql.types import ArrayType, DoubleType, StructType
 
 
-MetricsDataFrameLike = Union[DataFrameLike, dict]
-MetricsMeanReturnType = Mapping[str, float]
-MetricsPerUserReturnType = Mapping[str, Mapping[Any, float]]
-MetricsReturnType = Union[MetricsMeanReturnType, MetricsPerUserReturnType]
+MetricsDataFrameLike: TypeAlias = DataFrameLike | dict
+MetricsMeanReturnType: TypeAlias = Mapping[str, float]
+MetricsPerUserReturnType: TypeAlias = Mapping[str, Mapping[Any, float]]
+MetricsReturnType: TypeAlias = MetricsMeanReturnType | MetricsPerUserReturnType
 
 
 class MetricDuplicatesWarning(Warning):
@@ -30,7 +30,7 @@ class Metric(ABC):
 
     def __init__(
         self,
-        topk: Union[list[int], int],
+        topk: list[int] | int,
         query_column: str = "query_id",
         item_column: str = "item_id",
         rating_column: str = "rating",
@@ -187,7 +187,7 @@ class Metric(ABC):
         return self._aggregate_results(metrics)
 
     def _get_items_list_per_user_spark(
-        self, recommendations: SparkDataFrame, extra_column: Optional[str] = None
+        self, recommendations: SparkDataFrame, extra_column: str | None = None
     ) -> SparkDataFrame:
         recommendations = recommendations.groupby(self.query_column).agg(
             sf.sort_array(
@@ -208,7 +208,7 @@ class Metric(ABC):
         return recommendations
 
     def _get_items_list_per_user_polars(
-        self, recommendations: PolarsDataFrame, extra_column: Optional[str] = None
+        self, recommendations: PolarsDataFrame, extra_column: str | None = None
     ) -> PolarsDataFrame:
         selection = [self.query_column, "pred_item_id"]
         sorting = [self.rating_column, self.item_column]
@@ -229,16 +229,14 @@ class Metric(ABC):
         return recommendations
 
     def _get_items_list_per_user(
-        self, recommendations: Union[SparkDataFrame, PolarsDataFrame], extra_column: Optional[str] = None
-    ) -> Union[SparkDataFrame, PolarsDataFrame]:
+        self, recommendations: SparkDataFrame | PolarsDataFrame, extra_column: str | None = None
+    ) -> SparkDataFrame | PolarsDataFrame:
         if isinstance(recommendations, SparkDataFrame):
             return self._get_items_list_per_user_spark(recommendations, extra_column)
         else:
             return self._get_items_list_per_user_polars(recommendations, extra_column)
 
-    def _rearrange_columns(
-        self, data: Union[SparkDataFrame, PolarsDataFrame]
-    ) -> Union[SparkDataFrame, PolarsDataFrame]:
+    def _rearrange_columns(self, data: SparkDataFrame | PolarsDataFrame) -> SparkDataFrame | PolarsDataFrame:
         cols = data.columns
         cols.remove(self.query_column)
         cols = [self.query_column, *sorted(cols)]
@@ -246,9 +244,9 @@ class Metric(ABC):
 
     def _get_enriched_recommendations(
         self,
-        recommendations: Union[PolarsDataFrame, SparkDataFrame],
-        ground_truth: Union[PolarsDataFrame, SparkDataFrame],
-    ) -> Union[PolarsDataFrame, SparkDataFrame]:
+        recommendations: PolarsDataFrame | SparkDataFrame,
+        ground_truth: PolarsDataFrame | SparkDataFrame,
+    ) -> PolarsDataFrame | SparkDataFrame:
         if isinstance(recommendations, SparkDataFrame):
             return self._get_enriched_recommendations_spark(recommendations, ground_truth)
         else:
@@ -345,9 +343,7 @@ class Metric(ABC):
         recs = self._get_enriched_recommendations(recommendations, ground_truth)
         return self._polars_compute(recs)
 
-    def _get_metric_distribution(
-        self, recs: Union[PolarsDataFrame, SparkDataFrame]
-    ) -> Union[PolarsDataFrame, SparkDataFrame]:
+    def _get_metric_distribution(self, recs: PolarsDataFrame | SparkDataFrame) -> PolarsDataFrame | SparkDataFrame:
         if isinstance(recs, SparkDataFrame):
             return self._get_metric_distribution_spark(recs)
         else:

@@ -1,6 +1,5 @@
 import os
 import re
-from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -63,7 +62,7 @@ def del_files_by_pattern(directory: str, pattern: str) -> None:
             os.remove(os.path.join(directory, filename))
 
 
-def find_file_by_pattern(directory: str, pattern: str) -> Optional[str]:
+def find_file_by_pattern(directory: str, pattern: str) -> str | None:
     """
     Returns path to first found file, if exists
     """
@@ -114,7 +113,7 @@ def create_dataset(log, user_features=None, item_features=None, feature_schema=N
     )
 
 
-def convert2pandas(df: Union[SparkDataFrame, PolarsDataFrame, PandasDataFrame]) -> PandasDataFrame:
+def convert2pandas(df: SparkDataFrame | PolarsDataFrame | PandasDataFrame) -> PandasDataFrame:
     if isinstance(df, PandasDataFrame):
         return df
     if isinstance(df, PolarsDataFrame):

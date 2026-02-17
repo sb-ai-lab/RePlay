@@ -1,7 +1,5 @@
 from collections.abc import Callable
-from typing import Any, Union
-
-from typing_extensions import TypeAlias
+from typing import Any, TypeAlias
 
 from replay.data.nn.parquet.constants.metadata import (
     DEFAULT_PADDING,
@@ -9,7 +7,7 @@ from replay.data.nn.parquet.constants.metadata import (
     SHAPE_FLAG,
 )
 
-FieldType: TypeAlias = Union[bool, int, float, str]
+FieldType: TypeAlias = bool | int | float | str
 ColumnMetadata: TypeAlias = dict[str, FieldType]
 Metadata: TypeAlias = dict[str, ColumnMetadata]
 

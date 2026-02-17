@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -35,8 +35,8 @@ class SLIM(NeighbourRec):
         self,
         beta: float = 0.01,
         lambda_: float = 0.01,
-        seed: Optional[int] = None,
-        index_builder: Optional[IndexBuilder] = None,
+        seed: int | None = None,
+        index_builder: IndexBuilder | None = None,
         allow_collect_to_master: bool = False,
     ):
         """

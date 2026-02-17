@@ -4,7 +4,7 @@ import pickle
 import warnings
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Generic, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Generic, TypeAlias, TypeVar
 
 import numpy as np
 import polars as pl
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from .schema import TensorFeatureInfo, TensorFeatureSource, TensorSchema
     from .sequential_dataset import SequentialDataset
 
-SequenceDataFrameLike = Union[PandasDataFrame, PolarsDataFrame]
+SequenceDataFrameLike: TypeAlias = PandasDataFrame | PolarsDataFrame
 _T = TypeVar("_T")
 
 
@@ -38,7 +38,7 @@ class SequenceTokenizer:
         self,
         tensor_schema: "TensorSchema",
         handle_unknown_rule: HandleUnknownStrategies = "error",
-        default_value_rule: Optional[Union[int, str]] = None,
+        default_value_rule: int | str | None = None,
         allow_collect_to_master: bool = False,
     ) -> None:
         """
@@ -78,7 +78,7 @@ class SequenceTokenizer:
     def transform(
         self,
         dataset: Dataset,
-        tensor_features_to_keep: Optional[Sequence[str]] = None,
+        tensor_features_to_keep: Sequence[str] | None = None,
     ) -> "SequentialDataset":
         """
         :param dataset: input dataset to transform
@@ -127,21 +127,21 @@ class SequenceTokenizer:
         return self._encoder.query_and_item_id_encoder
 
     @property
-    def interactions_encoder(self) -> Optional[LabelEncoder]:
+    def interactions_encoder(self) -> LabelEncoder | None:
         """
         :returns: encoder for interactions
         """
         return self._encoder.interactions_encoder
 
     @property
-    def query_features_encoder(self) -> Optional[LabelEncoder]:
+    def query_features_encoder(self) -> LabelEncoder | None:
         """
         :returns: encoder for query features
         """
         return self._encoder.query_features_encoder
 
     @property
-    def item_features_encoder(self) -> Optional[LabelEncoder]:
+    def item_features_encoder(self) -> LabelEncoder | None:
         """
         :returns: encoder for item features
         """
@@ -150,7 +150,7 @@ class SequenceTokenizer:
     def _transform_unchecked(
         self,
         dataset: Dataset,
-        tensor_features_to_keep: Optional[Sequence[str]] = None,
+        tensor_features_to_keep: Sequence[str] | None = None,
     ) -> "SequentialDataset":
         from replay.data.nn.sequential_dataset import PandasSequentialDataset, PolarsSequentialDataset
 
@@ -189,7 +189,7 @@ class SequenceTokenizer:
     def _group_dataset(
         self,
         dataset: Dataset,
-    ) -> tuple[SequenceDataFrameLike, Optional[SequenceDataFrameLike], Optional[SequenceDataFrameLike]]:
+    ) -> tuple[SequenceDataFrameLike, SequenceDataFrameLike | None, SequenceDataFrameLike | None]:
         from replay.data.nn.utils import ensure_pandas, groupby_sequences
 
         grouped_interactions = groupby_sequences(
@@ -212,8 +212,8 @@ class SequenceTokenizer:
         )
         grouped_interactions_pd.sort_values(dataset.feature_schema.query_id_column, inplace=True, ignore_index=True)
 
-        query_features_pd: Optional[PandasDataFrame] = None
-        item_features_pd: Optional[PandasDataFrame] = None
+        query_features_pd: PandasDataFrame | None = None
+        item_features_pd: PandasDataFrame | None = None
 
         if dataset.query_features is not None:
             query_features_pd = ensure_pandas(dataset.query_features, self._allow_collect_to_master)
@@ -227,8 +227,8 @@ class SequenceTokenizer:
         schema: "TensorSchema",
         feature_schema: FeatureSchema,
         grouped_interactions: SequenceDataFrameLike,
-        query_features: Optional[SequenceDataFrameLike],
-        item_features: Optional[SequenceDataFrameLike],
+        query_features: SequenceDataFrameLike | None,
+        item_features: SequenceDataFrameLike | None,
     ) -> SequenceDataFrameLike:
         sequence_processor_class = (
             _PolarsSequenceProcessor if isinstance(grouped_interactions, PolarsDataFrame) else _PandasSequenceProcessor
@@ -326,7 +326,7 @@ class SequenceTokenizer:
         cls,
         dataset: Dataset,
         tensor_schema: "TensorSchema",
-        tensor_features_to_keep: Optional[Sequence[str]] = None,
+        tensor_features_to_keep: Sequence[str] | None = None,
     ) -> None:
         # Check if all source columns specified in tensor schema exist in provided data frames
         sources_for_tensors: list["TensorFeatureSource"] = []
@@ -521,8 +521,8 @@ class _BaseSequenceProcessor(Generic[_T]):
         query_id_column: str,
         item_id_column: str,
         grouped_interactions: _T,
-        query_features: Optional[_T] = None,
-        item_features: Optional[_T] = None,
+        query_features: _T | None = None,
+        item_features: _T | None = None,
     ) -> None:
         self._tensor_schema = tensor_schema
         self._query_id_column = query_id_column
@@ -619,8 +619,8 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
         query_id_column: str,
         item_id_column: str,
         grouped_interactions: PandasDataFrame,
-        query_features: Optional[PandasDataFrame] = None,
-        item_features: Optional[PandasDataFrame] = None,
+        query_features: PandasDataFrame | None = None,
+        item_features: PandasDataFrame | None = None,
     ) -> None:
         super().__init__(
             tensor_schema=tensor_schema,
@@ -637,7 +637,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
         """
         :returns: processed Pandas DataFrame with all features from tensor schema.
         """
-        all_features: dict[str, Union[np.ndarray, list[np.ndarray]]] = {}
+        all_features: dict[str, np.ndarray | list[np.ndarray]] = {}
         all_features[self._query_id_column] = self._grouped_interactions[self._query_id_column].values
 
         for tensor_feature_name in self._tensor_schema:
@@ -645,9 +645,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
 
         return PandasDataFrame(all_features)
 
-    def _process_num_interaction_feature(
-        self, tensor_feature: "TensorFeatureInfo"
-    ) -> Union[list[np.ndarray], list[list]]:
+    def _process_num_interaction_feature(self, tensor_feature: "TensorFeatureInfo") -> list[np.ndarray] | list[list]:
         """
         Process numerical interaction feature.
 
@@ -668,7 +666,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
                 values.append(np.array(sequence))
         return values
 
-    def _process_num_item_feature(self, tensor_feature: "TensorFeatureInfo") -> Union[list[np.ndarray], list[list]]:
+    def _process_num_item_feature(self, tensor_feature: "TensorFeatureInfo") -> list[np.ndarray] | list[list]:
         """
         Process numerical feature from item features dataset.
 
@@ -704,9 +702,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
         """
         return self._process_cat_query_feature(tensor_feature)
 
-    def _process_cat_interaction_feature(
-        self, tensor_feature: "TensorFeatureInfo"
-    ) -> Union[list[np.ndarray], list[list]]:
+    def _process_cat_interaction_feature(self, tensor_feature: "TensorFeatureInfo") -> list[np.ndarray] | list[list]:
         """
         Process categorical interaction feature.
 
@@ -756,7 +752,7 @@ class _PandasSequenceProcessor(_BaseSequenceProcessor[PandasDataFrame]):
                 ]
         return [np.array([query_feature[i]]).reshape(-1) for i in range(len(self._grouped_interactions))]
 
-    def _process_cat_item_feature(self, tensor_feature: "TensorFeatureInfo") -> Union[list[np.ndarray], list[list]]:
+    def _process_cat_item_feature(self, tensor_feature: "TensorFeatureInfo") -> list[np.ndarray] | list[list]:
         """
         Process categorical feature from item features dataset.
 

@@ -4,11 +4,11 @@ and dataframe with ground truth values —
 which objects each user interacted with.
 All input dataframes must have the same type.
 
-- recommendations (Union[pandas.DataFrame, spark.DataFrame, Dict]):
+- recommendations (pandas.DataFrame | spark.DataFrame | dict):
     If the recommendations is instance of dict then key represents user_id, value represents tuple(item_id, score).
     If the recommendations is instance of Spark or Pandas dataframe
     then the names of the corresponding columns should be passed through the constructor of metric.
-- ground_truth (Union[pandas.DataFrame, spark.DataFrame]):
+- ground_truth (pandas.DataFrame | spark.DataFrame):
     If ground_truth is instance of dict then key represents user_id, value represents item_id.
     If the recommendations is instance of Spark or Pandas dataframe
     then the names of the corresponding columns must match the recommendations.
@@ -25,7 +25,7 @@ using multiple values for ``K`` simultaneously.
 Make sure your recommendations do not contain user-item duplicates
 as duplicates could lead to the wrong calculation results.
 
-- k (Union[Iterable[int], int]):
+- k (Iterable[int] | int):
     a single number or a list, specifying the
     truncation length for recommendation list for each user
 

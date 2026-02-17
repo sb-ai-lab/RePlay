@@ -9,7 +9,6 @@ Contains classes for users' and items' features generation based on interactions
 """
 
 from datetime import datetime
-from typing import Optional
 
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
 
@@ -23,7 +22,7 @@ if PYSPARK_AVAILABLE:
 class EmptyFeatureProcessor:
     """Do not perform any transformations on the dataframe"""
 
-    def fit(self, log: SparkDataFrame, features: Optional[SparkDataFrame]) -> None:
+    def fit(self, log: SparkDataFrame, features: SparkDataFrame | None) -> None:
         """
         :param log: input DataFrame ``[user_idx, item_idx, timestamp, relevance]``
         :param features: DataFrame with ``user_idx/item_idx`` and feature columns
@@ -61,8 +60,8 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
 
     calc_timestamp_based: bool = False
     calc_relevance_based: bool = False
-    user_log_features: Optional[SparkDataFrame] = None
-    item_log_features: Optional[SparkDataFrame] = None
+    user_log_features: SparkDataFrame | None = None
+    item_log_features: SparkDataFrame | None = None
 
     def _create_log_aggregates(self, agg_col: str = "user_idx") -> list:
         """
@@ -194,7 +193,7 @@ class LogStatFeaturesProcessor(EmptyFeatureProcessor):
 
         return abnormality_df.groupBy("user_idx").agg(*abnormality_aggs)
 
-    def fit(self, log: SparkDataFrame, features: Optional[SparkDataFrame] = None) -> None:  # noqa: ARG002
+    def fit(self, log: SparkDataFrame, features: SparkDataFrame | None = None) -> None:  # noqa: ARG002
         """
         Calculate log-based features for users and items
 
@@ -289,7 +288,7 @@ class ConditionalPopularityProcessor(EmptyFeatureProcessor):
     If user features are provided, item features will be generated and vice versa.
     """
 
-    conditional_pop_dict: Optional[dict[str, SparkDataFrame]]
+    conditional_pop_dict: dict[str, SparkDataFrame] | None
     entity_name: str
 
     def __init__(
@@ -397,8 +396,8 @@ class HistoryBasedFeaturesProcessor:
         self,
         use_log_features: bool = True,
         use_conditional_popularity: bool = True,
-        user_cat_features_list: Optional[list] = None,
-        item_cat_features_list: Optional[list] = None,
+        user_cat_features_list: list | None = None,
+        item_cat_features_list: list | None = None,
     ):
         """
         :param use_log_features: if add statistical log-based features
@@ -423,8 +422,8 @@ class HistoryBasedFeaturesProcessor:
     def fit(
         self,
         log: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        user_features: SparkDataFrame | None = None,
+        item_features: SparkDataFrame | None = None,
     ) -> None:
         """
         Calculate log and conditional popularity features.

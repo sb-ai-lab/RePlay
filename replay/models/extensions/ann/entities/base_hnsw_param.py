@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -12,7 +11,7 @@ class BaseHnswParam:
     m: int = 200
     ef_c: int = 20000
     post: int = 0
-    ef_s: Optional[int] = None
+    ef_s: int | None = None
 
     def init_meta_as_dict(self) -> dict:
         """

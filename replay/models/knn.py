@@ -1,5 +1,3 @@
-from typing import Optional
-
 from replay.data import Dataset
 from replay.utils import OPTUNA_AVAILABLE, PYSPARK_AVAILABLE, SparkDataFrame
 
@@ -22,9 +20,9 @@ class ItemKNN(NeighbourRec):
             "features_col": None,
         }
 
-    all_items: Optional[SparkDataFrame]
-    dot_products: Optional[SparkDataFrame]
-    item_norms: Optional[SparkDataFrame]
+    all_items: SparkDataFrame | None
+    dot_products: SparkDataFrame | None
+    item_norms: SparkDataFrame | None
     bm25_k1 = 1.2
     bm25_b = 0.75
 
@@ -42,8 +40,8 @@ class ItemKNN(NeighbourRec):
         num_neighbours: int = 10,
         use_rating: bool = False,
         shrink: float = 0.0,
-        weighting: Optional[str] = None,
-        index_builder: Optional[IndexBuilder] = None,
+        weighting: str | None = None,
+        index_builder: IndexBuilder | None = None,
     ):
         """
         :param num_neighbours: number of neighbours

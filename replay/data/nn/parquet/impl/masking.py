@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 from replay.data.nn.parquet.collate import general_collate
 from replay.data.nn.parquet.constants.batches import GeneralCollateFn

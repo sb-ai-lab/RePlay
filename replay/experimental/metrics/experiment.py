@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from replay.utils import DataFrameLike, IntOrList, NumType, PandasDataFrame
 from replay.utils.spark_utils import convert2spark
@@ -56,7 +56,7 @@ class Experiment:
         test: Any,
         metrics: dict[Metric, IntOrList],
         calc_median: bool = False,
-        calc_conf_interval: Optional[float] = None,
+        calc_conf_interval: float | None = None,
     ):
         """
         :param test: test DataFrame
@@ -76,7 +76,7 @@ class Experiment:
         self,
         name: str,
         pred: DataFrameLike,
-        ground_truth_users: Optional[DataFrameLike] = None,
+        ground_truth_users: DataFrameLike | None = None,
     ) -> None:
         """
         Calculate metrics for predictions
@@ -134,8 +134,8 @@ class Experiment:
         metric: Metric,
         k: int,
         value: NumType,
-        median: Optional[NumType],
-        conf_interval: Optional[NumType],
+        median: NumType | None,
+        conf_interval: NumType | None,
     ):
         """
         Add metric for a specific k

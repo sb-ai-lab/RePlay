@@ -1,7 +1,7 @@
 import abc
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import numpy as np
 
@@ -97,7 +97,7 @@ class _CoverageHelper:
     Computes coverage metric over multiple batches
     """
 
-    def __init__(self, top_k: list[int], item_count: Optional[int]) -> None:
+    def __init__(self, top_k: list[int], item_count: int | None) -> None:
         """
         :param top_k: (list): Consider the highest k scores in the ranking.
         :param item_count: (optional, int): the total number of items in the dataset.
@@ -201,8 +201,8 @@ class TorchMetricsBuilder(_MetricBuilder):
     def __init__(
         self,
         metrics: list[MetricName] = DEFAULT_METRICS,
-        top_k: Optional[list[int]] = DEFAULT_KS,
-        item_count: Optional[int] = None,
+        top_k: list[int] | None = DEFAULT_KS,
+        item_count: int | None = None,
     ) -> None:
         """
         :param metrics: Names of metrics to calculate.
@@ -269,7 +269,7 @@ class TorchMetricsBuilder(_MetricBuilder):
         self,
         predictions: torch.LongTensor,
         ground_truth: torch.LongTensor,
-        train: Optional[torch.LongTensor] = None,
+        train: torch.LongTensor | None = None,
     ) -> None:
         """
         Add a batch with predictions, ground truth and train set to calculate the metrics.
@@ -337,7 +337,7 @@ class TorchMetricsBuilder(_MetricBuilder):
         return novelty.sum().item()
 
     def _compute_metrics_sum(
-        self, predictions: torch.LongTensor, ground_truth: torch.LongTensor, train: Optional[torch.LongTensor]
+        self, predictions: torch.LongTensor, ground_truth: torch.LongTensor, train: torch.LongTensor | None
     ) -> list[float]:
         result: list[float] = []
 

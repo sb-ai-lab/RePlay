@@ -2,8 +2,6 @@
 This splitter split data by two columns.
 """
 
-from typing import Optional
-
 import numpy as np
 import polars as pl
 
@@ -85,10 +83,10 @@ class TwoStageSplitter(Splitter):
         shuffle=False,
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
-        seed: Optional[int] = None,
+        seed: int | None = None,
         query_column: str = "query_id",
-        item_column: Optional[str] = "item_id",
-        timestamp_column: Optional[str] = "timestamp",
+        item_column: str | None = "item_id",
+        timestamp_column: str | None = "timestamp",
     ):
         """
         :param second_divide_size: fraction or a number of items per user
@@ -273,14 +271,18 @@ class TwoStageSplitter(Splitter):
                 query_column=self.query_column,
             )
         res = res.na.fill({"is_test": False})
-        train = res.filter(f"""
+        train = res.filter(
+            f"""
                     _row_num > {self.second_divide_size} OR
                     NOT is_test
-                """).drop("_rand", "_row_num", "is_test")
-        test = res.filter(f"""
+                """
+        ).drop("_rand", "_row_num", "is_test")
+        test = res.filter(
+            f"""
                     _row_num <= {self.second_divide_size} AND
                     is_test
-                """).drop("_rand", "_row_num", "is_test")
+                """
+        ).drop("_rand", "_row_num", "is_test")
 
         return train, test
 

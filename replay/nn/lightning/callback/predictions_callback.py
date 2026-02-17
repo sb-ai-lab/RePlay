@@ -1,5 +1,5 @@
 import abc
-from typing import Generic, Optional, TypeVar
+from typing import Generic, TypeVar
 
 import lightning
 import torch
@@ -41,7 +41,7 @@ class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
         query_column: str,
         item_column: str,
         rating_column: str = "rating",
-        postprocessors: Optional[list[PostprocessorBase]] = None,
+        postprocessors: list[PostprocessorBase] | None = None,
     ) -> None:
         """
         :param top_k: Take the ``top_k`` IDs with the highest logit values.
@@ -175,7 +175,7 @@ class SparkTopItemsCallback(TopItemsCallbackBase[SparkDataFrame]):
         item_column: str,
         rating_column: str,
         spark_session: SparkSession,
-        postprocessors: Optional[list[PostprocessorBase]] = None,
+        postprocessors: list[PostprocessorBase] | None = None,
     ) -> None:
         """
         :param top_k: Take the ``top_k`` IDs with the highest logit values.
@@ -242,7 +242,7 @@ class TorchTopItemsCallback(TopItemsCallbackBase[tuple[torch.LongTensor, torch.L
     def __init__(
         self,
         top_k: int,
-        postprocessors: Optional[list[PostprocessorBase]] = None,
+        postprocessors: list[PostprocessorBase] | None = None,
     ) -> None:
         """
         :param top_k: Take the ``top_k`` IDs with the highest logit values.

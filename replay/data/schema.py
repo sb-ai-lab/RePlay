@@ -1,10 +1,5 @@
-from collections.abc import ItemsView, Iterable, Iterator, KeysView, Mapping, Sequence, ValuesView
+from collections.abc import Callable, ItemsView, Iterable, Iterator, KeysView, Mapping, Sequence, ValuesView
 from enum import Enum
-from typing import (
-    Callable,
-    Optional,
-    Union,
-)
 
 
 class FeatureType(Enum):
@@ -42,9 +37,9 @@ class FeatureInfo:
         self,
         column: str,
         feature_type: FeatureType,
-        feature_hint: Optional[FeatureHint] = None,
-        feature_source: Optional[FeatureSource] = None,
-        cardinality: Optional[int] = None,
+        feature_hint: FeatureHint | None = None,
+        feature_source: FeatureSource | None = None,
+        cardinality: int | None = None,
     ) -> None:
         """
         :param column: name of feature.
@@ -83,14 +78,14 @@ class FeatureInfo:
         return self._feature_type
 
     @property
-    def feature_hint(self) -> Optional[FeatureHint]:
+    def feature_hint(self) -> FeatureHint | None:
         """
         :returns: the feature hint.
         """
         return self._feature_hint
 
     @property
-    def feature_source(self) -> Optional[FeatureSource]:
+    def feature_source(self) -> FeatureSource | None:
         """
         :returns: the name of source dataframe of feature.
         """
@@ -100,7 +95,7 @@ class FeatureInfo:
         self._feature_source = source
 
     @property
-    def cardinality(self) -> Optional[int]:
+    def cardinality(self) -> int | None:
         """
         :returns: cardinality of the feature.
         """
@@ -126,7 +121,7 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
     Key-value like collection with information about all dataset features.
     """
 
-    def __init__(self, features_list: Union[Sequence[FeatureInfo], FeatureInfo]) -> None:
+    def __init__(self, features_list: Sequence[FeatureInfo] | FeatureInfo) -> None:
         """
         :param features_list: list of feature infos.
         """
@@ -180,8 +175,8 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
     def get(
         self,
         key: str,
-        default: Optional[FeatureInfo] = None,
-    ) -> Optional[FeatureInfo]:
+        default: FeatureInfo | None = None,
+    ) -> FeatureInfo | None:
         return self._features_schema.get(key, default)
 
     def __iter__(self) -> Iterator[str]:
@@ -306,7 +301,7 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
         return self.item_id_feature.column
 
     @property
-    def interactions_rating_column(self) -> Optional[str]:
+    def interactions_rating_column(self) -> str | None:
         """
         :returns: interactions-rating column name.
         """
@@ -316,7 +311,7 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
         return interactions_rating_features.item().column
 
     @property
-    def interactions_timestamp_column(self) -> Optional[str]:
+    def interactions_timestamp_column(self) -> str | None:
         """
         :returns: interactions-timestamp column name.
         """
@@ -327,10 +322,10 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
 
     def filter(
         self,
-        column: Optional[str] = None,
-        feature_hint: Optional[FeatureHint] = None,
-        feature_source: Optional[FeatureSource] = None,
-        feature_type: Optional[FeatureType] = None,
+        column: str | None = None,
+        feature_hint: FeatureHint | None = None,
+        feature_source: FeatureSource | None = None,
+        feature_type: FeatureType | None = None,
     ) -> "FeatureSchema":
         """Filter list by ``column``, ``feature_source``, ``feature_type`` and ``feature_hint``.
 
@@ -360,10 +355,10 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
 
     def drop(
         self,
-        column: Optional[str] = None,
-        feature_hint: Optional[FeatureHint] = None,
-        feature_source: Optional[FeatureSource] = None,
-        feature_type: Optional[FeatureType] = None,
+        column: str | None = None,
+        feature_hint: FeatureHint | None = None,
+        feature_source: FeatureSource | None = None,
+        feature_type: FeatureType | None = None,
     ) -> "FeatureSchema":
         """Drop features from list by ``column``, ``feature_source``, ``feature_type`` and ``feature_hint``.
 

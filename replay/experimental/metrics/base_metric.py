@@ -4,7 +4,6 @@ Base classes for quality and diversity metrics.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Union
 
 import pandas as pd
 from scipy.stats import norm
@@ -43,7 +42,7 @@ def fill_na_with_empty_array(df: SparkDataFrame, col_name: str, element_type: Da
 
 def preprocess_gt(
     ground_truth: DataFrameLike,
-    ground_truth_users: Optional[DataFrameLike] = None,
+    ground_truth_users: DataFrameLike | None = None,
 ) -> SparkDataFrame:
     """
     Preprocess `ground_truth` data before metric calculation
@@ -80,7 +79,7 @@ def drop_duplicates(recommendations: DataFrameLike) -> SparkDataFrame:
     )
 
 
-def filter_sort(recommendations: SparkDataFrame, extra_column: Optional[str] = None) -> SparkDataFrame:
+def filter_sort(recommendations: SparkDataFrame, extra_column: str | None = None) -> SparkDataFrame:
     """
     Filters duplicated predictions by choosing items with the highest relevance,
     Sorts items in predictions by its relevance,
@@ -122,7 +121,7 @@ def get_enriched_recommendations(
     recommendations: DataFrameLike,
     ground_truth: DataFrameLike,
     max_k: int,
-    ground_truth_users: Optional[DataFrameLike] = None,
+    ground_truth_users: DataFrameLike | None = None,
 ) -> SparkDataFrame:
     """
     Leave max_k recommendations for each user,
@@ -166,8 +165,8 @@ def process_k(func):
 class Metric(ABC):
     """Base metric class"""
 
-    _logger: Optional[logging.Logger] = None
-    _scala_udf_name: Optional[str] = None
+    _logger: logging.Logger | None = None
+    _scala_udf_name: str | None = None
 
     def __init__(self, use_scala_udf: bool = False) -> None:
         self._use_scala_udf = use_scala_udf
@@ -198,8 +197,8 @@ class Metric(ABC):
         recommendations: DataFrameLike,
         ground_truth: DataFrameLike,
         k: IntOrList,
-        ground_truth_users: Optional[DataFrameLike] = None,
-    ) -> Union[dict[int, NumType], NumType]:
+        ground_truth_users: DataFrameLike | None = None,
+    ) -> dict[int, NumType] | NumType:
         """
         :param recommendations: model predictions in a
             DataFrame ``[user_idx, item_idx, relevance]``
@@ -298,7 +297,7 @@ class Metric(ABC):
         recommendations: DataFrameLike,
         ground_truth: DataFrameLike,
         k: IntOrList,
-        ground_truth_users: Optional[DataFrameLike] = None,
+        ground_truth_users: DataFrameLike | None = None,
     ) -> PandasDataFrame:
         """
         Get mean value of metric for all users with the same number of ratings.
@@ -367,9 +366,9 @@ class RecOnlyMetric(Metric):
     def _get_enriched_recommendations(
         self,
         recommendations: DataFrameLike,
-        ground_truth: Optional[DataFrameLike],
+        ground_truth: DataFrameLike | None,
         max_k: int,
-        ground_truth_users: Optional[DataFrameLike] = None,
+        ground_truth_users: DataFrameLike | None = None,
     ) -> SparkDataFrame:
         pass
 
@@ -377,8 +376,8 @@ class RecOnlyMetric(Metric):
         self,
         recommendations: DataFrameLike,
         k: IntOrList,
-        ground_truth_users: Optional[DataFrameLike] = None,
-    ) -> Union[dict[int, NumType], NumType]:
+        ground_truth_users: DataFrameLike | None = None,
+    ) -> dict[int, NumType] | NumType:
         """
         :param recommendations: predictions of a model,
             DataFrame  ``[user_idx, item_idx, relevance]``
@@ -463,7 +462,7 @@ class NCISMetric(Metric):
         self,
         prev_policy_weights: DataFrameLike,
         threshold: float = 10.0,
-        activation: Optional[str] = None,
+        activation: str | None = None,
         use_scala_udf: bool = False,
     ):
         """
@@ -556,7 +555,7 @@ class NCISMetric(Metric):
         recommendations: DataFrameLike,
         ground_truth: DataFrameLike,
         max_k: int,
-        ground_truth_users: Optional[DataFrameLike] = None,
+        ground_truth_users: DataFrameLike | None = None,
     ) -> SparkDataFrame:
         """
         Merge recommendations and ground truth into a single DataFrame

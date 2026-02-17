@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, IntOrList, NumType, SparkDataFrame
 from replay.utils.spark_utils import convert2spark
 
@@ -40,7 +38,7 @@ class Coverage(RecOnlyMetric):
         recommendations: DataFrameLike,
         ground_truth: DataFrameLike,  # noqa: ARG002
         max_k: int,  # noqa: ARG002
-        ground_truth_users: Optional[DataFrameLike] = None,
+        ground_truth_users: DataFrameLike | None = None,
     ) -> SparkDataFrame:
         recommendations = convert2spark(recommendations)
         if ground_truth_users is not None:
@@ -53,7 +51,7 @@ class Coverage(RecOnlyMetric):
         recs: DataFrameLike,  # noqa: ARG002
         k_list: IntOrList,
         alpha: float = 0.95,  # noqa: ARG002
-    ) -> Union[dict[int, float], float]:
+    ) -> dict[int, float] | float:
         if isinstance(k_list, int):
             return 0.0
         return dict.fromkeys(k_list, 0.0)
@@ -62,7 +60,7 @@ class Coverage(RecOnlyMetric):
         self,
         recs: DataFrameLike,
         k_list: IntOrList,
-    ) -> Union[dict[int, NumType], NumType]:
+    ) -> dict[int, NumType] | NumType:
         return self._mean(recs, k_list)
 
     @process_k
@@ -70,7 +68,7 @@ class Coverage(RecOnlyMetric):
         self,
         recs: SparkDataFrame,
         k_list: list,
-    ) -> Union[dict[int, NumType], NumType]:
+    ) -> dict[int, NumType] | NumType:
         unknown_item_count = recs.select("item_idx").distinct().exceptAll(self.items).count()
         if unknown_item_count > 0:
             self.logger.warning(

@@ -1,7 +1,5 @@
 from dataclasses import dataclass, field
-from typing import ClassVar, Optional
-
-from typing_extensions import Literal
+from typing import ClassVar, Literal
 
 from .base_hnsw_param import BaseHnswParam
 
@@ -62,6 +60,6 @@ class NmslibHnswParam(BaseHnswParam):
         "angulardist_sparse",
         "angulardist_sparse_fast",
     ] = "negdotprod_sparse_fast"
-    items_count: Optional[int] = field(default=None, init=False)
+    items_count: int | None = field(default=None, init=False)
 
     method: ClassVar[str] = "hnsw"

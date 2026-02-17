@@ -1,6 +1,6 @@
 import math
 import warnings
-from typing import Any, Literal, Optional, Union, cast
+from typing import Any, Literal, cast
 
 import lightning
 import torch
@@ -29,11 +29,11 @@ class Bert4Rec(lightning.LightningModule):
         enable_positional_embedding: bool = True,
         enable_embedding_tying: bool = False,
         loss_type: Literal["BCE", "CE", "CE_restricted"] = "CE",
-        loss_sample_count: Optional[int] = None,
+        loss_sample_count: int | None = None,
         negative_sampling_strategy: Literal["global_uniform", "inbatch"] = "global_uniform",
         negatives_sharing: bool = False,
         optimizer_factory: OptimizerFactory = FatOptimizerFactory(),
-        lr_scheduler_factory: Optional[LRSchedulerFactory] = None,
+        lr_scheduler_factory: LRSchedulerFactory | None = None,
     ):
         """
         :param tensor_schema: Tensor schema of features.
@@ -97,7 +97,7 @@ class Bert4Rec(lightning.LightningModule):
         self._vocab_size = item_count
         self.candidates_to_score = None
 
-    def training_step(self, batch: Union[Bert4RecTrainingBatch, dict], batch_idx: int) -> torch.Tensor:  # noqa: ARG002
+    def training_step(self, batch: Bert4RecTrainingBatch | dict, batch_idx: int) -> torch.Tensor:  # noqa: ARG002
         """
         :param batch: Batch of training data.
         :param batch_idx: Batch index.
@@ -109,7 +109,7 @@ class Bert4Rec(lightning.LightningModule):
         return loss
 
     def predict_step(
-        self, batch: Union[Bert4RecPredictionBatch, dict], batch_idx: int, dataloader_idx: int = 0  # noqa: ARG002
+        self, batch: Bert4RecPredictionBatch | dict, batch_idx: int, dataloader_idx: int = 0  # noqa: ARG002
     ) -> torch.Tensor:
         """
         :param batch (Bert4RecPredictionBatch): Batch of prediction data.
@@ -135,8 +135,8 @@ class Bert4Rec(lightning.LightningModule):
 
     def predict(
         self,
-        batch: Union[Bert4RecPredictionBatch, dict],
-        candidates_to_score: Optional[torch.LongTensor] = None,
+        batch: Bert4RecPredictionBatch | dict,
+        candidates_to_score: torch.LongTensor | None = None,
     ) -> torch.Tensor:
         """
         :param batch: Batch of prediction data.
@@ -167,7 +167,7 @@ class Bert4Rec(lightning.LightningModule):
         feature_tensors: TensorMap,
         padding_mask: torch.BoolTensor,
         tokens_mask: torch.BoolTensor,
-        candidates_to_score: Optional[torch.LongTensor] = None,
+        candidates_to_score: torch.LongTensor | None = None,
     ) -> torch.Tensor:  # pragma: no cover
         """
         :param feature_tensors:  Batch of features.
@@ -186,7 +186,7 @@ class Bert4Rec(lightning.LightningModule):
         )
 
     def validation_step(
-        self, batch: Union[Bert4RecValidationBatch, dict], batch_idx: int, dataloader_idx: int = 0  # noqa: ARG002
+        self, batch: Bert4RecValidationBatch | dict, batch_idx: int, dataloader_idx: int = 0  # noqa: ARG002
     ) -> torch.Tensor:
         """
         :param batch: Batch of prediction data.
@@ -241,7 +241,7 @@ class Bert4Rec(lightning.LightningModule):
         )
         return scores
 
-    def _compute_loss(self, batch: Union[Bert4RecTrainingBatch, dict]) -> torch.Tensor:
+    def _compute_loss(self, batch: Bert4RecTrainingBatch | dict) -> torch.Tensor:
         if self._loss_type == "BCE":
             loss_func = self._compute_loss_bce if self._loss_sample_count is None else self._compute_loss_bce_sampled
         elif self._loss_type == "CE":
@@ -488,7 +488,7 @@ class Bert4Rec(lightning.LightningModule):
         logits = self._model.get_logits(output_emb)
         return (logits, positive_labels)
 
-    def _create_loss(self) -> Union[torch.nn.BCEWithLogitsLoss, torch.nn.CrossEntropyLoss]:
+    def _create_loss(self) -> torch.nn.BCEWithLogitsLoss | torch.nn.CrossEntropyLoss:
         if self._loss_type == "BCE":
             return torch.nn.BCEWithLogitsLoss(reduction="sum")
 
@@ -603,14 +603,14 @@ class Bert4Rec(lightning.LightningModule):
             raise ValueError(msg)
 
     @property
-    def candidates_to_score(self) -> Union[torch.LongTensor, None]:
+    def candidates_to_score(self) -> torch.LongTensor | None:
         """
         Returns tensor of item ids to calculate scores.
         """
         return self._candidates_to_score
 
     @candidates_to_score.setter
-    def candidates_to_score(self, candidates: Optional[torch.LongTensor] = None) -> None:
+    def candidates_to_score(self, candidates: torch.LongTensor | None = None) -> None:
         """
         Sets tensor of item ids to calculate scores.
         :param candidates: Tensor of item ids to calculate scores.

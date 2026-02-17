@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Literal
 
 import polars as pl
 
@@ -33,15 +33,15 @@ class KFolds(Splitter):
 
     def __init__(
         self,
-        n_folds: Optional[int] = 5,
-        strategy: Optional[StrategyName] = "query",
+        n_folds: int | None = 5,
+        strategy: StrategyName | None = "query",
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
-        seed: Optional[int] = None,
+        seed: int | None = None,
         query_column: str = "query_id",
-        item_column: Optional[str] = "item_id",
-        timestamp_column: Optional[str] = "timestamp",
-        session_id_column: Optional[str] = None,
+        item_column: str | None = "item_id",
+        timestamp_column: str | None = "timestamp",
+        session_id_column: str | None = None,
         session_id_processing_strategy: str = "test",
     ):
         """

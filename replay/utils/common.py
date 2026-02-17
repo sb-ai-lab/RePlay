@@ -1,8 +1,9 @@
 import functools
 import inspect
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, TypeVar, Union
+from typing import Any, TypeAlias, TypeVar
 
 from polars import from_pandas as pl_from_pandas
 from typing_extensions import ParamSpec
@@ -34,36 +35,31 @@ from replay.utils.spark_utils import (
     spark_to_pandas,
 )
 
-SavableObject = Union[
-    ColdUserRandomSplitter,
-    KFolds,
-    LastNSplitter,
-    NewUsersSplitter,
-    RandomNextNSplitter,
-    RandomSplitter,
-    RatioSplitter,
-    TimeSplitter,
-    TwoStageSplitter,
-    Dataset,
-    LabelEncoder,
-    LabelEncodingRule,
-]
+SavableObject: TypeAlias = (
+    ColdUserRandomSplitter
+    | KFolds
+    | LastNSplitter
+    | NewUsersSplitter
+    | RandomNextNSplitter
+    | RandomSplitter
+    | RatioSplitter
+    | TimeSplitter
+    | TwoStageSplitter
+    | Dataset
+    | LabelEncoder
+    | LabelEncodingRule
+)
 
 if TORCH_AVAILABLE:
     from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset, SequenceTokenizer
 
-    SavableObject = Union[
-        SavableObject,
-        SequenceTokenizer,
-        PandasSequentialDataset,
-        PolarsSequentialDataset,
-    ]
+    SavableObject: TypeAlias = SavableObject | SequenceTokenizer | PandasSequentialDataset | PolarsSequentialDataset
 
 P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def save_to_replay(obj: SavableObject, path: Union[str, Path]) -> None:
+def save_to_replay(obj: SavableObject, path: str | Path) -> None:
     """
     General function to save RePlay models, splitters and tokenizer.
 
@@ -72,7 +68,7 @@ def save_to_replay(obj: SavableObject, path: Union[str, Path]) -> None:
     obj.save(path)
 
 
-def load_from_replay(path: Union[str, Path], **kwargs) -> SavableObject:
+def load_from_replay(path: str | Path, **kwargs) -> SavableObject:
     """
     General function to load RePlay models, splitters and tokenizer.
 
@@ -120,7 +116,7 @@ def check_if_dataframe(*args_to_check: str) -> Callable[P, R]:
 
 @check_if_dataframe("data")
 def convert2pandas(
-    data: Union[SparkDataFrame, PolarsDataFrame, PandasDataFrame], allow_collect_to_master: bool = False
+    data: SparkDataFrame | PolarsDataFrame | PandasDataFrame, allow_collect_to_master: bool = False
 ) -> PandasDataFrame:
     """
     Convert the spark|polars DataFrame to a pandas.DataFrame.
@@ -141,7 +137,7 @@ def convert2pandas(
 
 @check_if_dataframe("data")
 def convert2polars(
-    data: Union[SparkDataFrame, PolarsDataFrame, PandasDataFrame], allow_collect_to_master: bool = False
+    data: SparkDataFrame | PolarsDataFrame | PandasDataFrame, allow_collect_to_master: bool = False
 ) -> PolarsDataFrame:
     """
     Convert the spark|pandas DataFrame to a polars.DataFrame.
@@ -161,7 +157,7 @@ def convert2polars(
 
 
 @check_if_dataframe("data")
-def convert2spark(data: Union[SparkDataFrame, PolarsDataFrame, PandasDataFrame]) -> SparkDataFrame:
+def convert2spark(data: SparkDataFrame | PolarsDataFrame | PandasDataFrame) -> SparkDataFrame:
     """
     Convert the pandas|polars DataFrame to a pysaprk.sql.DataFrame.
     Returns unchanged dataframe if the input is already of type pysaprk.sql.DataFrame.

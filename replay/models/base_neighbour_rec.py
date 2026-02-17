@@ -5,7 +5,7 @@ Part of set of abstract classes (from base_rec.py)
 
 from abc import ABC
 from collections.abc import Iterable
-from typing import Any, Optional, Union
+from typing import Any
 
 from replay.data.dataset import Dataset
 from replay.utils import PYSPARK_AVAILABLE, MissingImport, SparkDataFrame
@@ -23,7 +23,7 @@ else:
 class NeighbourRec(ANNMixin, Recommender, ABC):
     """Base class that requires interactions at prediction time"""
 
-    similarity: Optional[SparkDataFrame]
+    similarity: SparkDataFrame | None
     can_predict_item_to_item: bool = True
     can_predict_cold_queries: bool = True
     can_change_metric: bool = False
@@ -112,7 +112,7 @@ class NeighbourRec(ANNMixin, Recommender, ABC):
     def _predict_pairs(
         self,
         pairs: SparkDataFrame,
-        dataset: Optional[Dataset] = None,
+        dataset: Dataset | None = None,
     ) -> SparkDataFrame:
         return self._predict_pairs_inner(
             dataset=dataset,
@@ -128,10 +128,10 @@ class NeighbourRec(ANNMixin, Recommender, ABC):
 
     def get_nearest_items(
         self,
-        items: Union[SparkDataFrame, Iterable],
+        items: SparkDataFrame | Iterable,
         k: int,
-        metric: Optional[str] = None,
-        candidates: Optional[Union[SparkDataFrame, Iterable]] = None,
+        metric: str | None = None,
+        candidates: SparkDataFrame | Iterable | None = None,
     ) -> SparkDataFrame:
         """
         Get k most similar items be the `metric` for each of the `items`.
@@ -168,8 +168,8 @@ class NeighbourRec(ANNMixin, Recommender, ABC):
     def _get_nearest_items(
         self,
         items: SparkDataFrame,
-        metric: Optional[str] = None,
-        candidates: Optional[SparkDataFrame] = None,
+        metric: str | None = None,
+        candidates: SparkDataFrame | None = None,
     ) -> SparkDataFrame:
         similarity_filtered = self.similarity.join(
             items.withColumnRenamed(self.item_column, "item_idx_one"),
@@ -204,7 +204,7 @@ class NeighbourRec(ANNMixin, Recommender, ABC):
         )
         return user_vectors
 
-    def _save_model(self, path: str, additional_params: Optional[dict] = None):
+    def _save_model(self, path: str, additional_params: dict | None = None):
         super()._save_model(path, additional_params)
         if self._use_ann:
             self._save_index(path)

@@ -1,5 +1,5 @@
+from collections.abc import Iterator
 from functools import lru_cache
-from typing import Iterator, Tuple
 
 
 def validate_length(length: int) -> int:
@@ -16,7 +16,7 @@ def validate_batch_size(batch_size: int) -> int:
     return batch_size
 
 
-def validate_input(length: int, batch_size: int) -> Tuple[int, int]:
+def validate_input(length: int, batch_size: int) -> tuple[int, int]:
     length = validate_length(length)
     batch_size = validate_batch_size(batch_size)
     return (length, batch_size)
@@ -50,7 +50,7 @@ class UniformBatching:
     def __len__(self) -> int:
         return self.batch_count
 
-    def get_limits(self, index: int) -> Tuple[int, int]:
+    def get_limits(self, index: int) -> tuple[int, int]:
         if (index < 0) or (self.batch_count <= index):
             msg: str = f"Batching Index is invalid. Got {index}."
             raise IndexError(msg)
@@ -60,10 +60,10 @@ class UniformBatching:
         assert (first < last) and (last <= self.length)
         return (first, last)
 
-    def __getitem__(self, index: int) -> Tuple[int, int]:
+    def __getitem__(self, index: int) -> tuple[int, int]:
         return self.get_limits(index)
 
-    def __iter__(self) -> Iterator[Tuple[int, int]]:
+    def __iter__(self) -> Iterator[tuple[int, int]]:
         index: int
         for index in range(self.batch_count):
             yield self.get_limits(index)

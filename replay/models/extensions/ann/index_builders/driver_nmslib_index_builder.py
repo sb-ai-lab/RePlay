@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
 from replay.models.extensions.ann.index_inferers.nmslib_filter_index_inferer import NmslibFilterIndexInferer
@@ -28,7 +27,7 @@ class DriverNmslibIndexBuilder(IndexBuilder):
         self,
         vectors: SparkDataFrame,
         features_col: str,  # noqa: ARG002
-        ids_col: Optional[str] = None,  # noqa: ARG002
+        ids_col: str | None = None,  # noqa: ARG002
     ):
         vectors = spark_to_pandas(vectors, self.allow_collect_to_master)
         NmslibIndexBuilderMixin.build_and_save_index(vectors, self.index_params, self.index_store)

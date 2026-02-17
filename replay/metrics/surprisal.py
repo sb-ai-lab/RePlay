@@ -1,5 +1,4 @@
 from collections import defaultdict
-from typing import Union
 
 import numpy as np
 import polars as pl
@@ -102,9 +101,9 @@ class Surprisal(Metric):
 
     def _get_enriched_recommendations(
         self,
-        recommendations: Union[PolarsDataFrame, SparkDataFrame],
-        train: Union[PolarsDataFrame, SparkDataFrame],
-    ) -> Union[PolarsDataFrame, SparkDataFrame]:
+        recommendations: PolarsDataFrame | SparkDataFrame,
+        train: PolarsDataFrame | SparkDataFrame,
+    ) -> PolarsDataFrame | SparkDataFrame:
         if isinstance(recommendations, SparkDataFrame):
             return self._get_enriched_recommendations_spark(recommendations, train)
         else:

@@ -1,6 +1,6 @@
 import abc
 import contextlib
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
 
 import torch
 from typing_extensions import deprecated
@@ -70,7 +70,7 @@ class SasRecModel(torch.nn.Module):
             schema=schema,
             padding_idx=self.padding_idx,
         )
-        self.item_embedder: Union[TiSasRecEmbeddings, SasRecEmbeddings]
+        self.item_embedder: TiSasRecEmbeddings | SasRecEmbeddings
         self.sasrec_layers: torch.nn.Module
 
         if self.ti_modification:
@@ -128,7 +128,7 @@ class SasRecModel(torch.nn.Module):
         self,
         feature_tensor: TensorMap,
         padding_mask: torch.BoolTensor,
-        candidates_to_score: Optional[torch.LongTensor] = None,
+        candidates_to_score: torch.LongTensor | None = None,
     ) -> torch.Tensor:
         """
         :param feature_tensor: Batch of features.
@@ -179,7 +179,7 @@ class SasRecModel(torch.nn.Module):
 
         return output_emb
 
-    def get_logits(self, out_embeddings: torch.Tensor, item_ids: Optional[torch.LongTensor] = None) -> torch.Tensor:
+    def get_logits(self, out_embeddings: torch.Tensor, item_ids: torch.LongTensor | None = None) -> torch.Tensor:
         """
         Apply head to output embeddings of ``forward_step``.
 
@@ -286,7 +286,7 @@ class EmbeddingTyingHead(torch.nn.Module):
     def forward(
         self,
         out_embeddings: torch.Tensor,
-        item_ids: Optional[torch.LongTensor] = None,
+        item_ids: torch.LongTensor | None = None,
     ) -> torch.Tensor:
         """
         :param out_embeddings: Embeddings after `forward step`.

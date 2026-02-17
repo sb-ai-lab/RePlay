@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 
 
@@ -29,9 +27,9 @@ class UniformNegativeSamplingTransform(torch.nn.Module):
         cardinality: int,
         num_negative_samples: int,
         *,
-        out_feature_name: Optional[str] = "negative_labels",
-        sample_distribution: Optional[torch.Tensor] = None,
-        generator: Optional[torch.Generator] = None,
+        out_feature_name: str | None = "negative_labels",
+        sample_distribution: torch.Tensor | None = None,
+        generator: torch.Generator | None = None,
     ) -> None:
         """
         :param cardinality: number of unique items in vocabulary (catalog).
@@ -124,9 +122,9 @@ class MultiClassNegativeSamplingTransform(torch.nn.Module):
         num_negative_samples: int,
         sample_mask: torch.Tensor,
         *,
-        negative_selector_name: Optional[str] = "negative_selector",
-        out_feature_name: Optional[str] = "negative_labels",
-        generator: Optional[torch.Generator] = None,
+        negative_selector_name: str | None = "negative_selector",
+        out_feature_name: str | None = "negative_labels",
+        generator: torch.Generator | None = None,
     ) -> None:
         """
         :param num_negative_samples: The size of negatives vector to generate.

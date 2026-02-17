@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 import pandas as pd
 
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, SparkDataFrame
@@ -67,15 +65,15 @@ class SequenceGenerator:
 
     def __init__(
         self,
-        groupby_column: Union[str, list[str]],
-        orderby_column: Union[str, list[str], None] = None,
-        transform_columns: Union[None, str, list[str]] = None,
+        groupby_column: str | list[str],
+        orderby_column: str | list[str] | None = None,
+        transform_columns: None | str | list[str] = None,
         len_window: int = 50,
-        sequence_prefix: Optional[str] = None,
-        sequence_suffix: Optional[str] = "_list",
-        label_prefix: Optional[str] = "label_",
-        label_suffix: Optional[str] = None,
-        get_list_len: Optional[bool] = False,
+        sequence_prefix: str | None = None,
+        sequence_suffix: str | None = "_list",
+        label_prefix: str | None = "label_",
+        label_suffix: str | None = None,
+        get_list_len: bool | None = False,
         list_len_column: str = "list_len",
     ):
         """
@@ -102,7 +100,7 @@ class SequenceGenerator:
             default: ``list_len``.
         """
         self.groupby_column = groupby_column if not isinstance(groupby_column, str) else [groupby_column]
-        self.orderby_column: Union[list, Column, None]
+        self.orderby_column: list | Column | None
         if orderby_column is None:
             self.orderby_column = None
         else:
@@ -182,7 +180,7 @@ class SequenceGenerator:
     def _transform_spark(self, interactions: SparkDataFrame) -> SparkDataFrame:
         assert self.transform_columns is not None
         processed_interactions = interactions
-        orderby_column: Union[Column, list]
+        orderby_column: Column | list
         orderby_column = sf.lit(1) if self.orderby_column is None else self.orderby_column
 
         window = Window.partitionBy(self.groupby_column).orderBy(orderby_column).rowsBetween(-self.len_window, -1)
