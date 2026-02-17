@@ -6,6 +6,8 @@ Contains classes for encoding categorical data
 ``LabelEncoder`` to apply multiple LabelEncodingRule to dataframe.
 """
 
+from __future__ import annotations
+
 import abc
 import json
 import os
