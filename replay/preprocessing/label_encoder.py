@@ -11,6 +11,7 @@ from __future__ import annotations
 import abc
 import json
 import os
+import sys
 import warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -32,6 +33,12 @@ if PYSPARK_AVAILABLE:
     from replay.utils.session_handler import get_spark_session
 
 HandleUnknownStrategies = Literal["error", "use_default_value", "drop"]
+
+# TODO: Catch in-place once we remove Python 3.10 support
+if sys.version_info >= (3, 11):
+    deprecation_filter = warnings.catch_warnings(category=DeprecationWarning)
+else:
+    deprecation_filter = warnings.catch_warnings()
 
 
 class LabelEncoderTransformWarning(Warning):
@@ -527,7 +534,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
         return type(self)(
             column=self.column,
-            mapping=self.get_mapping(),
+            mapping=self._mapping,
             handle_unknown=self._handle_unknown,
             default_value=default_value,
         )
@@ -568,7 +575,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
 
         return type(self)(
             column=self.column,
-            mapping=self.get_mapping(),
+            mapping=self._mapping,
             handle_unknown=handle_unknown,
             default_value=self._default_value,
         )
@@ -989,6 +996,12 @@ class LabelEncoder:
             If ``str`` value, should be \"last\" only, then fill by n_classes number.
             Default ``None``.
         """
+        columns = [i.column for i in self.rules]
+        missing_columns = [column for column in handle_unknown_rules if column not in columns]
+        if missing_columns:
+            msg = f"Columns not found: {missing_columns}."
+            raise ValueError(msg)
+
         if inplace:
             warnings.warn(
                 "In-place modification of unknown value handlers on encoding "
@@ -998,12 +1011,9 @@ class LabelEncoder:
                 DeprecationWarning,
                 stacklevel=2,
             )
-            with warnings.catch_warnings(category=DeprecationWarning):
+            with deprecation_filter:
                 columns = [i.column for i in self.rules]
                 for column, handle_unknown in handle_unknown_rules.items():
-                    if column not in columns:
-                        msg = f"Column {column} not found."
-                        raise ValueError(msg)
                     rule = [rule for rule in self.rules if rule.column == column]
                     rule[0].set_handle_unknown(handle_unknown)
         else:
@@ -1052,6 +1062,12 @@ class LabelEncoder:
             to the value given for the parameter default_value.
             Default: ``error``.
         """
+        columns = [i.column for i in self.rules]
+        missing_columns = [column for column in default_value_rules if column not in columns]
+        if missing_columns:
+            msg = f"Columns not found: {missing_columns}."
+            raise ValueError(msg)
+
         if inplace:
             warnings.warn(
                 "In-place modification of default values on encoding rules will be removed in a future release. "
@@ -1060,12 +1076,9 @@ class LabelEncoder:
                 DeprecationWarning,
                 stacklevel=2,
             )
-            with warnings.catch_warnings(category=DeprecationWarning):
+            with deprecation_filter:
                 columns = [i.column for i in self.rules]
                 for column, default_value in default_value_rules.items():
-                    if column not in columns:
-                        msg = f"Column {column} not found."
-                        raise ValueError(msg)
                     rule = [rule for rule in self.rules if rule.column == column]
                     rule[0].set_default_value(default_value)
         else:
