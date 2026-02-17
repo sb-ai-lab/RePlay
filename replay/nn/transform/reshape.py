@@ -3,7 +3,7 @@ import torch
 
 class UnsqueezeTransform(torch.nn.Module):
     """
-    Unsqueeze specified tensor along specified dimension.
+    Unsqueeze a tensor got by specified key from batch along specified dimension.
 
     Example:
 
