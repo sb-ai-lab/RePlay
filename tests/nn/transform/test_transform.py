@@ -9,7 +9,6 @@ from replay.nn.transform import (
     MultiClassNegativeSamplingTransform,
     NextTokenTransform,
     RenameTransform,
-    SelectTransform,
     SequenceRollTransform,
     TokenMaskTransform,
     TrimTransform,
@@ -260,7 +259,6 @@ def test_trim_transform_wrong_length(random_batch):
             id="NextTokenTransform",
         ),
         pytest.param(RenameTransform(mapping={"item_id_mask": "padding_id"}), id="RenameTransform"),
-        pytest.param(SelectTransform(["item_id"]), id="SequenceRollTransform"),
         pytest.param(SequenceRollTransform(field_name="item_id"), id="SequenceRollTransform"),
         pytest.param(TokenMaskTransform(token_field="item_id_mask"), id="TokenMaskTransform"),
         pytest.param(TrimTransform(seq_len=2, feature_names=["item_id"]), id="TrimTransform"),
@@ -287,11 +285,3 @@ def test_immutability_input_batch(transform, random_batch):
     assert id(random_batch) == input_batch_id
     assert set(random_batch.keys()) == input_batch_keys
     assert set(random_batch.items()) == input_batch_items
-
-
-def test_select_transform(random_batch):
-    features = ["item_id", "cat_feature"]
-    transform = SelectTransform(features)
-    transformed_batch = transform(random_batch)
-
-    assert set(features) == set(transformed_batch.keys())

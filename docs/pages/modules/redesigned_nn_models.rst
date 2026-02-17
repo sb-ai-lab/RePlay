@@ -306,11 +306,6 @@ __________________
 .. autoclass:: replay.nn.transform.TrimTransform
     :members: __init__
 
-SelectTransform
-______________________
-.. autoclass:: replay.nn.transform.SelectTransform
-    :members: __init__
-
 SequenceRollTransform
 ______________________
 .. autoclass:: replay.nn.transform.SequenceRollTransform
