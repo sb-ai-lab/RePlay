@@ -31,7 +31,7 @@ from replay.nn.transform import (
 def test_next_token_label_transform(random_batch, shift):
     label_field = "item_id"
     ignore_features = ["user_id", "user_id_mask", "negative_selector"]
-    transform = NextTokenTransform(label_field=label_field, ignore_features=ignore_features, shift=shift)
+    transform = NextTokenTransform(label_field=label_field, ignore=ignore_features, shift=shift)
     transformed_batch = transform(random_batch)
 
     for feature in random_batch.keys():
@@ -256,7 +256,7 @@ def test_trim_transform_wrong_length(random_batch):
         pytest.param(CopyTransform(mapping={"item_id_mask": "padding_id"}), id="CopyTransform"),
         pytest.param(GroupTransform(mapping={"feature_tensors": ["item_id"]}), id="GroupTransform"),
         pytest.param(
-            NextTokenTransform(label_field="item_id", ignore_features=["user_id", "user_id_mask"]),
+            NextTokenTransform(label_field="item_id", ignore=["user_id", "user_id_mask"]),
             id="NextTokenTransform",
         ),
         pytest.param(RenameTransform(mapping={"item_id_mask": "padding_id"}), id="RenameTransform"),

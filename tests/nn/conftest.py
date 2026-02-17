@@ -283,36 +283,29 @@ def parquet_module_path(tmp_path_factory, generated_dfs):
 def transforms(tensor_schema, max_len):
     return {
         "train": [
-            NextTokenTransform(
-                label_field="item_id",
-                ignore_features=["user_id", "user_id_mask"],
-                shift=1,
-                out_feature_name="positive_labels",
-            ),
-            RenameTransform(
-                {"user_id": "query_id", "item_id_mask": "padding_mask", "positive_labels_mask": "target_padding_mask"}
-            ),
+            NextTokenTransform(label_field="item_id", shift=1, ignore=["user_id", "user_id_mask"]),
+            RenameTransform({"item_id_mask": "padding_mask", "positive_labels_mask": "target_padding_mask"}),
             UniformNegativeSamplingTransform(cardinality=tensor_schema["item_id"].cardinality, num_negative_samples=10),
             UnsqueezeTransform("target_padding_mask", -1),
             UnsqueezeTransform("positive_labels", -1),
             GroupTransform({"feature_tensors": tensor_schema.names}),
         ],
         "validate": [
-            RenameTransform({"user_id": "query_id", "item_id_mask": "padding_mask"}),
+            RenameTransform({"item_id_mask": "padding_mask"}),
             CopyTransform({"item_id": "train"}),
             CopyTransform({"item_id": "ground_truth"}),
             CopyTransform({"item_id": "seen_ids"}),
             GroupTransform({"feature_tensors": tensor_schema.names}),
         ],
         "test": [
-            RenameTransform({"user_id": "query_id", "item_id_mask": "padding_mask"}),
+            RenameTransform({"item_id_mask": "padding_mask"}),
             CopyTransform({"item_id": "train"}),
             CopyTransform({"item_id": "ground_truth"}),
             CopyTransform({"item_id": "seen_ids"}),
             GroupTransform({"feature_tensors": tensor_schema.names}),
         ],
         "predict": [
-            RenameTransform({"user_id": "query_id", "item_id_mask": "padding_mask"}),
+            RenameTransform({"item_id_mask": "padding_mask"}),
             CopyTransform({"item_id": "seen_ids"}),
             TrimTransform(max_len, ["seen_ids"]),
             GroupTransform({"feature_tensors": tensor_schema.names}),

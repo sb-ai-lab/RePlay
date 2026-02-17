@@ -10,7 +10,7 @@ class NextTokenTransform(torch.nn.Module):
     For the tensor specified by key ``label_field`` (typically "item_id") in the batch, this transform creates
     a corresponding "labels" tensor with a key ``out_feature_name`` in the batch, shifted forward
     by the specified ``shift`` value. This "labels" tensor are a target that model predicts.
-    Padding mask for "labels" is also created. For all the other features excepted ``ignore_features``,
+    Padding mask for "labels" is also created. For all the other features excepted ``ignore``,
     last ``shift`` elements are truncated.
 
     This transform is required for the sequential models optimizing next token prediction task.
@@ -30,7 +30,7 @@ class NextTokenTransform(torch.nn.Module):
         ...     "item_id": torch.LongTensor([[5, 0, 7, 4]]),
         ...     "item_id_mask": torch.BoolTensor([[0, 1, 1, 1]])
         ... }
-        >>> transform = NextTokenTransform(label_field="item_id", shift=1, ignore_features="user_id")
+        >>> transform = NextTokenTransform(label_field="item_id", shift=1, ignore="user_id")
         >>> output_batch = transform(input_batch)
         >>> output_batch
         {'user_id': tensor([111]),
@@ -45,15 +45,14 @@ class NextTokenTransform(torch.nn.Module):
         self,
         label_field: str,
         shift: int = 1,
-        ignore_features: List[str] | None = None,
+        ignore: List[str] | str| None = None,
         out_feature_name: str = "positive_labels",
         mask_postfix: str = DEFAULT_MASK_POSTFIX,
     ) -> None:
         """
         :param label_field: Name of target feature tensor to convert into labels.
         :param shift: Number of sequence items to shift by. Default: `1`.
-        :param ignore_features: Names of features to be ignored and be excepted from the shifting
-            and will be stayed unchanged. Default: ``["query_id", "query_id_mask"]``.
+        :param ignore: Names of keys in batch be excepted from the shifting and will be stayed unchanged.
         :param out_feature_name: The name of result feature in batch. Default: ``"positive_labels"``.
         :param mask_postfix: Postfix to append to the mask feature corresponding to resulting feature.
             Default: ``"_mask"``.
@@ -61,7 +60,7 @@ class NextTokenTransform(torch.nn.Module):
         super().__init__()
         self.label_field = label_field
         self.shift = shift
-        self.ignore_features = [ignore_features] if isinstance(ignore_features, str) else []
+        self.ignore = ignore if isinstance(ignore, list) else [ignore] if isinstance(ignore, str) else []
         self.out_feature_name = out_feature_name
         self.mask_postfix = mask_postfix
 
@@ -81,8 +80,8 @@ class NextTokenTransform(torch.nn.Module):
             )
             raise ValueError(msg)
 
-        target = {feature_name: batch[feature_name] for feature_name in self.ignore_features}
-        features = {key: value for key, value in batch.items() if key not in self.ignore_features}
+        target = {feature_name: batch[feature_name] for feature_name in self.ignore}
+        features = {key: value for key, value in batch.items() if key not in self.ignore}
 
         sequentilal_features = [feature_name for feature_name, feature in features.items() if feature.dim() > 1]
         for feature_name in features:

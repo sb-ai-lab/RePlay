@@ -242,10 +242,12 @@ class TorchTopItemsCallback(TopItemsCallbackBase[tuple[torch.LongTensor, torch.L
     def __init__(
         self,
         top_k: int,
+        query_column: str,
         postprocessors: Optional[list[PostprocessorBase]] = None,
     ) -> None:
         """
         :param top_k: Take the ``top_k`` IDs with the highest logit values.
+        :param query_column: The name of the query column in the batch.
         :param postprocessors: A list of postprocessors for modifying logits from the model
             before sorting and taking top K.
             For example, it can be a softmax operation to logits or set the ``-inf`` value for some IDs.
@@ -253,7 +255,7 @@ class TorchTopItemsCallback(TopItemsCallbackBase[tuple[torch.LongTensor, torch.L
         """
         super().__init__(
             top_k=top_k,
-            query_column="query_id",
+            query_column=query_column,
             item_column="item_id",
             rating_column="rating",
             postprocessors=postprocessors,

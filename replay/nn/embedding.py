@@ -302,13 +302,14 @@ class IdentityEmbedding(torch.nn.Module):
         super().__init__()
         assert feature_info.embedding_dim
         self._embedding_dim = feature_info.embedding_dim
+        self.register_buffer("_weight", torch.eye(feature_info.embedding_dim))
 
     @property
     def weight(self) -> torch.Tensor:
         """
         Returns the identity matrix.
         """
-        return torch.eye(self._embedding_dim)
+        return self._weight
 
     def reset_parameters(self) -> None:
         pass
