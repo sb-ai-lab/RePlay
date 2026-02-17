@@ -45,7 +45,7 @@ class NextTokenTransform(torch.nn.Module):
         self,
         label_field: str,
         shift: int = 1,
-        ignore: List[str] | str| None = None,
+        ignore: List[str] | str | None = None,
         out_feature_name: str = "positive_labels",
         mask_postfix: str = DEFAULT_MASK_POSTFIX,
     ) -> None:
