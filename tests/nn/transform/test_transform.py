@@ -28,9 +28,9 @@ from replay.nn.transform import (
 )
 @pytest.mark.parametrize("shift", [1, 5])
 def test_next_token_label_transform(random_batch, shift):
-    label_field = "item_id"
+    label_name = "item_id"
     ignore_features = ["user_id", "user_id_mask", "negative_selector"]
-    transform = NextTokenTransform(label_field=label_field, ignore=ignore_features, shift=shift)
+    transform = NextTokenTransform(label_name=label_name, ignore=ignore_features, shift=shift)
     transformed_batch = transform(random_batch)
 
     for feature in random_batch.keys():
@@ -39,10 +39,8 @@ def test_next_token_label_transform(random_batch, shift):
         else:
             torch.testing.assert_close(transformed_batch[feature], random_batch[feature][:, :-shift])
 
-    torch.testing.assert_close(transformed_batch["positive_labels"], random_batch[label_field][:, shift:])
-    torch.testing.assert_close(
-        transformed_batch["positive_labels_mask"], random_batch[f"{label_field}_mask"][:, shift:]
-    )
+    torch.testing.assert_close(transformed_batch["positive_labels"], random_batch[label_name][:, shift:])
+    torch.testing.assert_close(transformed_batch["positive_labels_mask"], random_batch[f"{label_name}_mask"][:, shift:])
 
 
 @pytest.mark.parametrize(
@@ -55,7 +53,7 @@ def test_next_token_label_transform(random_batch, shift):
 )
 def test_next_token_label_raises_error(batch, shift):
     with pytest.raises(ValueError):
-        transform = NextTokenTransform(label_field="item_id", shift=shift)
+        transform = NextTokenTransform(label_name="item_id", shift=shift)
         transform(batch)
 
 
@@ -203,7 +201,7 @@ def test_group_transform(random_batch):
     indirect=True,
 )
 def test_token_mask_transform(random_batch):
-    transform = TokenMaskTransform(token_field="item_id_mask")
+    transform = TokenMaskTransform(token_name="item_id_mask")
     transformed_batch = transform(random_batch)
 
     token_mask = transformed_batch["token_mask"]
@@ -222,7 +220,7 @@ def test_token_mask_transform(random_batch):
     ],
 )
 def test_token_mask_transform_corner_cases(mask_prob, batch):
-    transform = TokenMaskTransform(mask_prob=mask_prob, token_field="padding_mask")
+    transform = TokenMaskTransform(mask_prob=mask_prob, token_name="padding_mask")
     transformed_batch = transform(batch)
 
     token_mask = transformed_batch["token_mask"]
@@ -255,12 +253,12 @@ def test_trim_transform_wrong_length(random_batch):
         pytest.param(CopyTransform(mapping={"item_id_mask": "padding_id"}), id="CopyTransform"),
         pytest.param(GroupTransform(mapping={"feature_tensors": ["item_id"]}), id="GroupTransform"),
         pytest.param(
-            NextTokenTransform(label_field="item_id", ignore=["user_id", "user_id_mask"]),
+            NextTokenTransform(label_name="item_id", ignore=["user_id", "user_id_mask"]),
             id="NextTokenTransform",
         ),
         pytest.param(RenameTransform(mapping={"item_id_mask": "padding_id"}), id="RenameTransform"),
-        pytest.param(SequenceRollTransform(field_name="item_id"), id="SequenceRollTransform"),
-        pytest.param(TokenMaskTransform(token_field="item_id_mask"), id="TokenMaskTransform"),
+        pytest.param(SequenceRollTransform(feature_name="item_id"), id="SequenceRollTransform"),
+        pytest.param(TokenMaskTransform(token_name="item_id_mask"), id="TokenMaskTransform"),
         pytest.param(TrimTransform(seq_len=2, feature_names=["item_id"]), id="TrimTransform"),
         pytest.param(
             UniformNegativeSamplingTransform(cardinality=4, num_negative_samples=2),
@@ -270,7 +268,7 @@ def test_trim_transform_wrong_length(random_batch):
             MultiClassNegativeSamplingTransform(num_negative_samples=2, sample_mask=torch.rand((3, 4))),
             id="MultiClassNegativeSamplingTransform",
         ),
-        pytest.param(UnsqueezeTransform(column_name="item_id", dim=-1), id="UnsqueezeTransform"),
+        pytest.param(UnsqueezeTransform(feature_name="item_id", dim=-1), id="UnsqueezeTransform"),
     ],
 )
 def test_immutability_input_batch(transform, random_batch):

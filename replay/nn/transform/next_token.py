@@ -7,7 +7,7 @@ from replay.data.nn.parquet.impl.masking import DEFAULT_MASK_POSTFIX
 
 class NextTokenTransform(torch.nn.Module):
     """
-    For the tensor specified by key ``label_field`` (typically "item_id") in the batch, this transform creates
+    For the tensor specified by key ``label_name`` (typically "item_id") in the batch, this transform creates
     a corresponding "labels" tensor with a key ``out_feature_name`` in the batch, shifted forward
     by the specified ``shift`` value. This "labels" tensor are a target that model predicts.
     Padding mask for "labels" is also created. For all the other features excepted ``ignore``,
@@ -30,7 +30,7 @@ class NextTokenTransform(torch.nn.Module):
         ...     "item_id": torch.LongTensor([[5, 0, 7, 4]]),
         ...     "item_id_mask": torch.BoolTensor([[0, 1, 1, 1]])
         ... }
-        >>> transform = NextTokenTransform(label_field="item_id", shift=1, ignore="user_id")
+        >>> transform = NextTokenTransform(label_name="item_id", shift=1, ignore="user_id")
         >>> output_batch = transform(input_batch)
         >>> output_batch
         {'user_id': tensor([111]),
@@ -43,14 +43,14 @@ class NextTokenTransform(torch.nn.Module):
 
     def __init__(
         self,
-        label_field: str,
+        label_name: str,
         shift: int = 1,
         ignore: List[str] | str | None = None,
         out_feature_name: str = "positive_labels",
         mask_postfix: str = DEFAULT_MASK_POSTFIX,
     ) -> None:
         """
-        :param label_field: Name of target feature tensor to convert into labels.
+        :param label_name: Name of target feature tensor to convert into labels.
         :param shift: Number of sequence items to shift by. Default: `1`.
         :param ignore: Names of keys in batch be excepted from the shifting and will be stayed unchanged.
         :param out_feature_name: The name of result feature in batch. Default: ``"positive_labels"``.
@@ -58,21 +58,21 @@ class NextTokenTransform(torch.nn.Module):
             Default: ``"_mask"``.
         """
         super().__init__()
-        self.label_field = label_field
+        self.label_name = label_name
         self.shift = shift
         self.ignore = ignore if isinstance(ignore, list) else [ignore] if isinstance(ignore, str) else []
         self.out_feature_name = out_feature_name
         self.mask_postfix = mask_postfix
 
     def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        if batch[self.label_field].dim() < 2:
+        if batch[self.label_name].dim() < 2:
             msg = (
-                f"Transform expects batch feature {self.label_field} to be sequential "
-                f"but tensor of shape {batch[self.label_field].shape} found."
+                f"Transform expects batch feature {self.label_name} to be sequential "
+                f"but tensor of shape {batch[self.label_name].shape} found."
             )
             raise ValueError(msg)
 
-        max_len = batch[self.label_field].shape[1]
+        max_len = batch[self.label_name].shape[1]
         if self.shift >= max_len:
             msg = (
                 f"Transform with shift={self.shift} cannot be applied to sequences of length {max_len}."
@@ -90,8 +90,8 @@ class NextTokenTransform(torch.nn.Module):
             else:
                 target[feature_name] = batch[feature_name]
 
-        target[self.out_feature_name] = batch[self.label_field][:, self.shift :, ...].clone()
-        target[f"{self.out_feature_name}{self.mask_postfix}"] = batch[f"{self.label_field}{self.mask_postfix}"][
+        target[self.out_feature_name] = batch[self.label_name][:, self.shift :, ...].clone()
+        target[f"{self.out_feature_name}{self.mask_postfix}"] = batch[f"{self.label_name}{self.mask_postfix}"][
             :, self.shift :, ...
         ].clone()
 

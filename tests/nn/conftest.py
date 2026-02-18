@@ -283,7 +283,7 @@ def parquet_module_path(tmp_path_factory, generated_dfs):
 def transforms(tensor_schema, max_len):
     return {
         "train": [
-            NextTokenTransform(label_field="item_id", shift=1, ignore=["user_id", "user_id_mask"]),
+            NextTokenTransform(label_name="item_id", shift=1, ignore=["user_id", "user_id_mask"]),
             RenameTransform({"item_id_mask": "padding_mask", "positive_labels_mask": "target_padding_mask"}),
             UniformNegativeSamplingTransform(cardinality=tensor_schema["item_id"].cardinality, num_negative_samples=10),
             UnsqueezeTransform("target_padding_mask", -1),

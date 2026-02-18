@@ -15,17 +15,17 @@ def make_default_sasrec_transforms(tensor_schema: TensorSchema) -> dict[str, lis
     :param tensor_schema: TensorSchema used to infer feature columns.
     :return: dict of transforms specified for every dataset split (train, validation, test, predict).
     """
-    item_column = tensor_schema.item_id_feature_name
+    item_id_name = tensor_schema.item_id_feature_name
     train_transforms = [
-        NextTokenTransform(label_field=item_column, shift=1),
-        RenameTransform({f"{item_column}_mask": "padding_mask", "positive_labels_mask": "target_padding_mask"}),
+        NextTokenTransform(label_name=item_id_name, shift=1),
+        RenameTransform({f"{item_id_name}_mask": "padding_mask", "positive_labels_mask": "target_padding_mask"}),
         UnsqueezeTransform("target_padding_mask", -1),
         UnsqueezeTransform("positive_labels", -1),
         GroupTransform({"feature_tensors": tensor_schema.names}),
     ]
 
     val_transforms = [
-        RenameTransform({f"{item_column}_mask": "padding_mask"}),
+        RenameTransform({f"{item_id_name}_mask": "padding_mask"}),
         GroupTransform({"feature_tensors": tensor_schema.names}),
     ]
     test_transforms = copy.deepcopy(val_transforms)
