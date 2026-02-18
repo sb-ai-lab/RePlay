@@ -78,6 +78,8 @@ ItemTower
 .. autoclass:: replay.nn.sequential.ItemTower
    :members: __init__, forward
 
+.. FeaturesReader_:
+
 FeaturesReader
 ``````````````````````````````
 
