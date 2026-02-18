@@ -312,7 +312,7 @@ ______________________
     :members: __init__
 
 SequenceLossMaskTransform
-______________________
+__________________________
 .. autoclass:: replay.nn.transform.SequenceLossMaskTransform
     :members: __init__
 

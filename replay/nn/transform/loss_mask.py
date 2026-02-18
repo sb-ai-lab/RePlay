@@ -11,7 +11,8 @@ class SequenceLossMaskTransform(torch.nn.Module):
     This mask is created by selecting a specified value of some feature (float, int or bool type)
     from a batch inside the transform.
 
-    The resulting tensor is supposed to be used as target padding mask (shape ``(batch_size, sequence_length)``).
+    The resulting tensor is supposed to be used as target padding mask (shape
+    ``(batch_size, sequence_length)`` or ``(batch_size, sequence_length, num_posititves)`` in multipositive case).
     It is the logical AND between the target padding mask and the feature-based mask.
 
     Example:
@@ -37,11 +38,13 @@ class SequenceLossMaskTransform(torch.nn.Module):
         target_padding_mask_name: str = "target_padding_mask",
     ) -> None:
         """
-        :param loss_mask_name: Key name in batch of tensor of shape ``(batch_size, sequence_length)``
-        containing a feature aligned with target positions for loss mask creating.
+        :param loss_mask_name: Key name in batch of tensor
+            of shape ``(batch_size, sequence_length)`` or ``(batch_size, sequence_length, num_posititves)``
+            containing a feature aligned with target positions for loss mask creating.
         :param loss_mask_value: Value used to select which target positions should contribute to the loss for loss mask
             creating.
-        :param target_padding_mask_name: Key name in batch of boolean tensor of shape ``(batch_size, sequence_length)``
+        :param target_padding_mask_name: Key name in batch of boolean tensor
+            of shape ``(batch_size, sequence_length)`` or ``(batch_size, sequence_length, num_posititves)``
             indicating valid (non-padded) target positions. Default: `"target_padding_mask"`.
         """
         super().__init__()
