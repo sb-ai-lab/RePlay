@@ -53,8 +53,8 @@ def test_prediction_callbacks_fast_forward(
             [SeenItemsFilter(item_count=cardinality, seen_items_column="seen_ids")] if is_postprocessor else None
         ),
     }
+    kwargs["query_column"] = "user_id"
     if callback_class != TorchTopItemsCallback:
-        kwargs["query_column"] = "user_id"
         kwargs["item_column"] = "item_id"
     if callback_class == SparkTopItemsCallback:
         kwargs["spark_session"] = get_spark_session()
