@@ -29,10 +29,10 @@ _T = TypeVar("_T")
 class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
     """
     The base class for a callback that records the result at the inference stage via ``LightningModule``.
-    The result consists of top K the highest logit values, IDs of these  top K logit values
-    and corresponding query ids (encoded IDs of users named ``query_id``).
+    The result consists of top K the highest logit values, IDs of these top K logit values
+    and corresponding query ids (encoded IDs of users).
 
-    For the callback to work correctly, the batch is expected to contain the ``query_id`` key.
+    For the callback to work correctly, the batch is expected to contain the key passed as a parameter ``query_column``.
     """
 
     def __init__(
@@ -45,7 +45,7 @@ class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
     ) -> None:
         """
         :param top_k: Take the ``top_k`` IDs with the highest logit values.
-        :param query_column: The name of the query column in the resulting dataframe.
+        :param query_column: The name of the query column in the batch and in the resulting dataframe.
         :param item_column: The name of the item column in the resulting dataframe.
         :param rating_column: The name of the rating column in the resulting dataframe.
             This column will contain the ``top_k`` items with the highest logit values.
@@ -91,7 +91,7 @@ class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
         if pl_module.candidates_to_score is not None:
             top_item_ids = torch.take(pl_module.candidates_to_score, top_item_ids)
 
-        self._query_batches.append(batch["query_id"])
+        self._query_batches.append(batch[self.query_column])
         self._item_batches.append(top_item_ids)
         self._item_scores.append(top_scores)
 
@@ -242,10 +242,12 @@ class TorchTopItemsCallback(TopItemsCallbackBase[tuple[torch.LongTensor, torch.L
     def __init__(
         self,
         top_k: int,
+        query_column: str,
         postprocessors: Optional[list[PostprocessorBase]] = None,
     ) -> None:
         """
         :param top_k: Take the ``top_k`` IDs with the highest logit values.
+        :param query_column: The name of the query column in the batch.
         :param postprocessors: A list of postprocessors for modifying logits from the model
             before sorting and taking top K.
             For example, it can be a softmax operation to logits or set the ``-inf`` value for some IDs.
@@ -253,7 +255,7 @@ class TorchTopItemsCallback(TopItemsCallbackBase[tuple[torch.LongTensor, torch.L
         """
         super().__init__(
             top_k=top_k,
-            query_column="query_id",
+            query_column=query_column,
             item_column="item_id",
             rating_column="rating",
             postprocessors=postprocessors,
