@@ -9,6 +9,8 @@ from replay.nn.transform import (
     MultiClassNegativeSamplingTransform,
     NextTokenTransform,
     RenameTransform,
+    SelectTransform,
+    SequenceLossMaskTransform,
     SequenceRollTransform,
     TokenMaskTransform,
     TrimTransform,
@@ -68,6 +70,12 @@ def test_rename_transform(random_batch):
 
     assert {"query_id", "padding_mask"}.isdisjoint(set(source_batch.keys()))
     assert {"user_id", "item_id_mask"}.isdisjoint(set(transformed_batch.keys()))
+
+
+def test_rename_transform_raises(random_batch):
+    with pytest.raises(KeyError):
+        transform = RenameTransform({"query_id": "user_id"})
+        transform(random_batch)
 
 
 @pytest.mark.parametrize(
@@ -247,6 +255,86 @@ def test_trim_transform_wrong_length(random_batch):
         transform(random_batch)
 
 
+def test_select_transform(random_batch):
+    features = ["item_id", ("cat_feature",)]
+    transform = SelectTransform(features)
+    transformed_batch = transform(random_batch)
+    assert {"item_id", "cat_feature"} == set(transformed_batch.keys())
+    assert torch.equal(random_batch["item_id"], transformed_batch["item_id"])
+    assert torch.equal(random_batch["cat_feature"], transformed_batch["cat_feature"])
+
+
+def test_select_transform_nested_keys(random_batch_with_nested_keys):
+    features = ["item_id", ("group", "feature_2"), ("group", "feature_1")]
+
+    transform = SelectTransform(features)
+    transformed_batch = transform(random_batch_with_nested_keys)
+
+    assert {"item_id", "group"} == set(transformed_batch.keys())
+    assert {"feature_1", "feature_2"} == set(transformed_batch["group"].keys())
+
+    assert torch.equal(random_batch_with_nested_keys["item_id"], transformed_batch["item_id"])
+    assert torch.equal(random_batch_with_nested_keys["group"]["feature_1"], transformed_batch["group"]["feature_1"])
+    assert torch.equal(random_batch_with_nested_keys["group"]["feature_2"], transformed_batch["group"]["feature_2"])
+
+
+@pytest.mark.parametrize(
+    "features",
+    [(["item_id", ("group",)]), (["item_id", ("group",), ("group", "feature_1")])],
+)
+def test_select_transform_all_nested_keys(random_batch_with_nested_keys, features):
+    transform = SelectTransform(features)
+    transformed_batch = transform(random_batch_with_nested_keys)
+
+    assert {"item_id", "group"} == set(transformed_batch.keys())
+    assert set(random_batch_with_nested_keys["group"].keys()) == set(transformed_batch["group"].keys())
+    assert set(random_batch_with_nested_keys["group"].items()) == set(transformed_batch["group"].items())
+
+
+@pytest.mark.parametrize(
+    "features",
+    [
+        ["missing_key"],
+        [("missing_key",)],
+        [("group", "missing")],
+        [("missing", "missing")],
+        [("missing", "missing", "missing")],
+    ],
+)
+def test_select_transform_missing_raises(random_batch_with_nested_keys, features):
+    with pytest.raises((KeyError, NotImplementedError)):
+        SelectTransform(features)(random_batch_with_nested_keys)
+
+
+def test_loss_mask_transform(random_batch):
+    transform = SequenceLossMaskTransform(
+        loss_mask_name="cat_feature", loss_mask_value=20, target_padding_mask_name="item_id_mask"
+    )
+    output_batch = transform(random_batch)
+
+    assert output_batch["item_id_mask"].size() == random_batch["item_id_mask"].size()
+
+
+@pytest.mark.parametrize(
+    "transform",
+    [
+        pytest.param(SelectTransform(["item_id", ("user_id",), ("group", "feature_2")]), id="SelectTransform"),
+    ],
+)
+def test_immutability_input_batch_with_nested_keys_support(random_batch_with_nested_keys, transform):
+    input_batch_id = id(random_batch_with_nested_keys)
+    input_batch_keys = set(random_batch_with_nested_keys.keys())
+    input_batch_items = random_batch_with_nested_keys.items()
+
+    output_batch = transform(random_batch_with_nested_keys)
+
+    assert id(output_batch) != input_batch_id
+
+    assert id(random_batch_with_nested_keys) == input_batch_id
+    assert set(random_batch_with_nested_keys.keys()) == input_batch_keys
+    assert random_batch_with_nested_keys.items() == input_batch_items
+
+
 @pytest.mark.parametrize(
     "transform",
     [
@@ -257,8 +345,14 @@ def test_trim_transform_wrong_length(random_batch):
             id="NextTokenTransform",
         ),
         pytest.param(RenameTransform(mapping={"item_id_mask": "padding_id"}), id="RenameTransform"),
-        pytest.param(SequenceRollTransform(feature_name="item_id"), id="SequenceRollTransform"),
-        pytest.param(TokenMaskTransform(token_name="item_id_mask"), id="TokenMaskTransform"),
+        pytest.param(
+            SequenceLossMaskTransform(
+                loss_mask_name="cat_feature", loss_mask_value=20, target_padding_mask_name="item_id_mask"
+            ),
+            id="SequenceLossMaskTransform",
+        ),
+        pytest.param(SequenceRollTransform(field_name="item_id"), id="SequenceRollTransform"),
+        pytest.param(TokenMaskTransform(token_field="item_id_mask"), id="TokenMaskTransform"),
         pytest.param(TrimTransform(seq_len=2, feature_names=["item_id"]), id="TrimTransform"),
         pytest.param(
             UniformNegativeSamplingTransform(cardinality=4, num_negative_samples=2),
@@ -274,7 +368,7 @@ def test_trim_transform_wrong_length(random_batch):
 def test_immutability_input_batch(transform, random_batch):
     input_batch_id = id(random_batch)
     input_batch_keys = set(random_batch.keys())
-    input_batch_items = set(random_batch.items())
+    input_batch_items = random_batch.items()
 
     output_batch = transform(random_batch)
 
@@ -282,4 +376,4 @@ def test_immutability_input_batch(transform, random_batch):
 
     assert id(random_batch) == input_batch_id
     assert set(random_batch.keys()) == input_batch_keys
-    assert set(random_batch.items()) == input_batch_items
+    assert random_batch.items() == input_batch_items
