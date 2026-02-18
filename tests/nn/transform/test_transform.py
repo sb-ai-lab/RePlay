@@ -351,8 +351,8 @@ def test_immutability_input_batch_with_nested_keys_support(random_batch_with_nes
             ),
             id="SequenceLossMaskTransform",
         ),
-        pytest.param(SequenceRollTransform(field_name="item_id"), id="SequenceRollTransform"),
-        pytest.param(TokenMaskTransform(token_field="item_id_mask"), id="TokenMaskTransform"),
+        pytest.param(SequenceRollTransform(feature_name="item_id"), id="SequenceRollTransform"),
+        pytest.param(TokenMaskTransform(token_name="item_id_mask"), id="TokenMaskTransform"),
         pytest.param(TrimTransform(seq_len=2, feature_names=["item_id"]), id="TrimTransform"),
         pytest.param(
             UniformNegativeSamplingTransform(cardinality=4, num_negative_samples=2),
