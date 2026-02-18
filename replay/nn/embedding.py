@@ -1,11 +1,22 @@
 import contextlib
 import warnings
 from collections.abc import Sequence
-from typing import Literal, Optional, Union
+from typing import Literal, Optional, Protocol, Union
 
 import torch
 
 from replay.data.nn.schema import TensorFeatureInfo, TensorMap, TensorSchema
+
+
+class EmbeddingProto(Protocol):
+    """Class-protocol for creating embedding of an input feature"""
+
+    def forward(self, *args) -> torch.Tensor: ...
+
+    @property
+    def embedding_dim(self) -> int: ...
+
+    def reset_parameters(self) -> None: ...
 
 
 class SequenceEmbedding(torch.nn.Module):
@@ -39,7 +50,7 @@ class SequenceEmbedding(torch.nn.Module):
         """
         super().__init__()
         self.excluded_features = excluded_features or []
-        feature_embedders = {}
+        feature_embedders: dict[str, EmbeddingProto] = {}
 
         for feature_name, tensor_info in schema.items():
             if feature_name in self.excluded_features:
@@ -52,6 +63,8 @@ class SequenceEmbedding(torch.nn.Module):
                     tensor_info,
                     categorical_list_feature_aggregation_method,
                 )
+            elif tensor_info.tensor_dim == tensor_info.embedding_dim:
+                feature_embedders[feature_name] = IdentityEmbedding(tensor_info)
             else:
                 feature_embedders[feature_name] = NumericalEmbedding(tensor_info)
 
@@ -65,9 +78,8 @@ class SequenceEmbedding(torch.nn.Module):
         self._item_feature_name = schema.item_id_feature_name
 
     def reset_parameters(self) -> None:
-        for _, param in self.named_parameters():
-            with contextlib.suppress(ValueError):
-                torch.nn.init.xavier_normal_(param.data)
+        for feature_embedder in self.feature_embedders.values():
+            feature_embedder.reset_parameters()
 
     def forward(self, feature_tensor: TensorMap, feature_names: Optional[Sequence[str]] = None) -> TensorMap:
         """
@@ -183,6 +195,11 @@ class CategoricalEmbedding(torch.nn.Module):
         mask_without_padding[self.emb.padding_idx].zero_()
         return self.emb.weight[mask_without_padding]
 
+    def reset_parameters(self) -> None:
+        for _, param in self.named_parameters():
+            with contextlib.suppress(ValueError):
+                torch.nn.init.xavier_normal_(param.data)
+
     def forward(self, indices: torch.LongTensor) -> torch.Tensor:
         """
         :param indices: Items indices.
@@ -225,9 +242,6 @@ class NumericalEmbedding(torch.nn.Module):
     """
     The embedding generation class for numerical features.
     It supports working with single features for each event in sequence, as well as several (numerical list).
-
-    **Note**: if the ``embedding_dim`` field in ``TensorFeatureInfo`` for an incoming feature matches its last dimension
-    (``tensor_dim`` field in ``TensorFeatureInfo``), then transformation will not be applied.
     """
 
     def __init__(self, feature_info: TensorFeatureInfo) -> None:
@@ -241,17 +255,6 @@ class NumericalEmbedding(torch.nn.Module):
         self._embedding_dim = feature_info.embedding_dim
         self.linear = torch.nn.Linear(feature_info.tensor_dim, self.embedding_dim)
 
-        if feature_info.is_list:
-            if self.embedding_dim == feature_info.tensor_dim:
-                torch.nn.init.eye_(self.linear.weight.data)
-                torch.nn.init.zeros_(self.linear.bias.data)
-
-                self.linear.weight.requires_grad = False
-                self.linear.bias.requires_grad = False
-        else:
-            assert feature_info.tensor_dim == 1
-            self.linear = torch.nn.Linear(feature_info.tensor_dim, self.embedding_dim)
-
     @property
     def weight(self) -> torch.Tensor:
         """
@@ -259,6 +262,11 @@ class NumericalEmbedding(torch.nn.Module):
         If ``embedding_dim`` matches ``tensor_dim``, then the identity matrix will be returned.
         """
         return self.linear.weight
+
+    def reset_parameters(self) -> None:
+        for _, param in self.named_parameters():
+            with contextlib.suppress(ValueError):
+                torch.nn.init.xavier_normal_(param.data)
 
     def forward(self, values: torch.FloatTensor) -> torch.Tensor:
         """
@@ -269,12 +277,50 @@ class NumericalEmbedding(torch.nn.Module):
         :param values: feature values.
         :returns: Embeddings for specific items.
         """
-        if values.dim() <= 2 and self._tensor_dim == 1:
-            values = values.unsqueeze(-1).contiguous()
+        if self._tensor_dim == 1:
+            values = values.unsqueeze(-1)
 
         assert values.size(-1) == self._tensor_dim
-        if self._tensor_dim != self.embedding_dim:
-            return self.linear(values)
+        return self.linear(values)
+
+    @property
+    def embedding_dim(self) -> int:
+        """Embedding dimension after applying the layer"""
+        return self._embedding_dim
+
+
+class IdentityEmbedding(torch.nn.Module):
+    """
+    Class that doesn't apply any transformations and returns input features as is in forward pass.
+    """
+
+    def __init__(self, feature_info: TensorFeatureInfo) -> None:
+        """
+        :param feature_info: Meta information about the feature.
+        """
+        super().__init__()
+        assert feature_info.embedding_dim
+        self._embedding_dim = feature_info.embedding_dim
+        self.register_buffer("_weight", torch.eye(feature_info.embedding_dim))
+
+    @property
+    def weight(self) -> torch.Tensor:
+        """
+        Returns the identity matrix.
+        """
+        return self._weight
+
+    def reset_parameters(self) -> None:
+        pass
+
+    def forward(self, values: torch.FloatTensor) -> torch.Tensor:
+        """
+        Returns input values without any transformations.
+
+        :param values: feature values.
+        :returns: feature values.
+        """
+        assert values.size(-1) == self.embedding_dim
         return values
 
     @property

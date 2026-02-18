@@ -170,9 +170,11 @@ class ComputeMetricsCallback(lightning.Callback):
         def print_metrics() -> None:
             metrics = {}
 
-            for name, value in trainer.logged_metrics.items():
-                if "@" in name:
-                    metrics[name] = value.item()
+            metrics = {
+                name: value.item()
+                for name, value in trainer.logged_metrics.items()
+                if "@" in name and name.split("@")[0] in self._metrics
+            }
 
             if not metrics:
                 return

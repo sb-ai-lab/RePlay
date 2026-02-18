@@ -5,7 +5,7 @@ import torch
 
 class TokenMaskTransform(torch.nn.Module):
     """
-    For the feature tensor specified by ``token_field``, randomly masks items
+    For the feature tensor specified by ``token_name``, randomly masks items
     in the sequence based on a uniform distribution with specified probability of masking.
     In fact, this transform creates mask for the Masked Language Modeling (MLM) task analog in the recommendations.
 
@@ -25,20 +25,20 @@ class TokenMaskTransform(torch.nn.Module):
 
     def __init__(
         self,
-        token_field: str,
+        token_name: str,
         out_feature_name: str = "token_mask",
         mask_prob: float = 0.15,
         generator: Optional[torch.Generator] = None,
     ) -> None:
         """
-        :param token_field: Name of the column containing the unmasked tokes.
+        :param token_name: Name of the column containing the unmasked tokes.
         :param out_feature_name: Name of the resulting  mask column. Default: ``token_mask``.
         :param mask_prob: Probability of masking the item, i.e. setting it to ``0``. Default: ``0.15``.
         :param generator: Random number generator to be used for generating
                 the uniform distribution. Default: ``None``.
         """
         super().__init__()
-        self.token_field = token_field
+        self.token_name = token_name
         self.out_feature_name = out_feature_name
         self.mask_prob = mask_prob
         self.generator = generator
@@ -46,7 +46,7 @@ class TokenMaskTransform(torch.nn.Module):
     def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         output_batch = dict(batch.items())
 
-        paddings = batch[self.token_field]
+        paddings = batch[self.token_name]
 
         assert paddings.dtype == torch.bool, "Source tensor for token mask should be boolean."
 
