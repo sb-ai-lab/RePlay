@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import Any, TypeAlias, cast
+from typing import Any, TypeAlias, Union, cast
 
 import pytest
 import torch
@@ -13,7 +13,8 @@ from replay.data.nn.parquet.fixed_batch_dataset import (
     get_batch_size,
 )
 
-SchemaType: TypeAlias = dict[str, tuple[int, ...] | "SchemaType"]
+# Union is here specifically to stay until Python 3.12+
+SchemaType: TypeAlias = dict[str, Union[tuple[int, ...], "SchemaType"]]
 
 schemas: list[SchemaType] = [
     {"a": (1,), "b": (2, 3), "c": {"d": (4,), "e": (5, 6)}},
