@@ -1,6 +1,7 @@
 from abc import abstractmethod
 
 import numpy as np
+import numpy.typing as npt
 from scipy.stats import norm, sem
 
 from replay.utils import PYSPARK_AVAILABLE, PolarsDataFrame, SparkDataFrame
@@ -25,7 +26,7 @@ class CalculationDescriptor:
         """
 
     @abstractmethod
-    def cpu(self, distribution: np.array | PolarsDataFrame):
+    def cpu(self, distribution: np.ndarray | PolarsDataFrame):
         """
         Calculation on cpu
         """
@@ -40,7 +41,7 @@ class Mean(CalculationDescriptor):
         column_name = distribution.columns[0]
         return distribution.select(sf.avg(column_name)).first()[0]
 
-    def cpu(self, distribution: np.array | PolarsDataFrame):
+    def cpu(self, distribution: npt.NDArray | PolarsDataFrame):
         if isinstance(distribution, PolarsDataFrame):
             return distribution.select(distribution.columns[0]).mean().rows()[0][0]
         return np.mean(distribution)
@@ -54,7 +55,7 @@ class PerUser(CalculationDescriptor):
     def spark(self, distribution: SparkDataFrame):
         return distribution
 
-    def cpu(self, distribution: np.array | PolarsDataFrame):
+    def cpu(self, distribution: npt.NDArray | PolarsDataFrame):
         return distribution
 
 
@@ -67,7 +68,7 @@ class Median(CalculationDescriptor):
         column_name = distribution.columns[0]
         return distribution.select(sf.expr(f"percentile_approx({column_name}, 0.5)")).first()[0]
 
-    def cpu(self, distribution: np.array | PolarsDataFrame):
+    def cpu(self, distribution: npt.NDArray | PolarsDataFrame):
         if isinstance(distribution, PolarsDataFrame):
             return distribution.select(distribution.columns[0]).median().rows()[0][0]
         return np.median(distribution)
@@ -106,7 +107,7 @@ class ConfidenceInterval(CalculationDescriptor):
         )
         return quantile * value["std"] / (value["count"] ** 0.5)
 
-    def cpu(self, distribution: np.array | PolarsDataFrame):
+    def cpu(self, distribution: npt.NDArray | PolarsDataFrame):
         if isinstance(distribution, PolarsDataFrame):
             return self._polars(distribution)
         quantile = norm.ppf((1 + self.alpha) / 2)
