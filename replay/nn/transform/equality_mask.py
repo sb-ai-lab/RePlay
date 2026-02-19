@@ -15,7 +15,7 @@ class EqualityMaskTransform(torch.nn.Module):
     between the existing boolean mask and the feature-based mask.
 
     The resulting tensor is supposed to be used as the previous boolean mask
-    and setted to the its previous key ``mask_name``
+    and setted to the its previous key ``mask_name``.
 
     Example:
 
@@ -44,6 +44,7 @@ class EqualityMaskTransform(torch.nn.Module):
         :param feature_name: Key name in batch of tensor containing a feature for mask creating.
         :param equality_value: Value used to select which positions should be non-padded.
         :param mode: type of logical operation to be applyed to ``mask_name`` tensor and created mask.
+            Default: `"and"`.
         :param mask_name: Key name in batch of boolean tensor of shape indicating valid (non-padded) positions.
             Default: `"target_padding_mask"`.
         """
