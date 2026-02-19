@@ -1,6 +1,6 @@
 from .copy import CopyTransform
+from .equality_mask import EqualityMaskTransform
 from .grouping import GroupTransform
-from .loss_mask import SequenceLossMaskTransform
 from .negative_sampling import MultiClassNegativeSamplingTransform, UniformNegativeSamplingTransform
 from .next_token import NextTokenTransform
 from .rename import RenameTransform
@@ -12,12 +12,12 @@ from .trim import TrimTransform
 
 __all__ = [
     "CopyTransform",
+    "EqualityMaskTransform",
     "GroupTransform",
     "MultiClassNegativeSamplingTransform",
     "NextTokenTransform",
     "RenameTransform",
     "SelectTransform",
-    "SequenceLossMaskTransform",
     "SequenceRollTransform",
     "TokenMaskTransform",
     "TrimTransform",

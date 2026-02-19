@@ -5,12 +5,12 @@ import torch
 
 from replay.nn.transform import (
     CopyTransform,
+    EqualityMaskTransform,
     GroupTransform,
     MultiClassNegativeSamplingTransform,
     NextTokenTransform,
     RenameTransform,
     SelectTransform,
-    SequenceLossMaskTransform,
     SequenceRollTransform,
     TokenMaskTransform,
     TrimTransform,
@@ -306,13 +306,21 @@ def test_select_transform_missing_raises(random_batch_with_nested_keys, features
         SelectTransform(features)(random_batch_with_nested_keys)
 
 
-def test_loss_mask_transform(random_batch):
-    transform = SequenceLossMaskTransform(
-        loss_mask_name="cat_feature", loss_mask_value=20, target_padding_mask_name="item_id_mask"
+@pytest.mark.parametrize("mode", ["and", "or", "xor"])
+def test_eq_mask_transform(random_batch, mode):
+    transform = EqualityMaskTransform(
+        feature_name="cat_feature", equality_value=20, mask_name="item_id_mask", mode=mode
     )
     output_batch = transform(random_batch)
 
     assert output_batch["item_id_mask"].size() == random_batch["item_id_mask"].size()
+
+
+def test_eq_mask_transform_raises():
+    with pytest.raises(ValueError):
+        EqualityMaskTransform(
+            feature_name="cat_feature", equality_value=20, mask_name="item_id_mask", mode="wrong_mode"
+        )
 
 
 @pytest.mark.parametrize(
@@ -346,10 +354,8 @@ def test_immutability_input_batch_with_nested_keys_support(random_batch_with_nes
         ),
         pytest.param(RenameTransform(mapping={"item_id_mask": "padding_id"}), id="RenameTransform"),
         pytest.param(
-            SequenceLossMaskTransform(
-                loss_mask_name="cat_feature", loss_mask_value=20, target_padding_mask_name="item_id_mask"
-            ),
-            id="SequenceLossMaskTransform",
+            EqualityMaskTransform(feature_name="cat_feature", equality_value=20, mask_name="item_id_mask", mode="and"),
+            id="EqualityMaskTransform",
         ),
         pytest.param(SequenceRollTransform(feature_name="item_id"), id="SequenceRollTransform"),
         pytest.param(TokenMaskTransform(token_name="item_id_mask"), id="TokenMaskTransform"),
