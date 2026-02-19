@@ -45,6 +45,10 @@ class SelectTransform(torch.nn.Module):
         for key in self._feature_names:
             key = (key,) if isinstance(key, str) else key
 
+            if len(key) > 2:
+                msg = f"Keys of depth 1 or 2 is only supported, got key={key}"
+                raise NotImplementedError(msg)
+
             if len(key) == 1:
                 key = key[0]
                 if key not in batch:
@@ -68,8 +72,5 @@ class SelectTransform(torch.nn.Module):
                     output_batch[key][subkey] = out_tensor
                 else:
                     output_batch[key] = {subkey: out_tensor}
-            else:
-                msg = f"Keys of depth 1 or 2 is only supported, got key={key}"
-                raise NotImplementedError(msg)
 
         return output_batch
