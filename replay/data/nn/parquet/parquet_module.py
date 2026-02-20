@@ -135,7 +135,10 @@ class ParquetModule(L.LightningDataModule):
                 shared_kwargs = {
                     "metadata": self.metadata[subset],
                     "batch_size": self.batch_size,
-                    "partition_size": subset_config.pop("partition_size", 2**17),
+                    "partition_size": subset_config.pop("partition_size", 2**20),
+                    "device": subset_config.pop(
+                        "device", torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+                    ),
                 }
 
                 if isinstance(subset_datapaths, list):
