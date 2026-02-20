@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Union
 
 import torch
 
@@ -36,7 +36,7 @@ class EqualityMaskTransform(torch.nn.Module):
     def __init__(
         self,
         feature_name: str,
-        equality_value: float | bool,
+        equality_value: Union[float, bool],
         mode: Literal["and", "or", "xor"] = "and",
         mask_name: str = "target_padding_mask",
     ) -> None:
