@@ -9,12 +9,6 @@ from lightning.pytorch.trainer.states import RunningStage
 from lightning.pytorch.utilities import CombinedLoader
 from typing_extensions import TypeAlias, override
 
-from replay.data.nn.parquet.constants.filesystem import DEFAULT_FILESYSTEM
-from replay.data.nn.parquet.impl.masking import (
-    DEFAULT_COLLATE_FN,
-    DEFAULT_MAKE_MASK_NAME,
-    DEFAULT_REPLICAS_INFO,
-)
 from replay.data.nn.parquet.parquet_dataset import ParquetDataset
 
 TransformStage: TypeAlias = Literal["train", "validate", "test", "predict"]
@@ -140,19 +134,19 @@ class ParquetModule(L.LightningDataModule):
                 shared_kwargs = {
                     "metadata": self.metadata[subset],
                     "batch_size": self.batch_size,
-                    "partition_size": subset_config.get("partition_size", 2**17),
-                    "generator": subset_config.get("generator", None),
-                    "filesystem": subset_config.get("filesystem", DEFAULT_FILESYSTEM),
-                    "make_mask_name": subset_config.get("make_mask_name", DEFAULT_MAKE_MASK_NAME),
-                    "replicas_info": subset_config.get("replicas_info", DEFAULT_REPLICAS_INFO),
-                    "collate_fn": subset_config.get("collate_fn", DEFAULT_COLLATE_FN),
+                    "partition_size": subset_config.pop("partition_size", 2**17),
                 }
 
                 if isinstance(subset_datapaths, list):
-                    loaders = [ParquetDataset(**{"source": path, **shared_kwargs}) for path in subset_datapaths]
+                    loaders = [
+                        ParquetDataset(**{"source": path, **shared_kwargs, **subset_config})
+                        for path in subset_datapaths
+                    ]
                     self.datasets[subset] = CombinedLoader(loaders, mode="sequential")
                 else:
-                    self.datasets[subset] = ParquetDataset(**{"source": subset_datapaths, **shared_kwargs})
+                    self.datasets[subset] = ParquetDataset(
+                        **{"source": subset_datapaths, **shared_kwargs, **subset_config}
+                    )
 
     @override
     def train_dataloader(self):
