@@ -135,7 +135,6 @@ class ItemTower(torch.nn.Module):
         self,
         schema: TensorSchema,
         item_features_reader: FeaturesReaderProtocol,
-        feature_names: Sequence[str],
         embedder: EmbedderProto,
         embedding_aggregator: AggregatorProto,
         encoder: ItemEncoderProto,
@@ -144,22 +143,21 @@ class ItemTower(torch.nn.Module):
         :param schema: tensor schema object with metainformation about features.
         :param item_features_reader: A class that implements reading features,
             processing them, and converting them to ``torch.Tensor`` for ItemTower.
-            You can use ``replay.nn.sequential.twotower.FeaturesReader`` as a standard class.\n
+            You can use `FeaturesReader`_ (``replay.nn.sequential.twotower.FeaturesReader``) as a standard class.\n
             But you can implement your own feature processing,
             just follow the ``replay.nn.sequential.twotower.FeaturesReaderProtocol`` protocol.
         :param feature_names: sequence of names used in item tower.
         :param embedder: An object of a class that performs the logic of
-            generating embeddings from an input batch.
+            generating embeddings from input data.
         :param embedding_aggregator: An object of a class that performs
-            the logic of aggregating multiple embeddings of item tower.
+            the logic of aggregating multiple embeddings.
         :param encoder: An object of a class that performs the logic of generating
-            an item hidden embedding representation based on
-            features and aggregated embeddings of ``item_tower_feature_names``.
-            Item encoder uses item reference which is created based on ``item_features_path``.
+            an item hidden embedding representation based for
+            the features got from ``item_features_reader``.
         """
         super().__init__()
         self.embedder = embedder
-        self.feature_names = feature_names
+        self.feature_names = item_features_reader.feature_names
         self.embedding_aggregator = embedding_aggregator
         self.encoder = encoder
 
@@ -238,7 +236,6 @@ class TwoTowerBody(torch.nn.Module):
         embedder: EmbedderProto,
         attn_mask_builder: AttentionMaskProto,
         query_tower_feature_names: Sequence[str],
-        item_tower_feature_names: Sequence[str],
         query_embedding_aggregator: AggregatorProto,
         item_embedding_aggregator: AggregatorProto,
         query_encoder: QueryEncoderProto,
@@ -252,7 +249,6 @@ class TwoTowerBody(torch.nn.Module):
             generating embeddings from an input batch.\n
             The same object is used to generate embeddings in different towers.
         :param query_tower_feature_names: sequence of names used in query tower.
-        :param item_tower_feature_names: sequence of names used in item tower.
         :param query_embedding_aggregator: An object of a class that performs
             the logic of aggregating multiple embeddings of query tower.
         :param item_embedding_aggregator: An object of a class that performs
@@ -279,7 +275,7 @@ class TwoTowerBody(torch.nn.Module):
         """
         super().__init__()
         self.embedder = embedder
-        feature_names_union = set(query_tower_feature_names) | set(item_tower_feature_names)
+        feature_names_union = set(query_tower_feature_names) | set(item_features_reader.feature_names)
         feature_names_not_in_emb = feature_names_union - set(self.embedder.feature_names)
         if len(feature_names_not_in_emb) != 0:
             msg = f"Feature names found that embedder does not support {list(feature_names_not_in_emb)}"
@@ -296,7 +292,6 @@ class TwoTowerBody(torch.nn.Module):
         self.item_tower = ItemTower(
             schema,
             item_features_reader,
-            item_tower_feature_names,
             embedder,
             item_embedding_aggregator,
             item_encoder,
@@ -365,7 +360,6 @@ class TwoTower(torch.nn.Module):
                 num_heads=2,
             ),
             query_tower_feature_names=tensor_schema.names,
-            item_tower_feature_names=tensor_schema.names,
             query_embedding_aggregator=PositionAwareAggregator(
                 embedding_aggregator=common_aggregator,
                 max_sequence_length=100,
@@ -490,7 +484,6 @@ class TwoTower(torch.nn.Module):
                     num_heads=num_heads,
                 ),
                 query_tower_feature_names=feature_names,
-                item_tower_feature_names=feature_names,
                 query_embedding_aggregator=PositionAwareAggregator(
                     embedding_aggregator=common_aggregator,
                     max_sequence_length=max_sequence_length,

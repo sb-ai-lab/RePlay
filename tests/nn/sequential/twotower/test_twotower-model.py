@@ -89,17 +89,18 @@ def test_twotower_inference_forward(
 
 
 @pytest.mark.parametrize(
-    "query_tower_names, item_tower_names, expected_exception",
+    "item_features_reader, query_tower_names, expected_exception",
     [
         (["item_id"], ["item_id"], no_exception()),
-        (["item_id"], ["num_feature"], no_exception()),
-        (["num_feature"], ["num_list_feature"], no_exception()),
-        (None, ["item_id"], pytest.raises(TypeError)),
-        (["wrong_name"], ["item_id"], pytest.raises(ValueError)),
+        (["item_id"], ["item_id", "cat_list_feature"], no_exception()),
+        (["item_id", "num_list_feature"], ["item_id", "cat_list_feature"], no_exception()),
+        (["item_id"], None, pytest.raises(TypeError)),
+        (["item_id"], ["wrong_name"], pytest.raises(ValueError)),
     ],
+    indirect=["item_features_reader"],
 )
 def test_twotower_with_different_tower_features(
-    tensor_schema, item_features_reader, query_tower_names, item_tower_names, expected_exception
+    tensor_schema, item_features_reader, query_tower_names, expected_exception
 ):
     with expected_exception:
         TwoTowerBody(
@@ -110,7 +111,6 @@ def test_twotower_with_different_tower_features(
                 num_heads=1,
             ),
             query_tower_feature_names=query_tower_names,
-            item_tower_feature_names=item_tower_names,
             query_embedding_aggregator=PositionAwareAggregator(
                 embedding_aggregator=SumAggregator(64),
                 max_sequence_length=7,
