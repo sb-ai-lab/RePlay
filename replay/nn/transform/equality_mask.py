@@ -54,13 +54,12 @@ class EqualityMaskTransform(torch.nn.Module):
             msg = f"Mode={mode} is not supported. Possible values are 'and', 'or', 'xor'."
             raise ValueError(msg)
 
-        match mode:
-            case "and":
-                self.logical_op = torch.logical_and
-            case "or":
-                self.logical_op = torch.logical_or
-            case "xor":
-                self.logical_op = torch.logical_xor
+        if mode == "and":
+            self.logical_op = torch.logical_and
+        elif mode == "or":
+            self.logical_op = torch.logical_or
+        elif mode == "xor":
+            self.logical_op = torch.logical_xor
 
         self.feature_name = feature_name
         self.equality_value = equality_value
