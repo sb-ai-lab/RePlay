@@ -9,12 +9,6 @@ from lightning.pytorch.trainer.states import RunningStage
 from lightning.pytorch.utilities import CombinedLoader
 from typing_extensions import TypeAlias, override
 
-from replay.data.nn.parquet.constants.filesystem import DEFAULT_FILESYSTEM
-from replay.data.nn.parquet.impl.masking import (
-    DEFAULT_COLLATE_FN,
-    DEFAULT_MAKE_MASK_NAME,
-    DEFAULT_REPLICAS_INFO,
-)
 from replay.data.nn.parquet.parquet_dataset import ParquetDataset
 
 TransformStage: TypeAlias = Literal["train", "validate", "test", "predict"]
@@ -66,9 +60,10 @@ class ParquetModule(L.LightningDataModule):
             Example: {"train": {"item_id" : {"shape": 100, "padding_value": 7657}}}.\n
             For details, see the section :ref:`parquet-processing`.
         :param config: Dict specifying configuration options of ``ParquetDataset`` (generator,
-            filesystem, collate_fn, make_mask_name, replicas_info) for each data split.
-            Default: ``DEFAULT_CONFIG``.\n
-            In most scenarios, the default configuration is sufficient.
+            filesystem, collate_fn and all other possible arguments excluding source, metadata and batch_size)
+            for each data split.\n
+            Default: ``DEFAULT_CONFIG``. The default configuration contains PyTorch generator for batch shuffling
+            in a train stage. In most scenarios, it is sufficient.
         :param transforms: Dict specifying sequence of Transform modules for each data split.
         :param train_path: Path to the Parquet file containing train data split. Default: ``None``.
         :param validate_path: Path to the Parquet file or files containing validation data split. Default: ``None``.
@@ -140,19 +135,22 @@ class ParquetModule(L.LightningDataModule):
                 shared_kwargs = {
                     "metadata": self.metadata[subset],
                     "batch_size": self.batch_size,
-                    "partition_size": subset_config.get("partition_size", 2**17),
-                    "generator": subset_config.get("generator", None),
-                    "filesystem": subset_config.get("filesystem", DEFAULT_FILESYSTEM),
-                    "make_mask_name": subset_config.get("make_mask_name", DEFAULT_MAKE_MASK_NAME),
-                    "replicas_info": subset_config.get("replicas_info", DEFAULT_REPLICAS_INFO),
-                    "collate_fn": subset_config.get("collate_fn", DEFAULT_COLLATE_FN),
+                    "partition_size": subset_config.pop("partition_size", 2**20),
+                    "device": subset_config.pop(
+                        "device", torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+                    ),
                 }
 
                 if isinstance(subset_datapaths, list):
-                    loaders = [ParquetDataset(**{"source": path, **shared_kwargs}) for path in subset_datapaths]
+                    loaders = [
+                        ParquetDataset(**{"source": path, **shared_kwargs, **subset_config})
+                        for path in subset_datapaths
+                    ]
                     self.datasets[subset] = CombinedLoader(loaders, mode="sequential")
                 else:
-                    self.datasets[subset] = ParquetDataset(**{"source": subset_datapaths, **shared_kwargs})
+                    self.datasets[subset] = ParquetDataset(
+                        **{"source": subset_datapaths, **shared_kwargs, **subset_config}
+                    )
 
     @override
     def train_dataloader(self):
