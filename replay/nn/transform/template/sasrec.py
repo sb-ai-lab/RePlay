@@ -8,7 +8,7 @@ from replay.nn.transform import GroupTransform, NextTokenTransform, RenameTransf
 
 def make_default_sasrec_transforms(tensor_schema: TensorSchema) -> dict[str, list[torch.nn.Module]]:
     """
-    Creates a valid transformation pipeline for SasRec data batches.
+    Creates a valid transformation pipeline for SasRec data batches for usage in :ref:`Parquet-Module` .
 
     Generated pipeline expects input dataset to contain all features specified in the ``tensor_schema``.
 

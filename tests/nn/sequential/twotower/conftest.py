@@ -49,7 +49,6 @@ def twotower_parametrized(request, tensor_schema, item_features_reader):
             num_heads=1,
         ),
         query_tower_feature_names=tensor_schema.names,
-        item_tower_feature_names=tensor_schema.names,
         query_embedding_aggregator=PositionAwareAggregator(
             embedding_aggregator=common_aggregator,
             max_sequence_length=7,

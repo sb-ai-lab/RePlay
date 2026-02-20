@@ -11,6 +11,9 @@ from replay.data.nn import TensorSchema
 class FeaturesReaderProtocol(Protocol):
     def __getitem__(self, key: str) -> torch.Tensor: ...
 
+    @property
+    def feature_names(self) -> list[str]: ...
+
 
 class FeaturesReader:
     """
@@ -33,6 +36,14 @@ class FeaturesReader:
                or hint type ``FeatureHint.ITEM_ID``.
 
         """
+        if schema.item_id_feature_name is None:
+            msg = (
+                "Items identifier doesn't specified."
+                "Please pass a `TensorFeatureInfo` to `TensorSchema` with parameter feature_hint "
+                "setted to FeatureHint.ITEM_ID."
+            )
+            raise ValueError(msg)
+
         item_feature_names = [
             info.feature_source.column
             for name, info in schema.items()
@@ -96,3 +107,7 @@ class FeaturesReader:
 
     def __getitem__(self, key: str) -> torch.Tensor:
         return self._features[key]
+
+    @property
+    def feature_names(self) -> list[str]:
+        return self._features.keys()
