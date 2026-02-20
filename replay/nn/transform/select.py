@@ -1,3 +1,5 @@
+from typing import Union
+
 import torch
 
 
@@ -32,7 +34,7 @@ class SelectTransform(torch.nn.Module):
 
     """
 
-    def __init__(self, feature_names: list[str | tuple[str]]) -> None:
+    def __init__(self, feature_names: list[Union[str, tuple[str]]]) -> None:
         """
         :param feature_names: a list with names of features to be selected.
         """

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional, Union
 
 import torch
 
@@ -45,7 +45,7 @@ class NextTokenTransform(torch.nn.Module):
         self,
         label_name: str,
         shift: int = 1,
-        ignore: List[str] | str | None = None,
+        ignore: Optional[Union[List[str], str]] = None,
         out_feature_name: str = "positive_labels",
         mask_postfix: str = DEFAULT_MASK_POSTFIX,
     ) -> None:
