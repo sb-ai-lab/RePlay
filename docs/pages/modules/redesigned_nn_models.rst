@@ -276,6 +276,11 @@ __________________
 .. autoclass:: replay.nn.transform.CopyTransform
     :members: __init__
 
+EqualityMaskTransform
+__________________________
+.. autoclass:: replay.nn.transform.EqualityMaskTransform
+    :members: __init__
+
 GroupTransform
 __________________
 .. autoclass:: replay.nn.transform.GroupTransform
@@ -304,6 +309,11 @@ __________________
 TrimTransform
 __________________
 .. autoclass:: replay.nn.transform.TrimTransform
+    :members: __init__
+
+SelectTransform
+______________________
+.. autoclass:: replay.nn.transform.SelectTransform
     :members: __init__
 
 SequenceRollTransform
