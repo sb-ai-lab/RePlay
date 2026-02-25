@@ -83,7 +83,6 @@ class DiffTransformerLayer(torch.nn.Module):
         :param num_heads: Number of parallel attention heads.
         :param num_blocks: Number of Transformer blocks.
         """
-        torch.nn.MultiheadAttention
         super().__init__()
         self.layers = torch.nn.ModuleList(
             [
