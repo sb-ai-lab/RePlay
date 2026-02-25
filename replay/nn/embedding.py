@@ -263,7 +263,6 @@ class NumericalEmbedding(torch.nn.Module):
 
     def reset_parameters(self) -> None:
         torch.nn.init.xavier_normal_(self.linear.weight)
-        torch.nn.init.xavier_normal_(self.linear.bias)
 
     def forward(self, values: torch.FloatTensor) -> torch.Tensor:
         """
