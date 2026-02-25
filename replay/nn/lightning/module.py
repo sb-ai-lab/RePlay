@@ -63,7 +63,7 @@ class LightningModule(lightning.LightningModule):
         model_output: TrainOutput = self(batch)
         loss = model_output["loss"]
         lr = self.optimizers().param_groups[0]["lr"]  # Get current learning rate
-        self.log("learning_rate", lr, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("learning_rate", lr, on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log(
             "train_loss",
             loss,

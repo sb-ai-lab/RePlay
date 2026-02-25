@@ -196,9 +196,8 @@ class CategoricalEmbedding(torch.nn.Module):
         return self.emb.weight[mask_without_padding]
 
     def reset_parameters(self) -> None:
-        for _, param in self.named_parameters():
-            with contextlib.suppress(ValueError):
-                torch.nn.init.xavier_normal_(param.data)
+        torch.nn.init.xavier_normal_(self.emb.weight)
+        self.emb._fill_padding_idx_with_zero()
 
     def forward(self, indices: torch.LongTensor) -> torch.Tensor:
         """
@@ -264,9 +263,8 @@ class NumericalEmbedding(torch.nn.Module):
         return self.linear.weight
 
     def reset_parameters(self) -> None:
-        for _, param in self.named_parameters():
-            with contextlib.suppress(ValueError):
-                torch.nn.init.xavier_normal_(param.data)
+        torch.nn.init.xavier_normal_(self.linear.weight)
+        torch.nn.init.xavier_normal_(self.linear.bias)
 
     def forward(self, values: torch.FloatTensor) -> torch.Tensor:
         """
