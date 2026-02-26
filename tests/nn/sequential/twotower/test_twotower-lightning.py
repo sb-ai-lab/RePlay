@@ -13,20 +13,20 @@ def test_training_twotower_with_different_losses(twotower_parametrized, parquet_
         optimizer_factory=OptimizerFactory(),
         lr_scheduler_factory=LambdaLRSchedulerFactory(warmup_steps=1),
     )
-    trainer = L.Trainer(max_epochs=2)
+    trainer = L.Trainer(max_epochs=1, accelerator="cpu")
     trainer.fit(twotower, datamodule=parquet_module)
 
 
 def test_twotower_with_default_transform(twotower_model_only_items, parquet_module_with_default_twotower_transform):
     twotower = LightningModule(twotower_model_only_items)
-    trainer = L.Trainer(max_epochs=1)
+    trainer = L.Trainer(max_epochs=1, accelerator="cpu")
     trainer.fit(twotower, datamodule=parquet_module_with_default_twotower_transform)
     trainer.test(twotower, datamodule=parquet_module_with_default_twotower_transform)
 
 
 def test_twotower_checkpointing(twotower_model, parquet_module, tmp_path):
     twotower = LightningModule(twotower_model)
-    trainer = L.Trainer(max_epochs=1)
+    trainer = L.Trainer(max_epochs=1, accelerator="cpu")
     trainer.fit(twotower, datamodule=parquet_module)
 
     ckpt_path = tmp_path / "checkpoints/last.ckpt"
@@ -52,10 +52,10 @@ def test_twotower_checkpointing(twotower_model, parquet_module, tmp_path):
 )
 def test_twotower_prediction_with_candidates(tensor_schema, twotower_model, parquet_module, candidates_to_score):
     twotower = LightningModule(twotower_model)
-    trainer = L.Trainer(max_epochs=1)
+    trainer = L.Trainer(max_epochs=1, accelerator="cpu")
     _ = trainer.validate(twotower, datamodule=parquet_module)
 
-    trainer = L.Trainer(inference_mode=True)
+    trainer = L.Trainer(inference_mode=True, accelerator="cpu")
     twotower.eval()
     twotower.candidates_to_score = candidates_to_score
     predictions = trainer.predict(twotower, datamodule=parquet_module)
@@ -91,7 +91,7 @@ def test_predictions_twotower_equal_with_permuted_candidates(
     )
     sorted_candidates, ordering = torch.sort(permuted_candidates)
 
-    trainer = L.Trainer(inference_mode=True)
+    trainer = L.Trainer(inference_mode=True, accelerator="cpu")
     twotower.eval()
     twotower.candidates_to_score = sorted_candidates
     predictions_sorted_candidates = trainer.predict(twotower, datamodule=parquet_module)
@@ -115,7 +115,7 @@ def test_predictions_twotower_equal_with_permuted_candidates(
 )
 def test_twotower_prediction_invalid_candidates_to_score(twotower_model, parquet_module, candidates_to_score):
     twotower = LightningModule(twotower_model)
-    trainer = L.Trainer(inference_mode=True)
+    trainer = L.Trainer(inference_mode=True, accelerator="cpu")
 
     with pytest.raises((RuntimeError, ValueError, IndexError)):
         twotower.candidates_to_score = candidates_to_score

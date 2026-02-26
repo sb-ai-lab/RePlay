@@ -341,7 +341,17 @@ def parquet_module_metadata(tensor_schema: TensorSchema, max_len: int):
 
 
 @pytest.fixture(scope="module")
-def parquet_module(parquet_module_path, transforms, parquet_module_metadata, batch_size=4):
+def parquet_module_config():
+    return {
+        "train": {"generator": torch.default_generator, "device": torch.device("cpu")},
+        "validate": {"device": torch.device("cpu")},
+        "test": {"device": torch.device("cpu")},
+        "predict": {"device": torch.device("cpu")},
+    }
+
+
+@pytest.fixture(scope="module")
+def parquet_module(parquet_module_path, transforms, parquet_module_metadata, parquet_module_config, batch_size=4):
     parquet_module = ParquetModule(
         metadata=parquet_module_metadata,
         transforms=transforms,
@@ -350,12 +360,15 @@ def parquet_module(parquet_module_path, transforms, parquet_module_metadata, bat
         validate_path=parquet_module_path,
         test_path=parquet_module_path,
         predict_path=parquet_module_path,
+        config=parquet_module_config,
     )
     return parquet_module
 
 
 @pytest.fixture(scope="module")
-def parquet_module_with_multiple_val_paths(parquet_module_path, transforms, parquet_module_metadata, batch_size=4):
+def parquet_module_with_multiple_val_paths(
+    parquet_module_path, transforms, parquet_module_metadata, parquet_module_config, batch_size=4
+):
     parquet_module = ParquetModule(
         metadata=parquet_module_metadata,
         transforms=transforms,
@@ -364,6 +377,7 @@ def parquet_module_with_multiple_val_paths(parquet_module_path, transforms, parq
         validate_path=[parquet_module_path, parquet_module_path],
         test_path=parquet_module_path,
         predict_path=parquet_module_path,
+        config=parquet_module_config,
     )
     return parquet_module
 
