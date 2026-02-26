@@ -13,7 +13,7 @@ def test_training_sasrec_with_different_losses(sasrec_parametrized, parquet_modu
         optimizer_factory=OptimizerFactory(),
         lr_scheduler_factory=LambdaLRSchedulerFactory(warmup_steps=1),
     )
-    trainer = L.Trainer(max_epochs=1)
+    trainer = L.Trainer(max_epochs=1, accelerator="cpu")
     trainer.fit(sasrec, datamodule=parquet_module)
 
 
@@ -33,14 +33,14 @@ def test_sasrec_with_default_transform(
         sasrec_model_only_items,
         optimizer_factory=OptimizerFactory(),
     )
-    trainer = L.Trainer(max_epochs=1)
+    trainer = L.Trainer(max_epochs=1, accelerator="cpu")
     trainer.fit(sasrec, datamodule=parquet_module)
     trainer.test(sasrec, datamodule=parquet_module)
 
 
 def test_sasrec_checkpointing(sasrec_model, parquet_module, tmp_path):
     sasrec = LightningModule(sasrec_model)
-    trainer = L.Trainer(max_epochs=1)
+    trainer = L.Trainer(max_epochs=1, accelerator="cpu")
     trainer.fit(sasrec, datamodule=parquet_module)
 
     ckpt_path = tmp_path / "checkpoints/last.ckpt"
@@ -66,7 +66,7 @@ def test_sasrec_checkpointing(sasrec_model, parquet_module, tmp_path):
 )
 def test_sasrec_prediction_with_candidates(tensor_schema, sasrec_model, parquet_module, candidates_to_score):
     sasrec = LightningModule(sasrec_model)
-    trainer = L.Trainer(inference_mode=True)
+    trainer = L.Trainer(inference_mode=True, accelerator="cpu")
     sasrec.eval()
     sasrec.candidates_to_score = candidates_to_score
     predictions = trainer.predict(sasrec, datamodule=parquet_module)
@@ -97,7 +97,7 @@ def test_predictions_sasrec_equal_with_permuted_candidates(tensor_schema, sasrec
     )
     sorted_candidates, ordering = torch.sort(permuted_candidates)
 
-    trainer = L.Trainer(inference_mode=True)
+    trainer = L.Trainer(inference_mode=True, accelerator="cpu")
     sasrec.eval()
     sasrec.candidates_to_score = sorted_candidates
     predictions_sorted_candidates = trainer.predict(sasrec, datamodule=parquet_module)
@@ -121,10 +121,10 @@ def test_predictions_sasrec_equal_with_permuted_candidates(tensor_schema, sasrec
 )
 def test_sasrec_prediction_invalid_candidates_to_score(sasrec_model, parquet_module, candidates_to_score):
     sasrec = LightningModule(sasrec_model)
-    trainer = L.Trainer(max_epochs=1)
+    trainer = L.Trainer(max_epochs=1, accelerator="cpu")
     trainer.fit(sasrec, datamodule=parquet_module)
 
-    trainer = L.Trainer(inference_mode=True)
+    trainer = L.Trainer(inference_mode=True, accelerator="cpu")
 
     with pytest.raises((RuntimeError, ValueError)):
         sasrec.candidates_to_score = candidates_to_score

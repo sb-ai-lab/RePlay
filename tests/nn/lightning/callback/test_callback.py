@@ -53,8 +53,8 @@ def test_prediction_callbacks_fast_forward(
             [SeenItemsFilter(item_count=cardinality, seen_items_column="seen_ids")] if is_postprocessor else None
         ),
     }
+    kwargs["query_column"] = "user_id"
     if callback_class != TorchTopItemsCallback:
-        kwargs["query_column"] = "user_id"
         kwargs["item_column"] = "item_id"
     if callback_class == SparkTopItemsCallback:
         kwargs["spark_session"] = get_spark_session()
@@ -66,7 +66,7 @@ def test_prediction_callbacks_fast_forward(
     if candidates is not None:
         model.candidates_to_score = candidates
 
-    trainer = L.Trainer(inference_mode=True, callbacks=[callback])
+    trainer = L.Trainer(inference_mode=True, accelerator="cpu", callbacks=[callback])
     predicted = trainer.predict(model, datamodule=parquet_module)
 
     assert len(predicted) == len(parquet_module.predict_dataloader())
@@ -130,13 +130,13 @@ def test_validation_callbacks(
     )
     model = LightningModule(sasrec_model)
 
-    trainer = L.Trainer(max_epochs=1, callbacks=[callback])
+    trainer = L.Trainer(max_epochs=1, accelerator="cpu", callbacks=[callback])
     trainer.fit(model, datamodule=parquet_module)
 
     for metric in metrics:
         assert any(key.startswith(metric) for key in trainer.callback_metrics.keys())
 
-    trainer = L.Trainer(callbacks=[callback], inference_mode=True)
+    trainer = L.Trainer(callbacks=[callback], accelerator="cpu", inference_mode=True)
     model.eval()
     trainer.test(model, datamodule=parquet_module)
 
@@ -148,7 +148,7 @@ def test_query_embeddings_callback(sasrec_model, parquet_module, parquet_module_
     model = LightningModule(sasrec_model)
 
     callback = HiddenStatesCallback(hidden_state_index=0)
-    trainer = L.Trainer(inference_mode=True, callbacks=[callback])
+    trainer = L.Trainer(inference_mode=True, accelerator="cpu", callbacks=[callback])
     trainer.predict(model, datamodule=parquet_module, return_predictions=False)
 
     sequential_data = pd.read_parquet(parquet_module_path)

@@ -283,33 +283,29 @@ def parquet_module_path(tmp_path_factory, generated_dfs):
 def transforms(tensor_schema, max_len):
     return {
         "train": [
-            NextTokenTransform(
-                label_field="item_id", query_features="user_id", shift=1, out_feature_name="positive_labels"
-            ),
-            RenameTransform(
-                {"user_id": "query_id", "item_id_mask": "padding_mask", "positive_labels_mask": "target_padding_mask"}
-            ),
+            NextTokenTransform(label_name="item_id", shift=1, ignore=["user_id", "user_id_mask"]),
+            RenameTransform({"item_id_mask": "padding_mask", "positive_labels_mask": "target_padding_mask"}),
             UniformNegativeSamplingTransform(cardinality=tensor_schema["item_id"].cardinality, num_negative_samples=10),
             UnsqueezeTransform("target_padding_mask", -1),
             UnsqueezeTransform("positive_labels", -1),
             GroupTransform({"feature_tensors": tensor_schema.names}),
         ],
         "validate": [
-            RenameTransform({"user_id": "query_id", "item_id_mask": "padding_mask"}),
+            RenameTransform({"item_id_mask": "padding_mask"}),
             CopyTransform({"item_id": "train"}),
             CopyTransform({"item_id": "ground_truth"}),
             CopyTransform({"item_id": "seen_ids"}),
             GroupTransform({"feature_tensors": tensor_schema.names}),
         ],
         "test": [
-            RenameTransform({"user_id": "query_id", "item_id_mask": "padding_mask"}),
+            RenameTransform({"item_id_mask": "padding_mask"}),
             CopyTransform({"item_id": "train"}),
             CopyTransform({"item_id": "ground_truth"}),
             CopyTransform({"item_id": "seen_ids"}),
             GroupTransform({"feature_tensors": tensor_schema.names}),
         ],
         "predict": [
-            RenameTransform({"user_id": "query_id", "item_id_mask": "padding_mask"}),
+            RenameTransform({"item_id_mask": "padding_mask"}),
             CopyTransform({"item_id": "seen_ids"}),
             TrimTransform(max_len, ["seen_ids"]),
             GroupTransform({"feature_tensors": tensor_schema.names}),
@@ -345,7 +341,17 @@ def parquet_module_metadata(tensor_schema: TensorSchema, max_len: int):
 
 
 @pytest.fixture(scope="module")
-def parquet_module(parquet_module_path, transforms, parquet_module_metadata, batch_size=4):
+def parquet_module_config():
+    return {
+        "train": {"generator": torch.default_generator, "device": torch.device("cpu")},
+        "validate": {"device": torch.device("cpu")},
+        "test": {"device": torch.device("cpu")},
+        "predict": {"device": torch.device("cpu")},
+    }
+
+
+@pytest.fixture(scope="module")
+def parquet_module(parquet_module_path, transforms, parquet_module_metadata, parquet_module_config, batch_size=4):
     parquet_module = ParquetModule(
         metadata=parquet_module_metadata,
         transforms=transforms,
@@ -354,12 +360,15 @@ def parquet_module(parquet_module_path, transforms, parquet_module_metadata, bat
         validate_path=parquet_module_path,
         test_path=parquet_module_path,
         predict_path=parquet_module_path,
+        config=parquet_module_config,
     )
     return parquet_module
 
 
 @pytest.fixture(scope="module")
-def parquet_module_with_multiple_val_paths(parquet_module_path, transforms, parquet_module_metadata, batch_size=4):
+def parquet_module_with_multiple_val_paths(
+    parquet_module_path, transforms, parquet_module_metadata, parquet_module_config, batch_size=4
+):
     parquet_module = ParquetModule(
         metadata=parquet_module_metadata,
         transforms=transforms,
@@ -368,28 +377,32 @@ def parquet_module_with_multiple_val_paths(parquet_module_path, transforms, parq
         validate_path=[parquet_module_path, parquet_module_path],
         test_path=parquet_module_path,
         predict_path=parquet_module_path,
+        config=parquet_module_config,
     )
     return parquet_module
 
 
-@pytest.fixture(scope="module")
-def item_features_reader(tensor_schema, item_features_path):
-    return FeaturesReader(
-        schema=tensor_schema,
-        path=item_features_path,
-        metadata={
-            "item_id": {},
-            "num_feature": {},
-            "cat_list_feature": {"shape": 3, "padding": tensor_schema["cat_list_feature"].padding_value},
-            "num_list_feature": {
-                "shape": tensor_schema["num_list_feature"].tensor_dim,
-                "padding": tensor_schema["num_list_feature"].padding_value,
-            },
-            "emb_list_feature": {
-                "shape": tensor_schema["emb_list_feature"].tensor_dim,
-                "padding": tensor_schema["emb_list_feature"].padding_value,
-            },
+@pytest.fixture
+def item_features_reader(request, tensor_schema, item_features_path):
+    item_tower_names = getattr(request, "param", tensor_schema.names)
+
+    metadata = {
+        "item_id": {},
+        "num_feature": {},
+        "cat_list_feature": {"shape": 3, "padding": tensor_schema["cat_list_feature"].padding_value},
+        "num_list_feature": {
+            "shape": tensor_schema["num_list_feature"].tensor_dim,
+            "padding": tensor_schema["num_list_feature"].padding_value,
         },
+        "emb_list_feature": {
+            "shape": tensor_schema["emb_list_feature"].tensor_dim,
+            "padding": tensor_schema["emb_list_feature"].padding_value,
+        },
+    }
+    return FeaturesReader(
+        schema=tensor_schema.subset(item_tower_names),
+        path=item_features_path,
+        metadata={k: v for k, v in metadata.items() if k in item_tower_names},
     )
 
 

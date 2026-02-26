@@ -78,6 +78,8 @@ ItemTower
 .. autoclass:: replay.nn.sequential.ItemTower
    :members: __init__, forward
 
+.. FeaturesReader_:
+
 FeaturesReader
 ``````````````````````````````
 
@@ -166,6 +168,11 @@ NumericalEmbedding
 .. autoclass:: replay.nn.embedding.NumericalEmbedding
    :members: __init__, forward, embedding_dim, weight
 
+IdentityEmbedding
+``````````````````
+.. autoclass:: replay.nn.embedding.IdentityEmbedding
+   :members: __init__, forward, embedding_dim, weight
+
 
 Aggregators
 ___________
@@ -244,12 +251,36 @@ Transforms for ParquetModule
 ====================================================
 
 This submodule contains a set of standard PyTorch tensor transformations necessary for neural network models. 
-These Transforms are intended for use with the :ref:`Parquet-Module`. For applying specify a sequence of transformations for every data split as ParquetModule's ``transforms`` parameter. 
-Specified transformations will be applied per batch on device, then the resulting batch will be used as model input. 
+Every Transform (transformation) is a child class of ``torch.nn.Module`` which forward pass takes as input a batch (python dictionary) 
+and returns a copy of input batch with some applyed transformation. 
+
+These Transforms are intended for use with the :ref:`Parquet-Module`. `ParquetModule` object gets transformations via `transforms` parameter.
+
+For passing `transforms` parameter correctly, specify a sequence (a list) of transformations for every used data split, for example:
+
+.. code-block:: python
+
+   {
+      "train": [NextTokenTransform(label_field="item_id", shift=1), ...],
+      "validate": [...]
+   }
+
+
+``ParquetModule`` converts every specified list of transformations into ``torch.nn.Sequential``, which will be applied per batch on device, 
+then the resulting batch after all transformations will be used as model input. 
+
+RePlay provides functions that create a standard set of transformations for models that can also be used as the basis 
+for custom, more complicated sets of transformations. See :ref:`Standard set of transforms for models <transforms-for-models>`.
+
 
 CopyTransform
 __________________
 .. autoclass:: replay.nn.transform.CopyTransform
+    :members: __init__
+
+EqualityMaskTransform
+__________________________
+.. autoclass:: replay.nn.transform.EqualityMaskTransform
     :members: __init__
 
 GroupTransform
@@ -282,6 +313,11 @@ __________________
 .. autoclass:: replay.nn.transform.TrimTransform
     :members: __init__
 
+SelectTransform
+______________________
+.. autoclass:: replay.nn.transform.SelectTransform
+    :members: __init__
+
 SequenceRollTransform
 ______________________
 .. autoclass:: replay.nn.transform.SequenceRollTransform
@@ -296,6 +332,9 @@ MultiClassNegativeSamplingTransform
 ____________________________________
 .. autoclass:: replay.nn.transform.MultiClassNegativeSamplingTransform
     :members: __init__
+
+
+.. _transforms-for-models:
 
 Standard set of transforms for models
 _____________________________________

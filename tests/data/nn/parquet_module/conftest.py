@@ -39,9 +39,9 @@ def parquet_module_args():
             feature_hint=FeatureHint.ITEM_ID,
         )
     )
-    transforms = make_default_sasrec_transforms(tensor_schema, query_column="user_id")
+    transforms = make_default_sasrec_transforms(tensor_schema)
 
-    shared_meta = {"user_id": {}, "item_id": {"shape": max_len, "padding": tensor_schema["item_id"].padding_value}}
+    shared_meta = {"item_id": {"shape": max_len, "padding": tensor_schema["item_id"].padding_value}}
 
     metadata = {
         "train": copy.deepcopy(shared_meta),
