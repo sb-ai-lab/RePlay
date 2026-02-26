@@ -6,7 +6,7 @@ from typing import Literal, Optional, Union, get_args
 import lightning as L  # noqa: N812
 import torch
 from lightning.pytorch.trainer.states import RunningStage
-from lightning.pytorch.utilities import CombinedLoader
+from lightning.pytorch.utilities import CombinedLoader, move_data_to_device
 from typing_extensions import TypeAlias, override
 
 from replay.data.nn.parquet.parquet_dataset import ParquetDataset
@@ -98,6 +98,7 @@ class ParquetModule(L.LightningDataModule):
         self.batch_size = batch_size
         self.config = config
 
+        self.moved = False
         self.datasets: dict[str, Union[ParquetDataset, CombinedLoader]] = {}
         self.transforms = transforms
         self.compiled_transforms = self.prepare_transforms(transforms)
@@ -131,7 +132,7 @@ class ParquetModule(L.LightningDataModule):
         for subset in get_args(TransformStage):
             subset_datapaths = self.datapaths.get(subset, None)
             if subset_datapaths is not None:
-                subset_config = self.config.get(subset, {})
+                subset_config = copy.deepcopy(self.config.get(subset, {}))
                 shared_kwargs = {
                     "metadata": self.metadata[subset],
                     "batch_size": self.batch_size,
@@ -172,5 +173,12 @@ class ParquetModule(L.LightningDataModule):
     def on_after_batch_transfer(self, batch, _dataloader_idx):
         stage = self.trainer.state.stage
         target = RunningStage.VALIDATING if stage is RunningStage.SANITY_CHECKING else stage
-
         return self.compiled_transforms[str(target.value)](batch)
+
+    @override
+    def transfer_batch_to_device(self, batch, device: torch.device, dataloader_idx: int):
+        if not self.moved:
+            self.moved = True
+            for transform in self.compiled_transforms.values():
+                transform.to(device)
+        return move_data_to_device(batch, device)
