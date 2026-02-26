@@ -24,8 +24,14 @@ class RenameTransform(torch.nn.Module):
         self.mapping = mapping
 
     def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        output_batch = {}
+        if not (self.mapping.keys() <= batch.keys()):
+            msg = (
+                f"The keys from mapping {self.mapping.keys() - batch.keys()} don't exist in batch."
+                f"Batch contains the following keys: {batch.keys()}."
+            )
+            raise KeyError(msg)
 
+        output_batch = {}
         for original_name, tensor in batch.items():
             target_name = self.mapping.get(original_name, original_name)
             output_batch[target_name] = tensor

@@ -36,3 +36,10 @@ def test_features_reader_raises_error(tensor_schema, item_features_path, metadat
             path=item_features_path,
             metadata={k: v for k, v in metadata.items() if k in metadata_features},
         )
+
+
+def test_features_reader_raises_error_missing_item_id(tensor_schema, item_features_path):
+    with pytest.raises(ValueError):
+        FeaturesReader(
+            schema=tensor_schema.subset(["num_feature"]), path=item_features_path, metadata={"num_feature": {}}
+        )

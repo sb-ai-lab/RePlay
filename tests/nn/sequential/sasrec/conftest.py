@@ -84,9 +84,9 @@ def create_shared_meta(shape: int, tensor_schema: TensorSchema):
 
 @pytest.fixture
 def parquet_module_with_default_sasrec_transform(
-    parquet_module_path, tensor_schema_with_equal_embedding_dims, max_len, batch_size=4
+    parquet_module_path, tensor_schema_with_equal_embedding_dims, parquet_module_config, max_len, batch_size=4
 ):
-    transforms = make_default_sasrec_transforms(tensor_schema_with_equal_embedding_dims, query_column="user_id")
+    transforms = make_default_sasrec_transforms(tensor_schema_with_equal_embedding_dims)
 
     tensor_schema = tensor_schema_with_equal_embedding_dims
     metadata = {
@@ -104,13 +104,14 @@ def parquet_module_with_default_sasrec_transform(
         validate_path=parquet_module_path,
         test_path=parquet_module_path,
         predict_path=parquet_module_path,
+        config=parquet_module_config,
     )
     return parquet_module
 
 
 @pytest.fixture
 def parquet_module_with_multiple_val_paths(parquet_module_path, tensor_schema, max_len, batch_size=4):
-    transforms = make_default_sasrec_transforms(tensor_schema, query_column="user_id")
+    transforms = make_default_sasrec_transforms(tensor_schema)
 
     metadata = {
         "train": create_shared_meta(shape=max_len + 1, tensor_schema=tensor_schema),
