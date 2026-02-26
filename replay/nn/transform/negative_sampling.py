@@ -62,10 +62,10 @@ class UniformNegativeSamplingTransform(torch.nn.Module):
         self.out_feature_name = out_feature_name
         self.num_negative_samples = num_negative_samples
         self.generator = generator
-        if sample_distribution is not None:
-            self.sample_distribution = sample_distribution
-        else:
-            self.sample_distribution = torch.ones(cardinality)
+
+        if sample_distribution is None:
+            sample_distribution = torch.ones(cardinality)
+        self.register_buffer("sample_distribution", sample_distribution)
 
     def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         output_batch = dict(batch.items())
@@ -77,7 +77,7 @@ class UniformNegativeSamplingTransform(torch.nn.Module):
             generator=self.generator,
         )
 
-        output_batch[self.out_feature_name] = negatives.to(device=next(iter(output_batch.values())).device)
+        output_batch[self.out_feature_name] = negatives
         return output_batch
 
 
@@ -164,7 +164,9 @@ class MultiClassNegativeSamplingTransform(torch.nn.Module):
         assert self.negative_selector_name in batch
         assert batch[self.negative_selector_name].dim() == 1
 
-        negative_selector = batch[self.negative_selector_name]  # [batch_size]
+        output_batch = dict(batch.items())
+
+        negative_selector = output_batch[self.negative_selector_name]  # [batch_size]
 
         # [N, num_negatives] - shape of negatives
         negatives = torch.multinomial(
@@ -175,8 +177,5 @@ class MultiClassNegativeSamplingTransform(torch.nn.Module):
         )
 
         # [N, num_negatives] -> [batch_size, num_negatives]
-        selected_negatives = negatives[negative_selector]
-
-        output_batch = dict(batch.items())
-        output_batch[self.out_feature_name] = selected_negatives.to(device=negative_selector.device)
+        output_batch[self.out_feature_name] = negatives[negative_selector]
         return output_batch

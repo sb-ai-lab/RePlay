@@ -126,7 +126,7 @@ def twotower_model_only_items(tensor_schema_with_equal_embedding_dims, item_feat
 
 @pytest.fixture
 def parquet_module_with_default_twotower_transform(
-    parquet_module_path, tensor_schema_with_equal_embedding_dims, max_len, batch_size=4
+    parquet_module_path, tensor_schema_with_equal_embedding_dims, parquet_module_config, max_len, batch_size=4
 ):
     transforms = make_default_twotower_transforms(tensor_schema_with_equal_embedding_dims)
 
@@ -152,5 +152,6 @@ def parquet_module_with_default_twotower_transform(
         validate_path=parquet_module_path,
         test_path=parquet_module_path,
         predict_path=parquet_module_path,
+        config=parquet_module_config,
     )
     return parquet_module
