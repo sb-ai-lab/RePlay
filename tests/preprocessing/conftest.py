@@ -785,31 +785,48 @@ def random_string_spark_df(spark):
 
 
 @pytest.fixture(scope="module")
-def simple_dataframe_array(spark):
-    columns_array = ["user_id", "item_id", "timestamp"]
-    data_array = [
-        (1, [2, 1, 0], 19842),
+def simple_dataframe_array_data():
+    columns = ["user_id", "item_id", "timestamp"]
+    data = [
+        (1, [], 19842),
         (1, [4, 1], 19844),
         (1, [3, 1, 0], 19843),
         (1, [5, 1], 19845),
-        (1, [6, 1, 0], 19846),
+        (1, [], 19846),
         (1, [7, 1], 19847),
         (2, [1, 0, 1], 19841),
-        (2, [2, 0], 19842),
+        (2, [], 19842),
         (2, [3, 0, 1], 19843),
         (2, [4, 0], 19844),
         (3, [10, 0], 19844),
         (4, [11, 0, 1], 19843),
         (4, [12, 0], 19845),
-        (1, [1, 0], 19841),
+        (1, [], 19841),
     ]
-    return spark.createDataFrame(data_array, schema=columns_array)
+    return data, columns
 
 
 @pytest.fixture(scope="module")
-def simple_dataframe_additional(spark):
-    columns_additional = ["user_id", "item_id", "timestamp", "other_column"]
-    data_additional = [
+def simple_dataframe_array(simple_dataframe_array_data, spark):
+    data, columns = simple_dataframe_array_data
+    return spark.createDataFrame(data, schema=columns)
+
+
+@pytest.fixture(scope="module")
+def simple_dataframe_array_pandas(simple_dataframe_array_data):
+    data, columns = simple_dataframe_array_data
+    return pd.DataFrame(data, columns=columns)
+
+
+@pytest.fixture(scope="module")
+def simple_dataframe_array_polars(simple_dataframe_array_pandas):
+    return pl.from_pandas(simple_dataframe_array_pandas)
+
+
+@pytest.fixture(scope="module")
+def simple_dataframe_additional_data():
+    columns = ["user_id", "item_id", "timestamp", "other_column"]
+    data = [
         (1, 2, 19842, 0),
         (1, 4, 19844, 1),
         (1, 3, 19843, 0),
@@ -825,12 +842,24 @@ def simple_dataframe_additional(spark):
         (4, 12, 19845, 1),
         (1, 1, 19841, 1),
     ]
-    return spark.createDataFrame(data_additional, schema=columns_additional)
+    return data, columns
 
 
 @pytest.fixture(scope="module")
-def simple_dataframe_target(spark, schema_target):
-    data_target = [
+def simple_dataframe_additional(simple_dataframe_additional_data, spark):
+    data, columns = simple_dataframe_additional_data
+    return spark.createDataFrame(data, schema=columns)
+
+
+@pytest.fixture(scope="module")
+def simple_dataframe_additional_pandas(simple_dataframe_additional_data):
+    data, columns = simple_dataframe_additional_data
+    return pd.DataFrame(data, columns=columns)
+
+
+@pytest.fixture(scope="module")
+def data_target():
+    return [
         (1, 4, 19844, [2], [19842]),
         (1, 3, 19843, [2, 4], [19842, 19844]),
         (1, 5, 19845, [2, 4, 3], [19842, 19844, 19843]),
@@ -842,12 +871,21 @@ def simple_dataframe_target(spark, schema_target):
         (2, 4, 19844, [1, 2, 3], [19841, 19842, 19843]),
         (4, 12, 19845, [11], [19843]),
     ]
+
+
+@pytest.fixture(scope="module")
+def simple_dataframe_target(spark, data_target, schema_target):
     return spark.createDataFrame(data_target, schema=schema_target)
 
 
 @pytest.fixture(scope="module")
-def simple_dataframe_target_ordered(spark, schema_target):
-    data_target_ordered = [
+def simple_dataframe_target_pandas(data_target, columns_target):
+    return pd.DataFrame(data_target, columns=columns_target)
+
+
+@pytest.fixture(scope="module")
+def data_target_ordered():
+    return [
         (1, 2, 19842, [1], [19841]),
         (1, 3, 19843, [1, 2], [19841, 19842]),
         (1, 4, 19844, [1, 2, 3], [19841, 19842, 19843]),
@@ -859,12 +897,21 @@ def simple_dataframe_target_ordered(spark, schema_target):
         (2, 4, 19844, [1, 2, 3], [19841, 19842, 19843]),
         (4, 12, 19845, [11], [19843]),
     ]
+
+
+@pytest.fixture(scope="module")
+def simple_dataframe_target_ordered(spark, data_target_ordered, schema_target):
     return spark.createDataFrame(data_target_ordered, schema=schema_target)
 
 
 @pytest.fixture(scope="module")
-def simple_dataframe_target_ordered_list_len(spark, schema_target_list_len):
-    data_target_ordered_list_len = [
+def simple_dataframe_target_ordered_pandas(data_target_ordered, columns_target):
+    return pd.DataFrame(data_target_ordered, columns=columns_target)
+
+
+@pytest.fixture(scope="module")
+def data_target_ordered_list_len():
+    return [
         (1, 2, 19842, [1], [19841], 1),
         (1, 3, 19843, [1, 2], [19841, 19842], 2),
         (1, 4, 19844, [1, 2, 3], [19841, 19842, 19843], 3),
@@ -876,7 +923,16 @@ def simple_dataframe_target_ordered_list_len(spark, schema_target_list_len):
         (2, 4, 19844, [1, 2, 3], [19841, 19842, 19843], 3),
         (4, 12, 19845, [11], [19843], 1),
     ]
+
+
+@pytest.fixture(scope="module")
+def simple_dataframe_target_ordered_list_len(spark, data_target_ordered_list_len, schema_target_list_len):
     return spark.createDataFrame(data_target_ordered_list_len, schema=schema_target_list_len)
+
+
+@pytest.fixture(scope="module")
+def simple_dataframe_target_ordered_list_len_pandas(data_target_ordered_list_len, columns_target_list_len):
+    return pd.DataFrame(data_target_ordered_list_len, columns=columns_target_list_len)
 
 
 @pytest.fixture(scope="module")
@@ -908,106 +964,6 @@ def simple_dataframe_polars(simple_dataframe_pandas):
 @pytest.fixture(scope="module")
 def dataframe_not_implemented(simple_dataframe_pandas):
     return simple_dataframe_pandas.to_numpy()
-
-
-@pytest.fixture(scope="module")
-def simple_dataframe_array_pandas():
-    columns_array = ["user_id", "item_id", "timestamp"]
-    data_array = [
-        (1, [2, 1, 0], 19842),
-        (1, [4, 1], 19844),
-        (1, [3, 1, 0], 19843),
-        (1, [5, 1], 19845),
-        (1, [6, 1, 0], 19846),
-        (1, [7, 1], 19847),
-        (2, [1, 0, 1], 19841),
-        (2, [2, 0], 19842),
-        (2, [3, 0, 1], 19843),
-        (2, [4, 0], 19844),
-        (3, [10, 0], 19844),
-        (4, [11, 0, 1], 19843),
-        (4, [12, 0], 19845),
-        (1, [1, 0], 19841),
-    ]
-    return pd.DataFrame(data_array, columns=columns_array)
-
-
-@pytest.fixture(scope="module")
-def simple_dataframe_array_polars(simple_dataframe_array_pandas):
-    return pl.from_pandas(simple_dataframe_array_pandas)
-
-
-@pytest.fixture(scope="module")
-def simple_dataframe_additional_pandas():
-    columns_additional = ["user_id", "item_id", "timestamp", "other_column"]
-    data_additional = [
-        (1, 2, 19842, 0),
-        (1, 4, 19844, 1),
-        (1, 3, 19843, 0),
-        (1, 5, 19845, 1),
-        (1, 6, 19846, 0),
-        (1, 7, 19847, 1),
-        (2, 1, 19841, 0),
-        (2, 2, 19842, 0),
-        (2, 3, 19843, 0),
-        (2, 4, 19844, 1),
-        (3, 10, 19844, 0),
-        (4, 11, 19843, 1),
-        (4, 12, 19845, 1),
-        (1, 1, 19841, 1),
-    ]
-    return pd.DataFrame(data_additional, columns=columns_additional)
-
-
-@pytest.fixture(scope="module")
-def simple_dataframe_target_pandas(columns_target):
-    data_target = [
-        (1, 4, 19844, [2], [19842]),
-        (1, 3, 19843, [2, 4], [19842, 19844]),
-        (1, 5, 19845, [2, 4, 3], [19842, 19844, 19843]),
-        (1, 6, 19846, [2, 4, 3, 5], [19842, 19844, 19843, 19845]),
-        (1, 7, 19847, [2, 4, 3, 5, 6], [19842, 19844, 19843, 19845, 19846]),
-        (1, 1, 19841, [4, 3, 5, 6, 7], [19844, 19843, 19845, 19846, 19847]),
-        (2, 2, 19842, [1], [19841]),
-        (2, 3, 19843, [1, 2], [19841, 19842]),
-        (2, 4, 19844, [1, 2, 3], [19841, 19842, 19843]),
-        (4, 12, 19845, [11], [19843]),
-    ]
-    return pd.DataFrame(data_target, columns=columns_target)
-
-
-@pytest.fixture(scope="module")
-def simple_dataframe_target_ordered_pandas(columns_target):
-    data_target_ordered = [
-        (1, 2, 19842, [1], [19841]),
-        (1, 3, 19843, [1, 2], [19841, 19842]),
-        (1, 4, 19844, [1, 2, 3], [19841, 19842, 19843]),
-        (1, 5, 19845, [1, 2, 3, 4], [19841, 19842, 19843, 19844]),
-        (1, 6, 19846, [1, 2, 3, 4, 5], [19841, 19842, 19843, 19844, 19845]),
-        (1, 7, 19847, [2, 3, 4, 5, 6], [19842, 19843, 19844, 19845, 19846]),
-        (2, 2, 19842, [1], [19841]),
-        (2, 3, 19843, [1, 2], [19841, 19842]),
-        (2, 4, 19844, [1, 2, 3], [19841, 19842, 19843]),
-        (4, 12, 19845, [11], [19843]),
-    ]
-    return pd.DataFrame(data_target_ordered, columns=columns_target)
-
-
-@pytest.fixture(scope="module")
-def simple_dataframe_target_ordered_list_len_pandas(columns_target_list_len):
-    data_target_ordered_list_len = [
-        (1, 2, 19842, [1], [19841], 1),
-        (1, 3, 19843, [1, 2], [19841, 19842], 2),
-        (1, 4, 19844, [1, 2, 3], [19841, 19842, 19843], 3),
-        (1, 5, 19845, [1, 2, 3, 4], [19841, 19842, 19843, 19844], 4),
-        (1, 6, 19846, [1, 2, 3, 4, 5], [19841, 19842, 19843, 19844, 19845], 5),
-        (1, 7, 19847, [2, 3, 4, 5, 6], [19842, 19843, 19844, 19845, 19846], 5),
-        (2, 2, 19842, [1], [19841], 1),
-        (2, 3, 19843, [1, 2], [19841, 19842], 2),
-        (2, 4, 19844, [1, 2, 3], [19841, 19842, 19843], 3),
-        (4, 12, 19845, [11], [19843], 1),
-    ]
-    return pd.DataFrame(data_target_ordered_list_len, columns=columns_target_list_len)
 
 
 @pytest.fixture(scope="module")
