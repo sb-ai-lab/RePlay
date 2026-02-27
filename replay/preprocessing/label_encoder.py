@@ -630,13 +630,22 @@ class SequenceEncodingRule(LabelEncodingRule):
         return self
 
     def _transform_spark(self, df: SparkDataFrame, default_value: Optional[int]) -> SparkDataFrame:
+        fake_column_name = "__fake_column__"
+        df = df.withColumn(fake_column_name, sf.rand(0).cast("string"))
+
         other_columns = [col for col in df.columns if col != self._col]
 
         mapping_on_spark = get_spark_session().createDataFrame(
             data=list(self.get_mapping().items()), schema=[self._col, self._target_col]
         )
+
+        array_size_column_name = "__array_size__"
+        df_with_sz = df.withColumn(array_size_column_name, sf.size(self._col))
+        empty_arrays = df_with_sz.filter(sf.col(array_size_column_name) == 0).drop(array_size_column_name)
+        non_empty_arrays = df_with_sz.filter(sf.col(array_size_column_name) != 0).drop(array_size_column_name)
+
         encoded_df = (
-            df.select(*other_columns, sf.posexplode(self._col))
+            non_empty_arrays.select(*other_columns, sf.posexplode(self._col))
             .withColumnRenamed("col", self._col)
             .join(mapping_on_spark, on=self._col, how="left")
         )
@@ -663,7 +672,9 @@ class SequenceEncodingRule(LabelEncodingRule):
                     LabelEncoderTransformWarning,
                 )
 
-        return result
+        # for correct concatenation, it is necessary that the column schemes match
+        empty_arrays = empty_arrays.withColumn(self._col, sf.col(self._col).cast(result.schema[self._col].dataType))
+        return result.unionByName(empty_arrays).drop(fake_column_name)
 
     def _transform_pandas(self, df: PandasDataFrame, default_value: Optional[int]) -> PandasDataFrame:
         mapping = self.get_mapping()
