@@ -48,8 +48,9 @@ class ParquetDataset(IterableDataset):
 
     *   ``ParquetDataset`` supports only numeric values (boolean/integer/float),
         therefore, the data paths passed as arguments must contain encoded data.
-    *   For optimal performance, set the ``OMP_NUM_THREADS`` and ``ARROW_IO_THREADS`` to match
-        the number of available CPU cores.
+    *   For achieving maximum performance, set the ARROW_NUM_THREADS and ARROW_IO_THREADS to match
+        the number of available CPU cores and set the OMP_NUM_THREADS and MKL_NUM_THREADS to 1, also set
+        *torch.set_num_threads(1)* and *torch.set_num_interop_threads(1)*.
 
     """
 
