@@ -67,19 +67,17 @@ class ComputeMetricsCallback(lightning.Callback):
         trainer: lightning.Trainer,
         pl_module: LightningModule,  # noqa: ARG002
     ) -> None:
-        self._dataloaders_size = trainer.num_val_batches
-        self._metrics_builders = [
-            TorchMetricsBuilder(self._metrics, self._ks, self._item_count) for _ in self._dataloaders_size
-        ]
-        for builder in self._metrics_builders:
-            builder.reset()
+        self._epoch_start(dataloaders_size=trainer.num_val_batches)
 
     def on_test_epoch_start(
         self,
         trainer: lightning.Trainer,
         pl_module: LightningModule,  # noqa: ARG002
     ) -> None:
-        self._dataloaders_size = trainer.num_test_batches
+        self._epoch_start(dataloaders_size=trainer.num_test_batches)
+
+    def _epoch_start(self, dataloaders_size):
+        self._dataloaders_size = dataloaders_size
         self._metrics_builders = [
             TorchMetricsBuilder(self._metrics, self._ks, self._item_count) for _ in self._dataloaders_size
         ]
