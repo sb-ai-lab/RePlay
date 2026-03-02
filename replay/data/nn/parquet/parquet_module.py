@@ -30,8 +30,9 @@ class ParquetModule(L.LightningDataModule):
 
     *   ``ParquetModule`` supports only numeric values (boolean/integer/float),
         therefore, the data paths passed as arguments must contain encoded data.
-    *   For optimal performance, set the OMP_NUM_THREADS and ARROW_IO_THREADS to match
-        the number of available CPU cores.
+    *   For achieving maximum performance, set the ARROW_NUM_THREADS and ARROW_IO_THREADS to match
+        the number of available CPU cores and set the OMP_NUM_THREADS and MKL_NUM_THREADS to 1, also set
+        *torch.set_num_threads(1)* and *torch.set_num_interop_threads(1)*.
     *   It's possible to use all train/validate/test/predict splits, then paths to splits should be passed
         as corresponding arguments of ``ParquetModule``.
         Alternatively, all the paths to the splits may be not specified
