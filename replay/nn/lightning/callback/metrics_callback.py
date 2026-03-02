@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Optional
 
 import lightning
 import torch
@@ -62,17 +62,12 @@ class ComputeMetricsCallback(lightning.Callback):
         self._ground_truth_column = ground_truth_column
         self._train_column = train_column
 
-    def _get_dataloaders_size(self, dataloaders: Optional[Any]) -> list[int]:
-        if isinstance(dataloaders, list):
-            return [len(dataloader) for dataloader in dataloaders]
-        return [len(dataloaders)]
-
     def on_validation_epoch_start(
         self,
         trainer: lightning.Trainer,
         pl_module: LightningModule,  # noqa: ARG002
     ) -> None:
-        self._dataloaders_size = self._get_dataloaders_size(trainer.val_dataloaders)
+        self._dataloaders_size = trainer.num_val_batches
         self._metrics_builders = [
             TorchMetricsBuilder(self._metrics, self._ks, self._item_count) for _ in self._dataloaders_size
         ]
@@ -84,7 +79,7 @@ class ComputeMetricsCallback(lightning.Callback):
         trainer: lightning.Trainer,
         pl_module: LightningModule,  # noqa: ARG002
     ) -> None:
-        self._dataloaders_size = self._get_dataloaders_size(trainer.test_dataloaders)
+        self._dataloaders_size = trainer.num_test_batches
         self._metrics_builders = [
             TorchMetricsBuilder(self._metrics, self._ks, self._item_count) for _ in self._dataloaders_size
         ]
@@ -146,7 +141,6 @@ class ComputeMetricsCallback(lightning.Callback):
         self._metrics_builders[dataloader_idx].add_prediction(
             sampled_items, batch[self._ground_truth_column], batch.get(self._train_column)
         )
-
         if batch_idx + 1 == self._dataloaders_size[dataloader_idx]:
             pl_module.log_dict(
                 self._metrics_builders[dataloader_idx].get_metrics(),
