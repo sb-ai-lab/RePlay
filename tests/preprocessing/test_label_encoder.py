@@ -31,7 +31,29 @@ def test_label_encoder_spark(column, df_name, is_grouped_encoder, request):
     columns_order = ["user_id", "item_id", "timestamp"]
     df1 = df.orderBy(*columns_order).toPandas()[columns_order]
     df2 = rebuild_original_cols.orderBy(*columns_order).toPandas()[columns_order]
+    pd.testing.assert_frame_equal(df1, df2)
 
+
+@pytest.mark.spark
+@pytest.mark.parametrize(
+    "column, df_name, is_grouped_encoder",
+    [
+        pytest.param("user_id", "simple_dataframe", False),
+        pytest.param("item_id", "simple_dataframe_array", True),
+        pytest.param("item_id_list", "simple_dataframe_target_ordered", True),
+    ],
+)
+def test_label_encoder_single_column_spark(column, df_name, is_grouped_encoder, request):
+    df = request.getfixturevalue(df_name).select(column)
+    rule_class = SequenceEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule = rule_class(column)
+    encoder = LabelEncoder([rule]).fit(df)
+
+    mapped_data = encoder.transform(df)
+    rebuild_original_cols = encoder.inverse_transform(mapped_data).withColumn(column, F.col(column))
+
+    df1 = df.orderBy(column).toPandas()
+    df2 = rebuild_original_cols.orderBy(column).toPandas()
     pd.testing.assert_frame_equal(df1, df2)
 
 
@@ -221,6 +243,31 @@ def test_label_encoder_partial_fit_no_new_values_at_input(column, df_name, reque
 )
 def test_label_encoder_pandas_polars(column, df_name, is_grouped_encoder, request):
     df = request.getfixturevalue(df_name)
+    rule_class = SequenceEncodingRule if is_grouped_encoder else LabelEncodingRule
+    rule = rule_class(column, default_value="last")
+    encoder = LabelEncoder([rule]).fit(df)
+
+    mapped_data = encoder.transform(df)
+    assert isinstance(encoder.inverse_mapping, dict)
+    assert list(encoder.inverse_mapping[column].items())[-1][0] + 1 == len(encoder.mapping[column])
+    rebuild_original_cols = encoder.inverse_transform(mapped_data)
+    changed_interactions = df[rebuild_original_cols.columns]
+
+    assert changed_interactions.equals(rebuild_original_cols)
+
+
+@pytest.mark.core
+@pytest.mark.parametrize(
+    "column, df_name, is_grouped_encoder",
+    [
+        pytest.param("user_id", "simple_dataframe_pandas", False),
+        pytest.param("user_id", "simple_dataframe_polars", False),
+        pytest.param("item_id", "simple_dataframe_array_pandas", True),
+        pytest.param("item_id", "simple_dataframe_array_polars", True),
+    ],
+)
+def test_label_encoder_single_column_pandas_polars(column, df_name, is_grouped_encoder, request):
+    df = request.getfixturevalue(df_name)[[column]]
     rule_class = SequenceEncodingRule if is_grouped_encoder else LabelEncodingRule
     rule = rule_class(column, default_value="last")
     encoder = LabelEncoder([rule]).fit(df)
