@@ -16,20 +16,10 @@ jobs:
         url: https://pypi.org/p/replay-rec
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+      - uses: ./.github/actions/ci-setup
 
       - name: Install experimental package
-        run: |
-          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
-          uv pip install --system --no-cache --upgrade pip wheel
-          uv cache prune --ci
-          uv sync --no-cache
+        run: uv sync --no-cache
 
       - name: Build Experimental
         run: |
@@ -48,20 +38,10 @@ jobs:
         url: https://pypi.org/p/replay-rec
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+      - uses: ./.github/actions/ci-setup
 
       - name: Install production package
-        run: |
-          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
-          uv pip install --system --no-cache --upgrade pip wheel
-          uv cache prune --ci
-          uv sync --no-cache --extra torch --extra spark
+        run: uv sync --no-cache --extra torch --extra spark
 
       - name: Build Production
         run: |

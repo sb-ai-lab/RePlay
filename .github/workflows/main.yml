@@ -16,24 +16,13 @@ jobs:
   static_tests:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+      - uses: ./.github/actions/ci-setup
       - name: Install full package
-        run: |
-          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
-          uv pip install --system --no-cache --upgrade pip wheel
-          uv cache prune --ci
-          ./uv_wrapper.sh sync --group dev --no-cache
+        run: ./uv_wrapper.sh sync --group dev --no-cache
       - name: ruff
-        run: |
-          ./uv_wrapper.sh run ruff check .
+        run: ./uv_wrapper.sh run ruff check .
       - name: black
-        run: |
-          ./uv_wrapper.sh run black . --check --diff
+        run: ./uv_wrapper.sh run black . --check --diff
       - name: toml-sort
         run: |
           ./uv_wrapper.sh run toml-sort --check pyproject.toml
@@ -47,15 +36,11 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install core package
-        run: |
-          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
-          uv pip install --system --no-cache --upgrade pip wheel
-          ./uv_wrapper.sh sync
+        run: ./uv_wrapper.sh sync
       - name: pytest
         run: |
           ./uv_wrapper.sh run pytest -m core tests/ --ignore=tests/experimental --ignore=tests/conditional
@@ -74,14 +59,11 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install conditional package
         run: |
-          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
-          uv pip install --system --no-cache --upgrade pip wheel
           ./uv_wrapper.sh --experimental sync --group dev --no-cache
           ./uv_wrapper.sh --experimental pip install -q --upgrade onnx onnxscript openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 --no-cache-dir
       - name: pytest
@@ -102,15 +84,11 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install torch package
-        run: |
-          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
-          uv pip install --system --no-cache --upgrade pip wheel
-          ./uv_wrapper.sh sync --extra torch --no-cache
+        run: ./uv_wrapper.sh sync --extra torch --no-cache
       - name: pytest
         run: |
           ./uv_wrapper.sh run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/conditional
@@ -129,18 +107,14 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install spark package
-        run: |
-          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
-          uv pip install --system --no-cache --upgrade pip wheel
-          ./uv_wrapper.sh sync --extra spark --no-cache
+        run: ./uv_wrapper.sh sync --extra spark --no-cache
       - name: pytest
         run: |
-          c run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
+          uv run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
           mv .coverage coverage_spark_${{ matrix.python-version }}
       - name: Upload coverage
         uses: actions/upload-artifact@v4
@@ -156,15 +130,11 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install full package
-        run: |
-          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
-          uv pip install --system --no-cache --upgrade pip wheel
-          ./uv_wrapper.sh sync --extra spark --extra torch --no-cache
+        run: ./uv_wrapper.sh sync --extra spark --extra torch --no-cache
       - name: pytest
         run: |
           ./uv_wrapper.sh run pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
@@ -183,14 +153,11 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install experimental package
         run: |
-          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
-          uv pip install --system --no-cache --upgrade pip wheel
           ./uv_wrapper.sh --experimental sync --no-cache
           ./uv_wrapper.sh --experimental install -q --upgrade onnx onnxscript openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 --no-cache-dir
       - name: pytest
@@ -211,15 +178,11 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install full package
-        run: |
-          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
-          uv pip install --system --no-cache --upgrade pip wheel
-          ./uv_wrapper.sh sync --extra spark --extra torch --no-cache
+        run: ./uv_wrapper.sh sync --extra spark --extra torch --no-cache
       - name: pytest
         run: |
           ./uv_wrapper.sh run pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/conditional
@@ -238,15 +201,11 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install only dev package
-        run: |
-          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
-          uv pip install --system --no-cache --upgrade pip wheel
-          ./uv_wrapper.sh sync --only-dev --no-cache
+        run: ./uv_wrapper.sh sync --only-dev --no-cache
       - name: Download coverage reports
         uses: actions/download-artifact@v4
         with:
@@ -263,17 +222,9 @@ jobs:
     needs: merge_coverage
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+      - uses: ./.github/actions/ci-setup
       - name: Install production package
-        run: |
-          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
-          uv pip install --system --no-cache --upgrade pip wheel
-          ./uv_wrapper.sh sync --extra torch --extra spark --no-cache
+        run: ./uv_wrapper.sh sync --extra torch --extra spark --no-cache
       - name: Build
         run: |
           export PACKAGE_SUFFIX=.dev
@@ -283,17 +234,9 @@ jobs:
     needs: merge_coverage
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+      - uses: ./.github/actions/ci-setup
       - name: Install full package
-        run: |
-          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
-          uv pip install --system --no-cache --upgrade pip wheel
-          ./uv_wrapper.sh --experimental sync --group dev --no-cache
+        run: ./uv_wrapper.sh --experimental sync --group dev --no-cache
       - name: Build
         run: |
           export PACKAGE_SUFFIX=.preview

@@ -9,6 +9,7 @@ variables:
   CI_IMAGE_VERSION: "uv_1.0"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   RUNNER: amazme-1
+  UV_CACHE_DIR: .uv-cache
 
 image: "${CI_REGISTRY_IMAGE}:${CI_IMAGE_VERSION}_py310"
 
@@ -82,7 +83,7 @@ sphinx-job:
     - *wrapper_install
     - *install_conditionals
   script:
-    - make -C docs clean html
+    - uv run make -C docs clean html
   tags:
     - ${RUNNER}
   

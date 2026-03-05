@@ -1,0 +1,28 @@
+name: "CI Setup"
+description: "Composite action to setup a CI container with Python and UV"
+
+inputs:
+  python-version:
+    description: "Python version to install in the container."
+    required: true
+    default: "3.10"
+
+runs:
+    using: "composite"
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.10.7"
+
+      - name: Setup Python
+        shell: bash
+        env:
+          CI_PYTHON_VERSION: ${{ inputs.python-version }}
+        run: | 
+          uv python install $CI_PYTHON_VERSION
+          uv pip install --system --no-cache --upgrade pip wheel
+        
