@@ -26,7 +26,7 @@ class CalculationDescriptor:
         """
 
     @abstractmethod
-    def cpu(self, distribution: np.ndarray | PolarsDataFrame):
+    def cpu(self, distribution: npt.NDArray | PolarsDataFrame):
         """
         Calculation on cpu
         """
