@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
-
-from typing_extensions import Literal
+from typing import Literal
 
 from .base_hnsw_param import BaseHnswParam
 

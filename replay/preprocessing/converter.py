@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 from scipy.sparse import csr_matrix
 
@@ -50,9 +48,9 @@ class CSRConverter:
         self,
         first_dim_column: str,
         second_dim_column: str,
-        data_column: Optional[str] = None,
-        row_count: Optional[int] = None,
-        column_count: Optional[int] = None,
+        data_column: str | None = None,
+        row_count: int | None = None,
+        column_count: int | None = None,
         allow_collect_to_master: bool = False,
     ):
         """

@@ -1,5 +1,3 @@
-from typing import Optional
-
 from replay.data import FeatureHint, FeatureType
 from replay.data.nn.schema import TensorFeatureInfo, TensorFeatureSource, TensorSchema
 
@@ -17,9 +15,9 @@ class TensorSchemaBuilder:
         name: str,
         cardinality: int,
         is_seq: bool = False,
-        feature_source: Optional[TensorFeatureSource] = None,
-        feature_hint: Optional[FeatureHint] = None,
-        embedding_dim: Optional[int] = None,
+        feature_source: TensorFeatureSource | None = None,
+        feature_hint: FeatureHint | None = None,
+        embedding_dim: int | None = None,
         padding_value: int = 0,
     ) -> "TensorSchemaBuilder":
         source = [feature_source] if feature_source else None
@@ -40,8 +38,8 @@ class TensorSchemaBuilder:
         name: str,
         tensor_dim: int,
         is_seq: bool = False,
-        feature_sources: Optional[list[TensorFeatureSource]] = None,
-        feature_hint: Optional[FeatureHint] = None,
+        feature_sources: list[TensorFeatureSource] | None = None,
+        feature_hint: FeatureHint | None = None,
         padding_value: int = 0,
     ) -> "TensorSchemaBuilder":
         self._tensor_schema[name] = TensorFeatureInfo(
@@ -60,9 +58,9 @@ class TensorSchemaBuilder:
         name: str,
         cardinality: int,
         is_seq: bool = False,
-        feature_source: Optional[TensorFeatureSource] = None,
-        feature_hint: Optional[FeatureHint] = None,
-        embedding_dim: Optional[int] = None,
+        feature_source: TensorFeatureSource | None = None,
+        feature_hint: FeatureHint | None = None,
+        embedding_dim: int | None = None,
         padding_value: int = 0,
     ) -> "TensorSchemaBuilder":
         source = [feature_source] if feature_source else None
@@ -83,8 +81,8 @@ class TensorSchemaBuilder:
         name: str,
         tensor_dim: int,
         is_seq: bool = False,
-        feature_sources: Optional[list[TensorFeatureSource]] = None,
-        feature_hint: Optional[FeatureHint] = None,
+        feature_sources: list[TensorFeatureSource] | None = None,
+        feature_hint: FeatureHint | None = None,
         padding_value: int = 0,
     ) -> "TensorSchemaBuilder":
         self._tensor_schema[name] = TensorFeatureInfo(

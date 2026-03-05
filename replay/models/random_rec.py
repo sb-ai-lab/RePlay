@@ -1,5 +1,3 @@
-from typing import Optional
-
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE
 
@@ -135,7 +133,7 @@ class RandomRec(NonPersonalizedRecommender):
         self,
         distribution: str = "uniform",
         alpha: float = 0.0,
-        seed: Optional[int] = None,
+        seed: int | None = None,
         add_cold_items: bool = True,
         cold_weight: float = 0.5,
     ):

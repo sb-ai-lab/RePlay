@@ -1,6 +1,6 @@
 import warnings
 from collections.abc import Sequence
-from typing import Literal, Optional, Protocol, Union
+from typing import Literal, Protocol
 
 import torch
 
@@ -33,7 +33,7 @@ class SequenceEmbedding(torch.nn.Module):
     def __init__(
         self,
         schema: TensorSchema,
-        excluded_features: Optional[list[str]] = None,
+        excluded_features: list[str] | None = None,
         categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
     ):
         """
@@ -71,7 +71,7 @@ class SequenceEmbedding(torch.nn.Module):
         if not feature_embedders:
             msg = "Expected to have at least one feature name to generate embedding."
             raise ValueError(msg)
-        self.feature_embedders: dict[str, Union[CategoricalEmbedding, NumericalEmbedding]] = torch.nn.ModuleDict(
+        self.feature_embedders: dict[str, CategoricalEmbedding | NumericalEmbedding] = torch.nn.ModuleDict(
             feature_embedders
         )
         self._item_feature_name = schema.item_id_feature_name
@@ -80,7 +80,7 @@ class SequenceEmbedding(torch.nn.Module):
         for feature_embedder in self.feature_embedders.values():
             feature_embedder.reset_parameters()
 
-    def forward(self, feature_tensor: TensorMap, feature_names: Optional[Sequence[str]] = None) -> TensorMap:
+    def forward(self, feature_tensor: TensorMap, feature_names: Sequence[str] | None = None) -> TensorMap:
         """
         :param feature_tensor: a dictionary of tensors to generate embedding.
             It is expected that the keys from this dictionary match the names of the features in the given ``schema``.
@@ -102,7 +102,7 @@ class SequenceEmbedding(torch.nn.Module):
         """
         return {name: emb.embedding_dim for name, emb in self.feature_embedders.items()}
 
-    def get_item_weights(self, indices: Optional[torch.LongTensor] = None) -> torch.Tensor:
+    def get_item_weights(self, indices: torch.LongTensor | None = None) -> torch.Tensor:
         """
         Getting the embedding weights for a feature that matches the item id feature
         with the name specified in the ``schema``.

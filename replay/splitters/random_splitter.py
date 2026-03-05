@@ -1,5 +1,3 @@
-from typing import Optional
-
 from replay.utils import DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
 from .base_splitter import Splitter, SplitterReturnType
@@ -22,7 +20,7 @@ class RandomSplitter(Splitter):
         test_size: float,
         drop_cold_items: bool = False,
         drop_cold_users: bool = False,
-        seed: Optional[int] = None,
+        seed: int | None = None,
         query_column: str = "query_id",
         item_column: str = "item_id",
     ):

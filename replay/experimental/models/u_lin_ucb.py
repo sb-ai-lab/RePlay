@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 import pandas as pd
 
@@ -68,9 +66,9 @@ class ULinUCB(HybridRecommender):
         log: SparkDataFrame,  # noqa: ARG002
         k: int,
         users: SparkDataFrame,
-        items: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        items: SparkDataFrame | None = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
         filter_seen_items: bool = True,  # noqa: ARG002
         oversample: int = 20,
     ) -> SparkDataFrame:

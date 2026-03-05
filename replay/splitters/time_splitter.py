@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional, Union
 
 import polars as pl
 
@@ -100,13 +99,13 @@ class TimeSplitter(Splitter):
 
     def __init__(
         self,
-        time_threshold: Union[datetime, str, float],
+        time_threshold: datetime | str | float,
         query_column: str = "query_id",
         drop_cold_users: bool = False,
         drop_cold_items: bool = False,
         item_column: str = "item_id",
         timestamp_column: str = "timestamp",
-        session_id_column: Optional[str] = None,
+        session_id_column: str | None = None,
         session_id_processing_strategy: str = "test",
         time_column_format: str = "%Y-%m-%d %H:%M:%S",
     ):
@@ -149,7 +148,7 @@ class TimeSplitter(Splitter):
         self.time_threshold = time_threshold
 
     def _partial_split(
-        self, interactions: DataFrameLike, threshold: Union[datetime, str, int]
+        self, interactions: DataFrameLike, threshold: datetime | str | int
     ) -> tuple[DataFrameLike, DataFrameLike]:
         if isinstance(threshold, str):
             threshold = datetime.strptime(threshold, self.time_column_format)
@@ -165,7 +164,7 @@ class TimeSplitter(Splitter):
         raise NotImplementedError(msg)
 
     def _partial_split_pandas(
-        self, interactions: PandasDataFrame, threshold: Union[datetime, str, int]
+        self, interactions: PandasDataFrame, threshold: datetime | str | int
     ) -> tuple[PandasDataFrame, PandasDataFrame]:
         res = interactions.copy(deep=True)
         if isinstance(threshold, float):
@@ -185,7 +184,7 @@ class TimeSplitter(Splitter):
         return train, test
 
     def _partial_split_spark(
-        self, interactions: SparkDataFrame, threshold: Union[datetime, str, int]
+        self, interactions: SparkDataFrame, threshold: datetime | str | int
     ) -> tuple[SparkDataFrame, SparkDataFrame]:
         if isinstance(threshold, float):
             dates = interactions.select(self.timestamp_column).withColumn(
@@ -207,7 +206,7 @@ class TimeSplitter(Splitter):
         return train, test
 
     def _partial_split_polars(
-        self, interactions: PolarsDataFrame, threshold: Union[datetime, str, int]
+        self, interactions: PolarsDataFrame, threshold: datetime | str | int
     ) -> tuple[PolarsDataFrame, PolarsDataFrame]:
         if isinstance(threshold, float):
             test_start = int(len(interactions) * (1 - threshold)) + 1

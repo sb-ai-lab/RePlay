@@ -1,5 +1,5 @@
-from collections.abc import Iterator
-from typing import Any, Callable, Optional
+from collections.abc import Callable, Iterator
+from typing import Any
 
 import pyarrow.dataset as da
 import torch
@@ -24,7 +24,7 @@ class BatchesIterator:
         batch_size: int,
         make_mask_name: Callable[[str], str] = DEFAULT_MAKE_MASK_NAME,
         device: torch.device = DEFAULT_DEVICE,
-        pyarrow_kwargs: Optional[dict[str, Any]] = None,
+        pyarrow_kwargs: dict[str, Any] | None = None,
     ) -> None:
         """
         :param metadata: Metadata describing the structure and types of input data.

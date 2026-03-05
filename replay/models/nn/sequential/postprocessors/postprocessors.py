@@ -1,4 +1,4 @@
-from typing import Optional, Union, cast
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -95,14 +95,14 @@ class RemoveSeenItems(BasePostProcessor):
         return torch.LongTensor(flat_seen_item_ids_np)
 
     @property
-    def candidates(self) -> Union[torch.LongTensor, None]:
+    def candidates(self) -> torch.LongTensor | None:
         """
         Returns tensor of item ids to calculate scores.
         """
         return self._candidates
 
     @candidates.setter
-    def candidates(self, candidates: Optional[torch.LongTensor] = None) -> None:
+    def candidates(self, candidates: torch.LongTensor | None = None) -> None:
         """
         Sets tensor of item ids to calculate scores.
         :param candidates: Tensor of item ids to calculate scores.
@@ -160,7 +160,7 @@ class SampleItems(BasePostProcessor):
         return query_ids, modified_score
 
     def _compute_score(
-        self, query_ids: torch.LongTensor, scores: torch.Tensor, ground_truth: Optional[torch.LongTensor]
+        self, query_ids: torch.LongTensor, scores: torch.Tensor, ground_truth: torch.LongTensor | None
     ) -> torch.Tensor:
         batch_size = query_ids.shape[0]
         item_ids = ground_truth.cpu().numpy() if ground_truth is not None else None

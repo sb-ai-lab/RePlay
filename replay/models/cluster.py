@@ -1,5 +1,4 @@
 from os.path import join
-from typing import Optional
 
 from replay.data.dataset import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
@@ -33,7 +32,7 @@ class ClusterRec(QueryRecommender):
     def _init_args(self):
         return {"num_clusters": self.num_clusters}
 
-    def _save_model(self, path: str, additional_params: Optional[dict] = None):
+    def _save_model(self, path: str, additional_params: dict | None = None):
         super()._save_model(path, additional_params)
         self.model.write().overwrite().save(join(path, "model"))
 

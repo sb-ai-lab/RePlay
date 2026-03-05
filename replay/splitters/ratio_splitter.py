@@ -1,5 +1,3 @@
-from typing import Optional
-
 import polars as pl
 
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, PandasDataFrame, PolarsDataFrame, SparkDataFrame
@@ -107,9 +105,9 @@ class RatioSplitter(Splitter):
         query_column: str = "query_id",
         item_column: str = "item_id",
         timestamp_column: str = "timestamp",
-        min_interactions_per_group: Optional[int] = None,
+        min_interactions_per_group: int | None = None,
         split_by_fractions: bool = True,
-        session_id_column: Optional[str] = None,
+        session_id_column: str | None = None,
         session_id_processing_strategy: str = "test",
     ):
         """

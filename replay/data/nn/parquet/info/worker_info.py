@@ -1,4 +1,5 @@
-from typing import Any, Iterator, Optional, Protocol
+from collections.abc import Iterator
+from typing import Any, Protocol
 
 import torch.utils.data as data
 
@@ -18,7 +19,7 @@ class WorkerInfo:
         yield self.id
 
     @property
-    def worker_info(self) -> Optional[Any]:
+    def worker_info(self) -> Any | None:
         return data.get_worker_info()
 
     @property
@@ -27,14 +28,14 @@ class WorkerInfo:
 
     @property
     def id(self) -> int:
-        wi: Optional[data.WorkerInfo] = self.worker_info
+        wi: data.WorkerInfo | None = self.worker_info
         if wi is not None:
             return wi.id
         return 0
 
     @property
     def num_workers(self) -> int:
-        wi: Optional[data.WorkerInfo] = self.worker_info
+        wi: data.WorkerInfo | None = self.worker_info
         if wi is not None:
             return wi.num_workers
         return 1

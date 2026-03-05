@@ -2,7 +2,6 @@ import json
 from inspect import getfullargspec
 from os.path import join
 from pathlib import Path
-from typing import Union
 
 from replay.experimental.models.base_rec import BaseRecommender
 from replay.experimental.preprocessing import Indexer
@@ -30,7 +29,7 @@ if PYSPARK_AVAILABLE:
         return [str(f.getPath()) for f in statuses]
 
 
-def save(model: BaseRecommender, path: Union[str, Path], overwrite: bool = False):
+def save(model: BaseRecommender, path: str | Path, overwrite: bool = False):
     """
     Save fitted model to disk as a folder
 
@@ -121,7 +120,7 @@ def load(path: str, model_type=None) -> BaseRecommender:
     return model
 
 
-def save_indexer(indexer: Indexer, path: Union[str, Path], overwrite: bool = False):
+def save_indexer(indexer: Indexer, path: str | Path, overwrite: bool = False):
     """
     Save fitted indexer to disk as a folder
 

@@ -1,5 +1,5 @@
 import inspect
-from typing import Any, Optional, Union
+from typing import Any
 
 import lightning
 import torch
@@ -19,8 +19,8 @@ class LightningModule(lightning.LightningModule):
     def __init__(
         self,
         model: torch.nn.Module,
-        optimizer_factory: Optional[BaseOptimizerFactory] = None,
-        lr_scheduler_factory: Optional[BaseLRSchedulerFactory] = None,
+        optimizer_factory: BaseOptimizerFactory | None = None,
+        lr_scheduler_factory: BaseLRSchedulerFactory | None = None,
     ) -> None:
         """
         :param model: Initialized model.\n
@@ -40,7 +40,7 @@ class LightningModule(lightning.LightningModule):
         self._lr_scheduler_factory = lr_scheduler_factory
         self.candidates_to_score = None
 
-    def forward(self, batch: dict) -> Union[TrainOutput, InferenceOutput]:
+    def forward(self, batch: dict) -> TrainOutput | InferenceOutput:
         """
         Implementation of the forward function.
 
@@ -105,7 +105,7 @@ class LightningModule(lightning.LightningModule):
         return [optimizer], [lr_scheduler]
 
     @property
-    def candidates_to_score(self) -> Optional[torch.LongTensor]:
+    def candidates_to_score(self) -> torch.LongTensor | None:
         """
         :getter: Returns a tensor containing the candidate IDs.
             The tensor will be used during the inference stage of the model.\n
@@ -115,7 +115,7 @@ class LightningModule(lightning.LightningModule):
         return self._candidates_to_score
 
     @candidates_to_score.setter
-    def candidates_to_score(self, candidates: Optional[torch.LongTensor] = None) -> None:
+    def candidates_to_score(self, candidates: torch.LongTensor | None = None) -> None:
         if (candidates is not None) and bool(candidates.unique().numel() != candidates.numel()):
             msg = "The tensor of candidates to score must be unique."
             raise ValueError(msg)

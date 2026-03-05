@@ -1,6 +1,5 @@
 import logging
 from collections.abc import Iterator
-from typing import Optional
 
 import numpy as np
 
@@ -30,7 +29,7 @@ class ExecutorHnswlibIndexBuilder(IndexBuilder):
         self,
         vectors: SparkDataFrame,
         features_col: str,
-        ids_col: Optional[str] = None,
+        ids_col: str | None = None,
     ):
         # to execution in one executor
         vectors = vectors.repartition(1)

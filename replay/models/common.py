@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from replay.utils import SparkDataFrame
 from replay.utils.spark_utils import cache_temp_view, drop_temp_view
@@ -10,8 +10,8 @@ class RecommenderCommons:
     Common methods and attributes of RePlay models for caching, setting parameters and logging
     """
 
-    _logger: Optional[logging.Logger] = None
-    cached_dfs: Optional[set] = None
+    _logger: logging.Logger | None = None
+    cached_dfs: set | None = None
     query_column: str
     item_column: str
     rating_column: str

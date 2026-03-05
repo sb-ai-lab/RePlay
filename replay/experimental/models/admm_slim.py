@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Any, Optional, Union
+from typing import Any
 
 import numba as nb
 import numpy as np
@@ -96,8 +96,8 @@ class ADMMSLIM(NeighbourRec):
         self,
         lambda_1: float = 5,
         lambda_2: float = 5000,
-        seed: Optional[int] = None,
-        index_builder: Optional[IndexBuilder] = None,
+        seed: int | None = None,
+        index_builder: IndexBuilder | None = None,
     ):
         """
         :param lambda_1: l1 regularization term
@@ -140,8 +140,8 @@ class ADMMSLIM(NeighbourRec):
     def _fit(
         self,
         log: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
     ) -> None:
         self.logger.debug("Fitting ADMM SLIM")
         pandas_log = log.select("user_idx", "item_idx", "relevance").toPandas()
@@ -213,13 +213,13 @@ class ADMMSLIM(NeighbourRec):
         self,
         log: SparkDataFrame,
         k: int,
-        users: Optional[Union[SparkDataFrame, Iterable]] = None,
-        items: Optional[Union[SparkDataFrame, Iterable]] = None,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        users: SparkDataFrame | Iterable | None = None,
+        items: SparkDataFrame | Iterable | None = None,
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
         filter_seen_items: bool = True,
-        recs_file_path: Optional[str] = None,
-    ) -> Optional[SparkDataFrame]:
+        recs_file_path: str | None = None,
+    ) -> SparkDataFrame | None:
         log, users, items = self._filter_interactions_queries_items_dataframes(log, k, users, items)
 
         if self._use_ann:

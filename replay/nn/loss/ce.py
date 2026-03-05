@@ -1,4 +1,4 @@
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import torch
 
@@ -25,7 +25,7 @@ class CE(torch.nn.Module):
     @property
     def logits_callback(
         self,
-    ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+    ) -> Callable[[torch.Tensor, torch.Tensor | None], torch.Tensor]:
         """
         Property for calling a function for the logits computation.\n
 
@@ -43,7 +43,7 @@ class CE(torch.nn.Module):
         return self._logits_callback
 
     @logits_callback.setter
-    def logits_callback(self, func: Optional[Callable]) -> None:
+    def logits_callback(self, func: Callable | None) -> None:
         self._logits_callback = func
 
     def forward(
@@ -175,7 +175,7 @@ class CESampled(SampledLossBase):
     @property
     def logits_callback(
         self,
-    ) -> Callable[[torch.Tensor, Optional[torch.Tensor]], torch.Tensor]:
+    ) -> Callable[[torch.Tensor, torch.Tensor | None], torch.Tensor]:
         """
         Property for calling a function for the logits computation.\n
 
@@ -193,7 +193,7 @@ class CESampled(SampledLossBase):
         return self._logits_callback
 
     @logits_callback.setter
-    def logits_callback(self, func: Optional[Callable]) -> None:
+    def logits_callback(self, func: Callable | None) -> None:
         self._logits_callback = func
 
     def forward(

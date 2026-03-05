@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -69,15 +67,15 @@ class RandomNextNSplitter(Splitter):
 
     def __init__(
         self,
-        N: Optional[int] = 1,  # noqa: N803
+        N: int | None = 1,  # noqa: N803
         divide_column: str = "query_id",
-        seed: Optional[int] = None,
+        seed: int | None = None,
         query_column: str = "query_id",
         drop_cold_users: bool = False,
         drop_cold_items: bool = False,
         item_column: str = "item_id",
         timestamp_column: str = "timestamp",
-        session_id_column: Optional[str] = None,
+        session_id_column: str | None = None,
         session_id_processing_strategy: str = "test",
     ):
         """

@@ -1,5 +1,4 @@
 from collections.abc import Iterator
-from typing import Optional
 
 import torch
 import torch.utils.data as data
@@ -34,7 +33,7 @@ class IterableDataset(data.IterableDataset):
         self,
         named_columns: NamedColumns,
         batch_size: int,
-        generator: Optional[torch.Generator] = None,
+        generator: torch.Generator | None = None,
         replicas_info: ReplicasInfoProtocol = DEFAULT_REPLICAS_INFO,
     ) -> None:
         """

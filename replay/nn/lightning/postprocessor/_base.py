@@ -1,5 +1,4 @@
 import abc
-from typing import Optional, Union
 
 import torch
 
@@ -32,14 +31,14 @@ class PostprocessorBase(abc.ABC):  # pragma: no cover
         """
 
     @property
-    def candidates(self) -> Union[torch.LongTensor, None]:
+    def candidates(self) -> torch.LongTensor | None:
         """
         Returns tensor of item ids to calculate scores.
         """
         return self._candidates
 
     @candidates.setter
-    def candidates(self, candidates: Optional[torch.LongTensor] = None) -> None:
+    def candidates(self, candidates: torch.LongTensor | None = None) -> None:
         """
         Sets tensor of item ids to calculate scores.
         :param candidates: Tensor of item ids to calculate scores.

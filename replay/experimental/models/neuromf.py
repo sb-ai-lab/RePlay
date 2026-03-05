@@ -5,7 +5,6 @@ Neural Matrix Factorization (MLP + GMF).
 """
 
 import itertools
-from typing import Optional
 
 import numpy as np
 import torch
@@ -76,7 +75,7 @@ class MLP(nn.Module):
         user_count: int,
         item_count: int,
         embedding_dim: int,
-        hidden_dims: Optional[list[int]] = None,
+        hidden_dims: list[int] | None = None,
     ):
         """
         :param user_count: number of users
@@ -130,9 +129,9 @@ class NMF(nn.Module):
         self,
         user_count: int,
         item_count: int,
-        embedding_gmf_dim: Optional[int] = None,
-        embedding_mlp_dim: Optional[int] = None,
-        hidden_mlp_dims: Optional[list[int]] = None,
+        embedding_gmf_dim: int | None = None,
+        embedding_mlp_dim: int | None = None,
+        hidden_mlp_dims: list[int] | None = None,
     ):
         """
         :param user_count: number of users
@@ -141,8 +140,8 @@ class NMF(nn.Module):
         :param embedding_mlp_dim: embedding size for mlp
         :param hidden_mlp_dims: list of hidden dimension sizes for mlp
         """
-        self.gmf: Optional[GMF] = None
-        self.mlp: Optional[MLP] = None
+        self.gmf: GMF | None = None
+        self.mlp: MLP | None = None
 
         super().__init__()
         merged_dim = 0
@@ -201,9 +200,9 @@ class NeuroMF(TorchRecommender):
         self,
         learning_rate: float = 0.05,
         epochs: int = 20,
-        embedding_gmf_dim: Optional[int] = None,
-        embedding_mlp_dim: Optional[int] = None,
-        hidden_mlp_dims: Optional[list[int]] = None,
+        embedding_gmf_dim: int | None = None,
+        embedding_mlp_dim: int | None = None,
+        hidden_mlp_dims: list[int] | None = None,
         l2_reg: float = 0,
         count_negative_sample: int = 1,
         factor: float = 0.2,
@@ -278,8 +277,8 @@ class NeuroMF(TorchRecommender):
     def _fit(
         self,
         log: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
     ) -> None:
         self.logger.debug("Create DataLoaders")
         tensor_data = log.select("user_idx", "item_idx").toPandas()
@@ -342,7 +341,7 @@ class NeuroMF(TorchRecommender):
         model: nn.Module,
         user_idx: int,
         items_np: np.ndarray,
-        cnt: Optional[int] = None,
+        cnt: int | None = None,
     ) -> SparkDataFrame:
         model.eval()
         with torch.no_grad():

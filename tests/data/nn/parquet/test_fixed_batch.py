@@ -1,9 +1,11 @@
-from typing import Any, Iterator, Optional, Union, cast
+from __future__ import annotations
+
+from collections.abc import Iterator
+from typing import Any, TypeAlias, Union, cast
 
 import pytest
 import torch
 from torch.utils.data import IterableDataset
-from typing_extensions import TypeAlias
 
 from replay.data.nn.parquet.fixed_batch_dataset import (
     FixedBatchSizeDataset,
@@ -11,6 +13,7 @@ from replay.data.nn.parquet.fixed_batch_dataset import (
     get_batch_size,
 )
 
+# Union is here specifically to stay until Python 3.12+
 SchemaType: TypeAlias = dict[str, Union[tuple[int, ...], "SchemaType"]]
 
 schemas: list[SchemaType] = [
@@ -27,7 +30,7 @@ class FakeDataset(IterableDataset):
         length: int = 256,
         min_size: int = 1,
         max_size: int = 16,
-        generator: Optional[torch.Generator] = None,
+        generator: torch.Generator | None = None,
     ) -> None:
         super().__init__()
 
@@ -36,7 +39,7 @@ class FakeDataset(IterableDataset):
         self.length: int = length
         self.min_size: int = min_size
         self.max_size: int = max_size
-        self.generator: Optional[torch.Generator] = generator
+        self.generator: torch.Generator | None = generator
 
     def gen_batch(self, schema: dict[str, Any], size: int) -> GeneralBatch:
         batch: GeneralBatch = {}

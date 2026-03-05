@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 
 import torch
 
@@ -48,7 +47,7 @@ class ScalableCrossEntropyLoss:
         positive_labels: torch.LongTensor,
         all_embeddings: torch.Tensor,
         padding_mask: torch.BoolTensor,
-        tokens_mask: Optional[torch.BoolTensor] = None,
+        tokens_mask: torch.BoolTensor | None = None,
     ) -> torch.Tensor:
         """
         ScalableCrossEntropyLoss computation.

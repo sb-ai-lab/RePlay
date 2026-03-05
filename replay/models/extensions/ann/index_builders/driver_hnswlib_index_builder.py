@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 import numpy as np
 
@@ -30,7 +29,7 @@ class DriverHnswlibIndexBuilder(IndexBuilder):
         self,
         vectors: SparkDataFrame,
         features_col: str,
-        ids_col: Optional[str] = None,
+        ids_col: str | None = None,
     ):
         vectors = spark_to_pandas(vectors, self.allow_collect_to_master)
         vectors_np = np.squeeze(vectors[features_col].values)

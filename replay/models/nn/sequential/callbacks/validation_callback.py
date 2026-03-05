@@ -1,4 +1,4 @@
-from typing import Any, Literal, Optional, Protocol, Union
+from typing import Any, Literal, Protocol
 
 import lightning
 import torch
@@ -47,10 +47,10 @@ class ValidationMetricsCallback(lightning.Callback):
 
     def __init__(
         self,
-        metrics: Optional[list[CallbackMetricName]] = None,
-        ks: Optional[list[int]] = None,
-        postprocessors: Optional[list[BasePostProcessor]] = None,
-        item_count: Optional[int] = None,
+        metrics: list[CallbackMetricName] | None = None,
+        ks: list[int] | None = None,
+        postprocessors: list[BasePostProcessor] | None = None,
+        item_count: int | None = None,
     ):
         """
         :param metrics: Sequence of metrics to calculate.
@@ -65,7 +65,7 @@ class ValidationMetricsCallback(lightning.Callback):
         self._dataloaders_size: list[int] = []
         self._postprocessors: list[BasePostProcessor] = postprocessors or []
 
-    def _get_dataloaders_size(self, dataloaders: Optional[Any]) -> list[int]:
+    def _get_dataloaders_size(self, dataloaders: Any | None) -> list[int]:
         if isinstance(dataloaders, torch.utils.data.DataLoader):
             return [len(dataloaders)]
         return [len(dataloader) for dataloader in dataloaders]
@@ -104,7 +104,7 @@ class ValidationMetricsCallback(lightning.Callback):
         trainer: lightning.Trainer,
         pl_module: lightning.LightningModule,
         outputs: torch.Tensor,
-        batch: Union[ValidationBatch, dict],
+        batch: ValidationBatch | dict,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
@@ -115,7 +115,7 @@ class ValidationMetricsCallback(lightning.Callback):
         trainer: lightning.Trainer,
         pl_module: lightning.LightningModule,
         outputs: torch.Tensor,
-        batch: Union[ValidationBatch, dict],
+        batch: ValidationBatch | dict,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:  # pragma: no cover
@@ -126,7 +126,7 @@ class ValidationMetricsCallback(lightning.Callback):
         trainer: lightning.Trainer,  # noqa: ARG002
         pl_module: lightning.LightningModule,
         outputs: torch.Tensor,
-        batch: Union[ValidationBatch, dict],
+        batch: ValidationBatch | dict,
         batch_idx: int,
         dataloader_idx: int,
     ) -> None:

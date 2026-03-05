@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from replay.experimental.models.base_rec import ItemVectorModel, Recommender
 from replay.experimental.models.extensions.spark_custom_models.als_extension import ALS, ALSModel
@@ -17,7 +17,7 @@ class ALSWrap(Recommender, ItemVectorModel):
     <https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.recommendation.ALS>`_.
     """
 
-    _seed: Optional[int] = None
+    _seed: int | None = None
     if OPTUNA_AVAILABLE:
         _search_space = {
             "rank": {"type": "loguniform_int", "args": [8, 256]},
@@ -27,9 +27,9 @@ class ALSWrap(Recommender, ItemVectorModel):
         self,
         rank: int = 10,
         implicit_prefs: bool = True,
-        seed: Optional[int] = None,
-        num_item_blocks: Optional[int] = None,
-        num_user_blocks: Optional[int] = None,
+        seed: int | None = None,
+        num_item_blocks: int | None = None,
+        num_user_blocks: int | None = None,
     ):
         """
         :param rank: hidden dimension for the approximate matrix
@@ -67,8 +67,8 @@ class ALSWrap(Recommender, ItemVectorModel):
     def _fit(
         self,
         log: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
     ) -> None:
         if self._num_item_blocks is None:
             self._num_item_blocks = log.rdd.getNumPartitions()
@@ -98,12 +98,12 @@ class ALSWrap(Recommender, ItemVectorModel):
 
     def _predict(
         self,
-        log: Optional[SparkDataFrame],
+        log: SparkDataFrame | None,
         k: int,
         users: SparkDataFrame,
         items: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
         filter_seen_items: bool = True,
     ) -> SparkDataFrame:
         if (items.count() == self.fit_items.count()) and (
@@ -139,9 +139,9 @@ class ALSWrap(Recommender, ItemVectorModel):
     def _predict_pairs(
         self,
         pairs: SparkDataFrame,
-        log: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        log: SparkDataFrame | None = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
     ) -> SparkDataFrame:
         return (
             self.model.transform(pairs)
@@ -150,8 +150,8 @@ class ALSWrap(Recommender, ItemVectorModel):
         )
 
     def _get_features(
-        self, ids: SparkDataFrame, features: Optional[SparkDataFrame]  # noqa: ARG002
-    ) -> tuple[Optional[SparkDataFrame], Optional[int]]:
+        self, ids: SparkDataFrame, features: SparkDataFrame | None  # noqa: ARG002
+    ) -> tuple[SparkDataFrame | None, int | None]:
         entity = "user" if "user_idx" in ids.columns else "item"
         als_factors = getattr(self.model, f"{entity}Factors")
         als_factors = als_factors.withColumnRenamed("id", f"{entity}_idx").withColumnRenamed(
@@ -201,10 +201,10 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
         self,
         rank: int = 10,
         implicit_prefs: bool = True,
-        seed: Optional[int] = None,
-        num_item_blocks: Optional[int] = None,
-        num_user_blocks: Optional[int] = None,
-        index_builder: Optional[IndexBuilder] = None,
+        seed: int | None = None,
+        num_item_blocks: int | None = None,
+        num_user_blocks: int | None = None,
+        index_builder: IndexBuilder | None = None,
     ):
         ALSWrap.__init__(self, rank, implicit_prefs, seed, num_item_blocks, num_user_blocks)
         self.init_index_builder(index_builder)
@@ -222,8 +222,8 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
     def _fit(
         self,
         log: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
     ) -> None:
         if self._num_item_blocks is None:
             self._num_item_blocks = log.rdd.getNumPartitions()
@@ -262,12 +262,12 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
 
     def _predict(
         self,
-        log: Optional[SparkDataFrame],
+        log: SparkDataFrame | None,
         k: int,
         users: SparkDataFrame,
         items: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
         filter_seen_items: bool = True,
     ) -> SparkDataFrame:
         max_seen = 0

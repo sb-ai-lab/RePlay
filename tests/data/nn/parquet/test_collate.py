@@ -1,10 +1,8 @@
-from typing import Dict
-
 import torch
 
 from replay.data.nn.parquet.collate import dict_collate
 
-Batch = Dict[str, torch.Tensor]
+Batch = dict[str, torch.Tensor]
 
 
 def test_dict_collate():

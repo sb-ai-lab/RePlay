@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 
@@ -123,10 +123,10 @@ class AssociationRulesItemRec(NeighbourRec):
         session_column: str,
         min_item_count: int = 5,
         min_pair_count: int = 5,
-        num_neighbours: Optional[int] = 1000,
+        num_neighbours: int | None = 1000,
         use_rating: bool = False,
         similarity_metric: str = "confidence",
-        index_builder: Optional[IndexBuilder] = None,
+        index_builder: IndexBuilder | None = None,
     ) -> None:
         """
         :param session_column: name of column to group sessions.
@@ -298,10 +298,10 @@ class AssociationRulesItemRec(NeighbourRec):
 
     def get_nearest_items(
         self,
-        items: Union[SparkDataFrame, Iterable],
+        items: SparkDataFrame | Iterable,
         k: int,
         metric: str = "lift",
-        candidates: Optional[Union[SparkDataFrame, Iterable]] = None,
+        candidates: SparkDataFrame | Iterable | None = None,
     ) -> SparkDataFrame:
         """
         Get k most similar items be the `metric` for each of the `items`.
@@ -330,8 +330,8 @@ class AssociationRulesItemRec(NeighbourRec):
     def _get_nearest_items(
         self,
         items: SparkDataFrame,
-        metric: Optional[str] = None,  # noqa: ARG002
-        candidates: Optional[SparkDataFrame] = None,
+        metric: str | None = None,  # noqa: ARG002
+        candidates: SparkDataFrame | None = None,
     ) -> SparkDataFrame:
         """
         Return metric for all available associated items filtered by `candidates`.

@@ -1,8 +1,7 @@
 import logging
+from collections.abc import Sequence
 from typing import (
     Literal,
-    Optional,
-    Sequence,
 )
 
 import pandas as pd
@@ -28,9 +27,9 @@ def _ensure_columns_match(df, ref_cols, index: int, check_columns: bool) -> None
 
 def _merge_subsets_pandas(
     dfs: Sequence[PandasDataFrame],
-    columns: Optional[Sequence[str]],
+    columns: Sequence[str] | None,
     check_columns: bool,
-    subset_for_duplicates: Optional[Sequence[str]],
+    subset_for_duplicates: Sequence[str] | None,
     on_duplicate: Literal["error", "drop", "ignore"],
 ) -> PandasDataFrame:
     ref_cols = list(dfs[0].columns) if columns is None else list(columns)
@@ -64,9 +63,9 @@ def _merge_subsets_pandas(
 
 def _merge_subsets_polars(
     dfs: Sequence[PolarsDataFrame],
-    columns: Optional[Sequence[str]],
+    columns: Sequence[str] | None,
     check_columns: bool,
-    subset_for_duplicates: Optional[Sequence[str]],
+    subset_for_duplicates: Sequence[str] | None,
     on_duplicate: Literal["error", "drop", "ignore"],
 ) -> PolarsDataFrame:
     ref_cols = list(dfs[0].columns) if columns is None else list(columns)
@@ -100,9 +99,9 @@ def _merge_subsets_polars(
 
 def _merge_subsets_spark(
     dfs: Sequence[SparkDataFrame],
-    columns: Optional[Sequence[str]],
+    columns: Sequence[str] | None,
     check_columns: bool,
-    subset_for_duplicates: Optional[Sequence[str]],
+    subset_for_duplicates: Sequence[str] | None,
     on_duplicate: Literal["error", "drop", "ignore"],
 ) -> SparkDataFrame:
     ref_cols = list(dfs[0].columns) if columns is None else list(columns)
@@ -132,9 +131,9 @@ def _merge_subsets_spark(
 
 def merge_subsets(
     dfs: Sequence[DataFrameLike],
-    columns: Optional[Sequence[str]] = None,
+    columns: Sequence[str] | None = None,
     check_columns: bool = True,
-    subset_for_duplicates: Optional[Sequence[str]] = None,
+    subset_for_duplicates: Sequence[str] | None = None,
     on_duplicate: Literal["error", "drop", "ignore"] = "error",
 ) -> DataFrameLike:
     """Merge multiple dataframes of the same backend into a single one.
@@ -148,11 +147,11 @@ def merge_subsets(
     ----------
     dfs : Sequence[DataFrameLike]
         Dataframes to merge.
-    columns : Optional[Sequence[str]]
+    columns : Sequence[str] | None
         Columns to align to. If ``None``, columns of the first dataframe are used.
     check_columns : bool
         Whether to validate that all inputs have the same column set.
-    subset_for_duplicates : Optional[Sequence[str]]
+    subset_for_duplicates : Sequence[str] | None
         Columns subset used to detect duplicates. If ``None``, all aligned columns
         are used.
     on_duplicate : {"error", "drop", "ignore"}
