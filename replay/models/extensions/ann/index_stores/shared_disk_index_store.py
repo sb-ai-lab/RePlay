@@ -2,8 +2,9 @@ import logging
 import os
 import shutil
 import weakref
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from pyarrow import fs
 

@@ -2,9 +2,7 @@ import warnings
 from collections.abc import Sequence
 from copy import deepcopy
 from functools import partial
-from typing import NoReturn, Optional, Union
-
-from typing_extensions import TypeAlias
+from typing import NoReturn, TypeAlias
 
 from replay.data import Dataset
 from replay.metrics import NDCG, Metric
@@ -22,9 +20,9 @@ if OPTUNA_AVAILABLE:
         """
 
         _objective = MainObjective
-        _search_space: Optional[dict[str, Union[str, Sequence[Union[str, int, float]]]]] = None
+        _search_space: dict[str, str | Sequence[str | int | float]] | None = None
         study = None
-        criterion: Optional[Metric] = None
+        criterion: Metric | None = None
 
         @staticmethod
         def _filter_dataset_features(
@@ -98,7 +96,7 @@ if OPTUNA_AVAILABLE:
                 msg = f"Hyper parameter {param} is numerical but bounds are not in ([lower, upper]) format"
                 raise ValueError(msg)
 
-        def _prepare_param_borders(self, param_borders: Optional[dict[str, list]] = None) -> dict[str, dict[str, list]]:
+        def _prepare_param_borders(self, param_borders: dict[str, list] | None = None) -> dict[str, dict[str, list]]:
             """
             Checks if param borders are valid and convert them to a search_space format
 
@@ -170,12 +168,12 @@ if OPTUNA_AVAILABLE:
             self,
             train_dataset: Dataset,
             test_dataset: Dataset,
-            param_borders: Optional[dict[str, list]] = None,
+            param_borders: dict[str, list] | None = None,
             criterion: Metric = NDCG,
             k: int = 10,
             budget: int = 10,
             new_study: bool = True,
-        ) -> Optional[dict]:
+        ) -> dict | None:
             """
             Searches the best parameters with optuna.
 
@@ -246,7 +244,7 @@ else:
             self,
             train_dataset: Dataset,  # noqa: ARG002
             test_dataset: Dataset,  # noqa: ARG002
-            param_borders: Optional[dict[str, list]] = None,  # noqa: ARG002
+            param_borders: dict[str, list] | None = None,  # noqa: ARG002
             criterion: Metric = NDCG,  # noqa: ARG002
             k: int = 10,  # noqa: ARG002
             budget: int = 10,  # noqa: ARG002

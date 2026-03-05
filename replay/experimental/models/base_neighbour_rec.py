@@ -5,7 +5,7 @@ Part of set of abstract classes (from base_rec.py)
 
 from abc import ABC
 from collections.abc import Iterable
-from typing import Any, Optional, Union
+from typing import Any
 
 from replay.experimental.models.base_rec import Recommender
 from replay.models.extensions.ann.ann_mixin import ANNMixin
@@ -19,7 +19,7 @@ if PYSPARK_AVAILABLE:
 class NeighbourRec(ANNMixin, Recommender, ABC):
     """Base class that requires log at prediction time"""
 
-    similarity: Optional[SparkDataFrame]
+    similarity: SparkDataFrame | None
     can_predict_item_to_item: bool = True
     can_predict_cold_users: bool = True
     can_change_metric: bool = False
@@ -96,8 +96,8 @@ class NeighbourRec(ANNMixin, Recommender, ABC):
         k: int,  # noqa: ARG002
         users: SparkDataFrame,
         items: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
         filter_seen_items: bool = True,  # noqa: ARG002
     ) -> SparkDataFrame:
         return self._predict_pairs_inner(
@@ -110,9 +110,9 @@ class NeighbourRec(ANNMixin, Recommender, ABC):
     def _predict_pairs(
         self,
         pairs: SparkDataFrame,
-        log: Optional[SparkDataFrame] = None,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        log: SparkDataFrame | None = None,
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
     ) -> SparkDataFrame:
         if log is None:
             msg = "log is not provided, but it is required for prediction"
@@ -130,10 +130,10 @@ class NeighbourRec(ANNMixin, Recommender, ABC):
 
     def get_nearest_items(
         self,
-        items: Union[SparkDataFrame, Iterable],
+        items: SparkDataFrame | Iterable,
         k: int,
-        metric: Optional[str] = None,
-        candidates: Optional[Union[SparkDataFrame, Iterable]] = None,
+        metric: str | None = None,
+        candidates: SparkDataFrame | Iterable | None = None,
     ) -> SparkDataFrame:
         """
         Get k most similar items be the `metric` for each of the `items`.
@@ -166,8 +166,8 @@ class NeighbourRec(ANNMixin, Recommender, ABC):
     def _get_nearest_items(
         self,
         items: SparkDataFrame,
-        metric: Optional[str] = None,
-        candidates: Optional[SparkDataFrame] = None,
+        metric: str | None = None,
+        candidates: SparkDataFrame | None = None,
     ) -> SparkDataFrame:
         similarity_filtered = self.similarity.join(
             items.withColumnRenamed("item_idx", "item_idx_one"),

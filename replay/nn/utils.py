@@ -1,11 +1,12 @@
 import warnings
-from typing import Callable, Literal, Tuple
+from collections.abc import Callable
+from typing import Literal
 
 import torch
 
 
 def warning_is_not_none(msg: str) -> Callable:
-    def checker(value: Tuple[torch.Tensor, str]) -> bool:
+    def checker(value: tuple[torch.Tensor, str]) -> bool:
         if value[0] is not None:
             warnings.warn(msg.format(value[1]), RuntimeWarning, stacklevel=2)
             return False

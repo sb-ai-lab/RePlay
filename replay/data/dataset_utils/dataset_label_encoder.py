@@ -7,7 +7,6 @@ Contains classes for encoding categorical data
 
 import warnings
 from collections.abc import Iterable, Iterator, Sequence
-from typing import Optional, Union
 
 from replay.data import Dataset, FeatureHint, FeatureSchema, FeatureSource, FeatureType
 from replay.preprocessing import LabelEncoder, LabelEncodingRule, SequenceEncodingRule
@@ -26,7 +25,7 @@ class DatasetLabelEncoder:
     def __init__(
         self,
         handle_unknown_rule: HandleUnknownStrategies = "error",
-        default_value_rule: Optional[Union[int, str]] = None,
+        default_value_rule: int | str | None = None,
     ) -> None:
         """
         :param handle_unknown_rule:
@@ -48,7 +47,7 @@ class DatasetLabelEncoder:
         self._default_value_rule = default_value_rule
         self._encoding_rules: dict[str, LabelEncodingRule] = {}
 
-        self._features_columns: dict[Union[FeatureHint, FeatureSource], Sequence[str]] = {}
+        self._features_columns: dict[FeatureHint | FeatureSource, Sequence[str]] = {}
 
     def fit(self, dataset: Dataset) -> "DatasetLabelEncoder":
         """
@@ -153,7 +152,7 @@ class DatasetLabelEncoder:
         """
         return self.fit(dataset).transform(dataset)
 
-    def get_encoder(self, columns: Union[str, Iterable[str]]) -> Optional[LabelEncoder]:
+    def get_encoder(self, columns: str | Iterable[str]) -> LabelEncoder | None:
         """
         Get the encoder of fitted Dataset for columns.
 
@@ -208,7 +207,7 @@ class DatasetLabelEncoder:
         return encoder
 
     @property
-    def interactions_encoder(self) -> Optional[LabelEncoder]:
+    def interactions_encoder(self) -> LabelEncoder | None:
         """
         :returns: interactions LabelEncoder.
         """
@@ -217,7 +216,7 @@ class DatasetLabelEncoder:
         return self.get_encoder(interactions_columns)
 
     @property
-    def query_features_encoder(self) -> Optional[LabelEncoder]:
+    def query_features_encoder(self) -> LabelEncoder | None:
         """
         :returns: query features LabelEncoder.
         """
@@ -225,7 +224,7 @@ class DatasetLabelEncoder:
         return self.get_encoder(query_features_columns)
 
     @property
-    def item_features_encoder(self) -> Optional[LabelEncoder]:
+    def item_features_encoder(self) -> LabelEncoder | None:
         """
         :returns: item features LabelEncoder.
         """

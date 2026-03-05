@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 
 from replay.utils.session_handler import Borg, get_spark_session, logger_with_settings
@@ -20,8 +18,8 @@ class State(Borg):
 
     def __init__(
         self,
-        session: Optional[SparkSession] = None,
-        device: Optional[torch.device] = None,
+        session: SparkSession | None = None,
+        device: torch.device | None = None,
     ):
         Borg.__init__(self)
         if not hasattr(self, "logger_set"):

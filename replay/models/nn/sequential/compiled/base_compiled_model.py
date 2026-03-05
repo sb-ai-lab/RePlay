@@ -1,7 +1,7 @@
 import pathlib
 import tempfile
 from abc import abstractmethod
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal
 
 import lightning
 import openvino as ov
@@ -21,7 +21,7 @@ def _compile_openvino(
     batch_size: int,
     max_seq_len: int,
     num_candidates_to_score: int,
-    num_threads: Optional[int],
+    num_threads: int | None,
 ) -> ov.CompiledModel:
     """
     Method defines compilation strategy for openvino backend.
@@ -79,7 +79,7 @@ class BaseCompiledModel:
     def predict(
         self,
         batch: Any,
-        candidates_to_score: Optional[torch.LongTensor] = None,
+        candidates_to_score: torch.LongTensor | None = None,
     ) -> torch.Tensor:
         """
         Inference on one batch.
@@ -104,7 +104,7 @@ class BaseCompiledModel:
     def _validate_predict_input(
         self,
         batch: Any,
-        candidates_to_score: Optional[torch.LongTensor] = None,
+        candidates_to_score: torch.LongTensor | None = None,
         padding_mask_key_name: str = "padding_mask",
     ) -> None:
         if self._num_candidates_to_score is None and candidates_to_score is not None:
@@ -139,8 +139,8 @@ class BaseCompiledModel:
 
     @staticmethod
     def _validate_num_candidates_to_score(
-        num_candidates: Union[int, None],
-    ) -> Union[int, None]:
+        num_candidates: int | None,
+    ) -> int | None:
         """Check if num_candidates param is proper"""
 
         if num_candidates is None:
@@ -157,8 +157,8 @@ class BaseCompiledModel:
     @staticmethod
     def _get_input_params(
         mode: OptimizedModeType,
-        batch_size: Optional[int],
-        num_candidates_to_score: Optional[int],
+        batch_size: int | None,
+        num_candidates_to_score: int | None,
     ) -> None:
         """Get params for model compilation according to compilation mode"""
 
@@ -178,13 +178,13 @@ class BaseCompiledModel:
     @staticmethod
     def _run_model_compilation(
         lightning_model: lightning.LightningModule,
-        model_input_sample: tuple[Union[torch.Tensor, dict[str, torch.Tensor]]],
+        model_input_sample: tuple[torch.Tensor | dict[str, torch.Tensor]],
         model_input_names: list[str],
         model_dynamic_axes_in_input: dict[str, dict],
         batch_size: int,
-        num_candidates_to_score: Union[int, None],
-        num_threads: Optional[int] = None,
-        onnx_path: Optional[str] = None,
+        num_candidates_to_score: int | None,
+        num_threads: int | None = None,
+        onnx_path: str | None = None,
     ) -> ov.CompiledModel:
         """
         Model conversion into ONNX format and compilation with defined engine.
@@ -237,12 +237,12 @@ class BaseCompiledModel:
     @abstractmethod
     def compile(
         cls,
-        model: Union[lightning.LightningModule, str, pathlib.Path],
+        model: lightning.LightningModule | str | pathlib.Path,
         mode: OptimizedModeType = "one_query",
-        batch_size: Optional[int] = None,
-        num_candidates_to_score: Optional[int] = None,
-        num_threads: Optional[int] = None,
-        onnx_path: Optional[str] = None,
+        batch_size: int | None = None,
+        num_candidates_to_score: int | None = None,
+        num_threads: int | None = None,
+        onnx_path: str | None = None,
     ) -> "BaseCompiledModel":
         """
         Model compilation.

@@ -1,6 +1,5 @@
 import warnings
 from os.path import join
-from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -180,7 +179,7 @@ class LinUCB(HybridRecommender):
         "alpha": {"type": "uniform", "args": [0.001, 10.0]},
     }
     _study = None  # field required for proper optuna's optimization
-    linucb_arms: list[Union[DisjointArm, HybridArm]]  # initialize only when working within fit method
+    linucb_arms: list[DisjointArm | HybridArm]  # initialize only when working within fit method
     rel_matrix: np.array  # matrix with relevance scores from predict method
     _num_items: int  # number of items/arms
 
@@ -420,7 +419,7 @@ class LinUCB(HybridRecommender):
         dataset.to_spark()
         return convert2spark(res_df)
 
-    def _save_model(self, path: str, additional_params: Optional[dict] = None):
+    def _save_model(self, path: str, additional_params: dict | None = None):
         super()._save_model(path, additional_params)
 
         save_picklable_to_parquet(self.linucb_arms, join(path, "linucb_arms.dump"))

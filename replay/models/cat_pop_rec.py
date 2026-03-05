@@ -1,6 +1,5 @@
 from collections.abc import Iterable
 from os.path import join
-from typing import Optional, Union
 
 from replay.data import Dataset
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
@@ -95,8 +94,8 @@ class CatPopRec(IsSavable, RecommenderCommons):
 
     def __init__(
         self,
-        cat_tree: Optional[SparkDataFrame] = None,
-        max_iter: Optional[int] = 20,
+        cat_tree: SparkDataFrame | None = None,
+        max_iter: int | None = 20,
     ):
         """
         :param cat_tree: spark dataframe with columns [`category`, `parent_cat`].
@@ -163,11 +162,11 @@ class CatPopRec(IsSavable, RecommenderCommons):
 
     def predict(
         self,
-        categories: Union[SparkDataFrame, Iterable],
+        categories: SparkDataFrame | Iterable,
         k: int,
-        items: Optional[Union[SparkDataFrame, Iterable]] = None,
-        recs_file_path: Optional[str] = None,
-    ) -> Optional[SparkDataFrame]:
+        items: SparkDataFrame | Iterable | None = None,
+        recs_file_path: str | None = None,
+    ) -> SparkDataFrame | None:
         """
         Get top-k recommendations for each category in `categories`.
 
@@ -190,11 +189,11 @@ class CatPopRec(IsSavable, RecommenderCommons):
 
     def _predict_wrap(
         self,
-        categories: Union[SparkDataFrame, Iterable],
+        categories: SparkDataFrame | Iterable,
         k: int,
-        items: Optional[Union[SparkDataFrame, Iterable]] = None,
-        recs_file_path: Optional[str] = None,
-    ) -> Optional[SparkDataFrame]:
+        items: SparkDataFrame | Iterable | None = None,
+        recs_file_path: str | None = None,
+    ) -> SparkDataFrame | None:
         """
         Predict wrapper to allow for fewer parameters in models
 
@@ -245,8 +244,8 @@ class CatPopRec(IsSavable, RecommenderCommons):
 
     def _predict(
         self,
-        categories: Union[SparkDataFrame, Iterable],
-        items: Optional[Union[SparkDataFrame, Iterable]] = None,
+        categories: SparkDataFrame | Iterable,
+        items: SparkDataFrame | Iterable | None = None,
     ) -> SparkDataFrame:
         res = categories.join(self.leaf_cat_mapping, on="category")
         # filter required categories and items of `self.cat_item_popularity`

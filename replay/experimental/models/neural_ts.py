@@ -1,5 +1,4 @@
 import os
-from typing import Optional, Union
 
 import joblib
 import matplotlib.pyplot as plt
@@ -129,7 +128,7 @@ class UserDatasetWithReset(Dataset):
         union_cols,
         cnt_neg_samples,
         device,
-        target: Optional[str] = None,
+        target: str | None = None,
     ):
         if cnt_neg_samples is not None:
             self.cnt_neg_samples = cnt_neg_samples
@@ -452,9 +451,9 @@ class NeuralTS(HybridRecommender):
         cnt_neg_samples: int = 100,
         cnt_samples_for_predict: int = 10,
         exploration_coef: float = 1.0,
-        cnt_users: Optional[int] = None,
-        cnt_items: Optional[int] = None,
-        plot_dir: Optional[str] = None,
+        cnt_users: int | None = None,
+        cnt_items: int | None = None,
+        plot_dir: str | None = None,
     ):
         self.user_cols = user_cols
         self.item_cols = item_cols
@@ -617,7 +616,7 @@ class NeuralTS(HybridRecommender):
 
     def _data_loader(
         self, idx, log_train, transform_user_features, transform_item_features, list_items, train=False
-    ) -> Union[tuple[UserDatasetWithReset, DataLoader], DataLoader]:
+    ) -> tuple[UserDatasetWithReset, DataLoader] | DataLoader:
         if train:
             train_dataset = UserDatasetWithReset(
                 idx=idx,
@@ -653,8 +652,8 @@ class NeuralTS(HybridRecommender):
     def _fit(
         self,
         log: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        user_features: DataFrame | None = None,
+        item_features: DataFrame | None = None,
     ) -> None:
         if user_features is None:
             msg = "User features are missing for fitting"
@@ -873,8 +872,8 @@ class NeuralTS(HybridRecommender):
         k: int,  # noqa: ARG002
         users: DataFrame,
         items: DataFrame,
-        user_features: Optional[DataFrame] = None,
-        item_features: Optional[DataFrame] = None,
+        user_features: DataFrame | None = None,
+        item_features: DataFrame | None = None,
         filter_seen_items: bool = True,  # noqa: ARG002
     ) -> DataFrame:
         if user_features is None:

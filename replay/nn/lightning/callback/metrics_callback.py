@@ -1,5 +1,3 @@
-from typing import Optional
-
 import lightning
 import torch
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
@@ -33,10 +31,10 @@ class ComputeMetricsCallback(lightning.Callback):
 
     def __init__(
         self,
-        metrics: Optional[list[MetricName]] = None,
-        ks: Optional[list[int]] = None,
-        postprocessors: Optional[list[PostprocessorBase]] = None,
-        item_count: Optional[int] = None,
+        metrics: list[MetricName] | None = None,
+        ks: list[int] | None = None,
+        postprocessors: list[PostprocessorBase] | None = None,
+        item_count: int | None = None,
         ground_truth_column: str = "ground_truth",
         train_column: str = "train",
     ):

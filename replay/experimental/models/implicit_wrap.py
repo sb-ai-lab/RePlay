@@ -1,5 +1,4 @@
 from os.path import join
-from typing import Optional
 
 from replay.data import get_schema
 from replay.experimental.models.base_rec import Recommender
@@ -48,8 +47,8 @@ class ImplicitWrap(Recommender):
     def _fit(
         self,
         log: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
     ) -> None:
         matrix = CSRConverter(
             first_dim_column="user_idx", second_dim_column="item_idx", data_column="relevance"
@@ -85,8 +84,8 @@ class ImplicitWrap(Recommender):
         k: int,  # noqa: ARG002
         users: SparkDataFrame,
         items: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
         filter_seen_items: bool = True,
     ) -> SparkDataFrame:
         items_to_use = items.distinct().toPandas().item_idx.tolist()
@@ -117,9 +116,9 @@ class ImplicitWrap(Recommender):
     def _predict_pairs(
         self,
         pairs: SparkDataFrame,
-        log: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        log: SparkDataFrame | None = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
     ) -> SparkDataFrame:
         model = self.model
         rec_schema = get_schema(

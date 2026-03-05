@@ -1,6 +1,6 @@
 import math
 import warnings
-from typing import Any, Literal, Optional, Union, cast
+from typing import Any, Literal, cast
 
 import lightning
 import torch
@@ -38,12 +38,12 @@ class SasRec(lightning.LightningModule):
         ti_modification: bool = False,
         time_span: int = 256,
         loss_type: Literal["BCE", "CE", "SCE"] = "CE",
-        loss_sample_count: Optional[int] = None,
+        loss_sample_count: int | None = None,
         negative_sampling_strategy: str = "global_uniform",
         negatives_sharing: bool = False,
         optimizer_factory: OptimizerFactory = FatOptimizerFactory(),
-        lr_scheduler_factory: Optional[LRSchedulerFactory] = None,
-        sce_params: Optional[SCEParams] = None,
+        lr_scheduler_factory: LRSchedulerFactory | None = None,
+        sce_params: SCEParams | None = None,
     ):
         """
         :param tensor_schema: Tensor schema of features.
@@ -110,7 +110,7 @@ class SasRec(lightning.LightningModule):
         self._vocab_size = item_count
         self.candidates_to_score = None
 
-    def training_step(self, batch: Union[SasRecTrainingBatch, dict], batch_idx: int) -> torch.Tensor:
+    def training_step(self, batch: SasRecTrainingBatch | dict, batch_idx: int) -> torch.Tensor:
         """
         :param batch (SasRecTrainingBatch): Batch of training data.
         :param batch_idx (int): Batch index.
@@ -125,7 +125,7 @@ class SasRec(lightning.LightningModule):
 
     def predict_step(
         self,
-        batch: Union[SasRecPredictionBatch, dict],
+        batch: SasRecPredictionBatch | dict,
         batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> torch.Tensor:
@@ -152,8 +152,8 @@ class SasRec(lightning.LightningModule):
 
     def predict(
         self,
-        batch: Union[SasRecPredictionBatch, dict],
-        candidates_to_score: Optional[torch.LongTensor] = None,
+        batch: SasRecPredictionBatch | dict,
+        candidates_to_score: torch.LongTensor | None = None,
     ) -> torch.Tensor:
         """
         :param batch: Batch of prediction data.
@@ -181,7 +181,7 @@ class SasRec(lightning.LightningModule):
         self,
         feature_tensors: TensorMap,
         padding_mask: torch.BoolTensor,
-        candidates_to_score: Optional[torch.LongTensor] = None,
+        candidates_to_score: torch.LongTensor | None = None,
     ) -> torch.Tensor:  # pragma: no cover
         """
         :param feature_tensors: Batch of features.
@@ -195,7 +195,7 @@ class SasRec(lightning.LightningModule):
 
     def validation_step(
         self,
-        batch: Union[SasRecValidationBatch, dict],
+        batch: SasRecValidationBatch | dict,
         batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> torch.Tensor:
@@ -247,7 +247,7 @@ class SasRec(lightning.LightningModule):
         )
         return scores
 
-    def _compute_loss(self, batch: Union[SasRecTrainingBatch, dict]) -> torch.Tensor:
+    def _compute_loss(self, batch: SasRecTrainingBatch | dict) -> torch.Tensor:
         if self._loss_type == "BCE":
             loss_func = self._compute_loss_bce if self._loss_sample_count is None else self._compute_loss_bce_sampled
         elif self._loss_type == "CE":
@@ -471,7 +471,7 @@ class SasRec(lightning.LightningModule):
 
         return (positive_logits, negative_logits, positive_labels, negative_labels, vocab_size)
 
-    def _create_loss(self) -> Union[torch.nn.BCEWithLogitsLoss, torch.nn.CrossEntropyLoss]:
+    def _create_loss(self) -> torch.nn.BCEWithLogitsLoss | torch.nn.CrossEntropyLoss:
         if self._loss_type == "BCE":
             return torch.nn.BCEWithLogitsLoss(reduction="sum")
 
@@ -585,14 +585,14 @@ class SasRec(lightning.LightningModule):
             raise ValueError(msg)
 
     @property
-    def candidates_to_score(self) -> Union[torch.LongTensor, None]:
+    def candidates_to_score(self) -> torch.LongTensor | None:
         """
         Returns tensor of item ids to calculate scores.
         """
         return self._candidates_to_score
 
     @candidates_to_score.setter
-    def candidates_to_score(self, candidates: Optional[torch.LongTensor] = None) -> None:
+    def candidates_to_score(self, candidates: torch.LongTensor | None = None) -> None:
         """
         Sets tensor of item ids to calculate scores.
         :param candidates: Tensor of item ids to calculate scores.

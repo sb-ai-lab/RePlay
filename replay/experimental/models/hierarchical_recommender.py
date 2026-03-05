@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -85,8 +83,8 @@ class HierarchicalRecommender(HybridRecommender):
     def _fit(
         self,
         log: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        user_features: SparkDataFrame | None = None,
+        item_features: SparkDataFrame | None = None,
     ) -> None:
         self.logger.debug("Clustering...")
         self.root._procreate(item_features.toPandas())
@@ -100,8 +98,8 @@ class HierarchicalRecommender(HybridRecommender):
         k: int,
         users: SparkDataFrame,
         items: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        user_features: SparkDataFrame | None = None,
+        item_features: SparkDataFrame | None = None,
         filter_seen_items: bool = True,
     ) -> SparkDataFrame:
         self.logger.debug("Predicting...")
@@ -199,8 +197,8 @@ class Node:
         k: int,
         users: PandasDataFrame,
         items: PandasDataFrame,
-        user_features: Optional[SparkDataFrame] = None,
-        item_features: Optional[SparkDataFrame] = None,
+        user_features: SparkDataFrame | None = None,
+        item_features: SparkDataFrame | None = None,
         filter_seen_items: bool = True,
     ) -> PandasDataFrame:
         pred = pd.DataFrame(columns=["user_idx", "item_idx", "relevance"])

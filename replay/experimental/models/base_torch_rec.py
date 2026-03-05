@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -118,8 +118,8 @@ class TorchRecommender(Recommender):
         k: int,
         users: SparkDataFrame,
         items: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
         filter_seen_items: bool = True,  # noqa: ARG002
     ) -> SparkDataFrame:
         items_consider_in_pred = items.toPandas()["item_idx"].values
@@ -152,9 +152,9 @@ class TorchRecommender(Recommender):
     def _predict_pairs(
         self,
         pairs: SparkDataFrame,
-        log: Optional[SparkDataFrame] = None,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        log: SparkDataFrame | None = None,
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
     ) -> SparkDataFrame:
         items_count = self._item_dim
         model = self.model.cpu()

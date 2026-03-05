@@ -3,8 +3,9 @@ Select or remove data by some criteria
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import Callable, Literal, Optional, Union
+from typing import Literal
 from uuid import uuid4
 
 import numpy as np
@@ -90,10 +91,10 @@ class InteractionEntriesFilter(_BaseFilter):
         self,
         query_column: str = "user_id",
         item_column: str = "item_id",
-        min_inter_per_user: Optional[int] = None,
-        max_inter_per_user: Optional[int] = None,
-        min_inter_per_item: Optional[int] = None,
-        max_inter_per_item: Optional[int] = None,
+        min_inter_per_user: int | None = None,
+        max_inter_per_user: int | None = None,
+        min_inter_per_item: int | None = None,
+        max_inter_per_item: int | None = None,
         allow_caching: bool = True,
     ):
         r"""
@@ -180,8 +181,8 @@ class InteractionEntriesFilter(_BaseFilter):
         interaction_count: int,
         agg_column: str,
         non_agg_column: str,
-        min_inter: Optional[int] = None,
-        max_inter: Optional[int] = None,
+        min_inter: int | None = None,
+        max_inter: int | None = None,
     ) -> tuple[PandasDataFrame, int, int]:
         filtered_interactions = interactions.copy(deep=True)
 
@@ -205,8 +206,8 @@ class InteractionEntriesFilter(_BaseFilter):
         interaction_count: int,
         agg_column: str,
         non_agg_column: str,
-        min_inter: Optional[int] = None,
-        max_inter: Optional[int] = None,
+        min_inter: int | None = None,
+        max_inter: int | None = None,
     ) -> tuple[SparkDataFrame, int, int]:
         filtered_interactions = interactions.withColumn(
             "count", sf.count(non_agg_column).over(Window.partitionBy(agg_column))
@@ -231,8 +232,8 @@ class InteractionEntriesFilter(_BaseFilter):
         interaction_count: int,
         agg_column: str,
         non_agg_column: str,
-        min_inter: Optional[int] = None,
-        max_inter: Optional[int] = None,
+        min_inter: int | None = None,
+        max_inter: int | None = None,
     ) -> tuple[PolarsDataFrame, int, int]:
         filtered_interactions = interactions.with_columns(
             pl.col(non_agg_column).count().over(pl.col(agg_column)).alias("count")
@@ -417,7 +418,7 @@ class NumInteractionsFilter(_BaseFilter):
         first: bool = True,
         query_column: str = "user_id",
         timestamp_column: str = "timestamp",
-        item_column: Optional[str] = None,
+        item_column: str | None = None,
     ):
         r"""
         :param num_interactions: number of interactions to leave per user.
@@ -774,8 +775,8 @@ class TimePeriodFilter(_BaseFilter):
 
     def __init__(
         self,
-        start_date: Optional[Union[str, datetime]] = None,
-        end_date: Optional[Union[str, datetime]] = None,
+        start_date: str | datetime | None = None,
+        end_date: str | datetime | None = None,
         timestamp_column: str = "timestamp",
         time_column_format: str = "%Y-%m-%d %H:%M:%S",
     ):
@@ -791,7 +792,7 @@ class TimePeriodFilter(_BaseFilter):
         self.end_date = self._format_datetime(end_date, time_column_format)
         self.timestamp_column = timestamp_column
 
-    def _format_datetime(self, date: Optional[Union[str, datetime]], time_format: str) -> datetime:
+    def _format_datetime(self, date: str | datetime | None, time_format: str) -> datetime:
         if isinstance(date, str):
             date = datetime.strptime(date, time_format)
         return date

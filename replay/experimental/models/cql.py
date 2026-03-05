@@ -6,7 +6,7 @@ import io
 import logging
 import tempfile
 import timeit
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -125,7 +125,7 @@ class CQL(Recommender):
         n_action_samples (int): the number of sampled actions to compute
         :math:`\\log{\\sum_a \\exp{Q(s, a)}}`.
         soft_q_backup (bool): flag to use SAC-style backup.
-        use_gpu (Union[int, str, bool]): device option.
+        use_gpu (int | str | bool): device option.
         If the value is boolean and True, cuda:0 will be used.
         If the value is integer, cuda:<device> will be used.
         If the value is string in torch device style, the specified device will be used.
@@ -182,7 +182,7 @@ class CQL(Recommender):
         conservative_weight: float = 5.0,
         n_action_samples: int = 10,
         soft_q_backup: bool = False,
-        use_gpu: Union[int, str, bool] = False,
+        use_gpu: int | str | bool = False,
         observation_scaler: ObservationScaler = None,
         action_scaler: ActionScaler = None,
         reward_scaler: RewardScaler = None,
@@ -253,8 +253,8 @@ class CQL(Recommender):
     def _fit(
         self,
         log: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
     ) -> None:
         mdp_dataset: MDPDataset = self.mdp_dataset_builder.build(log)
         self.model.fit(mdp_dataset, self.n_steps)
@@ -280,8 +280,8 @@ class CQL(Recommender):
         k: int,  # noqa: ARG002
         users: SparkDataFrame,
         items: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
         filter_seen_items: bool = True,  # noqa: ARG002
     ) -> SparkDataFrame:
         available_items = items.toPandas()["item_idx"].values
@@ -308,9 +308,9 @@ class CQL(Recommender):
     def _predict_pairs(
         self,
         pairs: SparkDataFrame,
-        log: Optional[SparkDataFrame] = None,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        log: SparkDataFrame | None = None,
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
     ) -> SparkDataFrame:
         policy_bytes = self._serialize_policy()
 

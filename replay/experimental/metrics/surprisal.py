@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, SparkDataFrame
@@ -68,7 +66,7 @@ class Surprisal(RecOnlyMetric):
         recommendations: SparkDataFrame,
         ground_truth: SparkDataFrame,  # noqa: ARG002
         max_k: int,
-        ground_truth_users: Optional[DataFrameLike] = None,
+        ground_truth_users: DataFrameLike | None = None,
     ) -> SparkDataFrame:
         recommendations = convert2spark(recommendations)
         ground_truth_users = convert2spark(ground_truth_users)

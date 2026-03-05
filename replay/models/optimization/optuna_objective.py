@@ -4,8 +4,9 @@ This class calculates loss function for optimization process
 
 import collections
 import logging
+from collections.abc import Callable
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable, Union
+from typing import TYPE_CHECKING, Any
 
 from replay.metrics import Metric
 from replay.utils import PYSPARK_AVAILABLE, SparkDataFrame
@@ -49,7 +50,7 @@ class ObjectiveWrapper:
 
 def suggest_params(
     trial: "Trial",
-    search_space: dict[str, dict[str, Union[str, list]]],
+    search_space: dict[str, dict[str, str | list]],
 ) -> dict:
     """
     This function suggests params to try.

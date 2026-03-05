@@ -3,8 +3,6 @@ MultVAE implementation
 (Variational Autoencoders for Collaborative Filtering)
 """
 
-from typing import Optional
-
 import numpy as np
 import torch
 import torch.nn.functional as sf
@@ -206,8 +204,8 @@ class MultVAE(TorchRecommender):
     def _fit(
         self,
         log: SparkDataFrame,
-        user_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
-        item_features: Optional[SparkDataFrame] = None,  # noqa: ARG002
+        user_features: SparkDataFrame | None = None,  # noqa: ARG002
+        item_features: SparkDataFrame | None = None,  # noqa: ARG002
     ) -> None:
         self.logger.debug("Creating batch")
         data = log.select("user_idx", "item_idx").toPandas()
@@ -274,7 +272,7 @@ class MultVAE(TorchRecommender):
         items_np_history: np.ndarray,
         items_np_to_pred: np.ndarray,
         item_count: int,
-        cnt: Optional[int] = None,
+        cnt: int | None = None,
     ) -> SparkDataFrame:
         model.eval()
         with torch.no_grad():

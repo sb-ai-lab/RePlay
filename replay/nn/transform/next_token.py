@@ -1,5 +1,3 @@
-from typing import List
-
 import torch
 
 from replay.data.nn.parquet.impl.masking import DEFAULT_MASK_POSTFIX
@@ -45,7 +43,7 @@ class NextTokenTransform(torch.nn.Module):
         self,
         label_name: str,
         shift: int = 1,
-        ignore: List[str] | str | None = None,
+        ignore: list[str] | str | None = None,
         out_feature_name: str = "positive_labels",
         mask_postfix: str = DEFAULT_MASK_POSTFIX,
     ) -> None:

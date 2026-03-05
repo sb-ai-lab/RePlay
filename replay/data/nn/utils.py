@@ -1,5 +1,4 @@
 from collections.abc import Iterable
-from typing import Optional
 
 import polars as pl
 
@@ -10,7 +9,7 @@ if PYSPARK_AVAILABLE:  # pragma: no cover
     import pyspark.sql.functions as sf
 
 
-def groupby_sequences(events: DataFrameLike, groupby_col: str, sort_col: Optional[str] = None) -> DataFrameLike:
+def groupby_sequences(events: DataFrameLike, groupby_col: str, sort_col: str | None = None) -> DataFrameLike:
     """
     :param events: dataframe with interactions
     :param groupby_col: divide column to group by

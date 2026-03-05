@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import pyarrow as pa
 import torch
@@ -18,7 +18,7 @@ class NumericColumn:
     def __init__(
         self,
         data: torch.Tensor,
-        mask: Optional[torch.BoolTensor] = None,
+        mask: torch.BoolTensor | None = None,
         padding: Any = DEFAULT_PADDING,
     ) -> None:
         """

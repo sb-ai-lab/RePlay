@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from replay.models.extensions.ann.entities.base_hnsw_param import BaseHnswParam
 from replay.models.extensions.ann.index_inferers.base_inferer import IndexInferer
@@ -27,7 +26,7 @@ class IndexBuilder(ABC):
         self,
         vectors: SparkDataFrame,
         features_col: str,
-        ids_col: Optional[str] = None,
+        ids_col: str | None = None,
     ):
         """
         Method that builds index and stores it using the `IndexStore` class.
