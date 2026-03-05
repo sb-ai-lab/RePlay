@@ -4,7 +4,7 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 
 PROJECT=default
 MODE=run
-POETRY_ARGS=()
+UV_ARGS=()
 
 # Parse parameter -p and pass through other paramters
 while [[ $# -gt 0 ]]; do
@@ -18,7 +18,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      POETRY_ARGS+=("$1")
+      UV_ARGS+=("$1")
       shift
       ;;
   esac
@@ -48,18 +48,18 @@ python ${SCRIPT_DIR}/projects/microtemplate.py \
   || exit 1
 
 # Copy lock file to the root
-cp ${SCRIPT_DIR}/projects/${PROJECT}/poetry.lock ${SCRIPT_DIR}
+cp ${SCRIPT_DIR}/projects/${PROJECT}/uv.lock ${SCRIPT_DIR}
 
 if [ "${MODE}" = "run" ]; then
-  poetry ${POETRY_ARGS[@]}
+  uv ${UV_ARGS[@]}
 
   # Copy back updated lock file
-  cp -u ${SCRIPT_DIR}/poetry.lock ${SCRIPT_DIR}/projects/${PROJECT}
+  cp -u ${SCRIPT_DIR}/uv.lock ${SCRIPT_DIR}/projects/${PROJECT}
 
-  # Remove generated poetry files
+  # Remove generated uv files
   rm -f ${SCRIPT_DIR}/pyproject.toml
-  rm -f ${SCRIPT_DIR}/poetry.lock
+  rm -f ${SCRIPT_DIR}/uv.lock
 
-  # Sometimes poetry does not cleanup temporary files, so delete this explicitly
+  # Sometimes uv does not cleanup temporary files, so delete this explicitly
   rm -f ${SCRIPT_DIR}/build.py
 fi

@@ -5,23 +5,22 @@ workflow:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG
 
-image: "${CI_REGISTRY_IMAGE}:${VERSION}_py310"
-
 variables:
-  VERSION: "0.0.11"
+  CI_IMAGE_VERSION: "uv_1.0"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   RUNNER: amazme-1
 
-.wrapper_install: &wrapper_install
-  - ./poetry_wrapper.sh ${WRAPPER_ARGS} sync ${WRAPPER_EXTRAS}
+image: "${CI_REGISTRY_IMAGE}:${CI_IMAGE_VERSION}_py310"
 
-.activate_poetry: &activate_poetry
-  - ./poetry_wrapper.sh --generate
-  - eval $(poetry env activate)
+.wrapper_install: &wrapper_install
+  - ./uv_wrapper.sh ${WRAPPER_ARGS} sync ${WRAPPER_EXTRAS}
+
+.setup_project_files: &setup_project_files
+  - ./uv_wrapper.sh --generate
 
 .install_conditionals: &install_conditionals
-  - *activate_poetry
-  - pip install -q --upgrade onnx onnxscript openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114
+  - *setup_project_files
+  - uv pip install -q --upgrade onnx onnxscript openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114
 
 stages:
   - code_quality
@@ -44,8 +43,8 @@ ruff:
   before_script:
     - *wrapper_install
   script:
-    - *activate_poetry
-    - poetry run ruff check .
+    - *setup_project_files
+    - uv run ruff check .
   tags:
     - ${RUNNER}
 
@@ -56,20 +55,8 @@ black:
   before_script:
     - *wrapper_install
   script:
-    - *activate_poetry
-    - poetry run black . --check --diff
-  tags:
-    - ${RUNNER}
-
-poetry-check:
-  stage: code_quality
-  variables:
-    WRAPPER_EXTRAS: --only dev
-  before_script:
-    - *wrapper_install
-  script:
-    - ./poetry_wrapper.sh check
-    - ./poetry_wrapper.sh --experimental check
+    - *setup_project_files
+    - uv run black . --check --diff
   tags:
     - ${RUNNER}
 
@@ -80,10 +67,10 @@ toml-sort:
   before_script:
     - *wrapper_install
   script:
-    - ./poetry_wrapper.sh --generate
-    - poetry run toml-sort --check pyproject.toml
-    - ./poetry_wrapper.sh --experimental --generate
-    - poetry run toml-sort --check pyproject.toml
+    - ./uv_wrapper.sh --generate
+    - uv run toml-sort --check pyproject.toml
+    - ./uv_wrapper.sh --experimental --generate
+    - uv run toml-sort --check pyproject.toml
   tags:
     - ${RUNNER}
 
@@ -101,7 +88,7 @@ sphinx-job:
   
 # prefetch-artifacts:
 #   stage: prefetch_artifacts
-#   image: "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
+#   image: "${CI_REGISTRY_IMAGE}:${CI_IMAGE_VERSION}_${py_version}"
 #   cache:
 #     paths:
 #       - .venv
@@ -112,11 +99,11 @@ sphinx-job:
 #     - ${RUNNER}
 #   script:
 #     - poetry config virtualenvs.in-project true
-#     - ./poetry_wrapper.sh sync -E spark -E torch-cpu --with dev
+#     - ./uv_wrapper.sh sync --extra spark --extra torch-cpu --group dev
 #     - *install_conditionals
 #   after_script:
-#     - ./poetry_wrapper.sh show
-#     - ./poetry_wrapper.sh env activate
+#     - ./uv_wrapper.sh show
+#     - ./uv_wrapper.sh env activate
 #   parallel:
 #     matrix:
 #       - py_version:
@@ -125,7 +112,7 @@ sphinx-job:
 #         - "py312"
 
 .pytest_template: &pytest_template
-  image: "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
+  image: "${CI_REGISTRY_IMAGE}:${CI_IMAGE_VERSION}_${py_version}"
   # cache:
   #   paths:
   #     - .venv
@@ -133,7 +120,7 @@ sphinx-job:
   #   key: ${CI_COMMIT_REF_SLUG}_${py_version}
   tags:
     - ${RUNNER}
-  needs: ["ruff", "black", "poetry-check"] # , "prefetch-artifacts"]
+  needs: ["ruff", "black"] # , "prefetch-artifacts"]
   before_script:
     # - poetry config virtualenvs.in-project true
     # - poetry config virtualenvs.create false
@@ -152,8 +139,8 @@ pytest-core:
   <<: *pytest_template
   stage: test_core
   script:
-    - *activate_poetry
-    - poetry run pytest -m core tests/ --ignore=tests/experimental --ignore=tests/conditional
+    - *setup_project_files
+    - uv run pytest -m core tests/ --ignore=tests/experimental --ignore=tests/conditional
     - mv .coverage .coverage_core_${py_version}
   artifacts:
     paths:
@@ -167,8 +154,8 @@ pytest-conditional:
     WRAPPER_ARGS: --experimental
   script:
     - *install_conditionals
-    - *activate_poetry
-    - poetry run pytest -m conditional tests/ --ignore=tests/experimental
+    - *setup_project_files
+    - uv run pytest -m conditional tests/ --ignore=tests/experimental
     - mv .coverage .coverage_conditional_${py_version}
   artifacts:
     paths:
@@ -179,10 +166,10 @@ pytest-torch:
   <<: *pytest_template
   stage: test_torch
   variables:
-    WRAPPER_EXTRAS: -E torch-cpu
+    WRAPPER_EXTRAS: --extra torch-cpu
   script:
-    - *activate_poetry
-    - poetry run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/conditional
+    - *setup_project_files
+    - uv run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/conditional
     - mv .coverage .coverage_torch_${py_version}
   artifacts:
     paths:
@@ -193,10 +180,10 @@ pytest-spark:
   <<: *pytest_template
   stage: test_spark
   variables:
-    WRAPPER_EXTRAS: -E spark
+    WRAPPER_EXTRAS: --extra spark
   script:
-    - *activate_poetry
-    - poetry run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
+    - *setup_project_files
+    - uv run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
     - mv .coverage .coverage_spark_${py_version}
   artifacts:
     paths:
@@ -207,10 +194,10 @@ pytest-spark-and-torch:
   <<: *pytest_template
   stage: test_spark_torch
   variables:
-    WRAPPER_EXTRAS: -E torch-cpu -E spark
+    WRAPPER_EXTRAS: --extra torch-cpu --extra spark
   script:
-    - *activate_poetry
-    - poetry run pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
+    - *setup_project_files
+    - uv run pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
     - mv .coverage .coverage_spark_and_torch_${py_version}
   artifacts:
     paths:
@@ -221,10 +208,10 @@ pytest-models:
   <<: *pytest_template
   stage: test_models
   variables:
-    WRAPPER_EXTRAS: -E torch-cpu -E spark
+    WRAPPER_EXTRAS: --extra torch-cpu --extra spark
   script:
-    - *activate_poetry
-    - poetry run pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/conditional
+    - *setup_project_files
+    - uv run pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/conditional
     - mv .coverage .coverage_models_${py_version}
   artifacts:
     paths:
@@ -238,8 +225,8 @@ pytest-experimental:
     WRAPPER_ARGS: --experimental
   script:
     - *install_conditionals
-    - *activate_poetry
-    - poetry run pytest -m "experimental"
+    - *setup_project_files
+    - uv run pytest -m "experimental"
     - mv .coverage .coverage_experimental_${py_version}
   artifacts:
     paths:
@@ -256,13 +243,13 @@ pytest-experimental:
   before_script:
     - *wrapper_install
   script:
-    - *activate_poetry
-    - poetry run coverage combine .coverage_core_${py_version} .coverage_conditional_${py_version} .coverage_spark_${py_version} .coverage_torch_${py_version} .coverage_spark_and_torch_${py_version} .coverage_models_${py_version} .coverage_experimental_${py_version}
-    - poetry run coverage xml
-    - poetry run coverage report -m --fail-under=100
+    - *setup_project_files
+    - uv run coverage combine .coverage_core_${py_version} .coverage_conditional_${py_version} .coverage_spark_${py_version} .coverage_torch_${py_version} .coverage_spark_and_torch_${py_version} .coverage_models_${py_version} .coverage_experimental_${py_version}
+    - uv run coverage xml
+    - uv run coverage report -m --fail-under=100
   tags:
     - ${RUNNER}
-  image: "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
+  image: "${CI_REGISTRY_IMAGE}:${CI_IMAGE_VERSION}_${py_version}"
   coverage: '/TOTAL.*\s+(\d+%)$/'
   artifacts:
     paths:
@@ -310,10 +297,9 @@ build-production-package:
   script:
     - export PACKAGE_SUFFIX=.dev${CI_JOB_ID}
     - echo $PACKAGE_SUFFIX
-    - ./poetry_wrapper.sh --generate
-    - poetry version
-    - poetry config repositories.replay ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi
-    - poetry publish --build -r replay -u gitlab-ci-token -p ${CI_JOB_TOKEN}
+    - ./uv_wrapper.sh --generate
+    - uv config repositories.replay ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi
+    - uv publish --build -r replay -u gitlab-ci-token -p ${CI_JOB_TOKEN}
 
 
 build-experimental-package:
@@ -325,7 +311,6 @@ build-experimental-package:
   script:
     - export PACKAGE_SUFFIX=.preview${CI_JOB_ID}
     - echo $PACKAGE_SUFFIX
-    - ./poetry_wrapper.sh --experimental --generate
-    - poetry version
-    - poetry config repositories.replay ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi
-    - poetry publish --build -r replay -u gitlab-ci-token -p ${CI_JOB_TOKEN}
+    - ./uv_wrapper.sh --experimental --generate
+    - uv config repositories.replay ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi
+    - uv publish --build -r replay -u gitlab-ci-token -p ${CI_JOB_TOKEN}

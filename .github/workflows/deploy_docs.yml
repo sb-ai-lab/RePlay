@@ -29,16 +29,15 @@ jobs:
           python-version: "3.10"
       - name: Install full package
         run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          poetry cache clear PyPI --all
-          ./poetry_wrapper.sh --experimental --generate
-          eval $(poetry env activate)
-          poetry sync --with dev --no-cache
-          pip install --upgrade onnx onnxscript openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 --no-cache-dir
+          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
+          uv pip install --system --no-cache --upgrade pip wheel
+          uv cache prune --ci
+          ./uv_wrapper.sh --experimental --generate
+          uv sync --group dev --no-cache
+          uv pip install --upgrade onnx onnxscript openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 --no-cache-dir
       - name: Build docs
         run: |
-          eval $(poetry env activate)
-          make -C docs clean html
+          uv run make -C docs clean html
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact

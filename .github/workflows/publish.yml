@@ -26,16 +26,15 @@ jobs:
 
       - name: Install experimental package
         run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          ./poetry_wrapper.sh --experimental --generate
-          eval $(poetry env activate)
-          poetry cache clear PyPI --all
-          poetry sync --no-cache
+          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
+          uv pip install --system --no-cache --upgrade pip wheel
+          uv cache prune --ci
+          uv sync --no-cache
 
       - name: Build Experimental
         run: |
           export PACKAGE_SUFFIX=.preview
-          poetry build
+          uv build
 
       - name: Publish Experimental
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -59,15 +58,14 @@ jobs:
 
       - name: Install production package
         run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          ./poetry_wrapper.sh --generate
-          eval $(poetry env activate)
-          poetry cache clear PyPI --all
-          poetry sync -E torch -E spark --no-cache
+          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
+          uv pip install --system --no-cache --upgrade pip wheel
+          uv cache prune --ci
+          uv sync --no-cache --extra torch --extra spark
 
       - name: Build Production
         run: |
-          poetry build
+          uv build
 
       - name: Publish Production
         uses: pypa/gh-action-pypi-publish@release/v1

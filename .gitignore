@@ -14,8 +14,8 @@ lightning_logs/
 # Saved objects
 *.replay
 
-# Poetry (since they are generated from template automatically)
-/poetry.lock
+# uv (since they are generated from template automatically)
+/uv.lock
 /pyproject.toml
 
 ### Python template

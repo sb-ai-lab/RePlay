@@ -24,17 +24,16 @@ jobs:
 
       - name: Install full package
         run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning
-          ./poetry_wrapper.sh --generate
-          eval $(poetry env activate)
-          poetry cache clear PyPI --all
-          poetry sync --with dev
+          curl -LsSf https://astral.sh/uv/0.10.7/install.sh | sh
+          uv pip install --system --no-cache --upgrade pip wheel
+          uv cache prune --ci
+          ./uv_wrapper.sh sync --group dev
 
       - name: Build
         run: |
           export PACKAGE_SUFFIX=.preview
           echo $PACKAGE_SUFFIX
-          poetry build
+          ./uv_wrapper.sh build
 
       - name: Publish
         uses: pypa/gh-action-pypi-publish@release/v1

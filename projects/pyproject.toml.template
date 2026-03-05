@@ -1,10 +1,6 @@
 [build-system]
-requires = [
-    "poetry-core>=2.2.1",
-    "poetry-dynamic-versioning>=1.0.0,<2.0.0",
-    "setuptools",
-]
-build-backend = "poetry_dynamic_versioning.backend"
+requires = ["uv_build>=0.10.7,<0.11.0"]
+build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
@@ -33,7 +29,7 @@ dev = [
 
 [project]
 name = "replay-rec"
-license = "Apache-2.0"
+version = "0.0.0"
 description = "RecSys Library"
 authors = [
     {name = "AI Lab"},
@@ -45,7 +41,9 @@ authors = [
     {name = "Alexander Sidorenko"},
     {name = "Roza Aysina"},
 ]
+requires-python = ">=3.10, <3.13"
 readme = "README.md"
+license = "Apache-2.0"
 classifiers = [
     "Operating System :: Unix",
     "Development Status :: 4 - Beta",
@@ -55,7 +53,6 @@ classifiers = [
     "Natural Language :: English",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-requires-python = ">=3.10, <3.13"
 dependencies = [
     "setuptools",
     "numpy (>=1.20.0,<2)",
@@ -85,13 +82,23 @@ dependencies = [
     "psutil (<=7.0.0)",
 {% endif %}
 ]
-dynamic = ["version", "dependencies"]
 
 {% if project == "default" %}
 [project.optional-dependencies]
-spark = ["pyspark", "psutil"]
-torch = ["torch", "pytorch-optimizer", "lightning"]
-torch-cpu = ["torch", "pytorch-optimizer", "lightning"]
+spark = [
+    "pyspark",
+    "psutil",
+]
+torch = [
+    "torch",
+    "pytorch-optimizer",
+    "lightning",
+]
+torch-cpu = [
+    "torch",
+    "pytorch-optimizer",
+    "lightning",
+]
 
 {% endif %}
 [project.urls]
@@ -111,34 +118,6 @@ omit = [
     "replay/models/extensions/ann/index_stores/hdfs_index_store.py",
     "replay/experimental/*",
 ]
-
-[tool.poetry]
-packages = [{include = "replay"}]
-exclude = [
-    "replay/conftest.py",
-{% if project == "default" %}
-    "replay/experimental",
-{% endif %}
-]
-version = "0.0.0"
-
-{% if project == "default" %}
-[tool.poetry.dependencies]
-torch = [
-    {markers = "extra == 'torch-cpu' and extra !='torch'", source = "torch-cpu-mirror"},
-    {markers = "extra == 'torch' and extra !='torch-cpu'", source = "PyPI"},
-]
-
-{% endif %}
-[[tool.poetry.source]]
-name = "torch-cpu-mirror"
-url = "https://download.pytorch.org/whl/cpu"
-priority = "explicit"
-
-[tool.poetry-dynamic-versioning]
-enable = true
-format-jinja = """0.22.0{{ env['PACKAGE_SUFFIX'] }}"""
-vcs = "git"
 
 [tool.pytest]
 doctest_optionflags = ["NORMALIZE_WHITESPACE"]
@@ -199,3 +178,37 @@ in_place = true
 no_comments = true
 spaces_indent_inline_array = 4
 trailing_comma_inline_array = true
+
+[tool.uv.build-backend]
+module-name = ["replay"]
+module-root = ""
+source-exclude = [
+    "replay/conftest.py",
+{% if project == "default" %}
+    "replay/experimental",
+{% endif %}
+]
+wheel-exclude = [
+    "replay/conftest.py",
+{% if project == "default" %}
+    "replay/experimental",
+{% endif %}
+]
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
+
+[[tool.uv.index]]
+name = "torch-cpu-mirror"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+{% if project == "default" %}
+
+[tool.uv.sources]
+torch = [
+    {index = "torch-cpu-mirror", marker = "extra == 'torch-cpu' and extra !='torch'"},
+    {index = "pypi", marker = "extra == 'torch' and extra !='torch-cpu'"},
+]
+{% endif %}

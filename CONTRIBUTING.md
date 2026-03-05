@@ -53,7 +53,7 @@ sudo apt-get install build-essential
 
 If you are installing from the source, you will need Python 3.8.1-3.11.
 
-1. Install poetry using [the poetry installation guide](https://python-poetry.org/docs/#installation). 
+1. Install uv using [the uv installation guide](https://docs.astral.sh/uv/getting-started/installation/). 
 
 2. Clone the project to your own local machine:
 
@@ -65,13 +65,11 @@ If you are installing from the source, you will need Python 3.8.1-3.11.
 3. Install RePlay:
 
     ```bash
-    pip install poetry==2.2.1
-    ./poetry_wrapper.sh sync -E spark -E torch-cpu
+    ./uv_wrapper.sh sync --extra spark --extra torch-cpu
     ```
     **If you need to install Replay with the experimental submodule**:
     ```bash
-    pip install poetry==2.2.1
-    ./poetry_wrapper.sh --experimental sync
+    ./uv_wrapper.sh --experimental sync
     ```
     After that, there is an environment, where you can test and implement your own code.
     So, you don't need to rebuild the full project every time.
@@ -81,11 +79,11 @@ If you are installing from the source, you will need Python 3.8.1-3.11.
 4. **optional**: Build wheel package:
 
     ```bash
-    ./poetry_wrapper.sh build
+    ./uv_wrapper.sh build
     ```
     **If you need to build Replay package with the experimental submodule**:
     ```bash
-    ./poetry_wrapper.sh --experimental build
+    ./uv_wrapper.sh --experimental build
     ```
     You can find the assembled package in the ``dist`` folder.
 
@@ -101,25 +99,25 @@ If you are installing from the source, you will need Python 3.8.1-3.11.
     {% if project == "experimental" %}
     {% endif %}
     ```
-    - After updating the pyproject.toml file, you need to make changes to the poetry.lock file.
+    - After updating the pyproject.toml file, you need to make changes to the uv.lock file.
     ```bash
-    ./poetry_wrapper.sh lock
+    ./uv_wrapper.sh lock
     ```
     For the experimental module.
     ```bash
-    ./poetry_wrapper.sh --experimental lock
+    ./uv_wrapper.sh --experimental lock
     ```
-    Note that during this step, updated poetry.lock file do not need to be copied anywhere.
+    Note that during this step, updated uv.lock file do not need to be copied anywhere.
 
 
 6. **optional**: Generate pyproject.toml file
 - If you want to get default pyproject.toml file, then get it from projects/pyproject.toml.template, using command:
     ```bash
-    ./poetry_wrapper.sh --generate
+    ./uv_wrapper.sh --generate
     ```
     or
     ```bash
-    ./poetry_wrapper.sh --experimental --generate
+    ./uv_wrapper.sh --experimental --generate
     ```
     For the experimental module
 - This will allow you to use standard development configurations (including the linter and formatter needed to match the code style)  
@@ -136,10 +134,8 @@ You can just get pyproject.toml file from step 6, to start using linters and for
 
 In order to automate checking of the code quality, please run:
 ```bash
-poetry run ruff check .
-poetry run black --check --diff -- .
-./poetry_wrapper.sh check
-./poetry_wrapper.sh --experimental check
+uvx ruff check .
+uvx black . --check --diff
 ```
 
 ## How to add a new model
@@ -151,7 +147,7 @@ When you're done with your feature development please create [pull request](#pul
 
 Before making a pull request (despite changing only the documentation or writing new code), please check your code on tests:
 ```bash
-poetry run pytest
+uvx pytest
 ```
 
 Also if you develop new functionality, please add your own tests.
