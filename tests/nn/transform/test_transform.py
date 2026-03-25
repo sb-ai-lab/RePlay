@@ -7,6 +7,7 @@ from replay.nn.transform import (
     CopyTransform,
     EqualityMaskTransform,
     GroupTransform,
+    MaxBatchSeqlenTrimTransform,
     MultiClassNegativeSamplingTransform,
     NextTokenTransform,
     RenameTransform,
@@ -253,6 +254,15 @@ def test_trim_transform_wrong_length(random_batch):
     transform = TrimTransform(100, features_to_trim)
     with pytest.raises(AssertionError):
         transform(random_batch)
+
+
+def test_maxlen_trim_transform(random_batch):
+    features_to_trim = ["item_id", "cat_feature"]
+    transform = MaxBatchSeqlenTrimTransform(features_to_trim, padding_mask_name="item_id_mask")
+    transformed_batch = transform(random_batch)
+
+    for feature in features_to_trim:
+        assert transformed_batch[feature].shape[1] <= random_batch[feature].shape[1]
 
 
 def test_select_transform(random_batch):

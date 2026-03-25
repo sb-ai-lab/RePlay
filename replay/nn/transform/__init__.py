@@ -8,12 +8,13 @@ from .reshape import UnsqueezeTransform
 from .select import SelectTransform
 from .sequence_roll import SequenceRollTransform
 from .token_mask import TokenMaskTransform
-from .trim import TrimTransform
+from .trim import MaxBatchSeqlenTrimTransform, TrimTransform
 
 __all__ = [
     "CopyTransform",
     "EqualityMaskTransform",
     "GroupTransform",
+    "MaxBatchSeqlenTrimTransform",
     "MultiClassNegativeSamplingTransform",
     "NextTokenTransform",
     "RenameTransform",

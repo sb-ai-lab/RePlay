@@ -20,7 +20,7 @@ class FeaturesReader:
     Prepares a dict of item features values that will be used for training and inference of the Item Tower.
     """
 
-    def __init__(self, schema: TensorSchema, metadata: dict, path: str):
+    def __init__(self, schema: TensorSchema, metadata: dict, path: str, **kwargs):
         """
         :param schema: the same tensor schema used in TwoTower model.
         :param metadata: A dictionary of feature names that
@@ -68,10 +68,7 @@ class FeaturesReader:
                 )
                 raise ValueError(msg)
 
-        features = pd.read_parquet(
-            path=path,
-            columns=metadata_names,
-        )
+        features = pd.read_parquet(path=path, columns=metadata_names, **kwargs)
 
         def add_padding(row: np.array, max_len: int, padding_value: int):
             return np.concatenate(([padding_value] * (max_len - len(row)), row))
