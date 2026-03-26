@@ -94,8 +94,9 @@ class AdaptiveTrimTransform(torch.nn.Module):
             msg = f"Padding mask '{self.padding_mask_name}' not found in batch."
             raise KeyError(msg)
 
+        assert batch[self.padding_mask_name].ndim == 2
         source_seqlen = batch[self.padding_mask_name].size(1)
-        max_non_padded_seqlen = batch[self.padding_mask_name].sum(dim=-1).max().item()
+        max_non_padded_seqlen = batch[self.padding_mask_name].sum(dim=1).max().item()
 
         if max_non_padded_seqlen < source_seqlen:
             output_batch = dict(batch.items())
