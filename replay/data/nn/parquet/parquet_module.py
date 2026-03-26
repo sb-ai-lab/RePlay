@@ -101,18 +101,14 @@ class ParquetModule(L.LightningDataModule):
         splits = list(set(self.datapaths) - set(missing_splits))
         missing_metadata = [split for split in splits if split not in metadata]
         if missing_metadata:
-            msg = (
-                f"`metadata` doesn't contain values for the following splits: {missing_metadata}."
-            )
+            msg = f"`metadata` doesn't contain values for the following splits: {missing_metadata}."
             raise KeyError(msg)
         self.metadata = copy.deepcopy(metadata)
 
         if isinstance(batch_size, dict):
             missing_batch_sizes = [split for split in splits if split not in batch_size]
             if missing_batch_sizes:
-                msg = (
-                    f"`batch_size` doesn't contain values for the following splits: {missing_batch_sizes}."
-                )
+                msg = f"`batch_size` doesn't contain values for the following splits: {missing_batch_sizes}."
                 raise KeyError(msg)
         self.batch_size = batch_size
 

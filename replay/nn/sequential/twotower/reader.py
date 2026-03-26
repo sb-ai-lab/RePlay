@@ -109,16 +109,24 @@ class FeaturesReader:
 
     def _check_item_id_values(self, schema: TensorSchema) -> None:
         item_ids = self._features[schema.item_id_feature_name]
-        if item_ids[0].item() != 0:
-            msg = f"{schema.item_id_feature_name} must start from 0"
+        min_item_id = item_ids[0].item()
+        if min_item_id != 0:
+            msg = f"Minimum value of {schema.item_id_feature_name} must be equal to 0, got {min_item_id}."
             raise ValueError(msg)
 
         expected_cardinality = schema[schema.item_id_feature_name].cardinality
-        last_item_id = item_ids[-1].item()
-        if last_item_id != expected_cardinality - 1:
+        max_item_id = item_ids[-1].item()
+        if max_item_id != expected_cardinality - 1:
             msg = (
-                f"{schema.item_id_feature_name} must end at cardinality - 1 = {expected_cardinality - 1}, "
-                f"but found last id = {last_item_id}."
+                f"Maximum value of {schema.item_id_feature_name} must be equal to {expected_cardinality - 1}, "
+                f"but got {max_item_id}."
+            )
+            raise ValueError(msg)
+
+        if item_ids.size(0) != expected_cardinality:
+            msg = (
+                f"Number of unique values of {schema.item_id_feature_name} must be equal to {expected_cardinality}, "
+                f"but got {item_ids.size(0)}."
             )
             raise ValueError(msg)
 
