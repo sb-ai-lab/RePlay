@@ -17,6 +17,7 @@ from replay.data.nn import (
 from replay.nn.sequential import SasRec
 from replay.nn.sequential.twotower import FeaturesReader
 from replay.nn.transform import (
+    AdaptiveTrimTransform,
     CopyTransform,
     GroupTransform,
     NextTokenTransform,
@@ -439,3 +440,20 @@ def sasrec_model(tensor_schema_with_equal_embedding_dims):
         dropout=0.2,
     )
     return model
+
+
+@pytest.fixture(scope="module")
+def sequential_sample_trimmed(tensor_schema_with_equal_embedding_dims):
+    padding_value = tensor_schema_with_equal_embedding_dims["item_id"].padding_value
+
+    batch = {
+        "item_id": torch.LongTensor([[padding_value] * 5 + [0], [padding_value] * 3 + [0, 2, 4]]),
+        "padding_mask": torch.BoolTensor([[0] * 5 + [1], [0] * 3 + [1, 1, 1]]),
+    }
+    transform = torch.nn.Sequential(
+        *[
+            AdaptiveTrimTransform(["item_id", "padding_mask"], padding_mask_name="padding_mask"),
+            GroupTransform({"feature_tensors": ["item_id"]}),
+        ]
+    )
+    return transform(batch)

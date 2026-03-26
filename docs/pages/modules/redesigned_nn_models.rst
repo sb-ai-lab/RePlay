@@ -313,6 +313,11 @@ __________________
 .. autoclass:: replay.nn.transform.TrimTransform
     :members: __init__
 
+AdaptiveTrimTransform
+_____________________
+.. autoclass:: replay.nn.transform.AdaptiveTrimTransform
+    :members: __init__
+
 SelectTransform
 ______________________
 .. autoclass:: replay.nn.transform.SelectTransform

@@ -20,7 +20,7 @@ class FeaturesReader:
     Prepares a dict of item features values that will be used for training and inference of the Item Tower.
     """
 
-    def __init__(self, schema: TensorSchema, metadata: dict, path: str):
+    def __init__(self, schema: TensorSchema, metadata: dict, path: str, **kwargs):
         """
         :param schema: the same tensor schema used in TwoTower model.
         :param metadata: A dictionary of feature names that
@@ -34,7 +34,10 @@ class FeaturesReader:
                Also, for each such feature one of the requirements must be met: the ``schema`` for the feature must
                contain ``feature_sources`` with a source of type ``FeatureSource.ITEM_FEATURES``
                or hint type ``FeatureHint.ITEM_ID``.
-
+        :param \\**kwargs: Additional keyword arguments passed directly to :func:`pandas.read_parquet`
+            when reading parquet file provided in ``path``. These allow for flexible reading configuration.
+            For example, it's possible to provide ``filesystem`` param for reading from s3.
+            Note that parameters ``path`` and ``columns`` are already set internally and should not be overridden.
         """
         if schema.item_id_feature_name is None:
             msg = (
@@ -68,10 +71,7 @@ class FeaturesReader:
                 )
                 raise ValueError(msg)
 
-        features = pd.read_parquet(
-            path=path,
-            columns=metadata_names,
-        )
+        features = pd.read_parquet(path=path, columns=metadata_names, **kwargs)
 
         def add_padding(row: np.array, max_len: int, padding_value: int):
             return np.concatenate(([padding_value] * (max_len - len(row)), row))
@@ -104,6 +104,23 @@ class FeaturesReader:
                 dtype=torch.float32 if schema[k].is_num else torch.int64,
             )
             self._features[k] = feature_tensor
+
+        self._check_item_id_values(schema)
+
+    def _check_item_id_values(self, schema: TensorSchema) -> None:
+        item_ids = self._features[schema.item_id_feature_name]
+        if item_ids[0].item() != 0:
+            msg = f"{schema.item_id_feature_name} must start from 0"
+            raise ValueError(msg)
+
+        expected_cardinality = schema[schema.item_id_feature_name].cardinality
+        last_item_id = item_ids[-1].item()
+        if last_item_id != expected_cardinality - 1:
+            msg = (
+                f"{schema.item_id_feature_name} must end at cardinality - 1 = {expected_cardinality - 1}, "
+                f"but found last id = {last_item_id}."
+            )
+            raise ValueError(msg)
 
     def __getitem__(self, key: str) -> torch.Tensor:
         return self._features[key]
