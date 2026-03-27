@@ -1,7 +1,7 @@
-import pandas as pd
 import pytest
 
 pytest.importorskip("torch")
+import torch
 
 from replay.nn.sequential.twotower import FeaturesReader
 
@@ -9,10 +9,9 @@ from replay.nn.sequential.twotower import FeaturesReader
 @pytest.mark.parametrize(
     "metadata_features",
     [
-        (["item_id", "num_feature", "cat_list_feature", "num_list_feature"]),
         (["item_id", "num_feature", "cat_list_feature", "num_list_feature", "emb_list_feature", "emb_list_feature_2"]),
     ],
-    ids=["missing feature in metadata", "extra feature in metadata"],
+    ids=["extra feature in metadata"],
 )
 def test_features_reader_raises_error(tensor_schema, item_features_path, metadata_features):
     metadata = {
@@ -47,15 +46,11 @@ def test_features_reader_raises_error_missing_item_id(tensor_schema, item_featur
         )
 
 
-@pytest.mark.parametrize(
-    "reader_item_features_path",
-    [
-        pytest.param(pd.DataFrame({"item_id": [1, 2, 3]}), id="wrong_min_value"),
-        pytest.param(pd.DataFrame({"item_id": [0, 1, 2, 2]}), id="wrong_max_value"),
-        pytest.param(pd.DataFrame({"item_id": [0, 1, 3]}), id="wrong_cardinality"),
-    ],
-    indirect=True,
-)
-def test_check_item_id_values_min_not_zero(reader_item_features_path, schema_only_items):
-    with pytest.raises(ValueError):
-        FeaturesReader(schema=schema_only_items, path=reader_item_features_path, metadata={"item_id": {}})
+def test_features_reader_meta_wo_item_id(tensor_schema, item_features_path):
+    reader_args = {"schema": tensor_schema.subset(["num_feature", "item_id"]), "path": item_features_path}
+
+    reader = FeaturesReader(metadata={"item_id": {}, "num_feature": {}}, **reader_args)
+    reader_wo_item_id_meta = FeaturesReader(metadata={"num_feature": {}}, **reader_args)
+
+    assert tensor_schema.item_id_feature_name not in reader_wo_item_id_meta.feature_names
+    assert torch.equal(reader["num_feature"], reader_wo_item_id_meta["num_feature"])

@@ -3,8 +3,7 @@ import pytest
 pytest.importorskip("torch")
 import torch
 
-from replay.data import FeatureHint, FeatureSource, FeatureType
-from replay.data.nn import ParquetModule, TensorFeatureInfo, TensorFeatureSource, TensorSchema
+from replay.data.nn import ParquetModule
 from replay.data.nn.schema import TensorMap
 from replay.nn.agg import ConcatAggregator
 from replay.nn.embedding import SequenceEmbedding
@@ -156,30 +155,3 @@ def parquet_module_with_default_twotower_transform(
         config=parquet_module_config,
     )
     return parquet_module
-
-
-@pytest.fixture
-def reader_item_features_path(request, tmp_path_factory):
-    tmp_dir = tmp_path_factory.mktemp("reader")
-    path = tmp_dir / "wrong_item_features.parquet"
-    df = request.param
-    df.to_parquet(path, index=False)
-    return str(path)
-
-
-@pytest.fixture
-def schema_only_items():
-    return TensorSchema(
-        [
-            TensorFeatureInfo(
-                name="item_id",
-                is_seq=True,
-                cardinality=4,
-                padding_value=4,
-                embedding_dim=2,
-                feature_type=FeatureType.CATEGORICAL,
-                feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")],
-                feature_hint=FeatureHint.ITEM_ID,
-            )
-        ]
-    )

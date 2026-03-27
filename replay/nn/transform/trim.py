@@ -98,10 +98,10 @@ class AdaptiveTrimTransform(torch.nn.Module):
         source_seqlen = batch[self.padding_mask_name].size(1)
         max_non_padded_seqlen = batch[self.padding_mask_name].sum(dim=1).max().item()
 
-        if max_non_padded_seqlen < source_seqlen:
-            output_batch = dict(batch.items())
-            for name in self.feature_names:
-                output_batch[name] = output_batch[name][:, -max_non_padded_seqlen:, ...].contiguous()
-            return output_batch
-        else:
+        if max_non_padded_seqlen == source_seqlen:
             return batch
+
+        output_batch = dict(batch.items())
+        for name in self.feature_names:
+            output_batch[name] = output_batch[name][:, -max_non_padded_seqlen:, ...].contiguous()
+        return output_batch
