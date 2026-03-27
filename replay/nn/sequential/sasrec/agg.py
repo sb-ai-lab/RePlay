@@ -48,6 +48,6 @@ class PositionAwareAggregator(torch.nn.Module):
         ), f"Sequence length = {seq_len} is greater then positional embedding num = {self.pe.num_embeddings}"
 
         seqs *= embedding_dim**0.5
-        seqs += self.pe.weight[:seq_len].unsqueeze(0).repeat(batch_size, 1, 1)
+        seqs += self.pe.weight[-seq_len:].unsqueeze(0).repeat(batch_size, 1, 1)
         seqs = self.dropout(seqs)
         return seqs
