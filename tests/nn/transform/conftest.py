@@ -1,11 +1,12 @@
 import pytest
+from typing import Optional
 
 pytest.importorskip("torch")
 import torch
 
 
 def make_random_tensor(
-    batch_size: int, max_len: int, cardinality: int, pad_idx: int, fixed_padding_len: int | None = None
+    batch_size: int, max_len: int, cardinality: int, pad_idx: int, fixed_padding_len: Optional[int] = None
 ):
     padded = torch.full((batch_size, max_len), pad_idx, dtype=torch.float32)
     for i in range(batch_size):
@@ -25,7 +26,7 @@ def create_random_batch(
     cardinality: int,
     num_classes: int,
     add_nested_keys: bool = False,
-    fixed_padding_len: int | None = None,
+    fixed_padding_len: Optional[int] = None
 ):
     batch = {}
 
