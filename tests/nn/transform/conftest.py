@@ -1,5 +1,6 @@
-import pytest
 from typing import Optional
+
+import pytest
 
 pytest.importorskip("torch")
 import torch
@@ -26,7 +27,7 @@ def create_random_batch(
     cardinality: int,
     num_classes: int,
     add_nested_keys: bool = False,
-    fixed_padding_len: Optional[int] = None
+    fixed_padding_len: Optional[int] = None,
 ):
     batch = {}
 
