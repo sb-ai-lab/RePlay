@@ -27,3 +27,17 @@ def test_datamodule_test_access(parquet_module_path, parquet_module_args):
     module = ParquetModule(test_path=parquet_module_path, **parquet_module_args)
     module.setup(None)
     assert isinstance(module.test_dataloader(), ParquetDataset)
+
+
+def test_datamodule_raises_missing_metadata(parquet_module_path: str, parquet_module_args):
+    parquet_module_args_copy = copy.deepcopy(parquet_module_args)
+    del parquet_module_args_copy["metadata"]["validate"]
+    with pytest.raises(KeyError):
+        ParquetModule(train_path=parquet_module_path, validate_path=parquet_module_path, **parquet_module_args_copy)
+
+
+def test_datamodule_raises_missing_batch_size(parquet_module_path: str, parquet_module_args):
+    parquet_module_args_copy = copy.deepcopy(parquet_module_args)
+    parquet_module_args_copy["batch_size"] = {"train": 3}
+    with pytest.raises(KeyError):
+        ParquetModule(train_path=parquet_module_path, validate_path=parquet_module_path, **parquet_module_args_copy)

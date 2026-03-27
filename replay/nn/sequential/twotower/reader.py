@@ -20,7 +20,7 @@ class FeaturesReader:
     Prepares a dict of item features values that will be used for training and inference of the Item Tower.
     """
 
-    def __init__(self, schema: TensorSchema, metadata: dict, path: str):
+    def __init__(self, schema: TensorSchema, metadata: dict, path: str, **kwargs):
         """
         :param schema: the same tensor schema used in TwoTower model.
         :param metadata: A dictionary of feature names that
@@ -33,8 +33,12 @@ class FeaturesReader:
                of the source features to create correct inverse mapping.
                Also, for each such feature one of the requirements must be met: the ``schema`` for the feature must
                contain ``feature_sources`` with a source of type ``FeatureSource.ITEM_FEATURES``
-               or hint type ``FeatureHint.ITEM_ID``.
-
+               or ``feature_hint`` of type ``FeatureHint.ITEM_ID``.
+            3. ``metadata`` keys may be a subset of ``schema`` features satisfying the conditions in point 2.
+        :param \\**kwargs: Additional keyword arguments passed directly to :func:`pandas.read_parquet`
+            when reading parquet file provided in ``path``. These allow for flexible reading configuration.
+            For example, it's possible to provide ``filesystem`` param for reading from s3.
+            Note that parameters ``path`` and ``columns`` are already set internally and should not be overridden.
         """
         if schema.item_id_feature_name is None:
             msg = (
@@ -51,7 +55,7 @@ class FeaturesReader:
         ]
         metadata_names = list(metadata.keys())
 
-        if (unique_metadata_names := set(metadata_names)) != (unique_schema_names := set(item_feature_names)):
+        if (unique_metadata_names := set(metadata_names)) > (unique_schema_names := set(item_feature_names)):
             extra_metadata_names = unique_metadata_names - unique_schema_names
             if extra_metadata_names:
                 msg = (
@@ -60,18 +64,7 @@ class FeaturesReader:
                 )
                 raise ValueError(msg)
 
-            extra_schema_names = unique_schema_names - unique_metadata_names
-            if extra_schema_names:
-                msg = (
-                    "The schema contains information about the following columns,"
-                    f"which are not described in metadata: {extra_schema_names}."
-                )
-                raise ValueError(msg)
-
-        features = pd.read_parquet(
-            path=path,
-            columns=metadata_names,
-        )
+        features = pd.read_parquet(path=path, columns={*metadata_names, schema.item_id_feature_name}, **kwargs)
 
         def add_padding(row: np.array, max_len: int, padding_value: int):
             return np.concatenate(([padding_value] * (max_len - len(row)), row))
@@ -82,7 +75,9 @@ class FeaturesReader:
             features[k] = features[k].apply(add_padding, args=(v["shape"], v["padding"]))
 
         inverse_feature_names_mapping = {
-            schema[feature].feature_source.column: feature for feature in item_feature_names
+            schema[feature].feature_source.column: feature
+            for feature in item_feature_names
+            if feature in metadata_names
         }
         features.rename(columns=inverse_feature_names_mapping, inplace=True)
         features.sort_values(by=schema.item_id_feature_name, inplace=True)
@@ -90,7 +85,7 @@ class FeaturesReader:
 
         self._features = {}
 
-        for k in features.columns:
+        for k in metadata_names:
             dtype = np.float32 if schema[k].is_num else np.int64
             if schema[k].is_list:
                 feature = np.asarray(
@@ -99,6 +94,7 @@ class FeaturesReader:
                 )
             else:
                 feature = features[k].to_numpy(dtype=dtype)
+
             feature_tensor = torch.asarray(
                 feature,
                 dtype=torch.float32 if schema[k].is_num else torch.int64,

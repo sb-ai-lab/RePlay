@@ -8,9 +8,10 @@ from .reshape import UnsqueezeTransform
 from .select import SelectTransform
 from .sequence_roll import SequenceRollTransform
 from .token_mask import TokenMaskTransform
-from .trim import TrimTransform
+from .trim import AdaptiveTrimTransform, TrimTransform
 
 __all__ = [
+    "AdaptiveTrimTransform",
     "CopyTransform",
     "EqualityMaskTransform",
     "GroupTransform",
