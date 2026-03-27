@@ -33,7 +33,8 @@ class FeaturesReader:
                of the source features to create correct inverse mapping.
                Also, for each such feature one of the requirements must be met: the ``schema`` for the feature must
                contain ``feature_sources`` with a source of type ``FeatureSource.ITEM_FEATURES``
-               or hint type ``FeatureHint.ITEM_ID``.
+               or ``feature_hint`` of type ``FeatureHint.ITEM_ID``.
+            3. ``metadata`` keys may be a subset of ``schema`` features satisfying the conditions in point 2.
         :param \\**kwargs: Additional keyword arguments passed directly to :func:`pandas.read_parquet`
             when reading parquet file provided in ``path``. These allow for flexible reading configuration.
             For example, it's possible to provide ``filesystem`` param for reading from s3.
@@ -54,7 +55,7 @@ class FeaturesReader:
         ]
         metadata_names = list(metadata.keys())
 
-        if (unique_metadata_names := set(metadata_names)) != (unique_schema_names := set(item_feature_names)):
+        if (unique_metadata_names := set(metadata_names)) > (unique_schema_names := set(item_feature_names)):
             extra_metadata_names = unique_metadata_names - unique_schema_names
             if extra_metadata_names:
                 msg = (
@@ -63,15 +64,7 @@ class FeaturesReader:
                 )
                 raise ValueError(msg)
 
-            extra_schema_names = unique_schema_names - unique_metadata_names
-            if extra_schema_names:
-                msg = (
-                    "The schema contains information about the following columns,"
-                    f"which are not described in metadata: {extra_schema_names}."
-                )
-                raise ValueError(msg)
-
-        features = pd.read_parquet(path=path, columns=metadata_names, **kwargs)
+        features = pd.read_parquet(path=path, columns={*metadata_names, schema.item_id_feature_name}, **kwargs)
 
         def add_padding(row: np.array, max_len: int, padding_value: int):
             return np.concatenate(([padding_value] * (max_len - len(row)), row))
@@ -82,7 +75,9 @@ class FeaturesReader:
             features[k] = features[k].apply(add_padding, args=(v["shape"], v["padding"]))
 
         inverse_feature_names_mapping = {
-            schema[feature].feature_source.column: feature for feature in item_feature_names
+            schema[feature].feature_source.column: feature
+            for feature in item_feature_names
+            if feature in metadata_names
         }
         features.rename(columns=inverse_feature_names_mapping, inplace=True)
         features.sort_values(by=schema.item_id_feature_name, inplace=True)
@@ -90,7 +85,7 @@ class FeaturesReader:
 
         self._features = {}
 
-        for k in features.columns:
+        for k in metadata_names:
             dtype = np.float32 if schema[k].is_num else np.int64
             if schema[k].is_list:
                 feature = np.asarray(
@@ -99,36 +94,12 @@ class FeaturesReader:
                 )
             else:
                 feature = features[k].to_numpy(dtype=dtype)
+
             feature_tensor = torch.asarray(
                 feature,
                 dtype=torch.float32 if schema[k].is_num else torch.int64,
             )
             self._features[k] = feature_tensor
-
-        self._check_item_id_values(schema)
-
-    def _check_item_id_values(self, schema: TensorSchema) -> None:
-        item_ids = self._features[schema.item_id_feature_name]
-        min_item_id = item_ids[0].item()
-        if min_item_id != 0:
-            msg = f"Minimum value of {schema.item_id_feature_name} must be equal to 0, got {min_item_id}."
-            raise ValueError(msg)
-
-        expected_cardinality = schema[schema.item_id_feature_name].cardinality
-        max_item_id = item_ids[-1].item()
-        if max_item_id != expected_cardinality - 1:
-            msg = (
-                f"Maximum value of {schema.item_id_feature_name} must be equal to {expected_cardinality - 1}, "
-                f"but got {max_item_id}."
-            )
-            raise ValueError(msg)
-
-        if item_ids.size(0) != expected_cardinality:
-            msg = (
-                f"Number of unique values of {schema.item_id_feature_name} must be equal to {expected_cardinality}, "
-                f"but got {item_ids.size(0)}."
-            )
-            raise ValueError(msg)
 
     def __getitem__(self, key: str) -> torch.Tensor:
         return self._features[key]
