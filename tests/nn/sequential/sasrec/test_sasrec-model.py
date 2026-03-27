@@ -58,3 +58,15 @@ def test_sasrec_inference_forward(
         *sequential_sample["feature_tensors"]["item_id"].shape,
         tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim,
     )
+
+
+def test_sasrec_inference_forward_with_trimmed_batch(
+    sasrec_model_only_items, sequential_sample_trimmed, tensor_schema_with_equal_embedding_dims
+):
+    sasrec_model_only_items.eval()
+    output = sasrec_model_only_items(
+        sequential_sample_trimmed["feature_tensors"], sequential_sample_trimmed["padding_mask"]
+    )
+
+    num_items = tensor_schema_with_equal_embedding_dims["item_id"].cardinality
+    assert output["logits"].size() == (sequential_sample_trimmed["padding_mask"].shape[0], num_items)

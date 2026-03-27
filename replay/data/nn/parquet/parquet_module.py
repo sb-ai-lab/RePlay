@@ -44,7 +44,7 @@ class ParquetModule(L.LightningDataModule):
 
     def __init__(
         self,
-        batch_size: int,
+        batch_size: int | dict[str, int],
         metadata: dict,
         transforms: dict[TransformStage, list[torch.nn.Module]],
         config: dict | None = None,
@@ -55,7 +55,12 @@ class ParquetModule(L.LightningDataModule):
         predict_path: str | list[str] | None = None,
     ) -> None:
         """
-        :param batch_size: Target batch size.
+        :param batch_size: Target batch size. Can be:
+
+            * An integer that means the same batch size will be used for all data splits.
+            * A dictionary mapping split names to their corresponding batch sizes.
+              Example: {"train": 64, "validate": 128}.
+
         :param metadata: A dictionary that each data split maps to a dictionary of feature names
             with each feature is associated with its shape and padding_value.\n
             Example: {"train": {"item_id" : {"shape": 100, "padding_value": 7657}}}.\n
@@ -83,8 +88,6 @@ class ParquetModule(L.LightningDataModule):
             raise TypeError(msg)
 
         super().__init__()
-        if config is None:
-            config = DEFAULT_CONFIG
 
         self.datapaths = {"train": train_path, "validate": validate_path, "test": test_path, "predict": predict_path}
         missing_splits = [split_name for split_name, split_path in self.datapaths.items() if split_path is None]
@@ -95,8 +98,22 @@ class ParquetModule(L.LightningDataModule):
             )
             warnings.warn(msg, stacklevel=2)
 
+        splits = list(set(self.datapaths) - set(missing_splits))
+        missing_metadata = [split for split in splits if split not in metadata]
+        if missing_metadata:
+            msg = f"`metadata` doesn't contain values for the following splits: {missing_metadata}."
+            raise KeyError(msg)
         self.metadata = copy.deepcopy(metadata)
+
+        if isinstance(batch_size, dict):
+            missing_batch_sizes = [split for split in splits if split not in batch_size]
+            if missing_batch_sizes:
+                msg = f"`batch_size` doesn't contain values for the following splits: {missing_batch_sizes}."
+                raise KeyError(msg)
         self.batch_size = batch_size
+
+        if config is None:
+            config = DEFAULT_CONFIG
         self.config = config
 
         self.moved = False
@@ -136,7 +153,7 @@ class ParquetModule(L.LightningDataModule):
                 subset_config = copy.deepcopy(self.config.get(subset, {}))
                 shared_kwargs = {
                     "metadata": self.metadata[subset],
-                    "batch_size": self.batch_size,
+                    "batch_size": self.batch_size.get(subset) if isinstance(self.batch_size, dict) else self.batch_size,
                     "partition_size": subset_config.pop("partition_size", 2**20),
                     "device": subset_config.pop(
                         "device", torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")

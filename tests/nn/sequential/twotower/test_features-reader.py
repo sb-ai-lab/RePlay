@@ -1,16 +1,17 @@
 import pytest
 
 pytest.importorskip("torch")
+import torch
+
 from replay.nn.sequential.twotower import FeaturesReader
 
 
 @pytest.mark.parametrize(
     "metadata_features",
     [
-        (["item_id", "num_feature", "cat_list_feature", "num_list_feature"]),
         (["item_id", "num_feature", "cat_list_feature", "num_list_feature", "emb_list_feature", "emb_list_feature_2"]),
     ],
-    ids=["missing feature in metadata", "extra feature in metadata"],
+    ids=["extra feature in metadata"],
 )
 def test_features_reader_raises_error(tensor_schema, item_features_path, metadata_features):
     metadata = {
@@ -43,3 +44,13 @@ def test_features_reader_raises_error_missing_item_id(tensor_schema, item_featur
         FeaturesReader(
             schema=tensor_schema.subset(["num_feature"]), path=item_features_path, metadata={"num_feature": {}}
         )
+
+
+def test_features_reader_meta_wo_item_id(tensor_schema, item_features_path):
+    reader_args = {"schema": tensor_schema.subset(["num_feature", "item_id"]), "path": item_features_path}
+
+    reader = FeaturesReader(metadata={"item_id": {}, "num_feature": {}}, **reader_args)
+    reader_wo_item_id_meta = FeaturesReader(metadata={"num_feature": {}}, **reader_args)
+
+    assert tensor_schema.item_id_feature_name not in reader_wo_item_id_meta.feature_names
+    assert torch.equal(reader["num_feature"], reader_wo_item_id_meta["num_feature"])
