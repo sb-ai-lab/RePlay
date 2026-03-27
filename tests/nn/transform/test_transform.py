@@ -4,6 +4,7 @@ import pytest
 import torch
 
 from replay.nn.transform import (
+    AdaptiveTrimTransform,
     CopyTransform,
     EqualityMaskTransform,
     GroupTransform,
@@ -255,6 +256,31 @@ def test_trim_transform_wrong_length(random_batch):
         transform(random_batch)
 
 
+def test_adaptive_trim_transform(random_batch_with_fixed_padding_len):
+    features_to_trim = ["item_id", "cat_feature"]
+    transform = AdaptiveTrimTransform(features_to_trim, padding_mask_name="item_id_mask")
+    transformed_batch = transform(random_batch_with_fixed_padding_len)
+
+    for feature in features_to_trim:
+        assert transformed_batch[feature].shape[1] <= random_batch_with_fixed_padding_len[feature].shape[1]
+
+
+def test_adaptive_trim_transform_wo_trim(random_batch_with_full_seqs):
+    features_to_trim = ["item_id", "cat_feature"]
+    transform = AdaptiveTrimTransform(features_to_trim, padding_mask_name="item_id_mask")
+    transformed_batch = transform(random_batch_with_full_seqs)
+
+    for feature in features_to_trim:
+        assert transformed_batch[feature].shape[1] == random_batch_with_full_seqs[feature].shape[1]
+    assert id(transformed_batch) == id(random_batch_with_full_seqs)
+
+
+def test_adaptive_trim_transform_wrong_name(random_batch):
+    transform = AdaptiveTrimTransform("item_id", padding_mask_name="wrong_name")
+    with pytest.raises(KeyError):
+        transform(random_batch)
+
+
 def test_select_transform(random_batch):
     features = ["item_id", ("cat_feature",)]
     transform = SelectTransform(features)
@@ -383,3 +409,18 @@ def test_immutability_input_batch(transform, random_batch):
     assert id(random_batch) == input_batch_id
     assert set(random_batch.keys()) == input_batch_keys
     assert random_batch.items() == input_batch_items
+
+
+def test_adaptive_trim_transform_immutability(random_batch_with_fixed_padding_len):
+    input_batch_id = id(random_batch_with_fixed_padding_len)
+    input_batch_keys = set(random_batch_with_fixed_padding_len.keys())
+    input_batch_items = random_batch_with_fixed_padding_len.items()
+
+    transform = AdaptiveTrimTransform(["item_id", "cat_feature"], padding_mask_name="item_id_mask")
+    output_batch = transform(random_batch_with_fixed_padding_len)
+
+    assert id(output_batch) != input_batch_id
+
+    assert id(random_batch_with_fixed_padding_len) == input_batch_id
+    assert set(random_batch_with_fixed_padding_len.keys()) == input_batch_keys
+    assert random_batch_with_fixed_padding_len.items() == input_batch_items
