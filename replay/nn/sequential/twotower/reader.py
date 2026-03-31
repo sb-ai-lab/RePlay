@@ -64,7 +64,7 @@ class FeaturesReader:
                 )
                 raise ValueError(msg)
 
-        features = pd.read_parquet(path=path, columns={*metadata_names, schema.item_id_feature_name}, **kwargs)
+        features = pd.read_parquet(path=path, columns=list({*metadata_names, schema.item_id_feature_name}), **kwargs)
 
         def add_padding(row: np.array, max_len: int, padding_value: int):
             return np.concatenate(([padding_value] * (max_len - len(row)), row))
