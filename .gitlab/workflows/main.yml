@@ -264,7 +264,7 @@ pytest-experimental:
     - *wrapper_install
   script:
     - *activate_poetry
-    - poetry run coverage combine .coverage_core_${py_version} .coverage_conditional_${py_version} .coverage_spark_${py_version} .coverage_torch_${py_version} .coverage_spark_and_torch_${py_version} .coverage_models_${py_version} .coverage_experimental_${py_version}
+    - poetry run coverage combine .coverage_core_${py_version} .coverage_conditional_${py_version} .coverage_spark_${py_version} .coverage_torch_${py_version} .coverage_spark_and_torch_${py_version} .coverage_models_${py_version} #.coverage_experimental_${py_version}
     - poetry run coverage xml
     - poetry run coverage report -m --fail-under=100
   tags:
