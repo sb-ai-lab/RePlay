@@ -264,7 +264,7 @@ pytest-experimental:
     - *wrapper_install
   script:
     - *activate_poetry
-    - poetry run coverage combine .coverage_core_${py_version} .coverage_conditional_${py_version} .coverage_spark_${py_version} .coverage_torch_${py_version} .coverage_spark_and_torch_${py_version} .coverage_models_${py_version} #.coverage_experimental_${py_version}
+    - poetry run coverage combine .coverage_core_${py_version} .coverage_conditional_${py_version} .coverage_spark_${py_version} .coverage_torch_${py_version} .coverage_spark_and_torch_${py_version} .coverage_models_${py_version} .coverage_experimental_${py_version}
     - poetry run coverage xml
     - poetry run coverage report -m --fail-under=100
   tags:
@@ -291,11 +291,11 @@ merge-coverage-py311:
     py_version: py311
   needs: ["pytest-core: [py311]", "pytest-conditional: [py311]", "pytest-torch: [py311]", "pytest-spark: [py311]", "pytest-spark-and-torch: [py311]", "pytest-models: [py311]", "pytest-experimental: [py311]"]
 
-merge-coverage-py312:
-  <<: *merge-coverage-template
-  variables:
-    py_version: py312
-  needs: ["pytest-core: [py312]", "pytest-conditional: [py312]", "pytest-torch: [py312]", "pytest-spark: [py312]", "pytest-spark-and-torch: [py312]", "pytest-models: [py312]"]
+# merge-coverage-py312:
+#   <<: *merge-coverage-template
+#   variables:
+#     py_version: py312
+#   needs: ["pytest-core: [py312]", "pytest-conditional: [py312]", "pytest-torch: [py312]", "pytest-spark: [py312]", "pytest-spark-and-torch: [py312]", "pytest-models: [py312]"]
 
 examples-execute-job:
   before_script:
