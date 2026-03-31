@@ -233,6 +233,13 @@ pytest-models:
 
 pytest-experimental:
   <<: *pytest_template
+  parallel:
+    matrix:
+      - py_version:
+        - "py310"
+        - "py311"
+        # - "py312" # TODO: uncomment after fix of python CMake issue 
+            # (https://github.com/scikit-build/cmake-python-distributions/issues/692)
   stage: test_experimental
   variables:
     WRAPPER_ARGS: --experimental
@@ -288,7 +295,7 @@ merge-coverage-py312:
   <<: *merge-coverage-template
   variables:
     py_version: py312
-  needs: ["pytest-core: [py312]", "pytest-conditional: [py312]", "pytest-torch: [py312]", "pytest-spark: [py312]", "pytest-spark-and-torch: [py312]", "pytest-models: [py312]", "pytest-experimental: [py312]"]
+  needs: ["pytest-core: [py312]", "pytest-conditional: [py312]", "pytest-torch: [py312]", "pytest-spark: [py312]", "pytest-spark-and-torch: [py312]", "pytest-models: [py312]"]
 
 examples-execute-job:
   before_script:
