@@ -6,7 +6,8 @@ on:
     types:
       - completed
     branches:
-      - release
+      # - release
+      - '**'
   workflow_dispatch:
 
 permissions:
