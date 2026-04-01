@@ -4,13 +4,13 @@ on:
   workflow_run:
     workflows: ["CI Pipeline"]
     types: [completed]
-    branches: ['release/**']
+    branches: ['release/**', '**ci**']
   
   workflow_dispatch:
 
 jobs:
   check_tag:
-    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     name: Check release tag
     runs-on: ubuntu-latest
     outputs:
@@ -29,11 +29,16 @@ jobs:
         id: check
         shell: bash
         run: |
-          TAG="$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | grep '^v')"
+          TAG="$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | grep '^v' || exit 0)"
           echo "Found tag: $TAG"
+
           if [ -n "$TAG" ]; then
-            echo "has_tag=true" >> "$GITHUB_OUTPUT"
+            has_tag=true
+          else
+            has_tag=false
           fi
+
+          echo "$has_tag" >> "$GITHUB_OUTPUT"
 
   publish_experimental:
     needs: check_tag
