@@ -19,6 +19,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  check_tag:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    name: Check release tag
+    runs-on: ubuntu-latest
+    outputs:
+      has_tag: ${{ steps.check.outputs.has_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+        ref: ${{ github.event.workflow_run.head_sha }}
+        fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --force --tags
+
+      - name: Check tag presence
+        id: check
+        shell: bash
+        run: |
+          TAG="$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | grep '^v')"
+          echo "Found tag: $TAG"
+          echo "has_tag=true" >> "$GITHUB_OUTPUT"
+
   deploy_docs:
     runs-on: ubuntu-latest
     steps:

@@ -11,13 +11,13 @@ on:
 
 jobs:
   check_tag:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     name: Check release tag
     runs-on: ubuntu-latest
     outputs:
-      publish: ${{ steps.check.outputs.publish }}
-      tag: ${{ steps.check.outputs.tag }}
+      has_tag: ${{ steps.check.outputs.has_tag }}
     steps:
-      - name: Checkout tested commit
+      - name: Checkout
         uses: actions/checkout@v4
         with:
         ref: ${{ github.event.workflow_run.head_sha }}
@@ -26,52 +26,17 @@ jobs:
       - name: Fetch tags
         run: git fetch --force --tags
 
-      - name: Check workflow result and v* tag
+      - name: Check tag presence
         id: check
         shell: bash
         run: |
-          set -euo pipefail
-
-          echo "publish=false" >> "$GITHUB_OUTPUT"
-          echo "tag=" >> "$GITHUB_OUTPUT"
-
-          # publish only after successful CI
-          if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
-          echo "CI was not successful"
-          exit 0
-          fi
-
-          # find v* tag on tested commit
-          TAG="$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | grep '^v' | head -n1 || true)"
-
-          if [ -z "$TAG" ]; then
-          echo "No v* tag on tested commit"
-          exit 0
-          fi
-
-          echo "publish=true" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "Release tag found: $TAG"
-
-  # run: |
-  #   TAG="$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | grep '^v' | head -n1 || true)"
-
-  #   if [ -z "$TAG" ]; then
-  #   echo "has_tag=false" >> "$GITHUB_OUTPUT"
-  #   else
-  #   echo "has_tag=true" >> "$GITHUB_OUTPUT"
-  #   echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-  #   echo "Found tag: $TAG"
-  #   fi
-
-  #   - name: Set up Python
-  #   if: steps.tag_check.outputs.has_tag == 'true'
-  #   uses: actions/setup-python@v5
-  #   with:
-  #   python-version: '3.12'
+          TAG="$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | grep '^v')"
+          echo "Found tag: $TAG"
+          echo "has_tag=true" >> "$GITHUB_OUTPUT"
 
   publish_experimental:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    needs: check_tag
+    if: needs.check_tag.outputs.has_tag == 'true'
     runs-on: ubuntu-latest
     permissions:
         id-token: write
@@ -105,7 +70,8 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
 
   publish_production:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    needs: check_tag
+    if: needs.check_tag.outputs.has_tag == 'true'
     runs-on: ubuntu-latest
     permissions:
         id-token: write
