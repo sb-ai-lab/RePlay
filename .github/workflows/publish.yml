@@ -59,7 +59,7 @@ jobs:
 
   publish_production:
     needs: check_tag
-    if: needs.check_tag.outputs.has_tag == 'false'
+    if: needs.check_tag.outputs.has_tag == 'true'
     runs-on: ubuntu-latest
     permissions:
         id-token: write
@@ -76,17 +76,17 @@ jobs:
         with:
           python-version: "3.10"
 
-      # - name: Install production package
-      #   run: |
-      #     pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-      #     ./poetry_wrapper.sh --generate
-      #     eval $(poetry env activate)
-      #     poetry cache clear PyPI --all
-      #     poetry sync -E torch -E spark --no-cache
+      - name: Install production package
+        run: |
+          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
+          ./poetry_wrapper.sh --generate
+          eval $(poetry env activate)
+          poetry cache clear PyPI --all
+          poetry sync -E torch -E spark --no-cache
 
-      # - name: Build Production
-      #   run: |
-      #     poetry build
+      - name: Build Production
+        run: |
+          poetry build
 
       # - name: Publish Production
       #   uses: pypa/gh-action-pypi-publish@release/v1
