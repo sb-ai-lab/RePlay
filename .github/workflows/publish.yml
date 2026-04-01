@@ -36,7 +36,6 @@ jobs:
         shell: bash
         run: |
           TAG="$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | grep '^v' || exit 0)"
-          echo "Found tag: $TAG"
 
           if [ -n "$TAG" ]; then
             has_tag=true
