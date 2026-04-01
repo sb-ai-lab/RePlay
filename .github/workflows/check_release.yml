@@ -1,45 +1,89 @@
-name: Check Release Tag
+# name: Check Release Tag
 
-# on:
-#   workflow_run:
-#     workflows: ["CI Pipeline"]
-#     types: [completed]
-#     branches: ['release/**', '**ci**']
+# # on:
+# #   workflow_run:
+# #     workflows: ["CI Pipeline"]
+# #     types: [completed]
+# #     branches: ['release/**', '**ci**']
   
-#   workflow_dispatch:
+# #   workflow_dispatch:
+# on:
+#   # Triggers the workflow on push and pull request events but only for the main branch or creating tag
+#   push:
+#     branches: [main, 'release/**', '**ci**']
+
+# jobs:
+#   check_tag:
+#     # if: ${{ github.event.workflow_run.conclusion == 'success' }}
+#     # name: Check release tag
+#     runs-on: ubuntu-latest
+#     outputs:
+#       has_tag: ${{ steps.check.outputs.has_tag }}
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v6
+#         with:
+#           ref: ${{ github.event.workflow_run.head_sha }}
+#           fetch-depth: 0
+
+#       - name: Fetch tags
+#         run: git fetch --force --tags
+
+#       - name: Check tag presence
+#         id: check
+#         shell: bash
+#         # TAG="$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | grep '^v' || exit 0)"
+#         run: |
+#           TAG="$(git tag --points-at HEAD | grep '^v')"
+#           echo 
+#           if [ -n "$TAG" ]; then
+#             has_tag=true
+#           else
+#             has_tag=false
+#           fi
+
+#           echo "has_tag=$has_tag" | tee "$GITHUB_OUTPUT"
+
+
 on:
-  # Triggers the workflow on push and pull request events but only for the main branch or creating tag
-  push:
-    branches: [main, 'release/**', '**ci**']
+  workflow_call:
+    inputs:
+      sha:
+        required: true
+        type: string
+    outputs:
+      has_tag:
+        value: ${{ jobs.check_tag.outputs.has_tag }}
+      tag:
+        value: ${{ jobs.check_tag.outputs.tag }}
 
 jobs:
   check_tag:
-    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    # name: Check release tag
     runs-on: ubuntu-latest
     outputs:
       has_tag: ${{ steps.check.outputs.has_tag }}
+      tag: ${{ steps.check.outputs.tag }}
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
       - name: Fetch tags
         run: git fetch --force --tags
 
-      - name: Check tag presence
+      - name: Detect v* tag
         id: check
         shell: bash
-        # TAG="$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | grep '^v' || exit 0)"
         run: |
-          TAG="$(git tag --points-at HEAD | grep '^v' || exit 1)"
+          tag=$(git tag --points-at "${{ inputs.sha }}" | grep '^v' | head -n 1 || true)
 
-          if [ -n "$TAG" ]; then
-            has_tag=true
+          if [ -n "$tag" ]; then
+            echo "has_tag=true" >> "$GITHUB_OUTPUT"
+            echo "tag=$tag" >> "$GITHUB_OUTPUT"
+            echo "Found tag: $tag"
           else
-            has_tag=false
+            echo "has_tag=false" >> "$GITHUB_OUTPUT"
+            echo "tag=" >> "$GITHUB_OUTPUT"
+            echo "No v* tag found"
           fi
-
-          echo "has_tag=$has_tag" | tee "$GITHUB_OUTPUT"
