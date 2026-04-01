@@ -1,21 +1,12 @@
 name: Publish to PyPI
 
-# on:
-#   workflow_run:
-#     workflows: ["CI Pipeline"]
-#     types:
-#       - completed
-#     # branches:
-#     #   - release
-#   # workflow_dispatch:
-
 on:
-  # Triggers the workflow on push and pull request events but only for the main branch or creating tag
-  push:
-    branches: ['**']
-    # tags: ['v*.*.*']
-  pull_request:
-    branches: [main, refactoring]
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: ['release/**']
+  
+  workflow_dispatch:
 
 jobs:
   check_tag:
