@@ -5,9 +5,9 @@ on:
     workflows: ["CI Pipeline"]
     types:
       - completed
-    branches:
-      # - release
-      - '**'
+    # branches:
+    #   # - release
+    #   - '**'
   workflow_dispatch:
 
 permissions:
@@ -28,7 +28,7 @@ jobs:
       has_tag: ${{ steps.check.outputs.has_tag }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
@@ -50,9 +50,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
       - name: Install full package
@@ -67,12 +67,12 @@ jobs:
         run: |
           eval $(poetry env activate)
           make -C docs clean html
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: 'docs/_build/html/'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      # - name: Setup Pages
+      #   uses: actions/configure-pages@v6
+      # - name: Upload artifact
+      #   uses: actions/upload-pages-artifact@v6
+      #   with:
+      #     path: 'docs/_build/html/'
+      # - name: Deploy to GitHub Pages
+      #   id: deployment
+      #   uses: actions/deploy-pages@v4
