@@ -44,6 +44,8 @@ jobs:
           echo "has_tag=true" >> "$GITHUB_OUTPUT"
 
   deploy_docs:
+    needs: check_tag
+    if: needs.check_tag.outputs.has_tag == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
