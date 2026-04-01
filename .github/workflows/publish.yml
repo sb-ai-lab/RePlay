@@ -44,6 +44,7 @@ jobs:
             has_tag=false
           fi
 
+          echo "has_tag=$has_tag"
           echo "has_tag=$has_tag" >> "$GITHUB_OUTPUT"
 
   publish_experimental:
