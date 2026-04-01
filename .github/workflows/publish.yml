@@ -16,7 +16,7 @@ on:
 
 jobs:
   check_tag:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
     name: Check release tag
     runs-on: ubuntu-latest
     outputs:
