@@ -2,9 +2,10 @@ name: CI Pipeline
 
 # Controls when the workflow will run
 on:
-  # Triggers the workflow on push and pull request events but only for the main branch
+  # Triggers the workflow on push and pull request events but only for the main branch or creating tag
   push:
     branches: [main]
+    tags: ['v*.*.*']
   pull_request:
     branches: [main, refactoring]
 
@@ -272,7 +273,7 @@ jobs:
           merge-multiple: true
       - name: Combine coverage
         run: |
-          poetry run coverage combine coverage_core_${{ matrix.python-version }} coverage_conditional_${{ matrix.python-version }} coverage_torch_${{ matrix.python-version }} coverage_spark_${{ matrix.python-version }} coverage_spark_and_torch_${{ matrix.python-version }} coverage_models_${{ matrix.python-version }} coverage_experimental_${{ matrix.python-version }
+          poetry run coverage combine coverage_core_${{ matrix.python-version }} coverage_conditional_${{ matrix.python-version }} coverage_torch_${{ matrix.python-version }} coverage_spark_${{ matrix.python-version }} coverage_spark_and_torch_${{ matrix.python-version }} coverage_models_${{ matrix.python-version }} coverage_experimental_${{ matrix.python-version }}
           poetry run coverage report --fail-under=100
           poetry run coverage xml
 
