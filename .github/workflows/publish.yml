@@ -1,23 +1,16 @@
 name: Publish to PyPI
 
-
 on:
-  # Triggers the workflow on push and pull request events but only for the main branch or creating tag
-  push:
-    branches: [main, 'release/**', '**ci**']
-
-
-# on:
-#   workflow_run:
-#     workflows: ["CI Pipeline"]
-#     types: [completed]
-#     branches: ['release/**', '**ci**']
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: ['release/**', '**ci**']
   
-#   workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
   check_tag:
-    # if : ${{ github.event.workflow_run.conclusion == 'success' }}
+    if : ${{ github.event.workflow_run.conclusion == 'success' }}
     uses: ./.github/workflows/check_release_tag.yml
     with:
       sha: ${{ github.event.workflow_run.head_sha }}
