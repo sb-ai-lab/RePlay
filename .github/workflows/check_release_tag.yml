@@ -1,0 +1,39 @@
+name: Check Release Tag
+
+on:
+  workflow_call:
+    inputs:
+      sha:
+        required: true
+        type: string
+    outputs:
+      has_tag:
+        value: ${{ jobs.call.outputs.has_tag }}
+
+jobs:
+  call:
+    runs-on: ubuntu-latest
+    outputs:
+      has_tag: ${{ steps.check.outputs.has_tag }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --force --tags
+
+      - name: Detect tag
+        id: check
+        shell: bash
+        run: |
+          tag=$(git tag --points-at "${{ inputs.sha }}" | grep '^v*.*.*' | head -n 1 || true)
+
+          if [ -n "$tag" ]; then
+            has_tag=true
+          else
+            has_tag=false
+          fi
+
+          echo "has_tag=$has_tag" | tee "$GITHUB_OUTPUT"

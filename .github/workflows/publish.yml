@@ -6,18 +6,10 @@ on:
   push:
     branches: [main, 'release/**', '**ci**']
 
-# on:
-#   workflow_run:
-#     workflows: ["Check Release Tag"]
-#     types: [completed]
-#     branches: ['release/**', '**ci**']
-  
-#   workflow_dispatch:
-
 
 # on:
 #   workflow_run:
-#     workflows: ["CI"]
+#     workflows: ["CI Pipeline"]
 #     types: [completed]
 #     branches: ['release/**', '**ci**']
   
@@ -26,7 +18,7 @@ on:
 jobs:
   check_tag:
     # if : ${{ github.event.workflow_run.conclusion == 'success' }}
-    uses: ./.github/workflows/check_release.yml
+    uses: ./.github/workflows/check_release_tag.yml
     with:
       sha: ${{ github.event.workflow_run.head_sha }}
 
@@ -79,24 +71,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
-      - name: Install production package
-        # run: |
-        #   pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-        #   ./poetry_wrapper.sh --generate
-        #   eval $(poetry env activate)
-        #   poetry cache clear PyPI --all
-        #   poetry sync -E torch -E spark --no-cache
-        run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          ./poetry_wrapper.sh --generate
-          eval $(poetry env activate)
-          poetry sync -E torch -E spark --no-cache
+      # - name: Install production package
+      #   run: |
+      #     pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
+      #     ./poetry_wrapper.sh --generate
+      #     eval $(poetry env activate)
+      #     poetry cache clear PyPI --all
+      #     poetry sync -E torch -E spark --no-cache
 
       # - name: Build Production
       #   run: |
