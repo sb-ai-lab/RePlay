@@ -45,6 +45,7 @@ jobs:
           fi
 
           echo "has_tag=$has_tag" | tee "$GITHUB_OUTPUT"
+          echo "$GITHUB_OUTPUT"
 
   publish_experimental:
     needs: check_tag
