@@ -1,10 +1,11 @@
 name: Publish to PyPI
 
+# Run publish only on release branch after finished CI 
 on:
   workflow_run:
     workflows: ["CI Pipeline"]
     types: [completed]
-    branches: ['release/**', '**ci**']
+    branches: ['release/**']
   
   workflow_dispatch:
 
@@ -47,8 +48,8 @@ jobs:
           export PACKAGE_SUFFIX=.preview
           poetry build
 
-      # - name: Publish Experimental
-      #   uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Publish Experimental
+        uses: pypa/gh-action-pypi-publish@release/v1
 
   publish_production:
     needs: check_tag
@@ -81,5 +82,5 @@ jobs:
         run: |
           poetry build
 
-      # - name: Publish Production
-      #   uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Publish Production
+        uses: pypa/gh-action-pypi-publish@release/v1

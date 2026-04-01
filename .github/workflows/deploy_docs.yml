@@ -1,19 +1,13 @@
 name: Deploy Docs to Pages
 
+# Run deploy only on release branch after finished CI 
 on:
-  # Triggers the workflow on push and pull request events but only for the main branch or creating tag
-  push:
-    branches: [main, 'release/**', '**ci**']
-
-# on:
-#   workflow_run:
-#     workflows: ["CI Pipeline"]
-#     types:
-#       - completed
-#     # branches:
-#     #   # - release
-#     #   - '**'
-#   workflow_dispatch:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: ['release/**']
+  
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -26,14 +20,14 @@ concurrency:
 
 jobs:
   check_tag:
-    # if : ${{ github.event.workflow_run.conclusion == 'success' }}
+    if : ${{ github.event.workflow_run.conclusion == 'success' }}
     uses: ./.github/workflows/check_release_tag.yml
     with:
       sha: ${{ github.event.workflow_run.head_sha }}
 
   deploy_docs:
     needs: check_tag
-    if: needs.check_tag.outputs.has_tag == 'false'
+    if: needs.check_tag.outputs.has_tag == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -42,24 +36,29 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.10"
-      # - name: Install full package
-      #   run: |
-      #     pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-      #     poetry cache clear PyPI --all
-      #     ./poetry_wrapper.sh --experimental --generate
-      #     eval $(poetry env activate)
-      #     poetry sync --with dev --no-cache
-      #     pip install --upgrade onnx onnxscript openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 --no-cache-dir
-      # - name: Build docs
-      #   run: |
-      #     eval $(poetry env activate)
-      #     make -C docs clean html
-      # - name: Setup Pages
-      #   uses: actions/configure-pages@v6
-      # - name: Upload artifact
-      #   uses: actions/upload-pages-artifact@v6
-      #   with:
-      #     path: 'docs/_build/html/'
-      # - name: Deploy to GitHub Pages
-      #   id: deployment
-      #   uses: actions/deploy-pages@v4
+
+      - name: Install full package
+        run: |
+          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
+          poetry cache clear PyPI --all
+          ./poetry_wrapper.sh --experimental --generate
+          eval $(poetry env activate)
+          poetry sync --with dev --no-cache
+          pip install --upgrade onnx onnxscript openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 --no-cache-dir
+
+      - name: Build docs
+        run: |
+          eval $(poetry env activate)
+          make -C docs clean html
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v6
+        with:
+          path: 'docs/_build/html/'
+          
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
