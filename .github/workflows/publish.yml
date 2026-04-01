@@ -1,52 +1,20 @@
 name: Publish to PyPI
 
 
-on:
-  # Triggers the workflow on push and pull request events but only for the main branch or creating tag
-  push:
-    branches: [main, 'release/**', '**ci**']
-
 # on:
-#   workflow_run:
-#     workflows: ["CI Pipeline"]
-#     types: [completed]
-#     branches: ['release/**', '**ci**']
+#   # Triggers the workflow on push and pull request events but only for the main branch or creating tag
+#   push:
+#     branches: [main, 'release/**', '**ci**']
+
+on:
+  workflow_run:
+    workflows: ["Check Release Tag"]
+    types: [completed]
+    branches: ['release/**', '**ci**']
   
-#   workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
-  check_tag:
-    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    name: Check release tag
-    runs-on: ubuntu-latest
-    outputs:
-      has_tag: ${{ steps.check.outputs.has_tag }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-          fetch-depth: 0
-
-      - name: Fetch tags
-        run: git fetch --force --tags
-
-      - name: Check tag presence
-        id: check
-        shell: bash
-        # TAG="$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | grep '^v' || exit 0)"
-        run: |
-          TAG="$(git tag --points-at HEAD | grep '^v' || exit 0)"
-
-          if [ -n "$TAG" ]; then
-            has_tag=true
-          else
-            has_tag=false
-          fi
-
-          echo "has_tag=$has_tag" | tee "$GITHUB_OUTPUT"
-          echo "$GITHUB_OUTPUT"
-
   publish_experimental:
     needs: check_tag
     if: needs.check_tag.outputs.has_tag == 'true'
