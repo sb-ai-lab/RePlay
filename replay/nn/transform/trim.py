@@ -76,7 +76,7 @@ class AdaptiveTrimTransform(torch.nn.Module):
 
     def __init__(
         self,
-        feature_names: Union[List[str], str],
+        feature_names: list[str] | str,
         padding_mask_name: str = "padding_mask",
     ) -> None:
         """

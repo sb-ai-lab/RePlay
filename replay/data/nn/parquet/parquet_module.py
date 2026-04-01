@@ -44,7 +44,7 @@ class ParquetModule(L.LightningDataModule):
 
     def __init__(
         self,
-        batch_size: Union[int, dict[str, int]],
+        batch_size: int | dict[str, int],
         metadata: dict,
         transforms: dict[TransformStage, list[torch.nn.Module]],
         config: Optional[dict] = None,
