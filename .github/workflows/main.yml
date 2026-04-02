@@ -2,9 +2,9 @@ name: CI Pipeline
 
 # Controls when the workflow will run
 on:
-  # Triggers the workflow on push and pull request events but only for the main branch
+  # Triggers the workflow on push and pull request events but only for the main or release branch
   push:
-    branches: [main]
+    branches: [main, 'release/**']
   pull_request:
     branches: [main, refactoring]
 
@@ -17,9 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
       - name: Install full package
@@ -54,8 +54,8 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install core package
@@ -69,7 +69,7 @@ jobs:
           poetry run pytest -m core tests/ --ignore=tests/experimental --ignore=tests/conditional
           mv .coverage coverage_core_${{ matrix.python-version }}
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage_core_${{ matrix.python-version }}
           path: coverage_core_${{ matrix.python-version }}
@@ -82,8 +82,8 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install conditional package
@@ -100,7 +100,7 @@ jobs:
           poetry run pytest -m conditional tests/ --ignore=tests/experimental --ignore=tests/conditional
           mv .coverage coverage_conditional_${{ matrix.python-version }}
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage_conditional_${{ matrix.python-version }}
           path: coverage_conditional_${{ matrix.python-version }}
@@ -113,8 +113,8 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install torch package
@@ -128,7 +128,7 @@ jobs:
           poetry run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/conditional
           mv .coverage coverage_torch_${{ matrix.python-version }}
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage_torch_${{ matrix.python-version }}
           path: coverage_torch_${{ matrix.python-version }}
@@ -141,8 +141,8 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install spark package
@@ -156,7 +156,7 @@ jobs:
           poetry run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
           mv .coverage coverage_spark_${{ matrix.python-version }}
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage_spark_${{ matrix.python-version }}
           path: coverage_spark_${{ matrix.python-version }}
@@ -169,8 +169,8 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install full package
@@ -184,7 +184,7 @@ jobs:
           poetry run pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
           mv .coverage coverage_spark_and_torch_${{ matrix.python-version }}
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage_spark_and_torch_${{ matrix.python-version }}
           path: coverage_spark_and_torch_${{ matrix.python-version }}
@@ -197,8 +197,8 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install experimental package
@@ -213,7 +213,7 @@ jobs:
           poetry run pytest -m "experimental" tests/
           mv .coverage coverage_experimental_${{ matrix.python-version }}
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage_experimental_${{ matrix.python-version }}
           path: coverage_experimental_${{ matrix.python-version }}
@@ -226,8 +226,8 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install full package
@@ -241,7 +241,7 @@ jobs:
           poetry run pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/conditional
           mv .coverage coverage_models_${{ matrix.python-version }}
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage_models_${{ matrix.python-version }}
           path: coverage_models_${{ matrix.python-version }}
@@ -255,8 +255,8 @@ jobs:
         # python-version: ["3.10", "3.11", "3.12"]
         python-version: ["3.10", "3.11"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install only dev package
@@ -272,7 +272,7 @@ jobs:
           merge-multiple: true
       - name: Combine coverage
         run: |
-          poetry run coverage combine coverage_core_${{ matrix.python-version }} coverage_conditional_${{ matrix.python-version }} coverage_torch_${{ matrix.python-version }} coverage_spark_${{ matrix.python-version }} coverage_spark_and_torch_${{ matrix.python-version }} coverage_models_${{ matrix.python-version }} coverage_experimental_${{ matrix.python-version }
+          poetry run coverage combine coverage_core_${{ matrix.python-version }} coverage_conditional_${{ matrix.python-version }} coverage_torch_${{ matrix.python-version }} coverage_spark_${{ matrix.python-version }} coverage_spark_and_torch_${{ matrix.python-version }} coverage_models_${{ matrix.python-version }} coverage_experimental_${{ matrix.python-version }}
           poetry run coverage report --fail-under=100
           poetry run coverage xml
 
@@ -281,9 +281,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
       - name: Install production package
@@ -302,9 +302,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
       - name: Install full package
