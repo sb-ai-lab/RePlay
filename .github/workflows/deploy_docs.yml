@@ -1,10 +1,11 @@
 name: Deploy Docs to Pages
 
+# Run deploy only on release branch after finished CI 
 on:
-  push:
-    branches: [release]
-    tags:
-      - 'v*.*.*'
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: ['release/**']
   
   workflow_dispatch:
 
@@ -18,15 +19,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  check_tag:
+    if : ${{ github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/check_release_tag.yml
+    with:
+      sha: ${{ github.event.workflow_run.head_sha }}
+
   deploy_docs:
+    needs: check_tag
+    if: needs.check_tag.outputs.has_tag == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
+
       - name: Install full package
         run: |
           pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
@@ -35,16 +45,20 @@ jobs:
           eval $(poetry env activate)
           poetry sync --with dev --no-cache
           pip install --upgrade onnx onnxscript openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 --no-cache-dir
+
       - name: Build docs
         run: |
           eval $(poetry env activate)
           make -C docs clean html
+
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v6
+
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v6
         with:
           path: 'docs/_build/html/'
+          
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

@@ -1,13 +1,24 @@
 name: Publish to PyPI
 
-on: 
-  push:
-    branches: [release]
-    tags:
-      - 'v*.*.*'
+# Run publish only on release branch after finished CI 
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: ['release/**']
+  
+  workflow_dispatch:
 
 jobs:
+  check_tag:
+    if : ${{ github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/check_release_tag.yml
+    with:
+      sha: ${{ github.event.workflow_run.head_sha }}
+
   publish_experimental:
+    needs: check_tag
+    if: needs.check_tag.outputs.has_tag == 'true'
     runs-on: ubuntu-latest
     permissions:
         id-token: write
@@ -17,10 +28,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
@@ -41,6 +52,8 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
 
   publish_production:
+    needs: check_tag
+    if: needs.check_tag.outputs.has_tag == 'true'
     runs-on: ubuntu-latest
     permissions:
         id-token: write
@@ -50,10 +63,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
