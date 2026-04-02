@@ -11,6 +11,10 @@ variables:
   VERSION: "0.0.11"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   RUNNER: amazme-1
+  CODEX_VERSION: "rust-v0.118.0"
+  CODEX_SHA256_X86_64: "e707ea65d7bbbc46a04afe731bf3c14a5b77522100cebf8bb93cffb95cf4610b"
+  CODEX_SHA256_AARCH64: "29bc741268b6d17ddd148b8c2c2108e8b3a0eef914b07922491348144e667e09"
+  CODEX_REVIEW_OUTPUT_FILE: "codex-review-output.json"
 
 .wrapper_install: &wrapper_install
   - ./poetry_wrapper.sh ${WRAPPER_ARGS} sync ${WRAPPER_EXTRAS}
@@ -21,7 +25,64 @@ variables:
 
 .install_conditionals: &install_conditionals
   - *activate_poetry
-  - pip install -q --upgrade onnx onnxscript openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114
+  - |
+    pip install -q --upgrade \
+      onnx \
+      onnxscript \
+      openvino \
+      optuna \
+      hnswlib \
+      fixed-install-nmslib \
+      git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114
+
+.install_codex: &install_codex
+  - |
+    set -euo pipefail
+    arch="$(uname -m)"
+    case "$arch" in
+      x86_64|amd64)
+        codex_arch="x86_64"
+        expected_sha256="$CODEX_SHA256_X86_64"
+        ;;
+      aarch64|arm64)
+        codex_arch="aarch64"
+        expected_sha256="$CODEX_SHA256_AARCH64"
+        ;;
+      *)
+        echo "Unsupported architecture for Codex: $arch"
+        exit 1
+        ;;
+    esac
+    if [ -z "$expected_sha256" ]; then
+      echo "Codex SHA256 is empty for architecture: $codex_arch"
+      exit 1
+    fi
+    codex_asset="codex-${codex_arch}-unknown-linux-musl.tar.gz"
+    codex_url="https://github.com/openai/codex/releases/download/${CODEX_VERSION}/${codex_asset}"
+    mkdir -p "$CI_PROJECT_DIR/.bin"
+    codex_tar="$CI_PROJECT_DIR/.bin/codex.tar.gz"
+    python -c "import urllib.request; urllib.request.urlretrieve('$codex_url', '$codex_tar')"
+    if command -v sha256sum >/dev/null 2>&1; then
+      actual_sha256="$(sha256sum "$codex_tar" | awk '{print $1}')"
+    else
+      actual_sha256="$(shasum -a 256 "$codex_tar" | awk '{print $1}')"
+    fi
+    if [ "$actual_sha256" != "$expected_sha256" ]; then
+      echo "Codex checksum mismatch for $codex_asset"
+      echo "Expected: $expected_sha256"
+      echo "Actual:   $actual_sha256"
+      exit 1
+    fi
+    tar -xzf "$codex_tar" -C "$CI_PROJECT_DIR/.bin"
+    if [ -f "$CI_PROJECT_DIR/.bin/codex-${codex_arch}-unknown-linux-musl" ]; then
+      mv "$CI_PROJECT_DIR/.bin/codex-${codex_arch}-unknown-linux-musl" "$CI_PROJECT_DIR/.bin/codex"
+    fi
+    chmod +x "$CI_PROJECT_DIR/.bin/codex"
+    export PATH="$CI_PROJECT_DIR/.bin:$PATH"
+    codex --version
+
+.install_codex_review_deps: &install_codex_review_deps
+  - pip install -q "pydantic>=2,<3"
 
 stages:
   - code_quality
@@ -87,8 +148,62 @@ toml-sort:
   tags:
     - ${RUNNER}
 
+codex-review:
+  stage: code_quality
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
+      when: manual
+    - when: never
+  # Required CI variables:
+  # - OPENAI_API_KEY (OpenAI key)
+  # - OPENAI_HTTP_PROXY (proxy URL for OpenAI HTTP requests; should match OPENAI_HTTPS_PROXY)
+  # - OPENAI_HTTPS_PROXY (proxy URL for OpenAI HTTPS requests)
+  # - GITLAB_API_TOKEN (token with `api` scope)
+  variables:
+    OPENAI_MODEL: "gpt-5.2-codex"
+    CODEX_SANDBOX_MODE: "danger-full-access"
+  before_script:
+    - *install_codex
+    - *install_codex_review_deps
+  script:
+    - mkdir -p "$(dirname "$CODEX_REVIEW_OUTPUT_FILE")"
+    - BASE_SHA="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-${CI_COMMIT_BEFORE_SHA:-$CI_COMMIT_SHA}}"
+    - export CODEX_PROXY="${OPENAI_HTTPS_PROXY:-$OPENAI_HTTP_PROXY}"
+    - |
+      if [ -z "$CODEX_PROXY" ]; then
+        echo "Missing proxy variable: set OPENAI_HTTPS_PROXY or OPENAI_HTTP_PROXY"
+        exit 1
+      fi
+    - |
+      python -m scripts.codex_review.cli review \
+        --base-sha "$BASE_SHA" \
+        --codex-sandbox-mode "$CODEX_SANDBOX_MODE" \
+        --codex-proxy "$CODEX_PROXY" \
+        --output-path "$CODEX_REVIEW_OUTPUT_FILE"
+    - |
+      python -m scripts.codex_review.cli publish \
+        --api-base "$CI_API_V4_URL" \
+        --project-id "$CI_PROJECT_ID" \
+        --merge-request-id "$CI_MERGE_REQUEST_IID" \
+        --base-sha "$BASE_SHA" \
+        --head-sha "$CI_COMMIT_SHA" \
+        --review-path "$CODEX_REVIEW_OUTPUT_FILE"
+  artifacts:
+    when: always
+    paths:
+      - $CODEX_REVIEW_OUTPUT_FILE
+    expire_in: 1 day
+  allow_failure: true
+  tags:
+    - ${RUNNER}
+
 sphinx-job:
   stage: docs_quality
+  needs:
+    - ruff
+    - black
+    - toml-sort
+    - poetry-check
   variables:
     WRAPPER_ARGS: --experimental
   before_script:
@@ -133,7 +248,7 @@ sphinx-job:
   #   key: ${CI_COMMIT_REF_SLUG}_${py_version}
   tags:
     - ${RUNNER}
-  needs: ["ruff", "black", "poetry-check"] # , "prefetch-artifacts"]
+  needs: ["sphinx-job"] # , "prefetch-artifacts"]
   before_script:
     # - poetry config virtualenvs.in-project true
     # - poetry config virtualenvs.create false
@@ -182,7 +297,12 @@ pytest-torch:
     WRAPPER_EXTRAS: -E torch-cpu
   script:
     - *activate_poetry
-    - poetry run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/conditional
+    - |
+      poetry run pytest \
+        -m "not spark and not experimental and not conditional" \
+        tests/ \
+        --ignore=tests/experimental \
+        --ignore=tests/conditional
     - mv .coverage .coverage_torch_${py_version}
   artifacts:
     paths:
@@ -196,7 +316,13 @@ pytest-spark:
     WRAPPER_EXTRAS: -E spark
   script:
     - *activate_poetry
-    - poetry run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
+    - |
+      poetry run pytest \
+        -m "not torch and not experimental and not conditional" \
+        tests/ \
+        --ignore=tests/experimental \
+        --ignore=tests/models \
+        --ignore=tests/conditional
     - mv .coverage .coverage_spark_${py_version}
   artifacts:
     paths:
@@ -210,7 +336,14 @@ pytest-spark-and-torch:
     WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
     - *activate_poetry
-    - poetry run pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
+    - |
+      poetry run pytest \
+        -m "not experimental and not conditional" \
+        --ignore=replay/models/nn/sequential/compiled \
+        --ignore=replay/experimental \
+        --ignore=tests/experimental \
+        --ignore=tests/models \
+        --ignore=tests/conditional
     - mv .coverage .coverage_spark_and_torch_${py_version}
   artifacts:
     paths:
@@ -224,7 +357,13 @@ pytest-models:
     WRAPPER_EXTRAS: -E torch-cpu -E spark
   script:
     - *activate_poetry
-    - poetry run pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/conditional
+    - |
+      poetry run pytest \
+        -m "not experimental and not conditional" \
+        tests/models \
+        --ignore=replay/experimental \
+        --ignore=tests/experimental \
+        --ignore=tests/conditional
     - mv .coverage .coverage_models_${py_version}
   artifacts:
     paths:
@@ -264,7 +403,15 @@ pytest-experimental:
     - *wrapper_install
   script:
     - *activate_poetry
-    - poetry run coverage combine .coverage_core_${py_version} .coverage_conditional_${py_version} .coverage_spark_${py_version} .coverage_torch_${py_version} .coverage_spark_and_torch_${py_version} .coverage_models_${py_version} .coverage_experimental_${py_version}
+    - |
+      poetry run coverage combine \
+        .coverage_core_${py_version} \
+        .coverage_conditional_${py_version} \
+        .coverage_spark_${py_version} \
+        .coverage_torch_${py_version} \
+        .coverage_spark_and_torch_${py_version} \
+        .coverage_models_${py_version} \
+        .coverage_experimental_${py_version}
     - poetry run coverage xml
     - poetry run coverage report -m --fail-under=100
   tags:
@@ -283,19 +430,39 @@ merge-coverage-py310:
   <<: *merge-coverage-template
   variables:
     py_version: py310
-  needs: ["pytest-core: [py310]", "pytest-conditional: [py310]", "pytest-torch: [py310]", "pytest-spark: [py310]", "pytest-spark-and-torch: [py310]", "pytest-models: [py310]", "pytest-experimental: [py310]"]
+  needs:
+    - "pytest-core: [py310]"
+    - "pytest-conditional: [py310]"
+    - "pytest-torch: [py310]"
+    - "pytest-spark: [py310]"
+    - "pytest-spark-and-torch: [py310]"
+    - "pytest-models: [py310]"
+    - "pytest-experimental: [py310]"
 
 merge-coverage-py311:
   <<: *merge-coverage-template
   variables:
     py_version: py311
-  needs: ["pytest-core: [py311]", "pytest-conditional: [py311]", "pytest-torch: [py311]", "pytest-spark: [py311]", "pytest-spark-and-torch: [py311]", "pytest-models: [py311]", "pytest-experimental: [py311]"]
+  needs:
+    - "pytest-core: [py311]"
+    - "pytest-conditional: [py311]"
+    - "pytest-torch: [py311]"
+    - "pytest-spark: [py311]"
+    - "pytest-spark-and-torch: [py311]"
+    - "pytest-models: [py311]"
+    - "pytest-experimental: [py311]"
 
 # merge-coverage-py312:
 #   <<: *merge-coverage-template
 #   variables:
 #     py_version: py312
-#   needs: ["pytest-core: [py312]", "pytest-conditional: [py312]", "pytest-torch: [py312]", "pytest-spark: [py312]", "pytest-spark-and-torch: [py312]", "pytest-models: [py312]"]
+#   needs:
+#     - "pytest-core: [py312]"
+#     - "pytest-conditional: [py312]"
+#     - "pytest-torch: [py312]"
+#     - "pytest-spark: [py312]"
+#     - "pytest-spark-and-torch: [py312]"
+#     - "pytest-models: [py312]"
 
 examples-execute-job:
   before_script:
