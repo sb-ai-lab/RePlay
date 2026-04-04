@@ -85,6 +85,7 @@ class GitlabMergeRequestClient:
             "position[base_sha]": self._base_sha,
             "position[start_sha]": self.start_sha,
             "position[head_sha]": self._head_sha,
+            "position[old_path]": relative_file_path,
             "position[new_path]": relative_file_path,
             "position[new_line]": str(line),
         }

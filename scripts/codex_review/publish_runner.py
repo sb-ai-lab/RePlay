@@ -21,10 +21,16 @@ class ReviewCommentsProcessor:
         location = comment["code_location"]
         path = str(location["relative_file_path"])
         line_range = location["line_range"]
+        start_line = int(line_range["start"])
         end_line = int(line_range["end"])
+        line_label = str(start_line) if start_line == end_line else f"{start_line}-{end_line}"
         confidence_percent = round(confidence * 100)
 
-        discussion_body = f"###[P{priority}][Confidence: {confidence_percent}%] {title}\n\n{body}"
+        discussion_body = (
+            f"### [P{priority}][Confidence: {confidence_percent}%] {title}\n\n"
+            f"- Location: {path}:{line_label}\n\n"
+            f"{body}"
+        )
         return discussion_body, path, end_line
 
 
@@ -57,8 +63,11 @@ class ReviewCommentsPublisher:
                 )
                 inline_count += 1
                 continue
-            except Exception:
-                fallback_body = f"{body}\n\n_Inline publish fallback was used._"
+            except Exception as exc:
+                fallback_body = (
+                    f"{body}\n\n"
+                    f"_Inline publish fallback was used. Error: {exc}_"
+                )
 
             try:
                 self._gitlab_client.post_note(fallback_body)

@@ -37,6 +37,8 @@ def run_cmd(
     *,
     input_text: str | None = None,
     env_overrides: dict[str, str] | None = None,
+    stream_stdout: bool = True,
+    stream_stderr: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     command_text = shlex.join(command)
     sys.stdout.write(f"\n[run_cmd] >>> {command_text}\n")
@@ -59,25 +61,26 @@ def run_cmd(
     stdout_chunks: list[str] = []
     stderr_chunks: list[str] = []
 
-    def stream_output(stream: TextIO | None, sink: TextIO, chunks: list[str]) -> None:
+    def stream_output(stream: TextIO | None, sink: TextIO, chunks: list[str], stream_enabled: bool) -> None:
         if stream is None:
             return
         try:
             for chunk in stream:
                 chunks.append(chunk)
-                sink.write(chunk)
-                sink.flush()
+                if stream_enabled:
+                    sink.write(chunk)
+                    sink.flush()
         finally:
             stream.close()
 
     stdout_thread = threading.Thread(
         target=stream_output,
-        args=(process.stdout, sys.stdout, stdout_chunks),
+        args=(process.stdout, sys.stdout, stdout_chunks, stream_stdout),
         daemon=True,
     )
     stderr_thread = threading.Thread(
         target=stream_output,
-        args=(process.stderr, sys.stderr, stderr_chunks),
+        args=(process.stderr, sys.stderr, stderr_chunks, stream_stderr),
         daemon=True,
     )
     stdout_thread.start()
