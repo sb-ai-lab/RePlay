@@ -160,7 +160,7 @@ codex-review:
   # - OPENAI_HTTPS_PROXY (proxy URL for OpenAI HTTPS requests)
   # - GITLAB_API_TOKEN (token with `api` scope)
   variables:
-    OPENAI_MODEL: "gpt-5.2-codex"
+    OPENAI_MODEL: "gpt-5.3-codex"
     CODEX_SANDBOX_MODE: "danger-full-access"
   before_script:
     - *install_codex
@@ -203,7 +203,6 @@ sphinx-job:
     - ruff
     - black
     - toml-sort
-    - poetry-check
   variables:
     WRAPPER_ARGS: --experimental
   before_script:

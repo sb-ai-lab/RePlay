@@ -28,6 +28,7 @@ class CodexClient:
     def ensure_available(self) -> subprocess.CompletedProcess[str]:
         return run_cmd(
             [self._binary, "--version"],
+            stream_stdout=False,
         )
 
     def run_review_prompt(self, prompt: str) -> subprocess.CompletedProcess[str]:
@@ -42,9 +43,6 @@ class CodexClient:
         command = [
             self._binary,
             "exec",
-            "--skip-git-repo-check",
-            "--color",
-            "never",
             "--sandbox",
             self._sandbox_mode,
             "--model",
@@ -56,4 +54,5 @@ class CodexClient:
             command,
             input_text=prompt,
             env_overrides=env_overrides,
+            stream_stdout=False,
         )

@@ -56,6 +56,10 @@ Schema:
 - confidence_score:
   number from 0.0 to 1.0 (float)
 - priority: integer 0..3
+- code_location.line_range:
+  - start/end must refer to line numbers from the provided MR diff context
+  - end must point to a line that is actually present in a changed diff hunk
+  - do not use line numbers outside the diff
 
 ---
 
