@@ -6,7 +6,6 @@ import argparse
 from pathlib import Path
 
 from scripts.codex_review.common import require_env
-from scripts.codex_review.gitlab_api import GitlabMergeRequestClient
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -73,6 +72,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Run the codex-review CLI and dispatch the selected subcommand."""
     args = _build_parser().parse_args()
     if args.command == "review":
         from scripts.codex_review.review_runner import MergeRequestReviewService
@@ -86,17 +86,18 @@ def main() -> int:
         return service.run()
 
     if args.command == "publish":
-        from scripts.codex_review.publish_runner import run_publish
+        from scripts.codex_review.publish_runner import MergeRequestPublishService
 
-        gitlab_client = GitlabMergeRequestClient(
+        service = MergeRequestPublishService(
             api_base=args.api_base,
             project_id=args.project_id,
             merge_request_id=args.merge_request_id,
             base_sha=args.base_sha,
             head_sha=args.head_sha,
-            token=require_env("GITLAB_API_TOKEN"),
+            review_path=Path(args.review_path),
+            gitlab_api_token=require_env("GITLAB_API_TOKEN"),
         )
-        return run_publish(gitlab_client=gitlab_client, review_path=Path(args.review_path))
+        return service.run()
 
     message = f"Unsupported command: {args.command}"
     raise RuntimeError(message)

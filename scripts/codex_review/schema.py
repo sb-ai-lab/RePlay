@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -16,6 +13,7 @@ class LineRange(BaseModel):
 
     @model_validator(mode="after")
     def validate_bounds(self) -> "LineRange":
+        """Validate that the end line is not smaller than the start line."""
         if self.end < self.start:
             message = "line_range.end must be >= line_range.start"
             raise ValueError(message)
@@ -43,17 +41,3 @@ class ReviewResult(BaseModel):
     """Structured review result."""
 
     comments: list[ReviewComment]
-
-
-def parse_review_result_text(raw: str) -> ReviewResult:
-    payload = json.loads(raw)
-    return ReviewResult.model_validate(payload)
-
-
-def read_review_result(path: Path) -> ReviewResult:
-    return ReviewResult.model_validate_json(path.read_text(encoding="utf-8"))
-
-
-def write_review_result(path: Path, result: ReviewResult) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(result.model_dump_json(indent=2), encoding="utf-8")

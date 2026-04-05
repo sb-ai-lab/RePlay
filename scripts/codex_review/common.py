@@ -2,34 +2,25 @@
 
 from __future__ import annotations
 
-import json
 import os
 import shlex
 import subprocess
 import sys
 import threading
-from pathlib import Path
-from typing import Any, TextIO
-from urllib import error, request
-
-
-def env(name: str, default: str = "") -> str:
-    value = os.getenv(name)
-    if value is None:
-        return default
-    return value.strip()
+from typing import TextIO
 
 
 def require_env(name: str) -> str:
-    value = env(name)
-    if not value:
+    """Return a required environment variable value or raise an error.
+
+    Args:
+        name: Environment variable name.
+    """
+    value = os.getenv(name)
+    if value is None:
         message = f"Missing required environment variable: {name}"
         raise RuntimeError(message)
     return value
-
-
-def read_text_file(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
 
 
 def run_cmd(
@@ -40,6 +31,15 @@ def run_cmd(
     stream_stdout: bool = True,
     stream_stderr: bool = True,
 ) -> subprocess.CompletedProcess[str]:
+    """Run a command, optionally stream outputs, and return a completed process.
+
+    Args:
+        command: Command and arguments to execute.
+        input_text: Optional stdin text passed to the process.
+        env_overrides: Optional environment variables to override.
+        stream_stdout: Whether to stream stdout to the console.
+        stream_stderr: Whether to stream stderr to the console.
+    """
     command_text = shlex.join(command)
     sys.stdout.write(f"\n[run_cmd] >>> {command_text}\n")
     sys.stdout.flush()
@@ -110,47 +110,3 @@ def run_cmd(
             stderr=stderr_text,
         )
     return completed
-
-
-def request_text(
-    method: str,
-    url: str,
-    headers: dict[str, str],
-    data: bytes | None = None,
-    opener: request.OpenerDirector | None = None,
-) -> str:
-    req = request.Request(url=url, data=data, method=method, headers=headers)
-    open_method = opener.open if opener is not None else request.urlopen
-    try:
-        with open_method(req, timeout=180) as response:
-            return response.read().decode("utf-8")
-    except error.HTTPError as exc:
-        details = exc.read().decode("utf-8", errors="replace")
-        message = f"HTTP {exc.code} for {url}: {details}"
-        raise RuntimeError(message) from exc
-    except error.URLError as exc:
-        message = f"Network error for {url}: {exc}"
-        raise RuntimeError(message) from exc
-
-
-def request_json(
-    method: str,
-    url: str,
-    headers: dict[str, str],
-    payload: dict[str, Any] | None = None,
-    data: bytes | None = None,
-    opener: request.OpenerDirector | None = None,
-) -> Any:
-    raw_data = data
-    if payload is not None:
-        raw_data = json.dumps(payload).encode("utf-8")
-    text = request_text(
-        method=method,
-        url=url,
-        headers=headers,
-        data=raw_data,
-        opener=opener,
-    )
-    if not text.strip():
-        return {}
-    return json.loads(text)
