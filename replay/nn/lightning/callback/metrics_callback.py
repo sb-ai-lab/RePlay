@@ -1,8 +1,10 @@
+from typing import Literal
+
 import lightning
 import torch
-from lightning.pytorch.utilities.rank_zero import rank_zero_only
 
 from replay.metrics.torch_metrics_builder import (
+    DEFAULT_METRICS,
     MetricName,
     TorchMetricsBuilder,
     metrics_to_df,
@@ -37,6 +39,7 @@ class ComputeMetricsCallback(lightning.Callback):
         item_count: int | None = None,
         ground_truth_column: str = "ground_truth",
         train_column: str = "train",
+        verbose: bool = True,
     ):
         """
         :param metrics: Sequence of metrics to calculate.\n
@@ -50,8 +53,9 @@ class ComputeMetricsCallback(lightning.Callback):
             Default: ``None``.
         :param ground_truth_column: Name of key in batch that contains ground truth items.
         :param train_column: Name of key in batch that contains items on which the model is trained.
+        :param verbose: if ``True``, prints validation/test metrics to stdout after each epoch.
         """
-        self._metrics = metrics
+        self._metrics = metrics or DEFAULT_METRICS
         self._ks = ks
         self._item_count = item_count
         self._metrics_builders: list[TorchMetricsBuilder] = []
@@ -59,6 +63,39 @@ class ComputeMetricsCallback(lightning.Callback):
         self._postprocessors: list[PostprocessorBase] = postprocessors or []
         self._ground_truth_column = ground_truth_column
         self._train_column = train_column
+        self._verbose = verbose
+        self._validation_metrics: dict[int, dict[str, float]] = {}
+        self._test_metrics: dict[int, dict[str, float]] = {}
+
+    def get_metrics(
+        self,
+        stage: Literal["validation", "test"] = "validation",
+    ) -> dict[int, dict[str, float]]:
+        """
+        Returns metrics history by epoch for selected stage.
+
+        The key is epoch index (0-based), and value is a dictionary with metric values.
+        """
+        metrics_by_stage = self._validation_metrics if stage == "validation" else self._test_metrics
+        return {epoch: metrics.copy() for epoch, metrics in metrics_by_stage.items()}
+
+    def state_dict(self) -> dict[str, dict[int, dict[str, float]]]:
+        return {
+            "validation_metrics": self._validation_metrics,
+            "test_metrics": self._test_metrics,
+        }
+
+    def load_state_dict(self, state_dict: dict[str, dict[int, dict[str, float]]]) -> None:
+        validation_metrics = state_dict.get("validation_metrics", {})
+        self._validation_metrics = {
+            int(epoch): {name: float(value) for name, value in metrics.items()}
+            for epoch, metrics in validation_metrics.items()
+        }
+        test_metrics = state_dict.get("test_metrics", {})
+        self._test_metrics = {
+            int(epoch): {name: float(value) for name, value in metrics.items()}
+            for epoch, metrics in test_metrics.items()
+        }
 
     def on_validation_epoch_start(
         self,
@@ -146,39 +183,54 @@ class ComputeMetricsCallback(lightning.Callback):
             )
 
     def on_validation_epoch_end(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:
-        self._epoch_end(trainer, pl_module)
+        self._epoch_end(trainer, pl_module, is_validation=True)
 
     def on_test_epoch_end(self, trainer: lightning.Trainer, pl_module: LightningModule) -> None:
-        self._epoch_end(trainer, pl_module)
+        self._epoch_end(trainer, pl_module, is_validation=False)
 
     def _epoch_end(
         self,
         trainer: lightning.Trainer,
         pl_module: LightningModule,  # noqa: ARG002
+        is_validation: bool,
     ) -> None:
-        @rank_zero_only
-        def print_metrics() -> None:
-            metrics = {}
+        metrics = self._collect_logged_metrics(trainer)
 
-            metrics = {
-                name: value.item()
-                for name, value in trainer.logged_metrics.items()
-                if "@" in name and name.split("@")[0] in self._metrics
-            }
+        if is_validation:
+            self._validation_metrics[int(trainer.current_epoch)] = metrics.copy()
+        else:
+            self._test_metrics[int(trainer.current_epoch)] = metrics.copy()
 
-            if not metrics:
-                return
+        if self._verbose:
+            self._print_metrics(trainer, metrics)
 
-            if len(self._dataloaders_size) > 1:
-                for i in range(len(self._dataloaders_size)):
-                    suffix = trainer._results.DATALOADER_SUFFIX.format(i)[1:]
-                    cur_dataloader_metrics = {k.split("/")[0]: v for k, v in metrics.items() if suffix in k}
-                    metrics_df = metrics_to_df(cur_dataloader_metrics)
-
-                    print(suffix)  # noqa: T201
-                    print(metrics_df, "\n")  # noqa: T201
+    def _collect_logged_metrics(self, trainer: lightning.Trainer) -> dict[str, float]:
+        metrics: dict[str, float] = {}
+        for name, value in trainer.logged_metrics.items():
+            if "@" not in name or name.split("@")[0] not in self._metrics:
+                continue
+            if isinstance(value, torch.Tensor):
+                metrics[name] = value.detach().cpu().item()
             else:
-                metrics_df = metrics_to_df(metrics)
-                print(metrics_df, "\n")  # noqa: T201
+                metrics[name] = float(value)
+        return metrics
 
-        print_metrics()
+    def _print_metrics(self, trainer: lightning.Trainer, metrics: dict[str, float]) -> None:
+        if not trainer.is_global_zero:
+            return
+        if not metrics:
+            return
+
+        if len(self._dataloaders_size) > 1:
+            for i in range(len(self._dataloaders_size)):
+                suffix = trainer._results.DATALOADER_SUFFIX.format(i)[1:]
+                cur_dataloader_metrics = {k.split("/")[0]: v for k, v in metrics.items() if suffix in k}
+                if not cur_dataloader_metrics:
+                    continue
+                metrics_df = metrics_to_df(cur_dataloader_metrics)
+
+                print(suffix)  # noqa: T201
+                print(metrics_df, "\n")  # noqa: T201
+        else:
+            metrics_df = metrics_to_df(metrics)
+            print(metrics_df, "\n")  # noqa: T201
