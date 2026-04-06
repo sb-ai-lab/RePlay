@@ -69,14 +69,14 @@ class ComputeMetricsCallback(lightning.Callback):
 
     def get_metrics(
         self,
-        stage: Literal["validation", "test"] = "validation",
+        stage: Literal["validate", "test"] = "validate",
     ) -> dict[int, dict[str, float]]:
         """
         Returns metrics history by epoch for selected stage.
 
         The key is epoch index (0-based), and value is a dictionary with metric values.
         """
-        metrics_by_stage = self._validation_metrics if stage == "validation" else self._test_metrics
+        metrics_by_stage = self._validation_metrics if stage == "validate" else self._test_metrics
         return {epoch: metrics.copy() for epoch, metrics in metrics_by_stage.items()}
 
     def state_dict(self) -> dict[str, dict[int, dict[str, float]]]:
