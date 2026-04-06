@@ -74,6 +74,9 @@ class ReviewCommentsPublisher:
             except Exception:
                 errors += 1
 
+        if not self._comments:
+            self._gitlab_client.post_note("**The review is completed. No problems found**")
+
         return {
             "inline": inline_count,
             "fallback_notes": fallback_note_count,
