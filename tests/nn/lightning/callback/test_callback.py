@@ -118,6 +118,7 @@ def test_validation_callbacks(
     metrics,
     postprocessor,
     request: pytest.FixtureRequest,
+    tmp_path,
 ):
     parquet_module = request.getfixturevalue(parquet_fixture)
     cardinality = tensor_schema["item_id"].cardinality
@@ -142,6 +143,25 @@ def test_validation_callbacks(
     assert 0 in metrics_history
     for metric in metrics:
         assert any(key.startswith(metric) for key in metrics_history[0].keys())
+
+    checkpoint_path = tmp_path / "resume.ckpt"
+    trainer.save_checkpoint(checkpoint_path)
+
+    resumed_callback = ComputeMetricsCallback(
+        metrics=metrics,
+        ks=[1],
+        item_count=cardinality,
+        postprocessors=(
+            [postprocessor(item_count=cardinality, seen_items_column="seen_ids")] if postprocessor else None
+        ),
+    )
+    resumed_trainer = L.Trainer(max_epochs=2, accelerator="cpu", callbacks=[resumed_callback])
+    resumed_trainer.fit(model, datamodule=parquet_module, ckpt_path=str(checkpoint_path))
+
+    resumed_metrics_history = resumed_callback.get_metrics()
+    assert 0 in resumed_metrics_history
+    assert resumed_metrics_history[0] == metrics_history[0]
+    assert any(epoch > 0 for epoch in resumed_metrics_history)
 
     trainer = L.Trainer(callbacks=[callback], accelerator="cpu", inference_mode=True)
     model.eval()

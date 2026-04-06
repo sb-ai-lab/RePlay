@@ -162,7 +162,7 @@ class ComputeMetricsCallback(lightning.Callback):
 
     def _batch_end(
         self,
-        trainer: lightning.Trainer,  # noqa: ARG002
+        trainer: lightning.Trainer,
         pl_module: LightningModule,
         outputs: InferenceOutput,
         batch: dict,
