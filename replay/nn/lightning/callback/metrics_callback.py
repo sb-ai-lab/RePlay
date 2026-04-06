@@ -174,7 +174,7 @@ class ComputeMetricsCallback(lightning.Callback):
         self._metrics_builders[dataloader_idx].add_prediction(
             sampled_items, batch[self._ground_truth_column], batch.get(self._train_column)
         )
-        if batch_idx + 1 == self._dataloaders_size[dataloader_idx]:
+        if batch_idx + 1 == self._dataloaders_size[dataloader_idx] and not trainer.sanity_checking:
             pl_module.log_dict(
                 self._metrics_builders[dataloader_idx].get_metrics(),
                 on_epoch=True,
@@ -194,6 +194,8 @@ class ComputeMetricsCallback(lightning.Callback):
         pl_module: LightningModule,  # noqa: ARG002
         is_validation: bool,
     ) -> None:
+        if trainer.sanity_checking:
+            return
         metrics = self._collect_logged_metrics(trainer)
 
         if is_validation:
@@ -209,14 +211,11 @@ class ComputeMetricsCallback(lightning.Callback):
         for name, value in trainer.logged_metrics.items():
             if "@" not in name or name.split("@")[0] not in self._metrics:
                 continue
-            if isinstance(value, torch.Tensor):
-                metrics[name] = value.detach().cpu().item()
-            else:
-                metrics[name] = float(value)
+            metrics[name] = value.detach().cpu().item()
         return metrics
 
     def _print_metrics(self, trainer: lightning.Trainer, metrics: dict[str, float]) -> None:
-        if not trainer.is_global_zero:
+        if not trainer.is_global_zero:  # pragma: no cover
             return
         if not metrics:
             return
@@ -225,8 +224,6 @@ class ComputeMetricsCallback(lightning.Callback):
             for i in range(len(self._dataloaders_size)):
                 suffix = trainer._results.DATALOADER_SUFFIX.format(i)[1:]
                 cur_dataloader_metrics = {k.split("/")[0]: v for k, v in metrics.items() if suffix in k}
-                if not cur_dataloader_metrics:
-                    continue
                 metrics_df = metrics_to_df(cur_dataloader_metrics)
 
                 print(suffix)  # noqa: T201
