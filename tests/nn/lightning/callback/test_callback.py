@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import lightning as L
 import pandas as pd
 import pytest
@@ -116,6 +118,7 @@ def test_validation_callbacks(
     metrics,
     postprocessor,
     request: pytest.FixtureRequest,
+    tmp_path,
 ):
     parquet_module = request.getfixturevalue(parquet_fixture)
     cardinality = tensor_schema["item_id"].cardinality
@@ -136,12 +139,68 @@ def test_validation_callbacks(
     for metric in metrics:
         assert any(key.startswith(metric) for key in trainer.callback_metrics.keys())
 
+    metrics_history = callback.get_metrics()
+    assert 0 in metrics_history
+    for metric in metrics:
+        assert any(key.startswith(metric) for key in metrics_history[0].keys())
+
+    checkpoint_path = tmp_path / "resume.ckpt"
+    trainer.save_checkpoint(checkpoint_path)
+
+    resumed_callback = ComputeMetricsCallback(
+        metrics=metrics,
+        ks=[1],
+        item_count=cardinality,
+        postprocessors=(
+            [postprocessor(item_count=cardinality, seen_items_column="seen_ids")] if postprocessor else None
+        ),
+    )
+    resumed_trainer = L.Trainer(max_epochs=2, accelerator="cpu", callbacks=[resumed_callback])
+    resumed_trainer.fit(model, datamodule=parquet_module, ckpt_path=str(checkpoint_path))
+
+    resumed_metrics_history = resumed_callback.get_metrics()
+    assert 0 in resumed_metrics_history
+    assert resumed_metrics_history[0] == metrics_history[0]
+    assert any(epoch > 0 for epoch in resumed_metrics_history)
+
     trainer = L.Trainer(callbacks=[callback], accelerator="cpu", inference_mode=True)
     model.eval()
     trainer.test(model, datamodule=parquet_module)
 
     for metric in metrics:
         assert any(key.startswith(metric) for key in trainer.callback_metrics.keys())
+
+    test_metrics_history = callback.get_metrics(stage="test")
+    assert len(test_metrics_history) > 0
+    for epoch_metrics in test_metrics_history.values():
+        for metric in metrics:
+            assert any(key.startswith(metric) for key in epoch_metrics.keys())
+
+
+@pytest.mark.torch
+def test_validation_callback_verbose_false(parquet_module, tensor_schema, sasrec_model):
+    cardinality = tensor_schema["item_id"].cardinality
+
+    callback = ComputeMetricsCallback(
+        metrics=["recall"],
+        ks=[1],
+        item_count=cardinality,
+        verbose=False,
+    )
+    model = LightningModule(sasrec_model)
+    trainer = L.Trainer(
+        max_epochs=1,
+        accelerator="cpu",
+        callbacks=[callback],
+        enable_progress_bar=False,
+        enable_model_summary=False,
+        logger=False,
+    )
+
+    with patch("builtins.print") as print_mock:
+        trainer.fit(model, datamodule=parquet_module)
+
+    print_mock.assert_not_called()
 
 
 def test_query_embeddings_callback(sasrec_model, parquet_module, parquet_module_path):
