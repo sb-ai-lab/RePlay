@@ -334,7 +334,7 @@ class TwoTower(torch.nn.Module):
         >>> from replay.nn.mask import DefaultAttentionMask
         >>> from replay.nn.loss import CESampled
         >>> from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
-        >>> from replay.nn.sequential.twotower import FeaturesReader
+        >>> from replay.nn.sequential.twotower import FeaturesReader, TwoTowerBody, TwoTower
         ...
         >>> NUM_UNIQUE_ITEMS = 200 # number of unique item_id in the item catalog
         >>> tensor_schema = TensorSchema(
