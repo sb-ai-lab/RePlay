@@ -161,7 +161,7 @@ codex-review:
   # - GITLAB_API_TOKEN (token with `api` scope)
   variables:
     OPENAI_MODEL: "gpt-5.3-codex"
-    CODEX_SANDBOX_MODE: "danger-full-access"
+    CODEX_SANDBOX_MODE: "workspace-write"
   before_script:
     - *install_codex
     - *install_codex_review_deps

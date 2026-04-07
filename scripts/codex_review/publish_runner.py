@@ -66,7 +66,7 @@ class ReviewCommentsPublisher:
                 inline_count += 1
                 continue
             except Exception as exc:
-                fallback_body = f"{body}\n\n_Inline publish fallback was used. Error: {exc}_"
+                fallback_body = f"{body}\n\n_Inline publish fallback was used._"
 
             try:
                 self._gitlab_client.post_note(fallback_body)
