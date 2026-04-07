@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +29,32 @@ class ReviewCommentsPublisher:
         """
         self._gitlab_client = gitlab_client
         self._comments = comments
+
+    @staticmethod
+    def _sanitize_error_message(error: Exception) -> str:
+        """Return a scrubbed error message safe for CI logs.
+
+        Args:
+            error: Original exception raised during publish.
+        """
+        text = f"{type(error).__name__}: {error}"
+
+        # Hide all URLs to avoid exposing endpoints and query params.
+        text = re.sub(r"https?://[^\s]+", "<redacted-url>", text)
+
+        # Hide common secret-looking key/value fragments.
+        secret_pattern = (
+            r"(?i)\b(authorization|private[-_ ]?token|token|api[-_ ]?key|password|secret)\b\s*[:=]\s*([^\s,;]+)"
+        )
+        text = re.sub(secret_pattern, r"\1=<redacted>", text)
+
+        # Best-effort redaction for known CI secret values if they appear verbatim.
+        for env_name in ("GITLAB_API_TOKEN", "OPENAI_API_KEY", "CI_JOB_TOKEN"):
+            value = os.getenv(env_name, "")
+            if value:
+                text = text.replace(value, "<redacted>")
+
+        return text
 
     @staticmethod
     def _to_discussion_body(comment: dict[str, Any]) -> tuple[str, str, int]:
@@ -66,6 +95,12 @@ class ReviewCommentsPublisher:
                 inline_count += 1
                 continue
             except Exception as exc:
+                safe_error = self._sanitize_error_message(exc)
+                sys.stdout.write(
+                    "[codex-review][publish] inline discussion failed, "
+                    f"path={path}, line={end_line}, error={safe_error}"
+                    "\n"
+                )
                 fallback_body = f"{body}\n\n_Inline publish fallback was used._"
 
             try:
