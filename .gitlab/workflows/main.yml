@@ -203,6 +203,7 @@ sphinx-job:
     - ruff
     - black
     - toml-sort
+    - poetry-check
   variables:
     WRAPPER_ARGS: --experimental
   before_script:
