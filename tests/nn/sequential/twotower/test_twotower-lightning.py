@@ -39,6 +39,8 @@ def test_twotower_checkpointing(twotower_model, parquet_module, tmp_path):
     twotower.eval()
     loaded_twotower.eval()
 
+    assert loaded_twotower.model.body.item_tower.cache is not None
+
     output1 = twotower(batch)
     output2 = loaded_twotower(batch)
 

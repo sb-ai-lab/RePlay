@@ -165,9 +165,9 @@ class ItemTower(torch.nn.Module):
             if feature_name not in self.feature_names:
                 continue
 
-            self.register_buffer(f"item_reference_{feature_name}", item_features_reader[feature_name])
+            self.register_buffer(f"item_reference_{feature_name}", item_features_reader[feature_name], persistent=True)
 
-        self.cache = None
+        self.register_buffer("cache", None, persistent=True)
 
     def reset_parameters(self) -> None:
         self.embedding_aggregator.reset_parameters()
