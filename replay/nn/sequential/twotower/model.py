@@ -325,66 +325,72 @@ class TwoTower(torch.nn.Module):
 
     .. code-block:: python
 
-        from replay.data import FeatureHint, FeatureSource, FeatureType
-        from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
-        from replay.nn.agg import SumAggregator
-        from replay.nn.embedding import SequenceEmbedding
-        from replay.nn.ffn import SwiGLUEncoder
-        from replay.nn.mask import DefaultAttentionMask
-        from replay.nn.loss import CESampled
-        from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
-        from replay.nn.sequential.twotower import FeaturesReader
-
-        tensor_schema = TensorSchema(
-            [
-                TensorFeatureInfo(
-                    "item_id",
-                    is_seq=True,
-                    feature_type=FeatureType.CATEGORICAL,
-                    embedding_dim=256,
-                    padding_value=NUM_UNIQUE_ITEMS,
-                    cardinality=NUM_UNIQUE_ITEMS,
-                    feature_hint=FeatureHint.ITEM_ID,
-                    feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")]
-                ),
-            ]
-        )
-
-        common_aggregator = SumAggregator(embedding_dim=256)
-
-        body = TwoTowerBody(
-            schema=tensor_schema,
-            embedder=SequenceEmbedding(schema=tensor_schema),
-            attn_mask_builder=DefaultAttentionMask(
-                reference_feature_name=tensor_schema.item_id_feature_name,
-                num_heads=2,
-            ),
-            query_tower_feature_names=tensor_schema.names,
-            query_embedding_aggregator=PositionAwareAggregator(
-                embedding_aggregator=common_aggregator,
-                max_sequence_length=100,
-                dropout=0.2,
-            ),
-            item_embedding_aggregator=common_aggregator,
-            query_encoder=SasRecTransformerLayer(
-               embedding_dim=256,
-               num_heads=2,
-               num_blocks=2,
-               dropout=0.3,
-               activation="relu",
-            ),
-            query_tower_output_normalization=torch.nn.LayerNorm(256),
-            item_encoder=SwiGLUEncoder(embedding_dim=256, hidden_dim=2*256),
-            item_features_reader=FeaturesReader(
-                schema=tensor_schema,
-                metadata={"item_id": {}},
-                path="item_features.parquet",
-            ),
-        )
-        twotower = TwoTower(
-            body=body,
-            loss=CESampled(ignore_index=tensor_schema["item_id"].padding_value),
-        )
+        >>> import pandas as pd
+        >>> from replay.data import FeatureHint, FeatureSource, FeatureType
+        >>> from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
+        >>> from replay.nn.agg import SumAggregator
+        >>> from replay.nn.embedding import SequenceEmbedding
+        >>> from replay.nn.ffn import SwiGLUEncoder
+        >>> from replay.nn.mask import DefaultAttentionMask
+        >>> from replay.nn.loss import CESampled
+        >>> from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
+        >>> from replay.nn.sequential.twotower import FeaturesReader
+        ...
+        >>> NUM_UNIQUE_ITEMS = 200 # number of unique item_id in the item catalog
+        >>> tensor_schema = TensorSchema(
+        ...     [
+        ...         TensorFeatureInfo(
+        ...             "item_id",
+        ...             is_seq=True,
+        ...             feature_type=FeatureType.CATEGORICAL,
+        ...             embedding_dim=256,
+        ...             padding_value=NUM_UNIQUE_ITEMS,
+        ...             cardinality=NUM_UNIQUE_ITEMS,
+        ...             feature_hint=FeatureHint.ITEM_ID,
+        ...             feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")]
+        ...         ),
+        ...     ]
+        ... )
+        >>> # encoded item features including item_id
+        >>> ITEM_FEATURES_PATH = "item_catalog_encoded.parquet"
+        >>> item_catalog_encoded = pd.DataFrame({"item_id": [i for i in range(NUM_UNIQUE_ITEMS)]})
+        >>> item_catalog_encoded.to_parquet(ITEM_FEATURES_PATH)
+        ...
+        >>> common_aggregator = SumAggregator(embedding_dim=256)
+        ...
+        >>> body = TwoTowerBody(
+        ...     schema=tensor_schema,
+        ...     embedder=SequenceEmbedding(schema=tensor_schema),
+        ...     attn_mask_builder=DefaultAttentionMask(
+        ...         reference_feature_name=tensor_schema.item_id_feature_name,
+        ...         num_heads=2,
+        ...     ),
+        ...     query_tower_feature_names=tensor_schema.names,
+        ...     query_embedding_aggregator=PositionAwareAggregator(
+        ...         embedding_aggregator=common_aggregator,
+        ...         max_sequence_length=100,
+        ...         dropout=0.2,
+        ...     ),
+        ...     item_embedding_aggregator=common_aggregator,
+        ...     query_encoder=SasRecTransformerLayer(
+        ...        embedding_dim=256,
+        ...        num_heads=2,
+        ...        num_blocks=2,
+        ...        dropout=0.3,
+        ...        activation="relu",
+        ...     ),
+        ...     query_tower_output_normalization=torch.nn.LayerNorm(256),
+        ...     item_encoder=SwiGLUEncoder(embedding_dim=256, hidden_dim=2*256),
+        ...     item_features_reader=FeaturesReader(
+        ...         schema=tensor_schema,
+        ...         metadata={"item_id": {}},
+        ...         path=ITEM_FEATURES_PATH,
+        ...     ),
+        ... )
+        >>> twotower = TwoTower(
+        ...     body=body,
+        ...     loss=CESampled(ignore_index=tensor_schema[tensor_schema.item_id_feature_name].padding_value),
+        ... )
 
     """
 
