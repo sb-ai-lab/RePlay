@@ -217,8 +217,6 @@ class ComputeMetricsCallback(lightning.Callback):
     def _print_metrics(self, trainer: lightning.Trainer, metrics: dict[str, float]) -> None:
         if not trainer.is_global_zero:  # pragma: no cover
             return
-        if not metrics:
-            return
 
         if len(self._dataloaders_size) > 1:
             for i in range(len(self._dataloaders_size)):
