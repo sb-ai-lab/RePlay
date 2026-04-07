@@ -125,55 +125,56 @@ class SasRec(torch.nn.Module):
 
     .. code-block:: python
 
-        from replay.data import FeatureHint, FeatureSource, FeatureType
-        from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
-        from replay.nn.agg import SumAggregator
-        from replay.nn.embedding import SequenceEmbedding
-        from replay.nn.mask import DefaultAttentionMask
-        from replay.nn.loss import CESampled
-        from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
-
-        tensor_schema = TensorSchema(
-            [
-                TensorFeatureInfo(
-                    "item_id",
-                    is_seq=True,
-                    feature_type=FeatureType.CATEGORICAL,
-                    embedding_dim=256,
-                    padding_value=NUM_UNIQUE_ITEMS,
-                    cardinality=NUM_UNIQUE_ITEMS,
-                    feature_hint=FeatureHint.ITEM_ID,
-                    feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")]
-                ),
-            ]
-        )
-
-        body = SasRecBody(
-            embedder=SequenceEmbedding(
-                schema=tensor_schema,
-            ),
-            embedding_aggregator=PositionAwareAggregator(
-                embedding_aggregator=SumAggregator(embedding_dim=256),
-                max_sequence_length=100,
-                dropout=0.2,
-            ),
-            attn_mask_builder=DefaultAttentionMask(
-                reference_feature_name=tensor_schema.item_id_feature_name,
-                num_heads=2,
-            ),
-            encoder=SasRecTransformerLayer(
-                embedding_dim=256,
-                num_heads=2,
-                num_blocks=2,
-                dropout=0.3,
-                activation="relu",
-            ),
-            output_normalization=torch.nn.LayerNorm(256),
-        )
-        sasrec = SasRec(
-            body=body,
-            loss=CESampled(padding_idx=tensor_schema.item_id_features.item().padding_value)
-        )
+        >>> from replay.data import FeatureHint, FeatureSource, FeatureType
+        >>> from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
+        >>> from replay.nn.agg import SumAggregator
+        >>> from replay.nn.embedding import SequenceEmbedding
+        >>> from replay.nn.mask import DefaultAttentionMask
+        >>> from replay.nn.loss import CESampled
+        >>> from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer, SasRecBody, SasRec
+        ...
+        >>> NUM_UNIQUE_ITEMS = 200 # number of unique item_id in the item catalog
+        >>> tensor_schema = TensorSchema(
+        ...     [
+        ...         TensorFeatureInfo(
+        ...             "item_id",
+        ...             is_seq=True,
+        ...             feature_type=FeatureType.CATEGORICAL,
+        ...             embedding_dim=256,
+        ...             padding_value=NUM_UNIQUE_ITEMS,
+        ...             cardinality=NUM_UNIQUE_ITEMS,
+        ...             feature_hint=FeatureHint.ITEM_ID,
+        ...             feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")]
+        ...         ),
+        ...     ]
+        ... )
+        ...
+        >>> body = SasRecBody(
+        ...    embedder=SequenceEmbedding(
+        ...        schema=tensor_schema,
+        ...    ),
+        ...    embedding_aggregator=PositionAwareAggregator(
+        ...        embedding_aggregator=SumAggregator(embedding_dim=256),
+        ...        max_sequence_length=100,
+        ...        dropout=0.2,
+        ...    ),
+        ...    attn_mask_builder=DefaultAttentionMask(
+        ...        reference_feature_name=tensor_schema.item_id_feature_name,
+        ...        num_heads=2,
+        ...    ),
+        ...    encoder=SasRecTransformerLayer(
+        ...        embedding_dim=256,
+        ...        num_heads=2,
+        ...        num_blocks=2,
+        ...        dropout=0.3,
+        ...        activation="relu",
+        ...    ),
+        ...    output_normalization=torch.nn.LayerNorm(256),
+        ... )
+        >>> sasrec = SasRec(
+        ...     body=body,
+        ...     loss=CESampled(ignore_index=tensor_schema[tensor_schema.item_id_feature_name].padding_value),
+        ... )
 
     """
 
