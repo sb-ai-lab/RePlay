@@ -37,7 +37,9 @@ variables:
 
 .install_codex: &install_codex
   - |
-    set -euo pipefail
+    # set -euo pipefail
+    cat /proc/self/status | egrep 'Seccomp|NoNewPrivs'
+    unshare -Ur true
     apt-get update -qq
     apt-get install -y -qq bubblewrap
     arch="$(uname -m)"
