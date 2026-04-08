@@ -185,6 +185,7 @@ class ItemTower(torch.nn.Module):
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
         )
         if cache is not None:
+            assert cache.shape == self.embedder.get_item_weights().shape
             self.cache = cache
 
     def reset_parameters(self) -> None:
