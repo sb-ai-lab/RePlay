@@ -168,9 +168,6 @@ class MergeRequestPublishService:
 
         result = ReviewResult.model_validate_json(self._review_path.read_text(encoding="utf-8"))
         comments = [comment.model_dump() for comment in result.comments]
-        if not comments:
-            return 0
-
         publisher = ReviewCommentsPublisher(gitlab_client=self._gitlab_client, comments=comments)
         stats = publisher.publish_all()
         return 1 if stats["errors"] else 0

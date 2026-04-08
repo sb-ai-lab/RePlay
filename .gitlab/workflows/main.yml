@@ -37,9 +37,7 @@ variables:
 
 .install_codex: &install_codex
   - |
-    # set -euo pipefail
-    cat /proc/self/status | egrep 'Seccomp|NoNewPrivs'
-    unshare -Ur true
+    set -euo pipefail
     apt-get update -qq
     apt-get install -y -qq bubblewrap
     arch="$(uname -m)"
@@ -252,7 +250,11 @@ sphinx-job:
   #   key: ${CI_COMMIT_REF_SLUG}_${py_version}
   tags:
     - ${RUNNER}
-  needs: ["sphinx-job"] # , "prefetch-artifacts"]
+  needs:
+    - ruff
+    - black
+    - toml-sort
+    - poetry-check
   before_script:
     # - poetry config virtualenvs.in-project true
     # - poetry config virtualenvs.create false
