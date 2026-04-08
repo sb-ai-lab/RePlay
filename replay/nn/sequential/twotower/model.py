@@ -169,6 +169,24 @@ class ItemTower(torch.nn.Module):
 
         self.register_buffer("cache", None, persistent=True)
 
+    def _load_from_state_dict(
+        self,
+        state_dict: dict[str, torch.Tensor],
+        prefix: str,
+        local_metadata: dict[str, object],
+        strict: bool,
+        missing_keys: list[str],
+        unexpected_keys: list[str],
+        error_msgs: list[str],
+    ):
+        cache_key = f"{prefix}cache"
+        cache = state_dict.pop(cache_key, None)
+        super()._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+        )
+        if cache is not None:
+            self.cache = cache
+
     def reset_parameters(self) -> None:
         self.embedding_aggregator.reset_parameters()
         self.encoder.reset_parameters()
