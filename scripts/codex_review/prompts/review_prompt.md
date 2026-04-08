@@ -13,7 +13,7 @@ Focus on identifying:
 ---
 
 # Output language
-- Output MUST be in Russian.
+- Output MUST be in English.
 
 ---
 
