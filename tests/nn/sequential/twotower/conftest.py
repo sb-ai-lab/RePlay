@@ -87,6 +87,23 @@ def twotower_model(tensor_schema_with_equal_embedding_dims, item_features_reader
     return model
 
 
+@pytest.fixture
+def create_twotower_model(tensor_schema_with_equal_embedding_dims, item_features_reader):
+    def _create():
+        model = TwoTower.from_params(
+            schema=tensor_schema_with_equal_embedding_dims,
+            item_features_reader=item_features_reader,
+            embedding_dim=tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim,
+            num_heads=1,
+            num_blocks=1,
+            max_sequence_length=7,
+            dropout=0.2,
+        )
+        return model
+
+    return _create
+
+
 class DummyContextMerger(torch.nn.Module):
     def __init__(self):
         super().__init__()

@@ -24,7 +24,8 @@ def test_twotower_with_default_transform(twotower_model_only_items, parquet_modu
     trainer.test(twotower, datamodule=parquet_module_with_default_twotower_transform)
 
 
-def test_twotower_checkpointing(twotower_model, parquet_module, tmp_path):
+def test_twotower_checkpointing(create_twotower_model, parquet_module, tmp_path):
+    twotower_model = create_twotower_model()
     twotower = LightningModule(twotower_model)
     trainer = L.Trainer(max_epochs=1, accelerator="cpu")
     trainer.fit(twotower, datamodule=parquet_module)
@@ -32,12 +33,16 @@ def test_twotower_checkpointing(twotower_model, parquet_module, tmp_path):
     ckpt_path = tmp_path / "checkpoints/last.ckpt"
     trainer.save_checkpoint(ckpt_path)
 
-    loaded_twotower = LightningModule.load_from_checkpoint(ckpt_path, model=twotower_model)
+    twotower_model_new_obj = create_twotower_model()
+    loaded_twotower = LightningModule.load_from_checkpoint(ckpt_path, model=twotower_model_new_obj)
 
     batch = parquet_module.compiled_transforms["train"](next(iter(parquet_module.train_dataloader())))
 
     twotower.eval()
     loaded_twotower.eval()
+
+    assert loaded_twotower.model.body.item_tower.cache is not None
+    torch.testing.assert_close(loaded_twotower.model.body.item_tower.cache, twotower.model.body.item_tower.cache)
 
     output1 = twotower(batch)
     output2 = loaded_twotower(batch)
