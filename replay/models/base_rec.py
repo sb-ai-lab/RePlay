@@ -430,14 +430,14 @@ class BaseRecommender(IsSavable, IsOptimizible, RecommenderCommons, ABC):
     @property
     def queries_count(self) -> int:
         """
-        :returns: number of queries the model was trained on
+        Return the number of queries the model was trained on.
         """
         return self._get_fit_counts("query")
 
     @property
     def items_count(self) -> int:
         """
-        :returns: number of items the model was trained on
+        Return the number of items the model was trained on.
         """
         return self._get_fit_counts("item")
 

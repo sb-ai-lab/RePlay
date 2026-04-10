@@ -35,7 +35,7 @@ class FeaturesReader:
                contain ``feature_sources`` with a source of type ``FeatureSource.ITEM_FEATURES``
                or ``feature_hint`` of type ``FeatureHint.ITEM_ID``.
             3. ``metadata`` keys may be a subset of ``schema`` features satisfying the conditions in point 2.
-        :param \\**kwargs: Additional keyword arguments passed directly to :func:`pandas.read_parquet`
+        :param \\**kwargs: Additional keyword arguments passed directly to `pandas.read_parquet`
             when reading parquet file provided in ``path``. These allow for flexible reading configuration.
             For example, it's possible to provide ``filesystem`` param for reading from s3.
             Note that parameters ``path`` and ``columns`` are already set internally and should not be overridden.

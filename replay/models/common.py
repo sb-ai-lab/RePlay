@@ -39,7 +39,7 @@ class RecommenderCommons:
     @property
     def logger(self) -> logging.Logger:
         """
-        :returns: get library logger
+        Return the library logger.
         """
         if self._logger is None:
             self._logger = logging.getLogger("replay")

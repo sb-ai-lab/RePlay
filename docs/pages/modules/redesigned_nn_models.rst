@@ -96,13 +96,17 @@ ___________________
 Losses
 ======
 
-`BCE`_, `BCESampled`_, `CESampled`_, `LogInCE`_, `LogInCESampled`_, `LogOutCE`_ support the calculation of logits for the case of multi-positive labels (there are several labels for each position in the sequence).
+:ref:`BCE <loss-bce>`, :ref:`BCESampled <loss-bce-sampled>`, :ref:`CESampled <loss-ce-sampled>`, :ref:`LogInCE <loss-login-ce>`, :ref:`LogInCESampled <loss-login-ce-sampled>`, :ref:`LogOutCE <loss-logout-ce>` support the calculation of logits for the case of multi-positive labels (there are several labels for each position in the sequence).
 Source of multi-positive labels: https://arxiv.org/abs/2205.04507
+
+.. _loss-bce:
 
 BCE
 ___
 .. autoclass:: replay.nn.loss.BCE
    :members: forward
+
+.. _loss-bce-sampled:
 
 BCESampled
 __________
@@ -114,20 +118,28 @@ ___
 .. autoclass:: replay.nn.loss.CE
    :members: __init__, forward
 
+.. _loss-ce-sampled:
+
 CESampled
 __________
 .. autoclass:: replay.nn.loss.CESampled
    :members: __init__, forward
+
+.. _loss-login-ce:
 
 LogInCE
 _______
 .. autoclass:: replay.nn.loss.LogInCE
    :members: __init__, forward
 
+.. _loss-login-ce-sampled:
+
 LogInCESampled
 ______________
 .. autoclass:: replay.nn.loss.LogInCESampled
    :members: __init__, forward
+
+.. _loss-logout-ce:
 
 LogOutCE
 ________

@@ -143,9 +143,9 @@ class ItemTower(torch.nn.Module):
         :param schema: tensor schema object with metainformation about features.
         :param item_features_reader: A class that implements reading features,
             processing them, and converting them to ``torch.Tensor`` for ItemTower.
-            You can use `FeaturesReader`_ (``replay.nn.sequential.twotower.FeaturesReader``) as a standard class.\n
+            You can use :class:`replay.nn.sequential.twotower.FeaturesReader` as a standard class.\n
             But you can implement your own feature processing,
-            just follow the ``replay.nn.sequential.twotower.FeaturesReaderProtocol`` protocol.
+            just follow the :class:`replay.nn.sequential.twotower.FeaturesReaderProtocol` protocol.
         :param feature_names: sequence of names used in item tower.
         :param embedder: An object of a class that performs the logic of
             generating embeddings from input data.
@@ -245,8 +245,8 @@ class TwoTowerBody(torch.nn.Module):
     """
     Foundation for Two-Tower model which creates query "tower" and item "tower".\n
 
-    For usage of two tower model, an instance of this class should be passed into `TwoTower`_ with any loss
-    from `Losses`_.
+    For usage of two tower model, an instance of this class should be passed into
+    :class:`replay.nn.sequential.twotower.TwoTower` with any loss from :ref:`Losses <Losses>`.
     """
 
     def __init__(
@@ -287,9 +287,9 @@ class TwoTowerBody(torch.nn.Module):
             Item encoder uses item reference which is created based on ``item_features_path``.
         :param item_features_reader: A class that implements reading features,
             processing them, and converting them to ``torch.Tensor`` for ItemTower.
-            You can use ``replay.nn.sequential.twotower.FeaturesReader`` as a standard class.\n
+            You can use :class:`replay.nn.sequential.twotower.FeaturesReader` as a standard class.\n
             But you can implement your own feature processing,
-            just follow the ``replay.nn.sequential.twotower.FeaturesReaderProtocol`` protocol.
+            just follow the :class:`replay.nn.sequential.twotower.FeaturesReaderProtocol` protocol.
 
         """
         super().__init__()
@@ -462,9 +462,9 @@ class TwoTower(torch.nn.Module):
         :param schema: tensor schema object with metainformation about features.
         :param item_features_reader: A class that implements reading features,
             processing them, and converting them to ``torch.Tensor`` for ItemTower.
-            You can use ``replay.nn.sequential.twotower.FeaturesReader`` as a standard class.\n
+            You can use :class:`replay.nn.sequential.twotower.FeaturesReader` as a standard class.\n
             But you can implement your own feature processing,
-            just follow the ``replay.nn.sequential.twotower.FeaturesReaderProtocol`` protocol.
+            just follow the :class:`replay.nn.sequential.twotower.FeaturesReaderProtocol` protocol.
         :param embedding_dim: embeddings dimension in both towers. Default: ``192``.
         :param num_heads: number of heads  in user tower SasRec layers. Default: ``4``.
         :param num_blocks: number of blocks  in user tower SasRec layers. Default: ``2``.

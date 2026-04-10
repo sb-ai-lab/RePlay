@@ -143,17 +143,12 @@ class Surprisal(Metric):
         """
         Compute metric.
 
-        Args:
-            recommendations (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict):
-                model predictions.
-                If DataFrame then it must contains user, item and score columns.
-                If dict then items must be sorted in decreasing order of their scores.
-            train (PySpark DataFrame or Polars DataFrame or Pandas DataFrame or dict, optional):
-                train data.
-                If DataFrame then it must contains user and item columns.
-
-        Returns:
-            dict: metric values
+        :param recommendations: Model predictions.
+            If DataFrame, it must contain user, item, and score columns.
+            If dict, items must be sorted in decreasing order of their scores.
+        :param train: Train data.
+            If DataFrame, it must contain user and item columns.
+        :returns: Metric values.
         """
         self._check_dataframes_equal_types(recommendations, train)
         if isinstance(recommendations, SparkDataFrame):

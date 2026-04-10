@@ -66,28 +66,28 @@ class FeatureInfo:
     @property
     def column(self) -> str:
         """
-        :returns: the feature name.
+        Return the feature column name.
         """
         return self._column
 
     @property
     def feature_type(self) -> FeatureType:
         """
-        :returns: the type of feature.
+        Return the feature type.
         """
         return self._feature_type
 
     @property
     def feature_hint(self) -> FeatureHint | None:
         """
-        :returns: the feature hint.
+        Return the feature hint.
         """
         return self._feature_hint
 
     @property
     def feature_source(self) -> FeatureSource | None:
         """
-        :returns: the name of source dataframe of feature.
+        Return the source dataframe type of the feature.
         """
         return self._feature_source
 
@@ -97,7 +97,7 @@ class FeatureInfo:
     @property
     def cardinality(self) -> int | None:
         """
-        :returns: cardinality of the feature.
+        Return the feature cardinality.
         """
         if self.feature_type not in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]:
             msg = f"Can not get cardinality because feature_type of {self.column} column is not categorical."
@@ -156,7 +156,7 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
 
     def item(self) -> FeatureInfo:
         """
-        :returns: extract a feature information from a schema.
+        Return the single feature from this schema.
         """
         if len(self._features_schema) > 1:
             msg = "Only one element feature schema can be converted to single feature"
@@ -164,12 +164,21 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
         return next(iter(self._features_schema.values()))
 
     def items(self) -> ItemsView[str, FeatureInfo]:
+        """
+        Return a set-like view of schema items.
+        """
         return self._features_schema.items()
 
     def keys(self) -> KeysView[str]:
+        """
+        Return a set-like view of feature names.
+        """
         return self._features_schema.keys()
 
     def values(self) -> ValuesView[FeatureInfo]:
+        """
+        Return a view of feature metadata values.
+        """
         return self._features_schema.values()
 
     def get(
@@ -177,6 +186,9 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
         key: str,
         default: FeatureInfo | None = None,
     ) -> FeatureInfo | None:
+        """
+        Return feature info for ``key`` if present, otherwise ``default``.
+        """
         return self._features_schema.get(key, default)
 
     def __iter__(self) -> Iterator[str]:
@@ -206,14 +218,14 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
     @property
     def all_features(self) -> Sequence[FeatureInfo]:
         """
-        :returns: sequence of all features.
+        Return all features.
         """
         return list(self._features_schema.values())
 
     @property
     def categorical_features(self) -> "FeatureSchema":
         """
-        :returns: sequence of categorical features in a schema.
+        Return categorical features from this schema.
         """
         return self.filter(feature_type=FeatureType.CATEGORICAL) + self.filter(
             feature_type=FeatureType.CATEGORICAL_LIST
@@ -222,14 +234,14 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
     @property
     def numerical_features(self) -> "FeatureSchema":
         """
-        :returns: sequence of numerical features in a schema.
+        Return numerical features from this schema.
         """
         return self.filter(feature_type=FeatureType.NUMERICAL) + self.filter(feature_type=FeatureType.NUMERICAL_LIST)
 
     @property
     def interaction_features(self) -> "FeatureSchema":
         """
-        :returns: sequence of interaction features in a schema.
+        Return interaction features from this schema.
         """
         return (
             self.filter(feature_source=FeatureSource.INTERACTIONS)
@@ -240,70 +252,70 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
     @property
     def query_features(self) -> "FeatureSchema":
         """
-        :returns: sequence of query features in a schema.
+        Return query features from this schema.
         """
         return self.filter(feature_source=FeatureSource.QUERY_FEATURES)
 
     @property
     def item_features(self) -> "FeatureSchema":
         """
-        :returns: sequence of item features in a schema.
+        Return item features from this schema.
         """
         return self.filter(feature_source=FeatureSource.ITEM_FEATURES)
 
     @property
     def interactions_rating_features(self) -> "FeatureSchema":
         """
-        :returns: sequence of interactions-rating features in a schema.
+        Return interaction rating features from this schema.
         """
         return self.filter(feature_source=FeatureSource.INTERACTIONS, feature_hint=FeatureHint.RATING)
 
     @property
     def interactions_timestamp_features(self) -> "FeatureSchema":
         """
-        :returns: sequence of interactions-timestamp features in a schema.
+        Return interaction timestamp features from this schema.
         """
         return self.filter(feature_source=FeatureSource.INTERACTIONS, feature_hint=FeatureHint.TIMESTAMP)
 
     @property
     def columns(self) -> Sequence[str]:
         """
-        :returns: list of all feature's column names.
+        Return the column names of all features.
         """
         return list(self._features_schema)
 
     @property
     def query_id_feature(self) -> FeatureInfo:
         """
-        :returns: sequence of query id features in a schema.
+        Return the query ID feature.
         """
         return self.filter(feature_hint=FeatureHint.QUERY_ID).item()
 
     @property
     def item_id_feature(self) -> FeatureInfo:
         """
-        :returns: sequence of item id features in a schema.
+        Return the item ID feature.
         """
         return self.filter(feature_hint=FeatureHint.ITEM_ID).item()
 
     @property
     def query_id_column(self) -> str:
         """
-        :returns: query id column name.
+        Return the query ID column name.
         """
         return self.query_id_feature.column
 
     @property
     def item_id_column(self) -> str:
         """
-        :returns: item id column name.
+        Return the item ID column name.
         """
         return self.item_id_feature.column
 
     @property
     def interactions_rating_column(self) -> str | None:
         """
-        :returns: interactions-rating column name.
+        Return the interaction rating column name.
         """
         interactions_rating_features = self.interactions_rating_features
         if not interactions_rating_features:
@@ -313,7 +325,7 @@ class FeatureSchema(Mapping[str, FeatureInfo]):
     @property
     def interactions_timestamp_column(self) -> str | None:
         """
-        :returns: interactions-timestamp column name.
+        Return the interaction timestamp column name.
         """
         interactions_timestamp_features = self.interactions_timestamp_features
         if not interactions_timestamp_features:

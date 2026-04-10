@@ -203,6 +203,9 @@ class PandasSequentialDataset(SequentialDataset):
 
     @property
     def schema(self) -> "TensorSchema":
+        """
+        Return the tensor schema of this dataset.
+        """
         return self._tensor_schema
 
     @classmethod

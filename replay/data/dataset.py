@@ -103,35 +103,35 @@ class Dataset:
     @property
     def is_categorical_encoded(self) -> bool:
         """
-        :returns: is categorical features are encoded.
+        Return whether categorical features are encoded.
         """
         return self._categorical_encoded
 
     @property
     def interactions(self) -> DataFrameLike:
         """
-        :returns: interactions dataset.
+        Return the interactions dataset.
         """
         return self._interactions
 
     @property
     def query_features(self) -> DataFrameLike | None:
         """
-        :returns: query features dataset.
+        Return the query features dataset.
         """
         return self._query_features
 
     @property
     def item_features(self) -> DataFrameLike | None:
         """
-        :returns: item features dataset.
+        Return the item features dataset.
         """
         return self._item_features
 
     @property
     def query_ids(self) -> DataFrameLike:
         """
-        :returns: dataset with unique query ids.
+        Return a dataset with unique query IDs.
         """
         query_column_df = self._ids_feature_map[FeatureHint.QUERY_ID]
         if self.is_pandas:
@@ -151,7 +151,7 @@ class Dataset:
     @property
     def item_ids(self) -> DataFrameLike:
         """
-        :returns: dataset with unique item ids.
+        Return a dataset with unique item IDs.
         """
         item_column_df = self._ids_feature_map[FeatureHint.ITEM_ID]
         if self.is_pandas:
@@ -171,7 +171,7 @@ class Dataset:
     @property
     def query_count(self) -> int:
         """
-        :returns: the number of queries.
+        Return the number of queries.
         """
         query_count = self.feature_schema.query_id_feature.cardinality
         assert query_count is not None
@@ -180,7 +180,7 @@ class Dataset:
     @property
     def item_count(self) -> int:
         """
-        :returns: The number of items.
+        Return the number of items.
         """
         item_count = self.feature_schema.item_id_feature.cardinality
         assert item_count is not None
@@ -189,13 +189,13 @@ class Dataset:
     @property
     def feature_schema(self) -> FeatureSchema:
         """
-        :returns: List of features.
+        Return the feature schema.
         """
         return self._feature_schema
 
     def _get_df_type(self) -> str:
         """
-        :returns: Stored dataframe type.
+        Return the stored dataframe type.
         """
         if self.is_spark:
             return "spark"
