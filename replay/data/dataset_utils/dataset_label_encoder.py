@@ -178,7 +178,7 @@ class DatasetLabelEncoder:
     @property
     def query_id_encoder(self) -> LabelEncoder:
         """
-        :returns: query id LabelEncoder.
+        Return the query ID label encoder.
         """
         query_id_column = self._features_columns[FeatureHint.QUERY_ID]
         encoder = self.get_encoder(query_id_column)
@@ -188,7 +188,7 @@ class DatasetLabelEncoder:
     @property
     def item_id_encoder(self) -> LabelEncoder:
         """
-        :returns: item id LabelEncoder.
+        Return the item ID label encoder.
         """
         item_id_column = self._features_columns[FeatureHint.ITEM_ID]
         encoder = self.get_encoder(item_id_column)
@@ -198,7 +198,7 @@ class DatasetLabelEncoder:
     @property
     def query_and_item_id_encoder(self) -> LabelEncoder:
         """
-        :returns: query id and item id LabelEncoder.
+        Return the shared query and item ID label encoder.
         """
         query_id_column = self._features_columns[FeatureHint.QUERY_ID]
         item_id_column = self._features_columns[FeatureHint.ITEM_ID]
@@ -209,7 +209,7 @@ class DatasetLabelEncoder:
     @property
     def interactions_encoder(self) -> LabelEncoder | None:
         """
-        :returns: interactions LabelEncoder.
+        Return the interactions label encoder.
         """
 
         interactions_columns = self._features_columns[FeatureSource.INTERACTIONS]
@@ -218,7 +218,7 @@ class DatasetLabelEncoder:
     @property
     def query_features_encoder(self) -> LabelEncoder | None:
         """
-        :returns: query features LabelEncoder.
+        Return the query features label encoder.
         """
         query_features_columns = self._features_columns[FeatureSource.QUERY_FEATURES]
         return self.get_encoder(query_features_columns)
@@ -226,7 +226,7 @@ class DatasetLabelEncoder:
     @property
     def item_features_encoder(self) -> LabelEncoder | None:
         """
-        :returns: item features LabelEncoder.
+        Return the item features label encoder.
         """
         item_features_columns = self._features_columns[FeatureSource.ITEM_FEATURES]
         return self.get_encoder(item_features_columns)

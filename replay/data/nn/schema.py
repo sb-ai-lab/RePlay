@@ -34,21 +34,21 @@ class TensorFeatureSource:
     @property
     def source(self) -> FeatureSource:
         """
-        :returns: feature source
+        Return the feature source.
         """
         return self._source
 
     @property
     def column(self) -> str:
         """
-        :returns: column name
+        Return the source column name.
         """
         return self._column
 
     @property
     def index(self) -> int | None:
         """
-        :returns: provided index
+        Return the optional source index.
         """
         return self._index
 
@@ -120,21 +120,21 @@ class TensorFeatureInfo:
     @property
     def name(self) -> str:
         """
-        :returns: The feature name.
+        Return the feature name.
         """
         return self._name
 
     @property
     def feature_type(self) -> FeatureType:
         """
-        :returns: The type of feature.
+        Return the feature type.
         """
         return self._feature_type
 
     @property
     def feature_hint(self) -> FeatureHint | None:
         """
-        :returns: The feature hint.
+        Return the feature hint.
         """
         return self._feature_hint
 
@@ -144,7 +144,7 @@ class TensorFeatureInfo:
     @property
     def feature_sources(self) -> list[TensorFeatureSource] | None:
         """
-        :returns: List of sources feature came from.
+        Return the list of feature sources.
         """
         return self._feature_sources
 
@@ -154,7 +154,7 @@ class TensorFeatureInfo:
     @property
     def feature_source(self) -> TensorFeatureSource | None:
         """
-        :returns: Dataframe info of feature.
+        Return a single feature source.
         """
         source = self.feature_sources
         if not source:
@@ -169,43 +169,43 @@ class TensorFeatureInfo:
     @property
     def is_seq(self) -> bool:
         """
-        :returns: Flag that feature is sequential.\n
-        Sequential means that the value of the feature will be determined for each element of the user's sequence.
+        Return whether the feature is sequential.
+        Sequential means the feature value is defined for each element in the user's sequence.
         """
         return self._is_seq
 
     @property
     def is_cat(self) -> bool:
         """
-        :returns: Flag that feature is categorical.
+        Return whether the feature is categorical.
         """
         return self.feature_type in [FeatureType.CATEGORICAL, FeatureType.CATEGORICAL_LIST]
 
     @property
     def is_num(self) -> bool:
         """
-        :returns: Flag that feature is numerical.
+        Return whether the feature is numerical.
         """
         return self.feature_type in [FeatureType.NUMERICAL, FeatureType.NUMERICAL_LIST]
 
     @property
     def is_list(self) -> bool:
         """
-        :returns: Flag that feature is numerical list or categorical list.
+        Return whether the feature is a numerical list or categorical list.
         """
         return self.feature_type in [FeatureType.CATEGORICAL_LIST, FeatureType.NUMERICAL_LIST]
 
     @property
     def padding_value(self) -> int:
         """
-        :returns: value to pad sequences to desired length.
+        Return the padding value.
         """
         return self._padding_value
 
     @property
     def cardinality(self) -> int | None:
         """
-        :returns: Cardinality of the feature.
+        Return the feature cardinality.
         """
         if not self.is_cat:
             msg = f"Can not get cardinality because feature type of {self.name} column is not categorical."
@@ -218,7 +218,7 @@ class TensorFeatureInfo:
     @property
     def tensor_dim(self) -> int | None:
         """
-        :returns: Dimensions of the numerical feature.
+        Return the tensor dimension of the numerical feature.
         """
         if not self.is_num:
             msg = f"Can not get tensor dimensions because feature type of {self.name} feature is not numerical."
@@ -231,7 +231,7 @@ class TensorFeatureInfo:
     @property
     def embedding_dim(self) -> int | None:
         """
-        :returns: Embedding dimensions of the feature.
+        Return the embedding dimension of the feature.
         """
         return self._embedding_dim
 
@@ -268,7 +268,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
 
     def item(self) -> TensorFeatureInfo:
         """
-        :returns: Extract single feature from a schema.
+        Return a single feature from this schema.
         """
         if len(self._tensor_schema) != 1:
             msg = "Only one element tensor schema can be converted to single feature"
@@ -276,12 +276,21 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
         return next(iter(self._tensor_schema.values()))
 
     def items(self) -> ItemsView[str, TensorFeatureInfo]:
+        """
+        Return a set-like view of schema items.
+        """
         return self._tensor_schema.items()
 
     def keys(self) -> KeysView[str]:
+        """
+        Return a set-like view of feature names.
+        """
         return self._tensor_schema.keys()
 
     def values(self) -> ValuesView[TensorFeatureInfo]:
+        """
+        Return a view of feature metadata values.
+        """
         return self._tensor_schema.values()
 
     def get(
@@ -289,6 +298,9 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
         key: str,
         default: TensorFeatureInfo | None = None,
     ) -> TensorFeatureInfo | None:
+        """
+        Return feature info for ``key`` if present, otherwise ``default``.
+        """
         return self._tensor_schema.get(key, default)
 
     def __iter__(self) -> Iterator[str]:
@@ -315,14 +327,14 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
     @property
     def all_features(self) -> Sequence[TensorFeatureInfo]:
         """
-        :returns: Sequence of all features.
+        Return all features.
         """
         return list(self._tensor_schema.values())
 
     @property
     def categorical_features(self) -> "TensorSchema":
         """
-        :returns: Sequence of categorical features in a schema.
+        Return categorical features from this schema.
         """
         return self.filter(feature_type=FeatureType.CATEGORICAL) + self.filter(
             feature_type=FeatureType.CATEGORICAL_LIST
@@ -331,56 +343,56 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
     @property
     def numerical_features(self) -> "TensorSchema":
         """
-        :returns: Sequence of numerical features in a schema.
+        Return numerical features from this schema.
         """
         return self.filter(feature_type=FeatureType.NUMERICAL) + self.filter(feature_type=FeatureType.NUMERICAL_LIST)
 
     @property
     def query_id_features(self) -> "TensorSchema":
         """
-        :returns: Sequence of query id features in a schema.
+        Return query ID features from this schema.
         """
         return self.filter(feature_hint=FeatureHint.QUERY_ID)
 
     @property
     def item_id_features(self) -> "TensorSchema":
         """
-        :returns: Sequence of item id features in a schema.
+        Return item ID features from this schema.
         """
         return self.filter(feature_hint=FeatureHint.ITEM_ID)
 
     @property
     def timestamp_features(self) -> "TensorSchema":
         """
-        :returns: Sequence of timestamp features in a schema.
+        Return timestamp features from this schema.
         """
         return self.filter(feature_hint=FeatureHint.TIMESTAMP)
 
     @property
     def rating_features(self) -> "TensorSchema":
         """
-        :returns: Sequence of rating features in a schema.
+        Return rating features from this schema.
         """
         return self.filter(feature_hint=FeatureHint.RATING)
 
     @property
     def sequential_features(self) -> "TensorSchema":
         """
-        :returns: Sequence of sequential features in a schema.
+        Return sequential features from this schema.
         """
         return self.filter(is_seq=True)
 
     @property
     def names(self) -> Sequence[str]:
         """
-        :returns: List of all feature's names.
+        Return the names of all features.
         """
         return list(self._tensor_schema)
 
     @property
     def query_id_feature_name(self) -> str | None:
         """
-        :returns: Query id feature name.
+        Return the query ID feature name.
         """
         query_id_features = self.query_id_features
         if not query_id_features:
@@ -390,7 +402,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
     @property
     def item_id_feature_name(self) -> str | None:
         """
-        :returns: Item id feature name.
+        Return the item ID feature name.
         """
         item_id_features = self.item_id_features
         if not item_id_features:
@@ -400,7 +412,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
     @property
     def timestamp_feature_name(self) -> str | None:
         """
-        :returns: Timestamp feature name.
+        Return the timestamp feature name.
         """
         timestamp_features = self.timestamp_features
         if not timestamp_features:
@@ -410,7 +422,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
     @property
     def rating_feature_name(self) -> str | None:
         """
-        :returns: Rating feature name.
+        Return the rating feature name.
         """
         rating_features = self.rating_features
         if not rating_features:

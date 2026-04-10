@@ -74,14 +74,13 @@ class ParquetDataset(IterableDataset):
             The structure of each column is defined by the following values:
 
                 ``shape`` - the dimension of the column being read.
-                    If the column contains only one value, this parameter does not need to be specified.
-                    If the column contains a one-dimensional array, the parameter must be a number or an array
-                    containing one number.
-                    If the column contains a two-dimensional array, the parameter
-                    must be an array containing two numbers.
-
+                If the column contains only one value, this parameter does not need to be specified.
+                If the column contains a one-dimensional array, the parameter must be a number or an array
+                containing one number.
+                If the column contains a two-dimensional array, the parameter
+                must be an array containing two numbers.
                 ``padding`` - padding value that will fill the arrays if their length is less
-                    than that specified in the `shape` parameter.
+                than that specified in the `shape` parameter.
         :param partition_size: Partition size when reading data from Parquet files.
         :param batch_size: The size of the batch that will be returned during iteration.
         :param filesystem: A PyArrow's Filesystem object used to access data, or a URI-based path

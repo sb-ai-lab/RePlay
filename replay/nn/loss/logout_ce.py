@@ -11,11 +11,10 @@ class LogOutCE(torch.nn.Module):
     """
     LogOutCE loss.
 
-        .. math::
+    .. math::
 
-            L_{\\text{InfoNCE}} = - \\sum_{p \\in P} \\log \\frac{ \\exp(\\mathrm{sim}(q, p))}
-            {\\exp(\\mathrm{sim}(q, p))
-            + \\sum_{n \\in N} \\exp(\\mathrm{sim}(q, n))}.
+        L_{\\text{InfoNCE}} = - \\sum_{p \\in P} \\log \\frac{ \\exp(\\mathrm{sim}(q, p))}
+        {\\exp(\\mathrm{sim}(q, p)) + \\sum_{n \\in N} \\exp(\\mathrm{sim}(q, n))}.
 
     where q -- query embedding, P -- set of positive logits, N -- set of negative logits,
     :math:`sim(\\cdot, \\cdot)` -- similaruty function.\n

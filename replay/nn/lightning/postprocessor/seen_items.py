@@ -11,7 +11,7 @@ class SeenItemsFilter(PostprocessorBase):
     (i.e. in the sequence of items for that logits are calculated).\n
     Should be used in Lightning callbacks for inferencing or metrics computing.
 
-    .. rubric:: Input example:
+    .. rubric:: Input example
 
     logits [B=2 users, I=3 items]::
 
@@ -25,7 +25,7 @@ class SeenItemsFilter(PostprocessorBase):
         user0: [1, 0]
         user1: [1, 2, 1]
 
-    .. rubric:: Output example:
+    .. rubric:: Output example
 
     SeenItemsFilter sets logits of seen items to ``-inf``::
 

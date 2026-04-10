@@ -101,49 +101,49 @@ class SequenceTokenizer:
     @property
     def tensor_schema(self) -> "TensorSchema":
         """
-        :returns: tensor schema
+        Return the tensor schema.
         """
         return self._tensor_schema
 
     @property
     def query_id_encoder(self) -> LabelEncoder:
         """
-        :returns: encoder for query id
+        Return the encoder for query IDs.
         """
         return self._encoder.query_id_encoder
 
     @property
     def item_id_encoder(self) -> LabelEncoder:
         """
-        :returns: encoder for item id
+        Return the encoder for item IDs.
         """
         return self._encoder.item_id_encoder
 
     @property
     def query_and_item_id_encoder(self) -> LabelEncoder:
         """
-        :returns: encoder for query and item id
+        Return the encoder for query and item IDs.
         """
         return self._encoder.query_and_item_id_encoder
 
     @property
     def interactions_encoder(self) -> LabelEncoder | None:
         """
-        :returns: encoder for interactions
+        Return the encoder for interactions.
         """
         return self._encoder.interactions_encoder
 
     @property
     def query_features_encoder(self) -> LabelEncoder | None:
         """
-        :returns: encoder for query features
+        Return the encoder for query features.
         """
         return self._encoder.query_features_encoder
 
     @property
     def item_features_encoder(self) -> LabelEncoder | None:
         """
-        :returns: encoder for item features
+        Return the encoder for item features.
         """
         return self._encoder.item_features_encoder
 
