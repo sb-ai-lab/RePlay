@@ -400,7 +400,7 @@ def create_item_features_reader(tensor_schema, item_features_path):
             },
         }
         return FeaturesReader(
-            schema=tensor_schema,  # .subset(item_tower_names),
+            schema=tensor_schema,
             path=item_features_path,
             metadata={k: v for k, v in metadata.items() if k in item_tower_names},
         )
