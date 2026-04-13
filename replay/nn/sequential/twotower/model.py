@@ -185,7 +185,8 @@ class ItemTower(torch.nn.Module):
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
         )
         if cache is not None:
-            assert cache.shape == self.embedder.get_item_weights().shape
+            assert cache.shape[0] == self._get_any_feature_buffer().shape[0]
+            assert cache.shape[1] == self.embedding_aggregator.embedding_dim
             self.cache = cache
 
     def reset_parameters(self) -> None:
@@ -195,6 +196,10 @@ class ItemTower(torch.nn.Module):
     def get_feature_buffer(self, feature_name: str) -> torch.Tensor:
         buffer_name = f"item_reference_{feature_name}"
         return self.get_buffer(buffer_name)
+
+    def _get_any_feature_buffer(self) -> torch.Tensor:
+        feature_name = next(iter(self.feature_names))
+        return self.get_feature_buffer(feature_name)
 
     def forward(
         self,
