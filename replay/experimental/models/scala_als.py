@@ -1,15 +1,69 @@
 from typing import Any
 
 from replay.experimental.models.base_rec import ItemVectorModel, Recommender
-from replay.experimental.models.extensions.spark_custom_models.als_extension import ALS, ALSModel
 from replay.models.extensions.ann.ann_mixin import ANNMixin
 from replay.models.extensions.ann.index_builders.base_index_builder import IndexBuilder
-from replay.utils import OPTUNA_AVAILABLE, PYSPARK_AVAILABLE, SparkDataFrame
+from replay.utils import OPTUNA_AVAILABLE, PYSPARK_AVAILABLE, FeatureUnavailableError, SparkDataFrame
+from replay.utils.spark_compat import is_spark_4_or_higher
 from replay.utils.spark_utils import list_to_vector_udf
+
+_ALS_EXTENSION_IMPORT_ERROR: Exception | None = None
+if PYSPARK_AVAILABLE:
+    try:
+        from replay.experimental.models.extensions.spark_custom_models.als_extension import ALS, ALSModel
+    except Exception as exc:  # pragma: no cover - environment-specific Spark/JVM mismatch
+        ALS = ALSModel = None  # type: ignore[assignment]
+        _ALS_EXTENSION_IMPORT_ERROR = exc
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
     from pyspark.sql.types import DoubleType
+
+
+def _is_jvm_class_available(class_name: str) -> bool:
+    if not PYSPARK_AVAILABLE:
+        return False
+
+    try:
+        from replay.utils.session_handler import State
+
+        spark = State().session
+        jvm = spark.sparkContext._jvm
+        class_loader = jvm.java.lang.Thread.currentThread().getContextClassLoader()
+        jvm.java.lang.Class.forName(class_name, False, class_loader)
+        return True
+    except Exception:
+        return False
+
+
+def get_scala_als_unavailability_reason() -> str | None:
+    if is_spark_4_or_higher():
+        return "works only on Spark 3.x and is unavailable on Spark 4.x."
+
+    if _ALS_EXTENSION_IMPORT_ERROR is not None:
+        return (
+            "works only on Spark 3.x, but Replay Scala ALS extension "
+            f"could not be loaded: {_ALS_EXTENSION_IMPORT_ERROR}"
+        )
+
+    if not _is_jvm_class_available("org.apache.spark.ml.recommendation.replay.ReplayALS"):
+        return "works only on Spark 3.x and requires Replay Scala ALS JVM classes to be available via spark.jars."
+
+    if not _is_jvm_class_available("com.github.fommil.netlib.BLAS"):
+        return "works only on Spark 3.x and requires JVM dependency `com.github.fommil.netlib.BLAS` on Spark classpath."
+
+    return None
+
+
+def _ensure_scala_als_supported(algorithm_name: str) -> None:
+    reason = get_scala_als_unavailability_reason()
+    if reason is not None:
+        msg = f"`{algorithm_name}` {reason}"
+        raise FeatureUnavailableError(msg)
+
+
+def is_scala_als_supported_runtime() -> bool:
+    return get_scala_als_unavailability_reason() is None
 
 
 class ALSWrap(Recommender, ItemVectorModel):
@@ -42,6 +96,7 @@ class ALSWrap(Recommender, ItemVectorModel):
             to parallelize computation.
             if None then will be init with number of partitions of log.
         """
+        _ensure_scala_als_supported(type(self).__name__)
         self.rank = rank
         self.implicit_prefs = implicit_prefs
         self._seed = seed
@@ -60,6 +115,7 @@ class ALSWrap(Recommender, ItemVectorModel):
         self.model.write().overwrite().save(path)
 
     def _load_model(self, path: str):
+        _ensure_scala_als_supported(type(self).__name__)
         self.model = ALSModel.load(path)
         self.model.itemFactors.cache()
         self.model.userFactors.cache()
@@ -70,6 +126,7 @@ class ALSWrap(Recommender, ItemVectorModel):
         user_features: SparkDataFrame | None = None,  # noqa: ARG002
         item_features: SparkDataFrame | None = None,  # noqa: ARG002
     ) -> None:
+        _ensure_scala_als_supported(type(self).__name__)
         if self._num_item_blocks is None:
             self._num_item_blocks = log.rdd.getNumPartitions()
         if self._num_user_blocks is None:
@@ -225,6 +282,7 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
         user_features: SparkDataFrame | None = None,  # noqa: ARG002
         item_features: SparkDataFrame | None = None,  # noqa: ARG002
     ) -> None:
+        _ensure_scala_als_supported(type(self).__name__)
         if self._num_item_blocks is None:
             self._num_item_blocks = log.rdd.getNumPartitions()
         if self._num_user_blocks is None:
@@ -253,6 +311,7 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
             self._save_index(path)
 
     def _load_model(self, path: str):
+        _ensure_scala_als_supported(type(self).__name__)
         self.model = ALSModel.load(path)
         self.model.itemFactors.cache()
         self.model.userFactors.cache()

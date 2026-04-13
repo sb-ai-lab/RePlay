@@ -1,7 +1,12 @@
+import builtins
+import importlib
 import logging
 import os
+import sys
+import types
 from datetime import datetime, timezone
 from functools import partial
+from unittest.mock import Mock
 
 import pandas as pd
 import polars as pl
@@ -69,6 +74,27 @@ different_timestamp_formats_data = [
 ]
 
 
+def _make_builder_dummy_spark_session():
+    class DummySparkSession:
+        class _Builder:
+            def __init__(self):
+                self.configs = []
+
+            def config(self, key, value):
+                self.configs.append((key, value))
+                return self
+
+            def master(self, _value):
+                return self
+
+            def getOrCreate(self):
+                return object()
+
+        builder = _Builder()
+
+    return DummySparkSession
+
+
 @pytest.mark.spark
 @pytest.mark.parametrize("log_data, ground_truth_data, schema", different_timestamp_formats_data)
 def test_process_timestamp(log_data, ground_truth_data, schema, spark):
@@ -93,6 +119,36 @@ def test_get_spark_session():
 
 
 @pytest.mark.spark
+def test_get_spark_session_spark4_warning(monkeypatch, caplog):
+    dummy_spark_session = _make_builder_dummy_spark_session()
+
+    monkeypatch.delenv("REPLAY_JAR_PATH", raising=False)
+    monkeypatch.delenv("SCRIPT_ENV", raising=False)
+    monkeypatch.setattr(replay.utils.session_handler, "SparkSession", dummy_spark_session)
+    monkeypatch.setattr(replay.utils.session_handler, "pyspark_version", "4.0.0")
+
+    with caplog.at_level(logging.WARNING):
+        replay.utils.session_handler.get_spark_session(spark_memory=1, shuffle_partitions=1, core_count=1)
+
+    assert "Spark 4.x detected. Replay Scala extensions are disabled by default" in caplog.text
+    assert not any(key == "spark.jars" for key, _ in dummy_spark_session.builder.configs)
+
+
+@pytest.mark.spark
+def test_get_spark_session_sets_spark_jars_from_env(monkeypatch):
+    dummy_spark_session = _make_builder_dummy_spark_session()
+
+    monkeypatch.setenv("REPLAY_JAR_PATH", "/tmp/replay.jar")
+    monkeypatch.delenv("SCRIPT_ENV", raising=False)
+    monkeypatch.setattr(replay.utils.session_handler, "SparkSession", dummy_spark_session)
+    monkeypatch.setattr(replay.utils.session_handler, "pyspark_version", "4.0.0")
+
+    replay.utils.session_handler.get_spark_session(spark_memory=1, shuffle_partitions=1, core_count=1)
+
+    assert ("spark.jars", "/tmp/replay.jar") in dummy_spark_session.builder.configs
+
+
+@pytest.mark.spark
 def test_convert():
     dataframe_pandas = pd.DataFrame([[1, "a", 3.0], [3, "b", 5.0]], columns=["a", "b", "c"])
     dataframe_polars = pl.DataFrame({"a": [1, 3], "b": ["a", "b"], "c": [3.0, 5.0]})
@@ -105,6 +161,88 @@ def test_convert():
     pl_assert_frame_equal(dataframe_polars, pl.from_pandas(spark_df.toPandas()))
 
     pd.testing.assert_frame_equal(dataframe_pandas, dataframe_polars.to_pandas())
+
+
+@pytest.mark.spark
+def test_import_fallback_to_classic_column(monkeypatch):
+    original_import = builtins.__import__
+    error_msg = "simulated missing pyspark.sql.column"
+    fake_classic_column = types.ModuleType("pyspark.sql.classic.column")
+    fake_to_java_column = object()
+    fake_to_seq = object()
+    fake_classic_column._to_java_column = fake_to_java_column
+    fake_classic_column._to_seq = fake_to_seq
+
+    def patched_import(name, globals_=None, locals_=None, fromlist=(), level=0):
+        if name == "pyspark.sql.column":
+            raise ImportError(error_msg)
+        return original_import(name, globals_, locals_, fromlist, level)
+
+    with monkeypatch.context() as m:
+        m.setattr(builtins, "__import__", patched_import)
+        m.setitem(sys.modules, "pyspark.sql.classic.column", fake_classic_column)
+        reloaded_utils = importlib.reload(utils)
+        assert reloaded_utils._to_java_column is fake_to_java_column
+        assert reloaded_utils._to_seq is fake_to_seq
+
+    importlib.reload(utils)
+
+
+@pytest.mark.spark
+def test_multiply_scala_udf_uses_python_fallback(monkeypatch, spark):
+    del spark
+    sentinel = object()
+    called = {}
+
+    def fake_vector_mult(scalar, vector):
+        called["args"] = (scalar, vector)
+        return sentinel
+
+    monkeypatch.setattr(utils, "_to_java_column", None)
+    monkeypatch.setattr(utils, "_to_seq", None)
+    monkeypatch.setattr(utils, "vector_mult", fake_vector_mult)
+
+    result = utils.multiply_scala_udf("s", "v")
+    assert result is sentinel
+    assert called["args"] == ("s", "v")
+
+
+@pytest.mark.spark
+def test_multiply_scala_udf_uses_scala_path(monkeypatch, spark):
+    del spark
+    sentinel = object()
+    to_java_column = object()
+    to_seq = Mock(return_value="seq")
+    scala_apply = Mock(return_value="java_column")
+    multiply_udf = Mock(return_value=types.SimpleNamespace(apply=scala_apply))
+    column_ctor = Mock(return_value=sentinel)
+
+    jvm = types.SimpleNamespace(
+        org=types.SimpleNamespace(
+            apache=types.SimpleNamespace(
+                spark=types.SimpleNamespace(
+                    replay=types.SimpleNamespace(
+                        utils=types.SimpleNamespace(ScalaPySparkUDFs=types.SimpleNamespace(multiplyUDF=multiply_udf))
+                    )
+                )
+            )
+        )
+    )
+    spark_context = types.SimpleNamespace(_jvm=jvm)
+    spark_instance = types.SimpleNamespace(sparkContext=spark_context)
+    spark_session = types.SimpleNamespace(getActiveSession=lambda: spark_instance)
+
+    monkeypatch.setattr(utils, "SparkSession", spark_session)
+    monkeypatch.setattr(utils, "_to_java_column", to_java_column)
+    monkeypatch.setattr(utils, "_to_seq", to_seq)
+    monkeypatch.setattr(utils, "Column", column_ctor)
+
+    result = utils.multiply_scala_udf("s", "v")
+    assert result is sentinel
+    to_seq.assert_called_once_with(spark_context, ["s", "v"], to_java_column)
+    multiply_udf.assert_called_once_with()
+    scala_apply.assert_called_once_with("seq")
+    column_ctor.assert_called_once_with("java_column")
 
 
 @pytest.mark.spark

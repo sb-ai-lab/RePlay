@@ -208,6 +208,14 @@ class Padder:
         else:
             df_transformed = df_transformed.withColumn(cut_col_name, sf.col(col))
 
+        # Spark 4 performs stricter implicit casts for array concat.
+        # For string padding values, cast source arrays explicitly to string.
+        if isinstance(pad_value, str):
+            df_transformed = df_transformed.withColumn(
+                cut_col_name,
+                sf.expr(f"transform({cut_col_name}, x -> cast(x as string))"),
+            )
+
         if self.padding_side == "right":
             concat_func = sf.concat(sf.col(cut_col_name), sf.col("zeros"))
         else:

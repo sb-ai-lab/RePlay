@@ -2,17 +2,24 @@ import pytest
 
 pyspark = pytest.importorskip("pyspark")
 torch = pytest.importorskip("torch")
+pytest.importorskip("lightautoml")
 
 from pyspark.sql import functions as sf
 
 from replay.experimental.models import ScalaALSWrap as ALSWrap
 from replay.experimental.models.lightfm_wrap import LightFMWrap
+from replay.experimental.models.scala_als import is_scala_als_supported_runtime
 from replay.experimental.preprocessing.data_preparator import ToNumericFeatureTransformer
 from replay.experimental.scenarios import TwoStagesScenario
 from replay.experimental.scenarios.two_stages.reranker import LamaWrap
 from replay.models import ItemKNN, PopRec
 from replay.preprocessing.history_based_fp import HistoryBasedFeaturesProcessor
 from replay.splitters import TimeSplitter
+
+pytestmark = pytest.mark.skipif(
+    not is_scala_als_supported_runtime(),
+    reason="TwoStagesScenario default ScalaALSWrap backend is unavailable in current Spark runtime.",
+)
 
 
 @pytest.fixture(scope="module")

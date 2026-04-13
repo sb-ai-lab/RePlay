@@ -2,9 +2,9 @@ from functools import partial
 from typing import Any
 
 import numpy as np
-from obp.ope import DirectMethod, DoublyRobust, InverseProbabilityWeighting, OffPolicyEvaluation
 from optuna import Trial
 
+from replay.experimental.scenarios.obp_wrapper._compat import _ensure_obp_available
 from replay.experimental.scenarios.obp_wrapper.utils import get_est_rewards_by_reg
 from replay.models.optimization.optuna_objective import ObjectiveWrapper, suggest_params
 
@@ -28,6 +28,11 @@ def obp_objective_calculator(
     :param k: length of a recommendation list
     :return: criterion value
     """
+
+    _ensure_obp_available()
+
+    # Import locally to keep this module importable when SB-OBP is unavailable.
+    from obp.ope import DirectMethod, DoublyRobust, InverseProbabilityWeighting, OffPolicyEvaluation
 
     params_for_trial = suggest_params(trial, search_space)
     learner.replay_model.set_params(**params_for_trial)

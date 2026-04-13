@@ -8,6 +8,7 @@ from pyspark.sql import functions as sf
 
 from replay.experimental.models import ScalaALSWrap as ALSWrap
 from replay.experimental.models.base_rec import HybridRecommender, UserRecommender
+from replay.experimental.models.scala_als import is_scala_als_supported_runtime
 from replay.experimental.scenarios.two_stages.two_stages_scenario import get_first_level_model_features
 from replay.experimental.utils.model_handler import save
 from replay.models.extensions.ann.entities.hnswlib_param import HnswlibParam
@@ -17,6 +18,11 @@ from replay.utils.model_handler import load
 from tests.utils import sparkDataFrameEqual
 
 SEED = 123
+
+pytestmark = pytest.mark.skipif(
+    not is_scala_als_supported_runtime(),
+    reason="ScalaALSWrap backend is unavailable in current Spark runtime.",
+)
 
 
 def fit_predict_selected(model, train_log, inf_log, user_features, users):
@@ -199,11 +205,11 @@ def test_predict_pairs_raises_pairs_format(log):
 
 @pytest.mark.experimental
 @pytest.mark.parametrize(
-    "als_model, metric",
+    "metric",
     [
-        (ALSWrap(seed=SEED), "euclidean_distance_sim"),
-        (ALSWrap(seed=SEED), "dot_product"),
-        (ALSWrap(seed=SEED), "cosine_similarity"),
+        "euclidean_distance_sim",
+        "dot_product",
+        "cosine_similarity",
     ],
     ids=[
         "als_euclidean",
@@ -211,7 +217,8 @@ def test_predict_pairs_raises_pairs_format(log):
         "als_cosine",
     ],
 )
-def test_get_nearest_items(log, als_model, metric):
+def test_get_nearest_items(log, metric):
+    als_model = ALSWrap(seed=SEED)
     als_model.fit(log.filter(sf.col("item_idx") != 3))
     res = als_model.get_nearest_items(items=[0, 1], k=2, metric=metric)
 

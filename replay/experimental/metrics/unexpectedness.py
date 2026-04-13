@@ -1,7 +1,7 @@
 from replay.utils import DataFrameLike, SparkDataFrame
 from replay.utils.spark_utils import convert2spark, get_top_k_recs
 
-from .base_metric import RecOnlyMetric, fill_na_with_empty_array, filter_sort
+from .base_metric import Metric, RecOnlyMetric, fill_na_with_empty_array, filter_sort
 
 
 class Unexpectedness(RecOnlyMetric):
@@ -36,7 +36,7 @@ class Unexpectedness(RecOnlyMetric):
         """
         :param pred: model predictions
         """
-        self._use_scala_udf = use_scala_udf
+        Metric.__init__(self, use_scala_udf=use_scala_udf)
         self.pred = convert2spark(pred)
 
     @staticmethod

@@ -19,7 +19,8 @@ if OPTUNA_AVAILABLE:
         A mixin class enabling hyperparameter optimization in a recommender using Optuna objectives.
         """
 
-        _objective = MainObjective
+        # Keep objective factory unbound on Python 3.14+ (functools.partial may be method-bound).
+        _objective = staticmethod(MainObjective)
         _search_space: dict[str, str | Sequence[str | int | float]] | None = None
         study = None
         criterion: Metric | None = None

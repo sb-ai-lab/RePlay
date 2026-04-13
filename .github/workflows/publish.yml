@@ -76,7 +76,9 @@ jobs:
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry cache clear PyPI --all
-          poetry sync -E torch -E spark --no-cache
+          poetry sync -E spark --no-cache
+          pip install --upgrade "lightning<3.0.0" "pytorch-optimizer<4" --no-cache-dir
+          pip install --upgrade --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple "torch<3.0.0" --no-cache-dir
 
       - name: Build Production
         run: |

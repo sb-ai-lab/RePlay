@@ -389,7 +389,7 @@ def test_bert4rec_fine_tuning_save_load(fitted_bert4rec, new_items_dataset, trai
     model.set_item_embeddings_by_size(new_vocab_size)
     trainer.fit(model, train_bert_loader)
     trainer.save_checkpoint("bert_test.ckpt")
-    best_model = Bert4Rec.load_from_checkpoint("bert_test.ckpt")
+    best_model = Bert4Rec.load_from_checkpoint("bert_test.ckpt", weights_only=False)
 
     assert best_model.get_all_embeddings()["item_embedding"].shape[0] == new_vocab_size
 

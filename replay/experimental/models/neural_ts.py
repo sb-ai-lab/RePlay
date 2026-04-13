@@ -1,7 +1,6 @@
 import os
 
 import joblib
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
@@ -760,6 +759,8 @@ class NeuralTS(HybridRecommender):
             val_ndcg.append(ndcg)
 
             if self.plot_dir is not None and epoch > 0:
+                import matplotlib.pyplot as plt
+
                 clear_output(wait=True)
                 _, (ax1, ax2) = plt.subplots(1, 2, figsize=(30, 15))
                 ax1.plot(train_losses, label="train", color="b")

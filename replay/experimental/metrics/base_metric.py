@@ -8,9 +8,21 @@ from abc import ABC, abstractmethod
 import pandas as pd
 from scipy.stats import norm
 
-from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, IntOrList, NumType, PandasDataFrame, SparkDataFrame
+from replay.utils import (
+    PYSPARK_AVAILABLE,
+    DataFrameLike,
+    FeatureUnavailableError,
+    IntOrList,
+    NumType,
+    PandasDataFrame,
+    SparkDataFrame,
+)
 from replay.utils.session_handler import State
+from replay.utils.spark_compat import is_spark_4_or_higher
 from replay.utils.spark_utils import convert2spark, get_top_k_recs
+
+_to_java_column = None
+_to_seq = None
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import (
@@ -19,8 +31,24 @@ if PYSPARK_AVAILABLE:
         functions as sf,
         types as st,
     )
-    from pyspark.sql.column import _to_java_column, _to_seq
     from pyspark.sql.types import DataType
+
+    try:
+        from pyspark.sql.column import _to_java_column, _to_seq
+    except ImportError:
+        try:
+            from pyspark.sql.classic.column import _to_java_column, _to_seq
+        except ImportError:  # pragma: no cover
+            _to_java_column = _to_seq = None  # type: ignore[assignment]
+
+
+def _ensure_scala_udf_supported(metric_name: str) -> None:
+    if is_spark_4_or_higher():
+        msg = f"`{metric_name}` with `use_scala_udf=True` works only on Spark 3.x."
+        raise FeatureUnavailableError(msg)
+    if _to_java_column is None or _to_seq is None:
+        msg = f"`{metric_name}` cannot use Scala UDFs in current PySpark runtime."
+        raise FeatureUnavailableError(msg)
 
 
 def fill_na_with_empty_array(df: SparkDataFrame, col_name: str, element_type: DataType) -> SparkDataFrame:
@@ -169,6 +197,8 @@ class Metric(ABC):
     _scala_udf_name: str | None = None
 
     def __init__(self, use_scala_udf: bool = False) -> None:
+        if use_scala_udf:
+            _ensure_scala_udf_supported(type(self).__name__)
         self._use_scala_udf = use_scala_udf
 
     @property
@@ -350,6 +380,7 @@ class Metric(ABC):
         :param params: list of UDF params in right order
         :return: column expression
         """
+        _ensure_scala_udf_supported(f"Metric Scala UDF `{udf_name}`")
         sc = State().session.sparkContext
         scala_udf = getattr(sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs, udf_name)()
         return Column(scala_udf.apply(_to_seq(sc, params, _to_java_column)))
@@ -472,7 +503,7 @@ class NCISMetric(Metric):
         :activation: activation function, applied over relevance values.
             "logit"/"sigmoid", "softmax" or None
         """
-        self._use_scala_udf = use_scala_udf
+        super().__init__(use_scala_udf=use_scala_udf)
         self.prev_policy_weights = convert2spark(prev_policy_weights).withColumnRenamed("relevance", "prev_relevance")
         self.threshold = threshold
         if activation is None or activation in ("logit", "sigmoid", "softmax"):
@@ -525,10 +556,13 @@ class NCISMetric(Metric):
         Clip weights to fit into interval [1/threshold, threshold].
         """
         lower, upper = 1 / threshold, threshold
+        safe_prev_policy = sf.when(sf.col(prev_policy_col) == sf.lit(0.0), sf.lit(None)).otherwise(
+            sf.col(prev_policy_col)
+        )
         return (
             df.withColumn(
                 "weight_unbounded",
-                sf.col(target_policy_col) / sf.col(prev_policy_col),
+                sf.col(target_policy_col) / safe_prev_policy,
             )
             .withColumn(
                 "weight",

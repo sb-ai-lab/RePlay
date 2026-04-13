@@ -52,7 +52,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -80,7 +80,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -88,11 +88,36 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install conditional package
         run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
+          pip install --upgrade \
+            pip \
+            wheel \
+            poetry==2.2.1 \
+            poetry-dynamic-versioning \
+            --no-cache-dir
           ./poetry_wrapper.sh --experimental --generate
           eval $(poetry env activate)
           poetry sync --no-cache
-          pip install -q --upgrade onnx onnxscript openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 --no-cache-dir
+          if python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 13) else 1)"; then
+            pip install --upgrade "pyspark>=4.0,<4.1" --no-cache-dir
+            echo "Using PySpark 4.0.x for Python >= 3.13"
+          else
+            echo "Using lock-file PySpark for Python < 3.13"
+          fi
+          pip install -q --upgrade \
+            onnx \
+            onnxscript \
+            openvino \
+            optuna \
+            hnswlib \
+            fixed-install-nmslib \
+            --no-cache-dir
+          if python -c "import sys; raise SystemExit(0 if sys.version_info < (3, 13) else 1)"; then
+            pip install -q --upgrade \
+              git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 \
+              --no-cache-dir
+          else
+            echo "Skipping LightFM, sb-obp and LightAutoML for Python >= 3.13"
+          fi
       - name: pytest
         run: |
           ./poetry_wrapper.sh --generate
@@ -111,7 +136,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -122,7 +147,8 @@ jobs:
           pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
-          poetry sync -E torch --no-cache
+          poetry sync --no-cache
+          pip install --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "lightning<3.0.0" "pytorch-optimizer<4" "torch<3.0.0" --no-cache-dir
       - name: pytest
         run: |
           poetry run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/conditional
@@ -139,7 +165,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -151,6 +177,12 @@ jobs:
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
           poetry sync -E spark --no-cache
+          if python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 13) else 1)"; then
+            pip install --upgrade "pyspark>=4.0,<4.1" --no-cache-dir
+            echo "Using PySpark 4.0.x for Python >= 3.13"
+          else
+            echo "Using lock-file PySpark for Python < 3.13"
+          fi
       - name: pytest
         run: |
           poetry run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
@@ -167,7 +199,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -178,7 +210,14 @@ jobs:
           pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
-          poetry sync -E spark -E torch --no-cache
+          poetry sync -E spark --no-cache
+          if python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 13) else 1)"; then
+            pip install --upgrade "pyspark>=4.0,<4.1" --no-cache-dir
+            echo "Using PySpark 4.0.x for Python >= 3.13"
+          else
+            echo "Using lock-file PySpark for Python < 3.13"
+          fi
+          pip install --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "lightning<3.0.0" "pytorch-optimizer<4" "torch<3.0.0" --no-cache-dir
       - name: pytest
         run: |
           poetry run pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
@@ -195,7 +234,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -203,11 +242,36 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install experimental package
         run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
+          pip install --upgrade \
+            pip \
+            wheel \
+            poetry==2.2.1 \
+            poetry-dynamic-versioning \
+            --no-cache-dir
           ./poetry_wrapper.sh --experimental --generate
           eval $(poetry env activate)
           poetry sync --no-cache
-          pip install -q --upgrade onnx onnxscript openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 --no-cache-dir
+          if python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 13) else 1)"; then
+            pip install --upgrade "pyspark>=4.0,<4.1" --no-cache-dir
+            echo "Using PySpark 4.0.x for Python >= 3.13"
+          else
+            echo "Using lock-file PySpark for Python < 3.13"
+          fi
+          pip install -q --upgrade \
+            onnx \
+            onnxscript \
+            openvino \
+            optuna \
+            hnswlib \
+            fixed-install-nmslib \
+            --no-cache-dir
+          if python -c "import sys; raise SystemExit(0 if sys.version_info < (3, 13) else 1)"; then
+            pip install -q --upgrade \
+              git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 \
+              --no-cache-dir
+          else
+            echo "Skipping LightFM, sb-obp and LightAutoML for Python >= 3.13"
+          fi
       - name: pytest
         run: |
           poetry run pytest -m "experimental" tests/
@@ -224,7 +288,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -235,7 +299,14 @@ jobs:
           pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
-          poetry sync -E spark -E torch --no-cache
+          poetry sync -E spark --no-cache
+          if python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 13) else 1)"; then
+            pip install --upgrade "pyspark>=4.0,<4.1" --no-cache-dir
+            echo "Using PySpark 4.0.x for Python >= 3.13"
+          else
+            echo "Using lock-file PySpark for Python < 3.13"
+          fi
+          pip install --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "lightning<3.0.0" "pytorch-optimizer<4" "torch<3.0.0" --no-cache-dir
       - name: pytest
         run: |
           poetry run pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/conditional
@@ -252,8 +323,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # python-version: ["3.10", "3.11", "3.12"]
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -291,7 +361,8 @@ jobs:
           pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
           ./poetry_wrapper.sh --generate
           eval $(poetry env activate)
-          poetry sync -E torch -E spark --no-cache
+          poetry sync -E spark --no-cache
+          pip install --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "lightning<3.0.0" "pytorch-optimizer<4" "torch<3.0.0" --no-cache-dir
       - name: Build
         run: |
           export PACKAGE_SUFFIX=.dev

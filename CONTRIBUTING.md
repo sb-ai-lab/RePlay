@@ -51,7 +51,7 @@ sudo apt-get install build-essential
 
 ### Installing from the source
 
-If you are installing from the source, you will need Python 3.8.1-3.11.
+If you are installing from the source, you will need Python 3.10-3.14.
 
 1. Install poetry using [the poetry installation guide](https://python-poetry.org/docs/#installation). 
 
@@ -66,7 +66,11 @@ If you are installing from the source, you will need Python 3.8.1-3.11.
 
     ```bash
     pip install poetry==2.2.1
-    ./poetry_wrapper.sh sync -E spark -E torch-cpu
+    ./poetry_wrapper.sh sync -E spark -E torch
+    ```
+    For CPU-only Torch setup, additionally run:
+    ```bash
+    pip install --upgrade --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple "torch<3.0.0"
     ```
     **If you need to install Replay with the experimental submodule**:
     ```bash
