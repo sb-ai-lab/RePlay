@@ -172,3 +172,42 @@ def parquet_module_with_default_twotower_transform(
         config=parquet_module_config,
     )
     return parquet_module
+
+
+@pytest.fixture
+def create_twotower_wo_item_id(tensor_schema, create_item_features_reader):
+    def _create():
+        feature_names = tensor_schema.names.copy()
+        feature_names.remove(tensor_schema.item_id_feature_name)
+
+        model_hidden_size = 8
+        common_aggregator = ConcatAggregator(
+            input_embedding_dims=[
+                x.embedding_dim for name, x in tensor_schema.items() if name != tensor_schema.item_id_feature_name
+            ],
+            output_embedding_dim=model_hidden_size,
+        )
+        body = TwoTowerBody(
+            schema=tensor_schema,
+            embedder=SequenceEmbedding(
+                schema=tensor_schema,
+                excluded_features=[tensor_schema.item_id_feature_name],
+                categorical_list_feature_aggregation_method="sum",
+            ),
+            attn_mask_builder=DefaultAttentionMask(
+                reference_feature_name=tensor_schema.item_id_feature_name, num_heads=1
+            ),
+            query_tower_feature_names=feature_names,
+            query_embedding_aggregator=PositionAwareAggregator(
+                embedding_aggregator=common_aggregator, max_sequence_length=7, dropout=0.2
+            ),
+            item_embedding_aggregator=common_aggregator,
+            query_encoder=DiffTransformerLayer(embedding_dim=model_hidden_size, num_heads=1, num_blocks=1),
+            query_tower_output_normalization=torch.nn.RMSNorm(model_hidden_size),
+            item_encoder=SwiGLUEncoder(embedding_dim=model_hidden_size, hidden_dim=2 * model_hidden_size),
+            item_features_reader=create_item_features_reader(feature_names),
+        )
+        model = TwoTower(body=body, loss=CE(ignore_index=15))
+        return model
+
+    return _create
