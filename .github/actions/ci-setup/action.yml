@@ -1,0 +1,22 @@
+name: "CI Setup"
+description: "Composite action to prepare Python and Poetry for CI"
+
+inputs:
+  python-version:
+    description: "Python version to install in the runner"
+    required: true
+    default: "3.10"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install Poetry tooling
+      shell: bash
+      run: |
+        set -euo pipefail
+        pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
