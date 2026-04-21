@@ -164,7 +164,6 @@ class ItemTower(torch.nn.Module):
         for feature_name in schema:
             if feature_name not in self.feature_names:
                 continue
-
             self.register_buffer(f"item_reference_{feature_name}", item_features_reader[feature_name], persistent=True)
 
         self.register_buffer("cache", None, persistent=True)
@@ -188,6 +187,56 @@ class ItemTower(torch.nn.Module):
             assert cache.shape[0] == self._get_any_feature_buffer().shape[0]
             assert cache.shape[1] == self.embedding_aggregator.embedding_dim
             self.cache = cache
+
+    @classmethod
+    def from_item_features(
+        cls,
+        item_features: dict[str, torch.Tensor],
+        embedder: EmbedderProto,
+        embedding_aggregator: AggregatorProto,
+        encoder: ItemEncoderProto,
+    ) -> "ItemTower":
+        model = cls.__new__(cls)
+        torch.nn.Module.__init__(model)
+
+        model.embedder = embedder
+        model.feature_names = list(item_features)
+        model.embedding_aggregator = embedding_aggregator
+        model.encoder = encoder
+
+        for feature_name, feature_tensor in item_features.items():
+            model.register_buffer(f"item_reference_{feature_name}", feature_tensor, persistent=True)
+
+        model.register_buffer("cache", None, persistent=True)
+        return model
+
+    @classmethod
+    def from_checkpoint(
+        cls,
+        state_dict: dict[str, torch.Tensor],
+        embedder: EmbedderProto,
+        embedding_aggregator: AggregatorProto,
+        encoder: ItemEncoderProto,
+        **kwargs,
+    ) -> "ItemTower":
+        prefix = "item_reference_"
+        item_features = {
+            key.removeprefix(prefix): torch.empty_like(value)
+            for key, value in state_dict.items()
+            if key.startswith(prefix)
+        }
+        if not item_features:
+            msg = "Checkpoint does not contain item_reference_* buffers."
+            raise ValueError(msg)
+
+        model = cls.from_item_features(
+            item_features=item_features,
+            embedder=embedder,
+            embedding_aggregator=embedding_aggregator,
+            encoder=encoder,
+        )
+        model.load_state_dict(state_dict, **kwargs)
+        return model
 
     def reset_parameters(self) -> None:
         self.embedding_aggregator.reset_parameters()
