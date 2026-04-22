@@ -33,9 +33,9 @@ class LogOutCE(torch.nn.Module):
         To calculate the loss, ``torch.nn.CrossEntropyLoss`` is used.
         You can pass all parameters for initializing the object via kwargs.
 
-        :param cardinality: number of unique items in vocabulary (catalog).
+        :param cardinality: number of unique items in the vocabulary (or catalog).
             The specified cardinality value must not take into account the padding value.
-        :param negative_labels_ignore_index: padding value for negative labels.
+        :param negative_labels_ignore_index: a padding value for negative labels.
             This may be the case when negative labels
             are formed at the preprocessing level, rather than the negative sampler.
             The index is ignored and does not contribute to the loss.
@@ -82,16 +82,15 @@ class LogOutCE(torch.nn.Module):
     ) -> torch.Tensor:
         """
         forward(model_embeddings, positive_labels, target_padding_mask)
-        **Note**: At forward pass, the whole catalog of items is used as negatives.
-        Next, negative logits, corresponding to positions where negative labels
-        coincide with positive ones, are masked.
+        **Note**: During the forward pass, the entire item catalog is used as negatives.
+        Subsequently, negative logits that corresponding to positive labels are masked.
 
-        :param model_embeddings: model output of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param model_embeddings: a model output of shape ``(batch_size, sequence_length, embedding_dim)``.
         :param positive_labels: ground truth labels of positive events
             of shape (batch_size, sequence_length, num_positives).
-        :param target_padding_mask: padding mask corresponding for ``positive_labels``
+        :param target_padding_mask: a padding mask corresponding for ``positive_labels``
             of shape (batch_size, sequence_length, num_positives).
-        :return: computed loss value.
+        :return: a computed loss value.
         """
         initial_target_padding_mask = target_padding_mask
         num_positives = target_padding_mask.size(2)
@@ -220,7 +219,7 @@ class LogOutCEWeighted(LogOutCE):
             of shape (batch_size, sequence_length, num_positives).
         :param target_padding_mask: padding mask corresponding for ``positive_labels``
             of shape (batch_size, sequence_length, num_positives).
-        :return: computed loss value.
+        :return: a computed loss value.
         """
         loss: torch.Tensor = super().forward(model_embeddings, None, positive_labels, None, None, target_padding_mask)
         sample_weight = feature_tensors[self.feature_name]

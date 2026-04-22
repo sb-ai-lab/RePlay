@@ -24,10 +24,10 @@ class SequenceEmbedding(torch.nn.Module):
 
     The embedding size for each feature will be taken from ``TensorSchema`` (from field named ``embedding_dim``).
     For numerical features, it is expected that the last dimension of the tensor will be equal
-    to ``tensor_dim`` field in ``TensorSchema``.
+    to the ``tensor_dim`` field in ``TensorSchema``.
 
-    Keep in mind that the first dimension of the every categorical embedding (the size of embedding table)
-    will equal to the ``cardinality`` + 1. This is necessary to take into account the padding value.
+    Keep in mind that the first dimension of the every categorical embedding (the size of the embedding table)
+    will be equal to the ``cardinality`` + 1. This is necessary to take into account the padding value.
     """
 
     def __init__(
@@ -37,14 +37,14 @@ class SequenceEmbedding(torch.nn.Module):
         categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
     ):
         """
-        :param schema: TensorSchema containing meta information about all the features
+        :param schema: TensorSchema containing meta information on all the features
             for which you need to generate an embedding.
         :param excluded_features: A list containing the names of features
             for which you do not need to generate an embedding.
             Fragments from this list are expected to be contained in ``schema``.
             Default: ``None``.
         :param categorical_list_feature_aggregation_method: Mode to aggregate tokens
-            in token item representation (categorical list only).
+            in token item representation (a categorical list only).
             Default: ``"sum"``.
         """
         super().__init__()
@@ -108,7 +108,7 @@ class SequenceEmbedding(torch.nn.Module):
         with the name specified in the ``schema``.
         It is expected that embeddings for this feature will definitely exist.
         **Note**: the row corresponding to the padding will be excluded from the returned weights.
-        This logic will work if given ``indices`` is ``None``.
+        This logic will work if given ``indices`` are ``None``.
 
         :param indices: Items indices.
         :returns: Embeddings for specific items.
@@ -121,10 +121,11 @@ class SequenceEmbedding(torch.nn.Module):
 class CategoricalEmbedding(torch.nn.Module):
     """
     The embedding generation class for categorical features.
-    It supports working with single features for each event in sequence, as well as several (categorical list).
+    It supports working with single features for each event in a sequence,
+    as well as with several ones (categorical list).
 
     When using this class, keep in mind that
-    the first dimension of the embedding (the size of embedding table) will equal to the ``cardinality`` + 1.
+    the first dimension of the embedding (the size of the embedding table) will be equal to the ``cardinality`` + 1.
     This is necessary to take into account the padding value.
     """
 
@@ -134,7 +135,7 @@ class CategoricalEmbedding(torch.nn.Module):
         categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
     ) -> None:
         """
-        :param feature_info: Meta information about the feature.
+        :param feature_info: Meta information on the feature.
         :param categorical_list_feature_aggregation_method: Mode to aggregate tokens
             in token item representation (categorical list only). One of {`sum`, `mean`, `max`}
             Default: ``"sum"``.
@@ -239,12 +240,13 @@ class CategoricalEmbedding(torch.nn.Module):
 class NumericalEmbedding(torch.nn.Module):
     """
     The embedding generation class for numerical features.
-    It supports working with single features for each event in sequence, as well as several (numerical list).
+    It supports working with single features for each event in a sequence,
+    as well as with several ones (numerical list).
     """
 
     def __init__(self, feature_info: TensorFeatureInfo) -> None:
         """
-        :param feature_info: Meta information about the feature.
+        :param feature_info: Meta information on the feature.
         """
         super().__init__()
         assert feature_info.tensor_dim
@@ -287,12 +289,12 @@ class NumericalEmbedding(torch.nn.Module):
 
 class IdentityEmbedding(torch.nn.Module):
     """
-    Class that doesn't apply any transformations and returns input features as is in forward pass.
+    The class that doesn't apply any transformations and returns input features as is in forward pass.
     """
 
     def __init__(self, feature_info: TensorFeatureInfo) -> None:
         """
-        :param feature_info: Meta information about the feature.
+        :param feature_info: Meta information on the feature.
         """
         super().__init__()
         assert feature_info.embedding_dim

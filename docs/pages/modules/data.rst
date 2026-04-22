@@ -101,7 +101,7 @@ ________________________________
 Parquet processing
 __________________
 
-This module contains the implementation of ``ParquetDataset`` - a combination of PyTorch-compatible dataset and sampler designed for working with the Parquet file format.
+This module contains the implementation of ``ParquetDataset`` - a combination of a PyTorch-compatible dataset and sampler designed for working with the Parquet file format.
 The main advantages offered by this dataset are:
 
 1. Batch-wise reading and processing of data, allowing it to work with large datasets in memory-constrained settings.

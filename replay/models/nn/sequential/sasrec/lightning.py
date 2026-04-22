@@ -24,7 +24,7 @@ class SasRec(lightning.LightningModule):
     SASRec Lightning module.
 
     You can get initialization parameters with attribute `hparams`
-    for object of SasRec instance.
+    for the object of the SasRec instance.
     """
 
     def __init__(
@@ -46,37 +46,37 @@ class SasRec(lightning.LightningModule):
         sce_params: SCEParams | None = None,
     ):
         """
-        :param tensor_schema: Tensor schema of features.
-        :param block_count: Number of Transformer blocks.
+        :param tensor_schema: A tensor schema of features.
+        :param block_count: A number of Transformer blocks.
             Default: ``2``.
-        :param head_count: Number of Attention heads.
+        :param head_count: A number of Attention heads.
             Default: ``1``.
-        :param hidden_size: Hidden size of transformer.
+        :param hidden_size: A hidden size of the transformer.
             Default: ``50``.
-        :param max_seq_len: Max length of sequence.
+        :param max_seq_len: A maximum length of a sequence.
             Default: ``200``.
-        :param dropout_rate: Dropout rate.
+        :param dropout_rate: A dropout rate.
             Default: ``0.2``.
         :param ti_modification: Enable time relation.
             Default: ``False``.
-        :param time_span: Time span value.
+        :param time_span: A time span value.
             Default: ``256``.
-        :param loss_type: Loss type.
+        :param loss_type: A loss type.
             Default: ``CE``.
-        :param loss_sample_count: Sample count to calculate loss.
-            Suitable for ``"CE"`` and ``"BCE"`` loss functions.
+        :param loss_sample_count: A sample count to calculate loss.
+            Suitable for the ``"CE"`` and ``"BCE"`` loss functions.
             Default: ``None``.
-        :param negative_sampling_strategy: Negative sampling strategy to calculate loss on sampled negatives.
-            Is used when large count of items in dataset.
+        :param negative_sampling_strategy: A negative sampling strategy to calculate the loss on sampled negatives.
+            Is used when a large number of items is in the dataset.
             Possible values: ``"global_uniform"``, ``"inbatch"``
             Default: ``global_uniform``.
-        :param negatives_sharing: Apply negative sharing in calculating sampled logits.
+        :param negatives_sharing: Applies negative sharing in calculating sampled logits.
             Default: ``False``.
-        :param optimizer_factory: Optimizer factory.
+        :param optimizer_factory: An optimizer factory.
             Default: ``FatOptimizerFactory``.
-        :param lr_scheduler_factory: Learning rate schedule factory.
+        :param lr_scheduler_factory: A learning rate schedule factory.
             Default: ``None``.
-        :param sce_params: Dataclass with SCE parameters. Need to be defined if ``loss_type`` is ``SCE``.
+        :param sce_params: A dataclass with SCE parameters. Need to be defined if ``loss_type`` is ``SCE``.
             Default: ``None``.
         """
         super().__init__()
@@ -156,7 +156,7 @@ class SasRec(lightning.LightningModule):
         candidates_to_score: torch.LongTensor | None = None,
     ) -> torch.Tensor:
         """
-        :param batch: Batch of prediction data.
+        :param batch: A batch of prediction data.
         :param candidates_to_score: Item ids to calculate scores.
             Default: ``None``.
 

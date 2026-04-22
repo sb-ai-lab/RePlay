@@ -4,9 +4,9 @@ import torch
 class SelectTransform(torch.nn.Module):
     """
     Selects the specified features from the batch removing the remaining features.
-    Returns batch with selected features.
+    Returns a batch with selected features.
 
-    Features to be selected may be specified in list in 3 options:
+    Features to be selected may be specified a list in 3 options:
       - str: "k"                      (depth 1)
       - tuple of 1: ("k",)            (depth 1)
       - tuple of 2: ("k1", "k2")      (depth 2)
@@ -34,7 +34,7 @@ class SelectTransform(torch.nn.Module):
 
     def __init__(self, feature_names: list[str | tuple[str]]) -> None:
         """
-        :param feature_names: a list with names of features to be selected.
+        :param feature_names: a list of names of features to be selected.
         """
         super().__init__()
         self._feature_names = feature_names

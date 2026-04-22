@@ -26,13 +26,13 @@ from .partitioned_iterable_dataset import PartitionedIterableDataset
 
 class ParquetDataset(IterableDataset):
     """
-    Combination dataset and sampler for batch-wise reading and processing of Parquet files.
+    Dataset and sampler combination for batch-wise Parquet file reading and processing.
 
-    This implementation allows one to read data using a PyArrow Dataset, convert it into structured columns,
-    split it into partitions, and then into batches needed for model training.
+    This implementation allows data reading via a PyArrow Dataset, convert it to structured columns,
+    splitting it into partitions, and then into batches needed for model training.
     Supports distributed training and reproducible random shuffling.
 
-    During data loader operation, a partition of size ``partition_size`` is read.
+    During data loader operation, a size of partition ``partition_size`` is read.
     There may be situations where the size of the read partition is less than
     ``partition_size`` - this depends on the number of rows in the data fragment.
     A fragment is a single Parquet file in the file system.
@@ -84,15 +84,16 @@ class ParquetDataset(IterableDataset):
         :param partition_size: Partition size when reading data from Parquet files.
         :param batch_size: The size of the batch that will be returned during iteration.
         :param filesystem: A PyArrow's Filesystem object used to access data, or a URI-based path
-            to infer the filesystem from. Default: value of ``DEFAULT_FILESYSTEM``.
-        :param make_mask_name: Mask name generation function. Default: value of ``DEFAULT_MAKE_MASK_NAME``.
-        :param device: The device on which the data will be generated. Defaults: value of ``DEFAULT_DEVICE``.
+            to infer the filesystem from. Default: a value of ``DEFAULT_FILESYSTEM``.
+        :param make_mask_name: Mask name generation function. Default: a value of ``DEFAULT_MAKE_MASK_NAME``.
+        :param device: The device on which the data will be generated. Defaults: a value of ``DEFAULT_DEVICE``.
         :param generator: Random number generator for batch shuffling.
             If ``None``, shuffling will be disabled. Default: ``None``.
-        :param replicas_info: A connector object capable of fetching total replica count and replica id during runtime.
-            Default: value of ``DEFAULT_REPLICAS_INFO`` - a pre-built connector which assumes standard Torch DDP mode.
+        :param replicas_info: A connector object capable of fetching
+            the total replica count and the replica ID during runtime.
+            Default: a value of ``DEFAULT_REPLICAS_INFO`` - a pre-built connector which assumes standard Torch DDP mode.
             ``torch.utils.data`` and ``torch.distributed`` modules.
-        :param collate_fn: Collate function for merging batches. Default: value of ``DEFAULT_COLLATE_FN``.
+        :param collate_fn: The collate function for merging batches. Default: a value of ``DEFAULT_COLLATE_FN``.
         """
         if partition_size // batch_size < 20:
             msg = (

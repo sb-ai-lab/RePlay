@@ -20,7 +20,7 @@ class PositionAwareAggregator(torch.nn.Module):
         """
         :param embedding_aggregator: An object of a class that performs the logic of aggregating multiple embeddings.\n
             For example, it can be a ``sum``, a ``mean``, or a ``concatenation``.
-        :param max_sequence_length: Max length of sequence.
+        :param max_sequence_length: Maximum length of a sequence.
         :param dropout: probability of an element to be zeroed.
         """
         super().__init__()
@@ -36,7 +36,7 @@ class PositionAwareAggregator(torch.nn.Module):
 
     def forward(self, feature_tensors: TensorMap) -> torch.Tensor:
         """
-        :param feature_tensors: a dictionary of tensors to pass into ``embedding_aggregator``.
+        :param feature_tensors: a dictionary of tensors to pass to ``embedding_aggregator``.
 
         :returns: Aggregated embeddings with positional encoding.
         """

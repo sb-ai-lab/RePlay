@@ -71,7 +71,7 @@ class DefaultAttentionMask(AttentionMaskBase):
         :param reference_feature_name: To build a mask, you need a reference tensor.
             So you need to pass the name of the tensor, which will definitely be in the dictionary of feature tensors.
             The second dimension (1 in zero indexing) of the tensor will be used to construct the attention mask.
-        :param num_heads: Number of attention heads.
+        :param num_heads: The number of attention heads.
         """
         super().__init__(num_heads)
         self._feature_name = reference_feature_name

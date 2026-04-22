@@ -8,7 +8,7 @@ class MultiHeadDifferentialAttention(torch.nn.Module):
     """
     Multi-Head Differential Attention Mechanism.
     Replaces the conventional softmax attention with a differential attention.
-    Incorporattes a causal mask (if other not specified) to ensure autoregressive behavior.
+    Incorporattes a causal mask (if not otherwise specified) to ensure autoregressive behavior.
 
     Source paper: https://arxiv.org/pdf/2410.05258
     """
@@ -74,9 +74,9 @@ class MultiHeadDifferentialAttention(torch.nn.Module):
         """
         Forward pass for Multi-Head Differential Attention.
 
-        :param query: Query sequence of shape ``(batch_size, sequence_length, embedding_dim)``.
-        :param key: Key sequence of shape ``(batch_size, sequence_length, embedding_dim)``.
-        :param value: Value sequence of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param query: a query sequence of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param key: a key sequence of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param value: a value sequence of shape ``(batch_size, sequence_length, embedding_dim)``.
         :param attn_mask: attention mask, where ``-inf`` for ``PAD``, ``0`` - otherwise.\n
             Possible shapes:\n
             1. ``(batch_size * num_heads, sequence_length, sequence_length)``

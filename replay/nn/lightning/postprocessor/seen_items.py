@@ -37,10 +37,10 @@ class SeenItemsFilter(PostprocessorBase):
 
     def __init__(self, item_count: int, seen_items_column="seen_ids") -> None:
         """
-        :param item_count: Total number of items that the model knows about (``cardinality``).
+        :param item_count: A total number of items that the model knows about (``cardinality``).
             It is recommended to take this value from ``TensorSchema``. \n
             Please note that values ​​outside the range [0, `item_count-1`] are filtered out (considered as padding).
-        :param seen_items_column: Name of the column in batch that contains users' interactions (seen item ids).
+        :param seen_items_column: A name of the column in a batch that contains users’ interactions (seen item ids).
         """
         super().__init__()
         self.item_count = item_count

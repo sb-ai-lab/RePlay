@@ -22,10 +22,10 @@ class TrainOutput(TypedDict):
 
 class InferenceOutput(TypedDict):
     """
-    Storing outputs from models inference stage.
+    Stores outputs from the inference stage of the models.
 
     :param logits:
-        Sequence of hidden-states at the output of the last layer of the model.\n
+        A sequence of hidden-states in the output of the last layer of the model.\n
         Expected shape: ``(batch_size, sequence_length, hidden_size)``.
     :param hidden_states: Tuple of `torch.Tensor`
         (one for the output of the embeddings, if the model has an embedding layer, +

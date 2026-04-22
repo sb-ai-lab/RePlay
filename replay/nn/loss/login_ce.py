@@ -109,8 +109,8 @@ class LogInCE(LogInCEBase):
         \\exp(\\mathrm{sim}(q, p))}{\\sum_{p \\in P}
         \\exp(\\mathrm{sim}(q, p)) + \\sum_{n \\in N} \\exp(\\mathrm{sim}(q, n))},
 
-    where q -- query embedding, P -- set of positive logits, N -- set of negative logits,
-    :math:`sim(\\cdot, \\cdot)` -- similaruty function.
+    where q -- query embedding, P -- a set of positive logits, N -- a set of negative logits,
+    :math:`sim(\\cdot, \\cdot)` -- the similarity function.
 
     The loss supports the calculation of logits for the case of multi-positive labels
     (there are several labels for each position in the sequence).
@@ -124,13 +124,13 @@ class LogInCE(LogInCEBase):
         negative_labels_ignore_index: int = -100,
     ):
         """
-        :param cardinality: number of unique items in vocabulary (catalog).
+        :param cardinality: the number of unique items in the vocabulary (or catalog).
             The specified cardinality value must not take into account the padding value.
-        :param log_epsilon: correction to avoid zero in the logarithm during loss calculating.
+        :param log_epsilon: correction to avoid zero in the logarithm during loss calculation.
             Default: ``1e-6``.
-        :param clamp_border: upper bound for clamping loss tensor, lower bound will be setted to ``-clamp_border``.
+        :param clamp_border: the upper bound for clamping the loss tensor. The lower bound is set to `-clamp_border`.
             Default: ``100.0``.
-        :param negative_labels_ignore_index: padding value for negative labels.
+        :param negative_labels_ignore_index: the padding value for negative labels.
             This may be the case when negative labels
             are formed at the preprocessing level, rather than the negative sampler.
             The index is ignored and does not contribute to the loss.
@@ -178,16 +178,15 @@ class LogInCE(LogInCEBase):
     ) -> torch.Tensor:
         """
         forward(model_embeddings, positive_labels, target_padding_mask)
-        **Note**: At forward pass, the whole catalog of items is used as negatives.
-        Next, negative logits, corresponding to positions where negative labels
-        coincide with positive ones, are masked.
+        **Note**: During the forward pass, the entire item catalog is used as negatives.
+        Subsequently, negative logits that correspond to positive labels are masked.
 
-        :param model_embeddings: model output of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param model_embeddings: a model output of shape ``(batch_size, sequence_length, embedding_dim)``.
         :param positive_labels: ground truth labels of positive events
             of shape (batch_size, sequence_length, num_positives).
-        :param target_padding_mask: padding mask corresponding for ``positive_labels``
+        :param target_padding_mask: padding mask corresponding to ``positive_labels``
             of shape (batch_size, sequence_length, num_positives).
-        :return: computed loss value.
+        :return: a computed loss value.
         """
         all_negative_labels = torch.arange(
             self.cardinality,
@@ -250,7 +249,7 @@ class LogInCESampled(LogInCEBase):
 
     where q -- query embedding, P -- set of positive logits, :math:`N_sampled` -- set of negative logits,
     :math:`sim(\\cdot, \\cdot)` -- similaruty function.\n
-    Same as ``LogInCE``, the difference in the set of negatives.
+    Same as ``LogInCE``, the difference is in the set of negatives.
 
     The loss supports the calculation of logits for the case of multi-positive labels
     (there are several labels for each position in the sequence).
@@ -263,11 +262,11 @@ class LogInCESampled(LogInCEBase):
         negative_labels_ignore_index: int = -100,
     ):
         """
-        :param log_epsilon: correction to avoid zero in the logarithm during loss calculating.
+        :param log_epsilon: correction to avoid zero in the logarithm during loss calculation.
             Default: 1e-6.
-        :param clamp_border: upper bound for clamping loss tensor, lower bound will be setted to -`clamp_border`.
+        :param clamp_border: the upper bound for clamping loss tensor, the lower bound will be set to -clamp_border.
             Default: 100.0.
-        :param negative_labels_ignore_index: padding value for negative labels.
+        :param negative_labels_ignore_index: a padding value for negative labels.
             This may be the case when negative labels
             are formed at the preprocessing level, rather than the negative sampler.
             The index is ignored and does not contribute to the loss.
@@ -315,7 +314,7 @@ class LogInCESampled(LogInCEBase):
         """
         forward(model_embeddings, positive_labels, negative_labels, target_padding_mask)
 
-        :param model_embeddings: model output of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param model_embeddings: a model output of shape ``(batch_size, sequence_length, embedding_dim)``.
         :param positive_labels: labels of positive events
             of shape ``(batch_size, sequence_length, num_positives)``.
         :param negative_labels: labels of sampled negative events.
@@ -324,10 +323,10 @@ class LogInCESampled(LogInCEBase):
                     - ``(batch_size, sequence_length, num_negatives)``
                     - ``(batch_size, num_negatives)``
                     - ``(num_negatives)`` - a case where the same negative events are used for the entire batch.
-        :param target_padding_mask: padding mask corresponding for ``positive_labels``
+        :param target_padding_mask: a padding mask corresponding to ``positive_labels``
             of shape ``(batch_size, sequence_length, num_positives)``
 
-        :return: computed loss value.
+        :return: a computed loss value.
         """
         sampled = self.get_sampled_logits(
             model_embeddings,

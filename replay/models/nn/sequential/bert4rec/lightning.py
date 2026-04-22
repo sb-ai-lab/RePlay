@@ -14,7 +14,7 @@ from .model import Bert4RecModel, CatFeatureEmbedding
 
 class Bert4Rec(lightning.LightningModule):
     """
-    Implements BERT training-validation loop
+    Implements the BERT training-validation loop
     """
 
     def __init__(
@@ -36,37 +36,37 @@ class Bert4Rec(lightning.LightningModule):
         lr_scheduler_factory: LRSchedulerFactory | None = None,
     ):
         """
-        :param tensor_schema: Tensor schema of features.
-        :param block_count: Number of Transformer blocks.
+        :param tensor_schema: A tensor schema of features.
+        :param block_count: A number of Transformer blocks.
             Default: ``2``.
-        :param head_count: Number of Attention heads.
+        :param head_count: A number of Attention heads.
             Default: ``4``.
-        :param hidden_size: Hidden size of transformer.
+        :param hidden_size: A hidden size of the transformer.
             Default: ``256``.
-        :param max_seq_len: Max length of sequence.
+        :param max_seq_len: A maximum length of sequence.
             Default: ``100``.
-        :param dropout_rate: Dropout rate.
+        :param dropout_rate: A dropout rate.
             Default: ``0.1``.
-        :param pass_per_transformer_block_count: Number of times to pass data over each Transformer block.
+        :param pass_per_transformer_block_count: A number of times to pass data over each Transformer block.
             Default: ``1``.
-        :param enable_positional_embedding: Add positional embedding to the result.
+        :param enable_positional_embedding: Adds positional embedding to the result.
             Default: ``True``.
-        :param enable_embedding_tying: Use embedding tying head.
-            If `True` - result scores are calculated by dot product of input and output embeddings,
-            if `False` - default linear layer is applied to calculate logits for each item.
+        :param enable_embedding_tying: Uses the embedding tying head.
+            If `True` - result scores are calculated by the dot product of input and output embeddings,
+            if `False` - a default linear layer is applied to calculate logits for each item.
             Default: ``False``.
-        :param loss_type: Loss type.
+        :param loss_type: A loss type.
             Default: ``CE``.
-        :param loss_sample_count: Sample count to calculate loss.
+        :param loss_sample_count: A sample count to calculate the loss.
             Default: ``None``.
-        :param negative_sampling_strategy: Negative sampling strategy to calculate loss on sampled negatives.
-            Is used when large count of items in dataset.\n
+        :param negative_sampling_strategy: A negative sampling strategy to calculate loss on sampled negatives.
+            Is used when a large number of items is in the dataset.\n
             Default: ``global_uniform``.
-        :param negatives_sharing: Apply negative sharing in calculating sampled logits.\n
+        :param negatives_sharing: Applies negative sharing in calculating sampled logits.\n
             Default: ``False``.
-        :param optimizer_factory: Optimizer factory.\n
+        :param optimizer_factory: An optimizer factory.\n
             Default: ``FatOptimizerFactory``.
-        :param lr_scheduler_factory: Learning rate schedule factory.\n
+        :param lr_scheduler_factory: A learning rate schedule factory.\n
             Default: ``None``.
         """
         super().__init__()
@@ -139,11 +139,11 @@ class Bert4Rec(lightning.LightningModule):
         candidates_to_score: torch.LongTensor | None = None,
     ) -> torch.Tensor:
         """
-        :param batch: Batch of prediction data.
+        :param batch: A batch of prediction data.
         :param candidates_to_score: Item ids to calculate scores.
             Default: ``None``.
 
-        :returns: Calculated scores on prediction batch.
+        :returns: Calculated scores in the prediction batch.
         """
         if isinstance(batch, Bert4RecPredictionBatch):
             warnings.warn(

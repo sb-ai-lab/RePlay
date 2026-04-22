@@ -154,7 +154,7 @@ class OfflineMetrics:
         allow_caching: bool = True,
     ):
         """
-        :param metrics: (list of metrics): List of metrics to be calculated.
+        :param metrics: (list of metrics): A list of metrics to be calculated.
         :param query_column:: (str): The name of the query column.
             Note that you do not need to specify the value of this parameter for each metric separately.
             It is enough to specify the value of this parameter here once.

@@ -19,7 +19,7 @@ class EmbeddingTyingHead(torch.nn.Module):
         item_embeddings: torch.Tensor,
     ) -> torch.Tensor:
         """
-        :param hidden_states: hidden state of shape
+        :param hidden_states: a hidden state of shape
             ``(batch_size, embedding_dim)`` or ``(batch_size, sequence_length, embedding_dim)``.
         :param item_embeddings: item embeddings of shape
             ``(num_items, embedding_dim)`` or ``(batch_size, num_items, embedding_dim)``.

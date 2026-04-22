@@ -97,7 +97,7 @@ Losses
 ======
 
 :ref:`BCE <loss-bce>`, :ref:`BCESampled <loss-bce-sampled>`, :ref:`CESampled <loss-ce-sampled>`, :ref:`LogInCE <loss-login-ce>`, :ref:`LogInCESampled <loss-login-ce-sampled>`, :ref:`LogOutCE <loss-logout-ce>` support the calculation of logits for the case of multi-positive labels (there are several labels for each position in the sequence).
-Source of multi-positive labels: https://arxiv.org/abs/2205.04507
+A source of multi-positive labels: https://arxiv.org/abs/2205.04507
 
 .. _loss-bce:
 
@@ -263,12 +263,12 @@ Transforms for ParquetModule
 ====================================================
 
 This submodule contains a set of standard PyTorch tensor transformations necessary for neural network models. 
-Every Transform (transformation) is a child class of ``torch.nn.Module`` which forward pass takes as input a batch (python dictionary) 
-and returns a copy of input batch with some applyed transformation. 
+Every Transform (transformation) is a child class of ``torch.nn.Module`` which forward pass takes as an input a batch (python dictionary) 
+and returns a copy of the input batch with some applyed transformation. 
 
-These Transforms are intended for use with the :ref:`Parquet-Module`. `ParquetModule` object gets transformations via `transforms` parameter.
+These Transforms are intended for use with the :ref:`Parquet-Module`. The `ParquetModule` object gets transformations via the `transforms` parameter.
 
-For passing `transforms` parameter correctly, specify a sequence (a list) of transformations for every used data split, for example:
+To pass the `transforms` parameter correctly, specify a sequence (a list) of transformations for every used data split, for example:
 
 .. code-block:: python
 
@@ -278,8 +278,8 @@ For passing `transforms` parameter correctly, specify a sequence (a list) of tra
    }
 
 
-``ParquetModule`` converts every specified list of transformations into ``torch.nn.Sequential``, which will be applied per batch on device, 
-then the resulting batch after all transformations will be used as model input. 
+``ParquetModule`` converts every specified list of transformations into ``torch.nn.Sequential``, which will be applied per batch on a device, 
+then the resulting batch after all transformations will be used as a model input. 
 
 RePlay provides functions that create a standard set of transformations for models that can also be used as the basis 
 for custom, more complicated sets of transformations. See :ref:`Standard set of transforms for models <transforms-for-models>`.
@@ -353,7 +353,7 @@ ____________________________________
 
 .. _transforms-for-models:
 
-Standard set of transforms for models
+A standard set of transforms for models
 _____________________________________
 
 SasRec Transforms
@@ -377,7 +377,7 @@ During training/validation:
 During inference:
 
    You can get the recommendations in the following formats: ``PySpark DataFrame``, ``Pandas DataFrame``, ``Polars DataFrame``, ``PyTorch tensors``.
-   Each of the types corresponds a callback. You can filter the results using postprocessors strategy.
+   Each types corresponds to a callback. You can filter the results using postprocessors strategy.
    In addition to outputting logits (scores) from the model, you can output any hidden states using ``HiddenStateCallback``.
 
 For a better understanding, you should look at examples of using neural network models.

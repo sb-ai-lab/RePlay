@@ -29,8 +29,8 @@ class TrimTransform(torch.nn.Module):
         feature_names: list[str] | str,
     ) -> None:
         """
-        :param seq_len: max sequence length used in model. Must be positive.
-        :param feature_name: name of feature in batch to be trimmed.
+        :param seq_len: a maximum sequence length used in a model.
+        :param feature_name: a name of a feature in a batch to be trimmed.
         """
         super().__init__()
         assert seq_len > 0
