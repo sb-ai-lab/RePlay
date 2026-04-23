@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 
@@ -28,7 +29,7 @@ function cp_if_exists() {
   local src=$1
   local dst=$2
 
-  [ -f $src ] && cp $src $dst
+  [ -f "$src" ] && cp "$src" "$dst"
 }
 
 # Check if project is valid
@@ -48,18 +49,18 @@ python ${SCRIPT_DIR}/projects/microtemplate.py \
   || exit 1
 
 # Copy lock file to the root
-cp ${SCRIPT_DIR}/projects/${PROJECT}/poetry.lock ${SCRIPT_DIR}
+cp "${SCRIPT_DIR}/projects/${PROJECT}/poetry.lock" "${SCRIPT_DIR}"
 
 if [ "${MODE}" = "run" ]; then
-  poetry ${POETRY_ARGS[@]}
+  poetry "${POETRY_ARGS[@]}"
 
   # Copy back updated lock file
-  cp -u ${SCRIPT_DIR}/poetry.lock ${SCRIPT_DIR}/projects/${PROJECT}
+  cp -u "${SCRIPT_DIR}/poetry.lock" "${SCRIPT_DIR}/projects/${PROJECT}"
 
   # Remove generated poetry files
-  rm -f ${SCRIPT_DIR}/pyproject.toml
-  rm -f ${SCRIPT_DIR}/poetry.lock
+  rm -f "${SCRIPT_DIR}/pyproject.toml"
+  rm -f "${SCRIPT_DIR}/poetry.lock"
 
   # Sometimes poetry does not cleanup temporary files, so delete this explicitly
-  rm -f ${SCRIPT_DIR}/build.py
+  rm -f "${SCRIPT_DIR}/build.py"
 fi

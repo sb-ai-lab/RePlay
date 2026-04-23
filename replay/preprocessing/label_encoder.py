@@ -672,8 +672,9 @@ class SequenceEncodingRule(LabelEncodingRule):
                     LabelEncoderTransformWarning,
                 )
 
-        # for correct concatenation, it is necessary that the column schemes match
-        empty_arrays = empty_arrays.withColumn(self._col, sf.col(self._col).cast(result.schema[self._col].dataType))
+        # Spark 4 validates casts strictly; casting the original array values can fail even
+        # for rows filtered out earlier. Build a typed empty array explicitly instead.
+        empty_arrays = empty_arrays.withColumn(self._col, sf.array().cast(result.schema[self._col].dataType))
         return result.unionByName(empty_arrays).drop(fake_column_name)
 
     def _transform_pandas(self, df: PandasDataFrame, default_value: int | None) -> PandasDataFrame:

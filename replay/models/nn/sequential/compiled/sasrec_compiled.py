@@ -114,7 +114,11 @@ class SasRecCompiled(BaseCompiledModel):
         if isinstance(model, SasRec):
             lightning_model = model.cpu()
         elif isinstance(model, (str, pathlib.Path)):
-            lightning_model = SasRec.load_from_checkpoint(model, map_location=torch.device("cpu"))
+            lightning_model = SasRec.load_from_checkpoint(
+                model,
+                map_location=torch.device("cpu"),
+                weights_only=False,
+            )
 
         schema = lightning_model._schema
         item_seq_name = schema.item_id_feature_name

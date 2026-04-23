@@ -404,7 +404,7 @@ def test_sasrec_fine_tuning_save_load(fitted_sasrec, new_items_dataset, train_sa
     model.set_item_embeddings_by_size(new_vocab_size)
     trainer.fit(model, train_sasrec_loader)
     trainer.save_checkpoint("test.ckpt")
-    best_model = SasRec.load_from_checkpoint("test.ckpt")
+    best_model = SasRec.load_from_checkpoint("test.ckpt", weights_only=False)
 
     assert best_model.get_all_embeddings()["item_embedding"].shape[0] == new_vocab_size
 

@@ -1,0 +1,28 @@
+name: "Install Conditional Dependencies"
+description: "Install optional dependencies for conditional and experimental tests"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install conditional dependencies
+      shell: bash
+      run: |
+        set -euo pipefail
+        eval "$(poetry env activate)"
+
+        pip install -q --upgrade \
+          onnx \
+          onnxscript \
+          openvino \
+          optuna \
+          hnswlib \
+          fixed-install-nmslib \
+          --no-cache-dir
+
+        if python -c "import sys; raise SystemExit(0 if sys.version_info < (3, 13) else 1)"; then
+          pip install -q --upgrade \
+            git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 \
+            --no-cache-dir
+        else
+          echo "Skipping LightFM, sb-obp and LightAutoML for Python >= 3.13"
+        fi

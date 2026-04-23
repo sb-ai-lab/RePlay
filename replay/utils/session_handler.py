@@ -41,9 +41,8 @@ def get_spark_session(
     os.environ["PYSPARK_PYTHON"] = sys.executable
     os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
-    if os.environ.get("REPLAY_JAR_PATH"):  # pragma: no cover
-        path_to_replay_jar = os.environ.get("REPLAY_JAR_PATH")
-    else:
+    path_to_replay_jar = os.environ.get("REPLAY_JAR_PATH")
+    if path_to_replay_jar is None:
         if pyspark_version.startswith("3.1"):  # pragma: no cover
             path_to_replay_jar = (
                 "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
@@ -52,14 +51,20 @@ def get_spark_session(
             path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.2.0_als_metrics/replay_2.12-3.2.0_als_metrics.jar"
         elif pyspark_version.startswith("3.4"):  # pragma: no cover
             path_to_replay_jar = "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_after_fix_2.12/0.1/replay_after_fix_2.12-0.1.jar"
-        else:  # pragma: no cover
+        elif pyspark_version.startswith("3."):  # pragma: no cover
             path_to_replay_jar = (
                 "https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar"
             )
             logging.warning(
-                "Replay ALS model support only spark 3.1-3.4 versions! Replay will use "
+                "Replay Scala extensions are validated for Spark 3.x. "
+                "Replay will use "
                 "'https://repo1.maven.org/maven2/io/github/sb-ai-lab/replay_2.12/3.1.3/replay_2.12-3.1.3.jar' "
                 "in 'spark.jars' property."
+            )
+        else:
+            logging.warning(
+                "Spark 4.x detected. Replay Scala extensions are disabled by default; "
+                "set REPLAY_JAR_PATH to enable a custom compatible jar."
             )
 
     if core_count is None:  # checking out env variable
@@ -77,17 +82,19 @@ def get_spark_session(
             "spark.driver.extraJavaOptions",
             "-Dio.netty.tryReflectionSetAccessible=true",
         )
-        .config("spark.jars", path_to_replay_jar)
         .config("spark.sql.shuffle.partitions", str(shuffle_partitions))
         .config("spark.local.dir", os.path.join(user_home, "tmp"))
         .config("spark.driver.maxResultSize", "4g")
         .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.driver.host", "localhost")
-        .config("spark.sql.execution.arrow.enabled", "true")
+        .config("spark.sql.execution.arrow.pyspark.enabled", "true")
         .config("spark.kryoserializer.buffer.max", "256m")
         .config("spark.files.overwrite", "true")
         .master(f"local[{'*' if core_count == -1 else core_count}]")
     )
+
+    if path_to_replay_jar:
+        spark_session_builder = spark_session_builder.config("spark.jars", path_to_replay_jar)
 
     return spark_session_builder.getOrCreate()
 

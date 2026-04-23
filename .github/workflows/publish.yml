@@ -27,28 +27,28 @@ jobs:
         url: https://pypi.org/p/replay-rec
 
     steps:
-      - name: Checkout
+      - name: checkout
         uses: actions/checkout@v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: ci_setup
+        uses: ./.github/actions/ci-setup
         with:
           python-version: "3.10"
 
-      - name: Install experimental package
-        run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          ./poetry_wrapper.sh --experimental --generate
-          eval $(poetry env activate)
-          poetry cache clear PyPI --all
-          poetry sync --no-cache
+      - name: clear_poetry_cache
+        run: poetry cache clear PyPI --all
 
-      - name: Build Experimental
+      - name: install_experimental_dependencies
+        uses: ./.github/actions/install-poetry-deps
+        with:
+          experimental: "true"
+
+      - name: build_experimental
         run: |
           export PACKAGE_SUFFIX=.preview
           poetry build
 
-      - name: Publish Experimental
+      - name: publish_experimental
         uses: pypa/gh-action-pypi-publish@release/v1
 
   publish_production:
@@ -62,25 +62,27 @@ jobs:
         url: https://pypi.org/p/replay-rec
 
     steps:
-      - name: Checkout
+      - name: checkout
         uses: actions/checkout@v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: ci_setup
+        uses: ./.github/actions/ci-setup
         with:
           python-version: "3.10"
 
-      - name: Install production package
-        run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          ./poetry_wrapper.sh --generate
-          eval $(poetry env activate)
-          poetry cache clear PyPI --all
-          poetry sync -E torch -E spark --no-cache
+      - name: clear_poetry_cache
+        run: poetry cache clear PyPI --all
 
-      - name: Build Production
+      - name: install_production_dependencies
+        uses: ./.github/actions/install-poetry-deps
+        with:
+          extras: "spark"
+      - name: install_torch_cpu
+        uses: ./.github/actions/install-torch-cpu
+
+      - name: build_production
         run: |
           poetry build
 
-      - name: Publish Production
+      - name: publish_production
         uses: pypa/gh-action-pypi-publish@release/v1

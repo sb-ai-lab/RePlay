@@ -248,7 +248,7 @@ class RatioSplitter(Splitter):
         if self.session_id_column:
             interactions = self._recalculate_with_session_id_column(interactions)
 
-        train = interactions.filter("is_test == 0").drop("row_num", "count", "frac", "is_test")
+        train = interactions.filter(~sf.col("is_test")).drop("row_num", "count", "frac", "is_test")
         test = interactions.filter("is_test").drop("row_num", "count", "frac", "is_test")
 
         return train, test
@@ -343,7 +343,7 @@ class RatioSplitter(Splitter):
         if self.session_id_column:
             interactions = self._recalculate_with_session_id_column(interactions)
 
-        train = interactions.filter("is_test == 0").drop("row_num", "count", "train_size", "is_test")
+        train = interactions.filter(~sf.col("is_test")).drop("row_num", "count", "train_size", "is_test")
         test = interactions.filter("is_test").drop("row_num", "count", "train_size", "is_test")
 
         return train, test

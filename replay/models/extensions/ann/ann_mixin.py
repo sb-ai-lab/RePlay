@@ -171,9 +171,13 @@ class ANNMixin(RecommenderCommons):
             if filter_seen_items and dataset.interactions:
                 recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
 
-            recs = get_top_k_recs(recs, k=k, query_column=self.query_column, rating_column=self.rating_column).select(
-                self.query_column, self.item_column, self.rating_column
-            )
+            recs = get_top_k_recs(
+                recs,
+                k=k,
+                query_column=self.query_column,
+                rating_column=self.rating_column,
+                item_column=self.item_column,
+            ).select(self.query_column, self.item_column, self.rating_column)
 
         output = return_recs(recs, recs_file_path)
         self._clear_model_temp_view("filter_seen_queries_interactions")

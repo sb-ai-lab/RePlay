@@ -16,19 +16,22 @@ jobs:
   build_docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - name: checkout
+        uses: actions/checkout@v6
+      - name: ci_setup
+        uses: ./.github/actions/ci-setup
         with:
           python-version: "3.10"
-      - name: Install full package
-        run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          poetry cache clear PyPI --all
-          ./poetry_wrapper.sh --experimental --generate
-          eval $(poetry env activate)
-          poetry sync --with dev --no-cache
-          pip install --upgrade onnx onnxscript openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 --no-cache-dir
+      - name: clear_poetry_cache
+        run: poetry cache clear PyPI --all
+      - name: install_experimental_dev_dependencies
+        uses: ./.github/actions/install-poetry-deps
+        with:
+          experimental: "true"
+          with-dev: "true"
+      - name: install_conditionals
+        uses: ./.github/actions/install-conditionals
       - name: Build docs
         run: |
-          eval $(poetry env activate)
+          eval "$(poetry env activate)"
           make -C docs clean html

@@ -1,0 +1,18 @@
+name: "Install PySpark"
+description: "Install PySpark override for Python >= 3.13"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install PySpark
+      shell: bash
+      run: |
+        set -euo pipefail
+        eval "$(poetry env activate)"
+
+        if python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 13) else 1)"; then
+          pip install --upgrade "pyspark>=4.0,<4.1" --no-cache-dir
+          echo "Using PySpark 4.0.x for Python >= 3.13"
+        else
+          echo "Using lock-file PySpark for Python < 3.13"
+        fi

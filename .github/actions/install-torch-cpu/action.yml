@@ -1,0 +1,12 @@
+name: "Install Torch CPU"
+description: "Install torch CPU dependencies for CI"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install torch CPU stack
+      shell: bash
+      run: |
+        set -euo pipefail
+        eval "$(poetry env activate)"
+        pip install --upgrade --extra-index-url https://download.pytorch.org/whl/cpu "lightning<3.0.0" "pytorch-optimizer<4" "torch<3.0.0" --no-cache-dir

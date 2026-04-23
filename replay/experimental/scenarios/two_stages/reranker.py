@@ -1,11 +1,25 @@
 import logging
+import sys
 from abc import abstractmethod
 
-from lightautoml.automl.presets.tabular_presets import TabularAutoML
-from lightautoml.tasks import Task
+from replay.utils.types import LIGHTAUTOML_AVAILABLE, FeatureUnavailableError
+
+if LIGHTAUTOML_AVAILABLE:
+    from lightautoml.automl.presets.tabular_presets import TabularAutoML
+    from lightautoml.tasks import Task
+else:  # pragma: no cover
+    TabularAutoML = None
+    Task = None
 from pyspark.sql import DataFrame
 
 from replay.utils.spark_utils import convert2spark, get_top_k_recs
+
+
+def _raise_lightautoml_unavailable() -> None:
+    err = FeatureUnavailableError("`two_stages` can only be provided when lightautoml is installed.")
+    if sys.version_info >= (3, 13):  # pragma: py-lt-313
+        err.add_note("lightautoml does not support Python >= 3.13")
+    raise err
 
 
 class ReRanker:
@@ -63,6 +77,9 @@ class LamaWrap(ReRanker):
         :param params: dict of model parameters
         :param config_path: path to configuration file
         """
+        if not LIGHTAUTOML_AVAILABLE:  # pragma: no cover
+            _raise_lightautoml_unavailable()
+
         self.model = TabularAutoML(
             task=Task("binary"),
             config_path=config_path,

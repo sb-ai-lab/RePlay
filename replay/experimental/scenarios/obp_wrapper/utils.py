@@ -1,12 +1,17 @@
 import numpy as np
-from obp.ope import RegressionModel
 from sklearn.linear_model import LogisticRegression
+
+from replay.experimental.scenarios.obp_wrapper._compat import _ensure_obp_available
 
 
 def get_est_rewards_by_reg(n_actions, len_list, bandit_feedback_train, bandit_feedback_test):
     """
     Fit Logistic Regression to rewards from `bandit_feedback`.
     """
+    _ensure_obp_available()
+    # Import locally to keep this module importable when SB-OBP is unavailable.
+    from obp.ope import RegressionModel
+
     regression_model = RegressionModel(
         n_actions=n_actions,
         len_list=len_list,

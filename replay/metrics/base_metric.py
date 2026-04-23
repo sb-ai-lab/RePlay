@@ -25,6 +25,12 @@ class MetricDuplicatesWarning(Warning):
     """Recommendations contain duplicates"""
 
 
+def _normalize_metric_value(value: Any) -> Any:
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
 class Metric(ABC):
     """Base metric class"""
 
@@ -292,14 +298,14 @@ class Metric(ABC):
             metric_name = f"{self.__name__}@{val}"
             res[metric_name] = {}
             for user, metrics in distribution_per_user.items():
-                res[metric_name][user] = metrics[index]
+                res[metric_name][user] = _normalize_metric_value(metrics[index])
         return res
 
     def _aggregate_results(self, metrics: list) -> MetricsMeanReturnType:
         res = {}
         for index, val in enumerate(self.topk):
             metric_name = f"{self.__name__}@{val}"
-            res[metric_name] = metrics[index]
+            res[metric_name] = _normalize_metric_value(metrics[index])
         return res
 
     def _spark_compute(self, recs: SparkDataFrame) -> MetricsReturnType:

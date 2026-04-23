@@ -14,29 +14,28 @@ jobs:
         url: https://test.pypi.org/p/replay-rec
 
     steps:
-      - name: Checkout
+      - name: checkout
         uses: actions/checkout@v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: ci_setup
+        uses: ./.github/actions/ci-setup
         with:
           python-version: "3.10"
 
-      - name: Install full package
-        run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning
-          ./poetry_wrapper.sh --generate
-          eval $(poetry env activate)
-          poetry cache clear PyPI --all
-          poetry sync --with dev
+      - name: clear_poetry_cache
+        run: poetry cache clear PyPI --all
+      - name: install_dev_dependencies
+        uses: ./.github/actions/install-poetry-deps
+        with:
+          with-dev: "true"
 
-      - name: Build
+      - name: build
         run: |
           export PACKAGE_SUFFIX=.preview
           echo $PACKAGE_SUFFIX
           poetry build
 
-      - name: Publish
+      - name: publish
         uses: pypa/gh-action-pypi-publish@release/v1
         with: 
           repository-url: https://test.pypi.org/legacy/

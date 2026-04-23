@@ -1,40 +1,34 @@
 name: CI Pipeline
 
-# Controls when the workflow will run
 on:
-  # Triggers the workflow on push and pull request events but only for the main or release branch
   push:
     branches: [main, 'release/**']
   pull_request:
     branches: [main, refactoring]
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   static_tests:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: checkout
         uses: actions/checkout@v6
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: ci_setup
+        uses: ./.github/actions/ci-setup
         with:
           python-version: "3.10"
-      - name: Install full package
+      - name: install_dev_dependencies
+        uses: ./.github/actions/install-poetry-deps
+        with:
+          with-dev: "true"
+      - name: clear_poetry_cache
         run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          ./poetry_wrapper.sh --generate
-          eval $(poetry env activate)
+          eval "$(poetry env activate)"
           poetry cache clear PyPI --all
-          poetry sync --with dev --no-cache
       - name: ruff
-        run: |
-          poetry run ruff check .
+        run: poetry run ruff check .
       - name: black
-        run: |
-          poetry run black . --check --diff
+        run: poetry run black . --check --diff
       - name: poetry-check
         run: |
           ./poetry_wrapper.sh check
@@ -52,54 +46,57 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - name: checkout
+        uses: actions/checkout@v6
+      - name: ci_setup
+        uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install core package
-        run: |
-          pip install --upgrade pip wheel poetry==2.2.1 --no-cache-dir
-          ./poetry_wrapper.sh sync
+      - name: install_core_dependencies
+        uses: ./.github/actions/install-poetry-deps
+      - name: prepare_pyproject_for_tests
+        run: ./poetry_wrapper.sh --generate
       - name: pytest
         run: |
-          ./poetry_wrapper.sh --generate
-          eval $(poetry env activate)
           poetry run pytest -m core tests/ --ignore=tests/experimental --ignore=tests/conditional
           mv .coverage coverage_core_${{ matrix.python-version }}
-      - name: Upload coverage
+      - name: upload_coverage
         uses: actions/upload-artifact@v6
         with:
           name: coverage_core_${{ matrix.python-version }}
           path: coverage_core_${{ matrix.python-version }}
-  
+
   pytest_conditional:
     needs: static_tests
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - name: checkout
+        uses: actions/checkout@v6
+      - name: ci_setup
+        uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install conditional package
-        run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          ./poetry_wrapper.sh --experimental --generate
-          eval $(poetry env activate)
-          poetry sync --no-cache
-          pip install -q --upgrade onnx onnxscript openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 --no-cache-dir
+      - name: install_experimental_dependencies
+        uses: ./.github/actions/install-poetry-deps
+        with:
+          experimental: "true"
+      - name: install_pyspark
+        uses: ./.github/actions/install-pyspark
+      - name: install_conditionals
+        uses: ./.github/actions/install-conditionals
+      - name: prepare_pyproject_for_tests
+        run: ./poetry_wrapper.sh --generate
       - name: pytest
         run: |
-          ./poetry_wrapper.sh --generate
-          eval $(poetry env activate)
           poetry run pytest -m conditional tests/ --ignore=tests/experimental --ignore=tests/conditional
           mv .coverage coverage_conditional_${{ matrix.python-version }}
-      - name: Upload coverage
+      - name: upload_coverage
         uses: actions/upload-artifact@v6
         with:
           name: coverage_conditional_${{ matrix.python-version }}
@@ -111,23 +108,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - name: checkout
+        uses: actions/checkout@v6
+      - name: ci_setup
+        uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install torch package
-        run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          ./poetry_wrapper.sh --generate
-          eval $(poetry env activate)
-          poetry sync -E torch --no-cache
+      - name: install_base_dependencies
+        uses: ./.github/actions/install-poetry-deps
+      - name: install_torch_cpu
+        uses: ./.github/actions/install-torch-cpu
       - name: pytest
         run: |
           poetry run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/conditional
           mv .coverage coverage_torch_${{ matrix.python-version }}
-      - name: Upload coverage
+      - name: upload_coverage
         uses: actions/upload-artifact@v6
         with:
           name: coverage_torch_${{ matrix.python-version }}
@@ -139,23 +136,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - name: checkout
+        uses: actions/checkout@v6
+      - name: ci_setup
+        uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install spark package
-        run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          ./poetry_wrapper.sh --generate
-          eval $(poetry env activate)
-          poetry sync -E spark --no-cache
+      - name: install_spark_dependencies
+        uses: ./.github/actions/install-poetry-deps
+        with:
+          extras: "spark"
+      - name: install_pyspark
+        uses: ./.github/actions/install-pyspark
       - name: pytest
         run: |
           poetry run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
           mv .coverage coverage_spark_${{ matrix.python-version }}
-      - name: Upload coverage
+      - name: upload_coverage
         uses: actions/upload-artifact@v6
         with:
           name: coverage_spark_${{ matrix.python-version }}
@@ -167,23 +166,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - name: checkout
+        uses: actions/checkout@v6
+      - name: ci_setup
+        uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install full package
-        run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          ./poetry_wrapper.sh --generate
-          eval $(poetry env activate)
-          poetry sync -E spark -E torch --no-cache
+      - name: install_spark_dependencies
+        uses: ./.github/actions/install-poetry-deps
+        with:
+          extras: "spark"
+      - name: install_pyspark
+        uses: ./.github/actions/install-pyspark
+      - name: install_torch_cpu
+        uses: ./.github/actions/install-torch-cpu
       - name: pytest
         run: |
           poetry run pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
           mv .coverage coverage_spark_and_torch_${{ matrix.python-version }}
-      - name: Upload coverage
+      - name: upload_coverage
         uses: actions/upload-artifact@v6
         with:
           name: coverage_spark_and_torch_${{ matrix.python-version }}
@@ -195,24 +198,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - name: checkout
+        uses: actions/checkout@v6
+      - name: ci_setup
+        uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install experimental package
-        run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          ./poetry_wrapper.sh --experimental --generate
-          eval $(poetry env activate)
-          poetry sync --no-cache
-          pip install -q --upgrade onnx onnxscript openvino optuna hnswlib fixed-install-nmslib git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114 --no-cache-dir
+      - name: install_experimental_dependencies
+        uses: ./.github/actions/install-poetry-deps
+        with:
+          experimental: "true"
+      - name: install_pyspark
+        uses: ./.github/actions/install-pyspark
+      - name: install_conditionals
+        uses: ./.github/actions/install-conditionals
       - name: pytest
         run: |
           poetry run pytest -m "experimental" tests/
           mv .coverage coverage_experimental_${{ matrix.python-version }}
-      - name: Upload coverage
+      - name: upload_coverage
         uses: actions/upload-artifact@v6
         with:
           name: coverage_experimental_${{ matrix.python-version }}
@@ -224,23 +230,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - name: checkout
+        uses: actions/checkout@v6
+      - name: ci_setup
+        uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install full package
-        run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          ./poetry_wrapper.sh --generate
-          eval $(poetry env activate)
-          poetry sync -E spark -E torch --no-cache
+      - name: install_spark_dependencies
+        uses: ./.github/actions/install-poetry-deps
+        with:
+          extras: "spark"
+      - name: install_pyspark
+        uses: ./.github/actions/install-pyspark
+      - name: install_torch_cpu
+        uses: ./.github/actions/install-torch-cpu
       - name: pytest
         run: |
           poetry run pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/conditional
           mv .coverage coverage_models_${{ matrix.python-version }}
-      - name: Upload coverage
+      - name: upload_coverage
         uses: actions/upload-artifact@v6
         with:
           name: coverage_models_${{ matrix.python-version }}
@@ -252,25 +262,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # python-version: ["3.10", "3.11", "3.12"]
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - name: checkout
+        uses: actions/checkout@v6
+      - name: ci_setup
+        uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install only dev package
-        run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          ./poetry_wrapper.sh --generate
-          eval $(poetry env activate)
-          poetry sync --only dev --no-cache
-      - name: Download coverage reports
+      - name: install_only_dev_dependencies
+        uses: ./.github/actions/install-poetry-deps
+        with:
+          only-dev: "true"
+      - name: download_coverage_reports
         uses: actions/download-artifact@v4
         with:
           pattern: coverage_*
           merge-multiple: true
-      - name: Combine coverage
+      - name: combine_coverage
         run: |
           poetry run coverage combine coverage_core_${{ matrix.python-version }} coverage_conditional_${{ matrix.python-version }} coverage_torch_${{ matrix.python-version }} coverage_spark_${{ matrix.python-version }} coverage_spark_and_torch_${{ matrix.python-version }} coverage_models_${{ matrix.python-version }} coverage_experimental_${{ matrix.python-version }}
           poetry run coverage report --fail-under=100
@@ -280,19 +289,19 @@ jobs:
     needs: merge_coverage
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: checkout
         uses: actions/checkout@v6
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: ci_setup
+        uses: ./.github/actions/ci-setup
         with:
           python-version: "3.10"
-      - name: Install production package
-        run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          ./poetry_wrapper.sh --generate
-          eval $(poetry env activate)
-          poetry sync -E torch -E spark --no-cache
-      - name: Build
+      - name: install_spark_dependencies
+        uses: ./.github/actions/install-poetry-deps
+        with:
+          extras: "spark"
+      - name: install_torch_cpu
+        uses: ./.github/actions/install-torch-cpu
+      - name: build
         run: |
           export PACKAGE_SUFFIX=.dev
           poetry build
@@ -301,19 +310,18 @@ jobs:
     needs: merge_coverage
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: checkout
         uses: actions/checkout@v6
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: ci_setup
+        uses: ./.github/actions/ci-setup
         with:
           python-version: "3.10"
-      - name: Install full package
-        run: |
-          pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
-          ./poetry_wrapper.sh --generate --experimental
-          eval $(poetry env activate)
-          poetry sync --with dev --no-cache
-      - name: Build
+      - name: install_experimental_dev_dependencies
+        uses: ./.github/actions/install-poetry-deps
+        with:
+          experimental: "true"
+          with-dev: "true"
+      - name: build
         run: |
           export PACKAGE_SUFFIX=.preview
           poetry build
