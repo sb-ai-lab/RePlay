@@ -285,7 +285,7 @@ class HiddenStatesCallback(lightning.Callback):
     def __init__(self, hidden_state_index: int):
         """
         :param hidden_state_index: It is expected that the result of the model's forward function
-            contains the `hidden_states` key. The `hidden_states` key contains a Tuple of PyTorch Tensors.
+            contains the ``hidden_states`` key. The ``hidden_states`` key contains a Tuple of PyTorch Tensors.
             Therefore, to get a specific hidden state, you need to submit an index from this tuple.
         """
         self._hidden_state_index = hidden_state_index

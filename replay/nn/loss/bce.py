@@ -113,8 +113,8 @@ class BCESampled(SampledLossBase):
         """
         :param log_epsilon: correction to avoid zero in the logarithm during loss calculation.
             Default: ``1e-6``.
-        :param clamp_border: the upper bound for clamping loss tensor, the lower bound will be set to -clamp_border.
-            Default: ``100.0``.
+        :param clamp_border: the upper bound for clamping loss tensor,
+            the lower bound will be set to ``-clamp_border``. Default: ``100.0``.
         :param negative_labels_ignore_index: a padding value for negative labels.
             This may be the case when negative labels
             are formed at the preprocessing level, rather than the negative sampler.

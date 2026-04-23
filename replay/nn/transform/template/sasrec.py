@@ -10,7 +10,7 @@ def make_default_sasrec_transforms(tensor_schema: TensorSchema) -> dict[str, lis
     """
     Creates a valid transformation pipeline for SasRec data batches for usage in :ref:`Parquet-Module` .
 
-    The generated pipeline expects an input dataset to contain all features specified in the `tensor_schema`.
+    The generated pipeline expects an input dataset to contain all features specified in the ``tensor_schema``.
 
     :param tensor_schema: TensorSchema used to infer feature columns.
     :return: a dict of transforms specified for every dataset split (train, validation, test, predict).

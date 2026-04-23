@@ -24,8 +24,8 @@ class LightningModule(lightning.LightningModule):
     ) -> None:
         """
         :param model: Initialized model.\n
-            The expected result of the `forward` function
-            is an object of the `TrainOutput` class after the training stage
+            The expected result of the ``forward`` function
+            is an object of the ``TrainOutput`` class after the training stage
             and `InferenceOutput` after the inference stage.
         :param optimizer_factory: The optimizer factory.
             Default: ``None``.

@@ -51,7 +51,7 @@ class NextTokenTransform(torch.nn.Module):
         :param label_name: A name of target feature tensor to convert into labels.
         :param shift: The number of sequence items to shift by. Default: `1`.
         :param ignore: Names of keys in batch be excepted from the shifting and will be left unchanged.
-        :param out_feature_name: The name of the resulting feature in a batch. Default: `"positive_labels"`.
+        :param out_feature_name: The name of the resulting feature in a batch. Default: ``"positive_labels"``.
         :param mask_postfix: a postfix to append to the mask feature corresponding to the resulting feature.
             Default: ``"_mask"``.
         """

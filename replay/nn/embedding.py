@@ -27,7 +27,7 @@ class SequenceEmbedding(torch.nn.Module):
     to the ``tensor_dim`` field in ``TensorSchema``.
 
     Keep in mind that the first dimension of the every categorical embedding (the size of the embedding table)
-    will be equal to the ``cardinality`` + 1. This is necessary to take into account the padding value.
+    will be equal to the ``cardinality + 1``. This is necessary to take into account the padding value.
     """
 
     def __init__(

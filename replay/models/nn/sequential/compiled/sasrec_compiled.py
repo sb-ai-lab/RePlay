@@ -20,7 +20,7 @@ from replay.models.nn.sequential.sasrec.lightning import _prepare_prediction_bat
 class SasRecCompiled(BaseCompiledModel):
     """
     A SasRec CPU-optimized model for inference via OpenVINO.
-    It is recommended to compile the model with the `compile` method and pass the `SasRec` checkpoint
+    It is recommended to compile the model with the ``compile`` method and pass the ``SasRec`` checkpoint
     or the model object itself into it.
     It is also possible to compile the model yourself and pass it to the ``__init__`` with ``TensorSchema``.
 

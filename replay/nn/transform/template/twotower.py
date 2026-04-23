@@ -9,7 +9,7 @@ def make_default_twotower_transforms(tensor_schema: TensorSchema) -> dict[str, l
     """
     Creates a valid transformation pipeline for TwoTower data batches for usage in :ref:`Parquet-Module` .
 
-    The generated pipeline expects an input dataset to contain all features specified in the `tensor_schema`.
+    The generated pipeline expects an input dataset to contain all features specified in the ``tensor_schema``.
 
     :param tensor_schema: TensorSchema used to infer feature columns.
     :return: a dict of transforms specified for every dataset split (train, validation, test, predict).

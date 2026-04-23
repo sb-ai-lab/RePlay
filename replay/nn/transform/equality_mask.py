@@ -43,7 +43,7 @@ class EqualityMaskTransform(torch.nn.Module):
         """
         :param feature_name: A key name in a batch of a tensor containing a feature for mask creating.
         :param equality_value: A value used to select which positions should be non-padded.
-        :param mode: a type of a logical operation to be applyed to the `mask_name` tensor and created mask.
+        :param mode: a type of a logical operation to be applyed to the ``mask_name`` tensor and created mask.
             Default: `"and"`.
         :param mask_name: a key name in a batch of a boolean tensor of shape indicating valid (non-padded) positions.
             Default: `"target_padding_mask"`.

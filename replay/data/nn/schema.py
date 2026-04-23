@@ -89,7 +89,7 @@ class TensorFeatureInfo:
         :param padding_value: the value used to pad sequences to the desired length.
             It is recommended to set the padding value for categorical features in the `cardinality` value.
         :param embedding_dim: embedding dimensions of the feature.
-            Default: `None` - it means that the value of `DEFAULT_EMBEDDING_DIM` will be used.
+            Default: ``None`` - it means that the value of ``DEFAULT_EMBEDDING_DIM`` will be used.
         :param tensor_dim: tensor dimensions of numerical feature,
             default: ``None``.
         """
