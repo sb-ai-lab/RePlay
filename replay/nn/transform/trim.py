@@ -49,9 +49,9 @@ class TrimTransform(torch.nn.Module):
 
 class AdaptiveTrimTransform(torch.nn.Module):
     """
-    Trims sequences of specified names `feature_names` to the maximum sequence length in the current batch.
-    This transform is assumed to be used for validation and inference for speeding up due to reducing
-    length of padded parts of sequences. Note that sequences should be left-padded.
+    Trims sequences of the specified names `feature_names` to the maximum sequence length in the current batch.
+    This transform is intended for use during validation and inference to speed up processing by reducing
+    the length of padded sequence parts. Note that sequences should be left-padded.
 
     Example:
 
