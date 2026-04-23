@@ -173,7 +173,12 @@ class BaseRecommender(IsSavable, IsOptimizible, RecommenderCommons, ABC):
         # crop recommendations to first k + max_seen items for each query
         recs = recs.withColumn(
             "temp_rank",
-            sf.row_number().over(Window.partitionBy(self.query_column).orderBy(sf.col(self.rating_column).desc())),
+            sf.row_number().over(
+                Window.partitionBy(self.query_column).orderBy(
+                    sf.col(self.rating_column).desc(),
+                    sf.col(self.item_column).asc(),
+                )
+            ),
         ).filter(sf.col("temp_rank") <= sf.lit(max_seen + k))
 
         # leave k + number of items seen by query recommendations in recs
@@ -294,9 +299,13 @@ class BaseRecommender(IsSavable, IsOptimizible, RecommenderCommons, ABC):
         if filter_seen_items and dataset is not None:
             recs = self._filter_seen(recs=recs, interactions=dataset.interactions, queries=queries, k=k)
 
-        recs = get_top_k_recs(recs, k=k, query_column=self.query_column, rating_column=self.rating_column).select(
-            self.query_column, self.item_column, self.rating_column
-        )
+        recs = get_top_k_recs(
+            recs,
+            k=k,
+            query_column=self.query_column,
+            rating_column=self.rating_column,
+            item_column=self.item_column,
+        ).select(self.query_column, self.item_column, self.rating_column)
 
         output = return_recs(recs, recs_file_path)
         self._clear_model_temp_view("filter_seen_queries_interactions")
@@ -393,9 +402,13 @@ class BaseRecommender(IsSavable, IsOptimizible, RecommenderCommons, ABC):
 
         recs = self._predict(dataset, k, queries, items, filter_seen_items)
 
-        recs = get_top_k_recs(recs, k=k, query_column=self.query_column, rating_column=self.rating_column).select(
-            self.query_column, self.item_column, self.rating_column
-        )
+        recs = get_top_k_recs(
+            recs,
+            k=k,
+            query_column=self.query_column,
+            rating_column=self.rating_column,
+            item_column=self.item_column,
+        ).select(self.query_column, self.item_column, self.rating_column)
 
         cols = [f"k{i}" for i in range(k)]
 

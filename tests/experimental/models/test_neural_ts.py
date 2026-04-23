@@ -2,6 +2,8 @@ from datetime import datetime
 
 import numpy as np
 import pytest
+
+pytest.importorskip("obp")
 from obp.dataset import OpenBanditDataset
 from obp.ope import DirectMethod, DoublyRobust, InverseProbabilityWeighting, OffPolicyEvaluation
 

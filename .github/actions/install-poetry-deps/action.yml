@@ -1,0 +1,58 @@
+name: "Install Poetry Dependencies"
+description: "Generate project files and run poetry sync for CI"
+
+inputs:
+  experimental:
+    description: "Use experimental pyproject/lock"
+    required: false
+    default: "false"
+  with-dev:
+    description: "Install dependency group: dev"
+    required: false
+    default: "false"
+  only-dev:
+    description: "Install only dependency group: dev"
+    required: false
+    default: "false"
+  extras:
+    description: "Space-separated list of extras for poetry sync"
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Generate and sync dependencies
+      shell: bash
+      env:
+        INPUT_EXPERIMENTAL: ${{ inputs.experimental }}
+        INPUT_WITH_DEV: ${{ inputs.with-dev }}
+        INPUT_ONLY_DEV: ${{ inputs.only-dev }}
+        INPUT_EXTRAS: ${{ inputs.extras }}
+      run: |
+        set -euo pipefail
+
+        generate_args=()
+        if [[ "$INPUT_EXPERIMENTAL" == "true" ]]; then
+          generate_args+=(--experimental)
+        fi
+        generate_args+=(--generate)
+        ./poetry_wrapper.sh "${generate_args[@]}"
+
+        eval "$(poetry env activate)"
+
+        sync_args=()
+        if [[ "$INPUT_ONLY_DEV" == "true" ]]; then
+          sync_args+=(--only dev)
+        elif [[ "$INPUT_WITH_DEV" == "true" ]]; then
+          sync_args+=(--with dev)
+        fi
+
+        if [[ -n "$INPUT_EXTRAS" ]]; then
+          read -r -a extras_array <<< "$INPUT_EXTRAS"
+          for extra in "${extras_array[@]}"; do
+            sync_args+=(-E "$extra")
+          done
+        fi
+
+        poetry sync "${sync_args[@]}" --no-cache

@@ -13,6 +13,9 @@ from numpy.random import default_rng
 from .session_handler import State
 from .types import PYSPARK_AVAILABLE, DataFrameLike, MissingImport, NumType, PolarsDataFrame, SparkDataFrame
 
+_to_java_column = None
+_to_seq = None
+
 if PYSPARK_AVAILABLE:
     import pyspark.sql.types as st
     from pyspark.ml.linalg import DenseVector, Vectors, VectorUDT
@@ -22,8 +25,15 @@ if PYSPARK_AVAILABLE:
         Window,
         functions as sf,
     )
-    from pyspark.sql.column import _to_java_column, _to_seq
     from pyspark.sql.types import DoubleType, IntegerType, StructField, StructType
+
+    try:
+        from pyspark.sql.column import _to_java_column, _to_seq
+    except ImportError:
+        try:
+            from pyspark.sql.classic.column import _to_java_column, _to_seq
+        except ImportError:  # pragma: no cover
+            _to_java_column = _to_seq = None
 else:
     Column = MissingImport
 
@@ -148,6 +158,7 @@ def get_top_k_recs(
     k: int,
     query_column: str = "user_idx",
     rating_column: str = "relevance",
+    item_column: str | None = None,
 ) -> SparkDataFrame:
     """
     Get top k recommendations by `rating`.
@@ -155,13 +166,17 @@ def get_top_k_recs(
     :param recs: recommendations DataFrame
         `[user_idx, item_idx, rating]`
     :param k: length of a recommendation list
-    :param id_type: id or idx
+    :param item_column: optional secondary sort column for deterministic tie-breaking by item id.
     :return: top k recommendations `[user_id, item_id, rating]`
     """
+    order_by_col = [sf.col(rating_column).desc()]
+    if item_column is not None and item_column in recs.columns:
+        order_by_col.append(sf.col(item_column).asc())
+
     return get_top_k(
         dataframe=recs,
         partition_by_col=sf.col(query_column),
-        order_by_col=[sf.col(rating_column).desc()],
+        order_by_col=order_by_col,
         k=k,
     )
 
@@ -291,9 +306,20 @@ def multiply_scala_udf(scalar, vector):
     :param vector: column with vectors
     :return: column expression
     """
-    sc = SparkSession.getActiveSession().sparkContext
-    _f = sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.multiplyUDF()
-    return Column(_f.apply(_to_seq(sc, [scalar, vector], _to_java_column)))
+    spark = SparkSession.getActiveSession() or State().session
+    sc = spark.sparkContext
+
+    if _to_java_column is None or _to_seq is None:
+        return vector_mult(scalar, vector)
+
+    try:
+        scala_udf = sc._jvm.org.apache.spark.replay.utils.ScalaPySparkUDFs.multiplyUDF()
+        return Column(scala_udf.apply(_to_seq(sc, [scalar, vector], _to_java_column)))
+    except Exception:  # pragma: no cover - depends on Spark/JVM runtime
+        logging.getLogger("replay").info(
+            "Falling back to Python UDF for vector multiplication because Scala UDF is unavailable."
+        )
+        return vector_mult(scalar, vector)
 
 
 def get_log_info(log: SparkDataFrame, user_col="user_idx", item_col="item_idx") -> str:

@@ -1,10 +1,10 @@
 import logging
+import sys
 from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 import pandas as pd
-from obp.policy.base import BaseOfflinePolicyLearner
 from optuna import create_study
 from optuna.samplers import TPESampler
 from pyspark.sql import DataFrame
@@ -15,6 +15,14 @@ from replay.experimental.scenarios.obp_wrapper.obp_optuna_objective import OBPOb
 from replay.experimental.scenarios.obp_wrapper.utils import split_bandit_feedback
 from replay.models.base_rec import BaseRecommender
 from replay.utils.spark_utils import convert2spark
+from replay.utils.types import OBP_AVAILABLE, FeatureUnavailableError
+
+if OBP_AVAILABLE:
+    from obp.policy.base import BaseOfflinePolicyLearner
+else:  # pragma: no cover
+
+    class BaseOfflinePolicyLearner:  # type: ignore[no-redef]
+        """Fallback class used when SB-OBP is unavailable."""
 
 
 def obp2df(action: np.ndarray, reward: np.ndarray, timestamp: np.ndarray, feedback_column: str) -> pd.DataFrame | None:
@@ -74,6 +82,11 @@ class OBPOfflinePolicyLearner(BaseOfflinePolicyLearner):
 
     def __post_init__(self) -> None:
         """Initialize Class."""
+        if not OBP_AVAILABLE:  # pragma: no cover
+            err = FeatureUnavailableError("`obp_wrapper` can only be provided when SB-OBP is installed.")
+            if sys.version_info >= (3, 13):  # pragma: py-lt-313
+                err.add_note("SB-OBP does not support Python >= 3.13")
+            raise err
 
         self.is_experimental_model = isinstance(self.replay_model, ExperimentalBaseRecommender)
         if self.is_experimental_model:

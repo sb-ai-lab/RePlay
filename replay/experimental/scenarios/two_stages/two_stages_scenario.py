@@ -146,7 +146,7 @@ class TwoStagesScenario(HybridRecommender):
     def __init__(
         self,
         train_splitter: Splitter = RatioSplitter(test_size=0.5),
-        first_level_models: list[BaseRecommender] | BaseRecommender = ScalaALSWrap(rank=128),
+        first_level_models: list[BaseRecommender] | BaseRecommender | None = None,
         fallback_model: BaseRecommender | None = PopRec(),
         use_first_level_models_feat: list[bool] | bool = False,
         second_model_params: dict | str | None = None,
@@ -180,6 +180,8 @@ class TwoStagesScenario(HybridRecommender):
         """
         self.train_splitter = train_splitter
         self.cached_list = []
+        if first_level_models is None:
+            first_level_models = ScalaALSWrap(rank=128)
 
         self.first_level_models = (
             first_level_models if isinstance(first_level_models, Iterable) else [first_level_models]

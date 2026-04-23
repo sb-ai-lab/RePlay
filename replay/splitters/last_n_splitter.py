@@ -274,7 +274,7 @@ class LastNSplitter(Splitter):
         if self.session_id_column:
             interactions = self._recalculate_with_session_id_column(interactions)
 
-        train = interactions.filter("is_test == 0").drop("row_num", "count", "is_test")
+        train = interactions.filter(~sf.col("is_test")).drop("row_num", "count", "is_test")
         test = interactions.filter("is_test").drop("row_num", "count", "is_test")
 
         return train, test
@@ -336,7 +336,7 @@ class LastNSplitter(Splitter):
         if self.session_id_column:
             res = self._recalculate_with_session_id_column(res)
 
-        train = res.filter("is_test == 0").drop("diff_timestamp", "is_test")
+        train = res.filter(~sf.col("is_test")).drop("diff_timestamp", "is_test")
         test = res.filter("is_test").drop("diff_timestamp", "is_test")
 
         return train, test

@@ -8,7 +8,7 @@ workflow:
 image: "${CI_REGISTRY_IMAGE}:${VERSION}_py310"
 
 variables:
-  VERSION: "0.0.11"
+  VERSION: "0.0.14"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   RUNNER: amazme-1
   CODEX_VERSION: "rust-v0.118.0"
@@ -18,22 +18,48 @@ variables:
 
 .wrapper_install: &wrapper_install
   - ./poetry_wrapper.sh ${WRAPPER_ARGS} sync ${WRAPPER_EXTRAS}
+  - ./poetry_wrapper.sh ${WRAPPER_ARGS} --generate
 
 .activate_poetry: &activate_poetry
-  - ./poetry_wrapper.sh --generate
+  - ./poetry_wrapper.sh ${WRAPPER_ARGS} --generate
   - eval $(poetry env activate)
+
+.install_pyspark_by_python: &install_pyspark_by_python
+  - |
+    if python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 13) else 1)"; then
+      poetry run pip install -q --upgrade "pyspark>=4.0,<4.1"
+      echo "Using PySpark 4.0.x for Python >= 3.13"
+    else
+      echo "Using lock-file PySpark for Python < 3.13"
+    fi
 
 .install_conditionals: &install_conditionals
   - *activate_poetry
+  - *install_pyspark_by_python
   - |
-    pip install -q --upgrade \
+    poetry run pip install -q --upgrade \
       onnx \
       onnxscript \
       openvino \
       optuna \
       hnswlib \
-      fixed-install-nmslib \
-      git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114
+      fixed-install-nmslib
+  - |
+    if python -c "import sys; raise SystemExit(0 if sys.version_info < (3, 13) else 1)"; then
+      poetry run pip install -q --upgrade \
+        git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114
+      echo "sb-obp and LightAutoML are installed by poetry sync from lock file (no pip upgrade)"
+    else
+      echo "Skipping LightFM, sb-obp and LightAutoML for Python >= 3.13"
+    fi
+
+.install_torch_cpu: &install_torch_cpu
+  - |
+    pip install -q --upgrade \
+      --extra-index-url https://download.pytorch.org/whl/cpu \
+      "lightning<3.0.0" \
+      "pytorch-optimizer<4" \
+      "torch<3.0.0"
 
 .install_codex: &install_codex
   - |
@@ -229,7 +255,7 @@ sphinx-job:
 #     - ${RUNNER}
 #   script:
 #     - poetry config virtualenvs.in-project true
-#     - ./poetry_wrapper.sh sync -E spark -E torch-cpu --with dev
+#     - ./poetry_wrapper.sh sync -E spark -E torch --with dev
 #     - *install_conditionals
 #   after_script:
 #     - ./poetry_wrapper.sh show
@@ -268,6 +294,8 @@ sphinx-job:
         - "py310"
         - "py311"
         - "py312"
+        - "py313"
+        - "py314"
 
 pytest-core:
   <<: *pytest_template
@@ -299,10 +327,9 @@ pytest-conditional:
 pytest-torch:
   <<: *pytest_template
   stage: test_torch
-  variables:
-    WRAPPER_EXTRAS: -E torch-cpu
   script:
     - *activate_poetry
+    - *install_torch_cpu
     - |
       poetry run pytest \
         -m "not spark and not experimental and not conditional" \
@@ -322,6 +349,7 @@ pytest-spark:
     WRAPPER_EXTRAS: -E spark
   script:
     - *activate_poetry
+    - *install_pyspark_by_python
     - |
       poetry run pytest \
         -m "not torch and not experimental and not conditional" \
@@ -339,9 +367,11 @@ pytest-spark-and-torch:
   <<: *pytest_template
   stage: test_spark_torch
   variables:
-    WRAPPER_EXTRAS: -E torch-cpu -E spark
+    WRAPPER_EXTRAS: -E spark
   script:
     - *activate_poetry
+    - *install_pyspark_by_python
+    - *install_torch_cpu
     - |
       poetry run pytest \
         -m "not experimental and not conditional" \
@@ -360,9 +390,11 @@ pytest-models:
   <<: *pytest_template
   stage: test_models
   variables:
-    WRAPPER_EXTRAS: -E torch-cpu -E spark
+    WRAPPER_EXTRAS: -E spark
   script:
     - *activate_poetry
+    - *install_pyspark_by_python
+    - *install_torch_cpu
     - |
       poetry run pytest \
         -m "not experimental and not conditional" \
@@ -383,8 +415,9 @@ pytest-experimental:
       - py_version:
         - "py310"
         - "py311"
-        # - "py312" # TODO: uncomment after fix of python CMake issue 
-            # (https://github.com/scikit-build/cmake-python-distributions/issues/692)
+        - "py312"
+        - "py313"
+        - "py314"
   stage: test_experimental
   variables:
     WRAPPER_ARGS: --experimental
@@ -458,17 +491,44 @@ merge-coverage-py311:
     - "pytest-models: [py311]"
     - "pytest-experimental: [py311]"
 
-# merge-coverage-py312:
-#   <<: *merge-coverage-template
-#   variables:
-#     py_version: py312
-#   needs:
-#     - "pytest-core: [py312]"
-#     - "pytest-conditional: [py312]"
-#     - "pytest-torch: [py312]"
-#     - "pytest-spark: [py312]"
-#     - "pytest-spark-and-torch: [py312]"
-#     - "pytest-models: [py312]"
+merge-coverage-py312:
+  <<: *merge-coverage-template
+  variables:
+    py_version: py312
+  needs:
+    - "pytest-core: [py312]"
+    - "pytest-conditional: [py312]"
+    - "pytest-torch: [py312]"
+    - "pytest-spark: [py312]"
+    - "pytest-spark-and-torch: [py312]"
+    - "pytest-models: [py312]"
+    - "pytest-experimental: [py312]"
+
+merge-coverage-py313:
+  <<: *merge-coverage-template
+  variables:
+    py_version: py313
+  needs:
+    - "pytest-core: [py313]"
+    - "pytest-conditional: [py313]"
+    - "pytest-torch: [py313]"
+    - "pytest-spark: [py313]"
+    - "pytest-spark-and-torch: [py313]"
+    - "pytest-models: [py313]"
+    - "pytest-experimental: [py313]"
+
+merge-coverage-py314:
+  <<: *merge-coverage-template
+  variables:
+    py_version: py314
+  needs:
+    - "pytest-core: [py314]"
+    - "pytest-conditional: [py314]"
+    - "pytest-torch: [py314]"
+    - "pytest-spark: [py314]"
+    - "pytest-spark-and-torch: [py314]"
+    - "pytest-models: [py314]"
+    - "pytest-experimental: [py314]"
 
 examples-execute-job:
   before_script:

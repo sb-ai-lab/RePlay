@@ -3,7 +3,7 @@ import numpy as np
 from replay.utils import PYSPARK_AVAILABLE, DataFrameLike, SparkDataFrame
 from replay.utils.spark_utils import convert2spark, get_top_k_recs
 
-from .base_metric import RecOnlyMetric, fill_na_with_empty_array, filter_sort
+from .base_metric import Metric, RecOnlyMetric, fill_na_with_empty_array, filter_sort
 
 if PYSPARK_AVAILABLE:
     from pyspark.sql import (
@@ -49,7 +49,7 @@ class Surprisal(RecOnlyMetric):
 
         :param log: historical data
         """
-        self._use_scala_udf = use_scala_udf
+        Metric.__init__(self, use_scala_udf=use_scala_udf)
         self.log = convert2spark(log)
         n_users = self.log.select("user_idx").distinct().count()
         self.item_weights = self.log.groupby("item_idx").agg(

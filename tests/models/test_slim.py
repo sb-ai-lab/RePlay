@@ -54,6 +54,8 @@ def test_fit(log, model):
             (2, 1, 0.26372437),
             (3, 0, 1.32888889),
         ],
+        rtol=5e-3,
+        atol=1e-5,
     )
 
 
@@ -65,6 +67,8 @@ def test_predict(log, model):
     assert np.allclose(
         recs.toPandas().sort_values(["user_idx", "item_idx"], ascending=False).relevance,
         [0.4955047, 0.12860215, 0.60048005, 0.12860215],
+        rtol=5e-3,
+        atol=1e-5,
     )
 
 

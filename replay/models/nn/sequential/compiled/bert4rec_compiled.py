@@ -116,7 +116,11 @@ class Bert4RecCompiled(BaseCompiledModel):
         if isinstance(model, Bert4Rec):
             lightning_model = model.cpu()
         elif isinstance(model, (str, pathlib.Path)):
-            lightning_model = Bert4Rec.load_from_checkpoint(model, map_location=torch.device("cpu"))
+            lightning_model = Bert4Rec.load_from_checkpoint(
+                model,
+                map_location=torch.device("cpu"),
+                weights_only=False,
+            )
 
         schema = lightning_model._schema
         item_seq_name = schema.item_id_feature_name
