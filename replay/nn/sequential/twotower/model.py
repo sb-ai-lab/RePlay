@@ -52,7 +52,7 @@ class ItemEncoderProto(Protocol):
 
 class QueryTower(torch.nn.Module):
     """
-    Query Tower of Two-Tower model.
+    The Query Tower of TwoTower model.
     """
 
     def __init__(
@@ -65,11 +65,11 @@ class QueryTower(torch.nn.Module):
         output_normalization: NormalizerProto,
     ):
         """
-        :param feature_names: sequence of names used in query tower.
+        :param feature_names: a sequence of names used in a query tower.
         :param embedder: An object of a class that performs the logic of
             generating embeddings from an input batch.
         :param embedding_aggregator: An object of a class that performs
-            the logic of aggregating multiple embeddings of query tower.
+            the logic of aggregating multiple embeddings of the query tower.
         :param attn_mask_builder: An object of a class that performs the logic of
             generating an attention mask based on the features and padding mask given to the model.
         :param encoder: An object of a class that performs the logic of generating
@@ -102,7 +102,7 @@ class QueryTower(torch.nn.Module):
         :param feature_tensors: a dictionary of tensors to generate embeddings.
         :param padding_mask: A mask of shape ``(batch_size, sequence_length)``
             indicating which elements within ``key`` to ignore for the purpose of attention (i.e. treat as "padding").
-            ``False`` value indicates that the corresponding ``key`` value will be ignored.
+            The ``False`` value indicates that the corresponding ``key`` value will be ignored.
         :returns: The final hidden state.\n
             Expected shape: ``(batch_size, sequence_length, embedding_dim)``
         """
@@ -126,9 +126,9 @@ class QueryTower(torch.nn.Module):
 
 class ItemTower(torch.nn.Module):
     """
-    Item Tower of Two-Tower model.
+    The Item Tower of the TwoTower model.
 
-    **Note**: ItemTower loads feature tensors of all items into memory.
+    **Note**: ItemTower loads feature tensors of all items to memory.
     """
 
     def __init__(
@@ -140,13 +140,13 @@ class ItemTower(torch.nn.Module):
         encoder: ItemEncoderProto,
     ):
         """
-        :param schema: tensor schema object with metainformation about features.
+        :param schema: a tensor schema object with meta information on features.
         :param item_features_reader: A class that implements reading features,
             processing them, and converting them to ``torch.Tensor`` for ItemTower.
             You can use :class:`replay.nn.sequential.twotower.FeaturesReader` as a standard class.\n
             But you can implement your own feature processing,
             just follow the :class:`replay.nn.sequential.twotower.FeaturesReaderProtocol` protocol.
-        :param feature_names: sequence of names used in item tower.
+        :param feature_names: a sequence of names used in the item tower.
         :param embedder: An object of a class that performs the logic of
             generating embeddings from input data.
         :param embedding_aggregator: An object of a class that performs
@@ -206,8 +206,8 @@ class ItemTower(torch.nn.Module):
         candidates_to_score: torch.LongTensor | None = None,
     ):
         """
-        :param candidates_to_score: IDs of items using for obtaining item embeddings from item tower.
-            If is setted to ``None``, all item embeddings from item tower will be returned.
+        :param candidates_to_score: IDs of items used for obtaining item embeddings from the item tower.
+            If it is set to ``None``, all item embeddings from the item tower will be returned.
             Default: ``None``.
         :return: item embeddings.\n
             Expected shape:\n
@@ -248,9 +248,9 @@ class ItemTower(torch.nn.Module):
 
 class TwoTowerBody(torch.nn.Module):
     """
-    Foundation for Two-Tower model which creates query "tower" and item "tower".\n
+    Foundation for the TwoTower model that creates the “tower” query and “tower” item.
 
-    For usage of two tower model, an instance of this class should be passed into
+    For usage of the two tower model, an instance of this class should be passed to
     :class:`replay.nn.sequential.twotower.TwoTower` with any loss from :ref:`Losses <Losses>`.
     """
 
@@ -339,9 +339,9 @@ class ContextMergerProto(Protocol):
 
 class TwoTower(torch.nn.Module):
     """
-    Implementation generic Two-Tower architecture with two independent "towers" (encoders)
-    which encode separate inputs. In recommender systems they are typically query tower and item tower.
-    The output hidden states of each "tower" are fused via dot product in the model head.
+    Generic implementation TwoTower architecture with two independent “towers” (encoders)
+    which encode separate inputs. In recommender systems they are typically a query tower and item tower.
+    The output hidden states of each "tower" are fused via the dot product in the model head.
 
     Source paper: https://doi.org/10.1145/3366424.3386195
 
@@ -428,7 +428,7 @@ class TwoTower(torch.nn.Module):
         :param body: An instance of TwoTowerBody.
         :param loss: An object of a class that performs loss calculation
             based on hidden states from the model, positive and optionally negative labels.
-        :param context_merger: An object of class that performs fusing query encoder hidden state
+        :param context_merger: An object of a class that performs fusing query encoder hidden state
             with input feature tensors.
             Default: ``None``.
         """
@@ -455,26 +455,25 @@ class TwoTower(torch.nn.Module):
         categorical_list_feature_aggregation_method: str = "sum",
     ) -> "TwoTower":
         """
-        Class method for fast creating an instance of TwoTower with typical types
-        of blocks and user provided parameters.\n
+        A class method for fast creation of the TwoTower instance.\n
         The item "tower" is a SwiGLU encoder (MLP with SwiGLU activation),\n
         the user "tower" is a SasRec transformer layers, and loss is Cross-Entropy loss.\n
         Embeddings of every feature in both "towers" are aggregated via sum.
-        The same features are be used in both "towers",
+        The same features are used in both "towers",
         that is, the features specified in the tensor schema with the exception of `excluded_features`.\n
         To create an instance of TwoTower with other types of blocks, please use the class constructor.
 
-        :param schema: tensor schema object with metainformation about features.
+        :param schema: a tensor schema object with meta information on features.
         :param item_features_reader: A class that implements reading features,
             processing them, and converting them to ``torch.Tensor`` for ItemTower.
             You can use :class:`replay.nn.sequential.twotower.FeaturesReader` as a standard class.\n
             But you can implement your own feature processing,
             just follow the :class:`replay.nn.sequential.twotower.FeaturesReaderProtocol` protocol.
         :param embedding_dim: embeddings dimension in both towers. Default: ``192``.
-        :param num_heads: number of heads  in user tower SasRec layers. Default: ``4``.
-        :param num_blocks: number of blocks  in user tower SasRec layers. Default: ``2``.
-        :param max_sequence_length: maximun length of sequence in user tower SasRec layers. Default: ``50``.
-        :param dropout: dropout value in both towers. Default: ``0.3``
+        :param num_heads: number of heads in user tower layers. Default: ``4``.
+        :param num_blocks: number of blocks in user tower layers. Default: ``2``.
+        :param max_sequence_length: maximun length of a sequence in user tower SasRec layers. Default: ``50``.
+        :param dropout: a dropout value in both towers. Default: ``0.3``
         :param excluded_features: A list containing the names of features
             for which you do not need to generate an embedding.
             Fragments from this list are expected to be contained in ``schema``.
@@ -640,11 +639,11 @@ class TwoTower(torch.nn.Module):
         :param feature_tensors: a dictionary of tensors to generate embeddings.
         :param padding_mask: A mask of shape ``(batch_size, sequence_length)``
             indicating which elements within ``key`` to ignore for the purpose of attention (i.e. treat as "padding").
-            ``False`` value indicates that the corresponding ``key`` value will be ignored.
+            The ``False`` value indicates that the corresponding ``key`` value will be ignored.
         :param candidates_to_score: a tensor containing item IDs
             for which you need to get logits at the inference stage.\n
             **Note:** you must take into account the padding value when creating the tensor.\n
-            The tensor participates in calculations only on the inference stage.
+            The tensor participates in calculations only at the inference stage.
             You don't have to submit an argument at training stage,
             but if it is submitted, then no effect will be provided.\n
             Default: ``None``.
@@ -653,13 +652,13 @@ class TwoTower(torch.nn.Module):
             but if it is submitted, then no effect will be provided.\n
             Default: ``None``.
         :param negative_labels: a tensor containing negative labels for calculating the loss.\n
-            **Note:** Before run make sure that your loss supports calculations with negative labels.\n
+            **Note:** Before running make sure that your loss supports calculations with negative labels.\n
             You don't have to submit an argument at inference stage,
             but if it is submitted, then no effect will be provided.\n
             Default: ``None``.
         :param target_padding_mask: A mask of shape ``(batch_size, sequence_length, num_positives)``
             indicating elements from ``positive_labels`` to ignore during loss calculation.
-            ``False`` value indicates that the corresponding value will be ignored.\n
+            The ``False`` value indicates that the corresponding value will be ignored.\n
             You don't have to submit an argument at inference stage,
             but if it is submitted, then no effect will be provided.\n
             Default: ``None``.

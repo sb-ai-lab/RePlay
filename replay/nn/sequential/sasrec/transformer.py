@@ -10,7 +10,7 @@ from replay.nn.ffn import PointWiseFeedForward
 class SasRecTransformerLayer(torch.nn.Module):
     """
     SasRec vanilla layer.
-    Layer consists of Multi-Head Attention followed by a Point-Wise Feed-Forward Network.
+    The layer consists of Multi-Head Attention followed by a Point-Wise Feed-Forward Network.
 
     Source paper: https://arxiv.org/pdf/1808.09781.pdf
     """
@@ -82,8 +82,9 @@ class SasRecTransformerLayer(torch.nn.Module):
         :param input_embeddings: Input tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
         :param padding_mask: A mask of shape ``(batch_size, sequence_length)`` indicating which elements within ``key``
             to ignore for the purpose of attention (i.e. treat as "padding").
-            ``False`` value indicates that the corresponding ``key`` value will be ignored.
-        :param attention_mask: Causal-like mask for attention pattern, where ``-inf`` for ``PAD``, ``0`` - otherwise.\n
+            The ``False`` value indicates that the corresponding ``key`` value will be ignored.
+        :param attention_mask: A causal-like mask for the attention pattern,
+            where ``-inf`` for ``PAD``, ``0`` - otherwise.\n
             Possible shapes:\n
             1. ``(batch_size * num_heads, sequence_length, sequence_length)``\n
             2. ``(batch_size, num_heads, sequence_length, sequence_length)``

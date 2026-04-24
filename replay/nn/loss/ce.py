@@ -62,7 +62,7 @@ class CE(torch.nn.Module):
             of shape ``(batch_size, sequence_length, num_positives)``.
         :param target_padding_mask: padding mask corresponding for `positive_labels`
             of shape ``(batch_size, sequence_length, num_positives)``.
-        :return: computed loss value.
+        :return: a computed loss value.
         """
         if positive_labels.size(-1) != 1:
             msg = "The case of multi-positive labels is not supported in the CE loss"
@@ -123,12 +123,12 @@ class CEWeighted(CE):
             This dictionary is expected to contain a key with the name ``feature_name``,
             which is specified in the constructor.
             Expected shape of tensor ``(batch_size, sequence_length, num_positives)``.
-        :param model_embeddings: model output of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param model_embeddings: a model output of shape ``(batch_size, sequence_length, embedding_dim)``.
         :param positive_labels: labels of positive events
             of shape ``(batch_size, sequence_length, num_positives)``.
-        :param target_padding_mask: padding mask corresponding for `positive_labels`
+        :param target_padding_mask: a padding mask corresponding to `positive_labels`
             of shape ``(batch_size, sequence_length, num_positives)``.
-        :return: computed loss value.
+        :return: a computed loss value.
         """
         loss: torch.Tensor = super().forward(
             model_embeddings,
@@ -161,7 +161,7 @@ class CESampled(SampledLossBase):
         To calculate the loss, ``torch.nn.CrossEntropyLoss`` is used.
         You can pass all parameters for initializing the object via kwargs.
 
-        :param negative_labels_ignore_index: padding value for negative labels.
+        :param negative_labels_ignore_index: a padding value for negative labels.
             This may be the case when negative labels
             are formed at the preprocessing level, rather than the negative sampler.
             The index is ignored and does not contribute to the loss.
@@ -208,7 +208,7 @@ class CESampled(SampledLossBase):
         """
         forward(model_embeddings, positive_labels, negative_labels, target_padding_mask)
 
-        :param model_embeddings: model output of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param model_embeddings: a model output of shape ``(batch_size, sequence_length, embedding_dim)``.
         :param positive_labels: labels of positive events
             of shape ``(batch_size, sequence_length, num_positives)``.
         :param negative_labels: labels of sampled negative events.
@@ -217,10 +217,10 @@ class CESampled(SampledLossBase):
                 - ``(batch_size, sequence_length, num_negatives)``
                 - ``(batch_size, num_negatives)``
                 - ``(num_negatives)`` - a case where the same negative events are used for the entire batch.
-        :param target_padding_mask: padding mask corresponding for ``positive_labels``
+        :param target_padding_mask: a padding mask corresponding to ``positive_labels``
             of shape ``(batch_size, sequence_length, num_positives)``
 
-        :return: computed loss value.
+        :return: a computed loss value.
         """
         sampled = self.get_sampled_logits(
             model_embeddings,

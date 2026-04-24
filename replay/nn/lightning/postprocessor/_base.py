@@ -5,7 +5,7 @@ import torch
 
 class PostprocessorBase(abc.ABC):  # pragma: no cover
     """
-    Abstract base class for post processor
+    An abstract base class for a post processor
     """
 
     @abc.abstractmethod

@@ -54,7 +54,7 @@ def spark_to_pandas(
     data: SparkDataFrame, allow_collect_to_master: bool = False, from_constructor: bool = True
 ) -> pd.DataFrame:  # pragma: no cover
     """
-    Convert Spark DataFrame to Pandas DataFrame.
+    Converts Spark DataFrame to Pandas DataFrame.
 
     :param data: Spark DataFrame.
     :param allow_collect_to_master: Flag allowing spark to make a collection to the master node, default: ``False``.

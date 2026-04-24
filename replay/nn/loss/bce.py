@@ -60,12 +60,12 @@ class BCE(torch.nn.Module):
     ) -> torch.Tensor:
         """
         forward(model_embeddings, positive_labels, target_padding_mask)
-        :param model_embeddings: model output of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param model_embeddings: a model output of shape ``(batch_size, sequence_length, embedding_dim)``.
         :param positive_labels: labels of positive events
             of shape ``(batch_size, sequence_length, num_positives)``.
-        :param target_padding_mask: padding mask corresponding for `positive_labels`
+        :param target_padding_mask: a padding mask corresponding for `positive_labels`
             of shape ``(batch_size, sequence_length, num_positives)``.
-        :return: computed loss value.
+        :return: a computed loss value.
         """
         logits = self.logits_callback(model_embeddings)
 
@@ -111,11 +111,11 @@ class BCESampled(SampledLossBase):
         negative_labels_ignore_index: int = -100,
     ):
         """
-        :param log_epsilon: correction to avoid zero in the logarithm during loss calculating.
+        :param log_epsilon: correction to avoid zero in the logarithm during loss calculation.
             Default: ``1e-6``.
-        :param clamp_border: upper bound for clamping loss tensor, lower bound will be setted to -`clamp_border`.
-            Default: ``100.0``.
-        :param negative_labels_ignore_index: padding value for negative labels.
+        :param clamp_border: the upper bound for clamping loss tensor,
+            the lower bound will be set to ``-clamp_border``. Default: ``100.0``.
+        :param negative_labels_ignore_index: a padding value for negative labels.
             This may be the case when negative labels
             are formed at the preprocessing level, rather than the negative sampler.
             The index is ignored and does not contribute to the loss.
@@ -163,7 +163,7 @@ class BCESampled(SampledLossBase):
         """
         forward(model_embeddings, positive_labels, negative_labels, target_padding_mask)
 
-        :param model_embeddings: model output of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param model_embeddings: a model output of shape ``(batch_size, sequence_length, embedding_dim)``.
         :param positive_labels: labels of positive events
             of shape ``(batch_size, sequence_length, num_positives)``.
         :param negative_labels: labels of sampled negative events.
@@ -172,9 +172,9 @@ class BCESampled(SampledLossBase):
                 - ``(batch_size, sequence_length, num_negatives)``
                 - ``(batch_size, num_negatives)``
                 - ``(num_negatives)`` - a case where the same negative events are used for the entire batch.
-        :param target_padding_mask: padding mask corresponding for ``positive_labels``
+        :param target_padding_mask: a padding mask corresponding to ``positive_labels``
             of shape ``(batch_size, sequence_length, num_positives)``
-        :return: computed loss value.
+        :return: a computed loss value.
 
         """
         sampled = self.get_sampled_logits(

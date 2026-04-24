@@ -5,7 +5,7 @@ class TokenMaskTransform(torch.nn.Module):
     """
     For the feature tensor specified by ``token_name``, randomly masks items
     in the sequence based on a uniform distribution with specified probability of masking.
-    In fact, this transform creates mask for the Masked Language Modeling (MLM) task analog in the recommendations.
+    In fact, this transform creates a mask for the Masked Language Modeling (MLM) task analog in the recommendations.
 
     Example:
 
@@ -29,10 +29,10 @@ class TokenMaskTransform(torch.nn.Module):
         generator: torch.Generator | None = None,
     ) -> None:
         """
-        :param token_name: Name of the column containing the unmasked tokes.
-        :param out_feature_name: Name of the resulting  mask column. Default: ``token_mask``.
+        :param token_name: A name of the column containing the unmasked tokes.
+        :param out_feature_name: A name of the resulting  mask column. Default: ``token_mask``.
         :param mask_prob: Probability of masking the item, i.e. setting it to ``0``. Default: ``0.15``.
-        :param generator: Random number generator to be used for generating
+        :param generator: a random number generator to be used for generating
                 the uniform distribution. Default: ``None``.
         """
         super().__init__()

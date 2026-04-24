@@ -22,8 +22,8 @@ class CopyTransform(torch.nn.Module):
 
     def __init__(self, mapping: dict[str, str]) -> None:
         """
-        :param mapping: A dictionary maps which source tensors will be copied into the batch with new names.
-            Tensors with new names will be copies of original ones, original tensors are stayed in batch.
+        :param mapping: A dictionary which maps what source tensors will be copied into the batch with new names.
+            Tensors with new names will be copies of original ones, the original tensors are left in the batch.
         """
         super().__init__()
         self.mapping = mapping

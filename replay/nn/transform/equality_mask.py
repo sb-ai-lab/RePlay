@@ -5,17 +5,17 @@ import torch
 
 class EqualityMaskTransform(torch.nn.Module):
     """
-    Transform applyes a feature-based mask to the existing boolean mask (key ``mask_name`` in batch).
+    Transform applies a feature-based mask to the existing boolean mask (key ``mask_name`` in batch).
 
-    The feature-based mask is created by feature (key ``feature_name``) from a batch inside the transform.
-    Mask contains True values at the only those positions where a given feature matches a specified value
+    The feature-based mask is created by the feature (key ``feature_name``) from a batch inside the transform.
+    The mask contains the True values at the those positions only where a given feature matches a specified value
     ``equality_value`` (for example, only events of a certain type).
 
     Then, the specified logical operation ``mode`` is applyed
     between the existing boolean mask and the feature-based mask.
 
     The resulting tensor is supposed to be used as the previous boolean mask
-    and setted to the its previous key ``mask_name``.
+    and set to the its previous key ``mask_name``.
 
     Example:
 
@@ -41,11 +41,11 @@ class EqualityMaskTransform(torch.nn.Module):
         mask_name: str = "target_padding_mask",
     ) -> None:
         """
-        :param feature_name: Key name in batch of tensor containing a feature for mask creating.
-        :param equality_value: Value used to select which positions should be non-padded.
-        :param mode: type of logical operation to be applyed to ``mask_name`` tensor and created mask.
+        :param feature_name: A key name in a batch of a tensor containing a feature for mask creating.
+        :param equality_value: A value used to select which positions should be non-padded.
+        :param mode: a type of a logical operation to be applyed to the ``mask_name`` tensor and created mask.
             Default: `"and"`.
-        :param mask_name: Key name in batch of boolean tensor of shape indicating valid (non-padded) positions.
+        :param mask_name: a key name in a batch of a boolean tensor of shape indicating valid (non-padded) positions.
             Default: `"target_padding_mask"`.
         """
         super().__init__()

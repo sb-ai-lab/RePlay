@@ -12,7 +12,7 @@ from replay.nn.output import InferenceOutput, TrainOutput
 
 class LightningModule(lightning.LightningModule):
     """
-    A universal wrapper class above the PyTorch model for working with Lightning library.\n
+    A universal wrapper class above the PyTorch model for working with the Lightning library.\n
     Pay attention to the format of the ``forward`` function's return value.
     """
 
@@ -24,12 +24,12 @@ class LightningModule(lightning.LightningModule):
     ) -> None:
         """
         :param model: Initialized model.\n
-            Expected result of the model's ``forward`` function
-            is an object of the ``TrainOutput`` class after training stage
-            and ``InferenceOutput`` after inference stage.
-        :param optimizer_factory: Optimizer factory.
+            The expected result of the ``forward`` function
+            is an object of the ``TrainOutput`` class after the training stage
+            and `InferenceOutput` after the inference stage.
+        :param optimizer_factory: The optimizer factory.
             Default: ``None``.
-        :param lr_scheduler_factory: Learning rate schedule factory.
+        :param lr_scheduler_factory: The learning rate schedule factory.
             Default: ``None``.
         """
         super().__init__()
@@ -47,7 +47,7 @@ class LightningModule(lightning.LightningModule):
         :param batch: A dictionary containing all the necessary information to run the forward function on the model.
             The dictionary keys must match the names of the arguments in the model's forward function.
             Keys that do not match the arguments of the model's forward function are filtered out.
-            If the model supports calculating logits for custom candidates on the inference stage,
+            If the model supports calculating logits for custom candidates at the inference stage,
             then you can submit them inside the batch or using the ``candidates_to_score`` field.
         :returns: During training, the model will return an object
             of the ``TrainOutput`` container class or its successor.
