@@ -91,7 +91,7 @@ class SasRecBody(torch.nn.Module):
         :param feature_tensors: a dictionary of tensors to generate embeddings.
         :param padding_mask: A mask of shape ``(batch_size, sequence_length)``
             indicating which elements within ``key`` to ignore for the purpose of attention (i.e. treat as "padding").
-            ``False`` value indicates that the corresponding ``key`` value will be ignored.
+            The ``False`` value indicates that the corresponding ``key`` value will be ignored.
         :returns: The final hidden state.\n
             Expected shape: ``(batch_size, sequence_length, embedding_dim)``
         """
@@ -319,7 +319,7 @@ class SasRec(torch.nn.Module):
         :param feature_tensors: a dictionary of tensors to generate embeddings.
         :param padding_mask: A mask of shape ``(batch_size, sequence_length)``
             indicating which elements within ``key`` to ignore for the purpose of attention (i.e. treat as "padding").
-            ``False`` value indicates that the corresponding ``key`` value will be ignored.
+            The ``False`` value indicates that the corresponding ``key`` value will be ignored.
         :param candidates_to_score: a tensor containing item IDs
             for which you need to get logits at the inference stage.\n
             **Note:** you must take into account the padding value when creating the tensor.\n
@@ -332,13 +332,13 @@ class SasRec(torch.nn.Module):
             but if it is submitted, then no effect will be provided.\n
             Default: ``None``.
         :param negative_labels: a tensor containing negative labels for calculating the loss.\n
-            **Note:** Before run make sure that your loss supports calculations with negative labels.\n
+            **Note:** Ensure your loss function supports calculations with negative labels before running.\n
             You don't have to submit an argument at inference stage,
             but if it is submitted, then no effect will be provided.\n
             Default: ``None``.
         :param target_padding_mask: A mask of shape ``(batch_size, sequence_length, num_positives)``
             indicating elements from ``positive_labels`` to ignore during loss calculation.
-            ``False`` value indicates that the corresponding value will be ignored.\n
+            The ``False`` value indicates that the corresponding value will be ignored.\n
             You don't have to submit an argument at inference stage,
             but if it is submitted, then no effect will be provided.\n
             Default: ``None``.

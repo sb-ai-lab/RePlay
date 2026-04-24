@@ -22,14 +22,14 @@ class FeaturesReader:
 
     def __init__(self, schema: TensorSchema, metadata: dict, path: str, **kwargs):
         """
-        :param schema: the same tensor schema used in TwoTower model.
+        :param schema: the same tensor schema used in the TwoTower model.
         :param metadata: A dictionary of feature names that
             associated with its shape and padding_value.\n
             For details, see the section :ref:`parquet-processing`.
-        :param path: path to parquet with dataframe of item features.\n
+        :param path: a path to parquet with dataframe of item features.\n
             **Note:**\n
             1. Dataframe columns must be already encoded.\n
-            2. Every feature for item "tower" in `schema` must contain ``feature_sources`` with the names
+            2. Every feature for the item "tower" in the `schema` must contain ``feature_sources`` with the names
                of the source features to create correct inverse mapping.
                Also, for each such feature one of the requirements must be met: the ``schema`` for the feature must
                contain ``feature_sources`` with a source of type ``FeatureSource.ITEM_FEATURES``

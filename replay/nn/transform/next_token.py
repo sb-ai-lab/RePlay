@@ -5,13 +5,13 @@ from replay.data.nn.parquet.impl.masking import DEFAULT_MASK_POSTFIX
 
 class NextTokenTransform(torch.nn.Module):
     """
-    For the tensor specified by key ``label_name`` (typically "item_id") in the batch, this transform creates
+    For the tensor specified by the key `label_name` (typically “item_id”) in the batch, this transform creates
     a corresponding "labels" tensor with a key ``out_feature_name`` in the batch, shifted forward
-    by the specified ``shift`` value. This "labels" tensor are a target that model predicts.
-    Padding mask for "labels" is also created. For all the other features excepted ``ignore``,
+    by the specified ``shift`` value. This "labels" tensor is a target that model predicts.
+    A padding mask for “labels” is also created. For all features excepted `ignore`,
     last ``shift`` elements are truncated.
 
-    This transform is required for the sequential models optimizing next token prediction task.
+    This transform is required for the sequential models in order to optimize the next token prediction task.
 
     **WARNING**: In order to facilitate the shifting, this transform
     requires extra elements in the sequence. Therefore, when utilizing this
@@ -48,11 +48,11 @@ class NextTokenTransform(torch.nn.Module):
         mask_postfix: str = DEFAULT_MASK_POSTFIX,
     ) -> None:
         """
-        :param label_name: Name of target feature tensor to convert into labels.
-        :param shift: Number of sequence items to shift by. Default: `1`.
-        :param ignore: Names of keys in batch be excepted from the shifting and will be stayed unchanged.
-        :param out_feature_name: The name of result feature in batch. Default: ``"positive_labels"``.
-        :param mask_postfix: Postfix to append to the mask feature corresponding to resulting feature.
+        :param label_name: A name of target feature tensor to convert into labels.
+        :param shift: The number of sequence items to shift by. Default: `1`.
+        :param ignore: Names of keys in batch be excepted from the shifting and will be left unchanged.
+        :param out_feature_name: The name of the resulting feature in a batch. Default: ``"positive_labels"``.
+        :param mask_postfix: a postfix to append to the mask feature corresponding to the resulting feature.
             Default: ``"_mask"``.
         """
         super().__init__()

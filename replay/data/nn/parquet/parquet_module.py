@@ -20,11 +20,11 @@ class ParquetModule(L.LightningDataModule):
     """
     Standardized DataModule with batch-wise support via `ParquetDataset`.
 
-    Allows for unified access to all data splits across the training/inference pipeline without loading
+    Allows unified access to all data splits across the training/inference pipeline without loading
     full dataset into memory. See the :ref:`parquet-processing` section for details.
 
     ParquetModule provides per batch data loading and preprocessing via transform pipelines.
-    See the :ref:`Transforms` section for getting info about available batch transforms.
+    See the :ref:`Transforms` section for getting info on available batch transforms.
 
     **Note:**
 
@@ -37,7 +37,7 @@ class ParquetModule(L.LightningDataModule):
         as corresponding arguments of ``ParquetModule``.
         Alternatively, all the paths to the splits may be not specified
         but then do not forget to configure the Pytorch Lightning Trainer's instance accordingly.
-        For example, if you don't want use validation data, you are able not to set ``validate_path`` parameter
+        For example, if you don't want to use validation data, you are able not to set the `validate_path` parameter
         in ``ParquetModule`` and set ``limit_val_batches=0`` in Ligthning.Trainer.
 
     """
@@ -61,20 +61,20 @@ class ParquetModule(L.LightningDataModule):
             * A dictionary mapping split names to their corresponding batch sizes.
               Example: {"train": 64, "validate": 128}.
 
-        :param metadata: A dictionary that each data split maps to a dictionary of feature names
-            with each feature is associated with its shape and padding_value.\n
+        :param metadata: A dictionary mapping each data split to a dictionary of feature names
+            where each feature is associated with its shape and padding_value.\n
             Example: {"train": {"item_id" : {"shape": 100, "padding_value": 7657}}}.\n
             For details, see the section :ref:`parquet-processing`.
-        :param config: Dict specifying configuration options of ``ParquetDataset`` (generator,
-            filesystem, collate_fn and all other possible arguments excluding source, metadata and batch_size)
+        :param config: A dict specifying configuration options of ``ParquetDataset`` (a generator,
+            a filesystem, collate_fn and all other possible arguments excluding source, metadata and batch_size)
             for each data split.\n
             Default: ``DEFAULT_CONFIG``. The default configuration contains PyTorch generator for batch shuffling
-            in a train stage. In most scenarios, it is sufficient.
-        :param transforms: Dict specifying sequence of Transform modules for each data split.
-        :param train_path: Path to the Parquet file containing train data split. Default: ``None``.
-        :param validate_path: Path to the Parquet file or files containing validation data split. Default: ``None``.
-        :param test_path: Path to the Parquet file or files containing testing data split. Default: ``None``.
-        :param predict_path: Path to the Parquet file or files containing prediction data split. Default: ``None``.
+            at a train stage. In most scenarios, it is sufficient.
+        :param transforms: A dict specifying a sequence of Transform modules for each data split.
+        :param train_path: A path to the Parquet file containing train data split. Default: ``None``.
+        :param validate_path: A path to the Parquet file or files containing validation data split. Default: ``None``.
+        :param test_path: A path to the Parquet file or files containing testing data split. Default: ``None``.
+        :param predict_path: A path to the Parquet file or files containing prediction data split. Default: ``None``.
         """
         if not any([train_path, validate_path, test_path, predict_path]):
             msg = (

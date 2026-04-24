@@ -97,7 +97,7 @@ class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
 
     def get_result(self) -> _T:
         """
-        :returns: prediction result
+        :returns: a prediction result
         """
         prediction = self._ids_to_result(
             torch.cat(self._query_batches),
@@ -178,7 +178,7 @@ class SparkTopItemsCallback(TopItemsCallbackBase[SparkDataFrame]):
         postprocessors: list[PostprocessorBase] | None = None,
     ) -> None:
         """
-        :param top_k: Take the ``top_k`` IDs with the highest logit values.
+        :param top_k: Takes the ``top_k`` IDs with the highest logit values.
         :param query_column: The name of the query column in the resulting dataframe.
         :param item_column: The name of the item column in the resulting dataframe.
         :param rating_column: The name of the rating column in the resulting dataframe.
@@ -246,7 +246,7 @@ class TorchTopItemsCallback(TopItemsCallbackBase[tuple[torch.LongTensor, torch.L
         postprocessors: list[PostprocessorBase] | None = None,
     ) -> None:
         """
-        :param top_k: Take the ``top_k`` IDs with the highest logit values.
+        :param top_k: Takes the ``top_k`` IDs with the highest logit values.
         :param query_column: The name of the query column in the batch.
         :param postprocessors: A list of postprocessors for modifying logits from the model
             before sorting and taking top K.
@@ -285,7 +285,7 @@ class HiddenStatesCallback(lightning.Callback):
     def __init__(self, hidden_state_index: int):
         """
         :param hidden_state_index: It is expected that the result of the model's forward function
-            contains the ``hidden_states`` key. ``hidden_states`` key contains Tuple of PyTorch Tensors.
+            contains the ``hidden_states`` key. The ``hidden_states`` key contains a Tuple of PyTorch Tensors.
             Therefore, to get a specific hidden state, you need to submit an index from this tuple.
         """
         self._hidden_state_index = hidden_state_index

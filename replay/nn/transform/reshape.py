@@ -3,7 +3,7 @@ import torch
 
 class UnsqueezeTransform(torch.nn.Module):
     """
-    Unsqueeze a tensor got by specified key from batch along specified dimension.
+    Unsqueeze a tensor obtained by the specified key from a batch along the specified dimension.
 
     Example:
 
@@ -19,8 +19,8 @@ class UnsqueezeTransform(torch.nn.Module):
 
     def __init__(self, feature_name: str, dim: int) -> None:
         """
-        :param feature_name: Name of tensor to be unsqueezed.
-        :param dim: Dimension along which tensor will be unsqueezed.
+        :param feature_name: a name of a tensor to be unsqueezed.
+        :param dim: Dimension along which the tensor will be unsqueezed.
         """
         super().__init__()
         self.feature_name = feature_name

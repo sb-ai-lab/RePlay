@@ -16,7 +16,7 @@ from replay.nn.output import InferenceOutput
 
 class ComputeMetricsCallback(lightning.Callback):
     """
-    Callback for validation and testing stages.
+    A callback for validation and testing stages.
 
     If multiple validation/testing dataloaders are used,
     the suffix of the metric name will contain the serial number of the dataloader.
@@ -42,17 +42,19 @@ class ComputeMetricsCallback(lightning.Callback):
         verbose: bool = True,
     ):
         """
-        :param metrics: Sequence of metrics to calculate.\n
+        :param metrics: A sequence of metrics to calculate.\n
             Default: ``None``. This means that the default metrics will be used - ``Map``, ``NDCG``, ``Recall``.
-        :param ks: highest k scores in ranking.\n
+        :param ks: the highest k scores in ranking.\n
             Default: ``None``. This means that the default ``ks`` will be ``[1, 5, 10, 20]``.
         :param postprocessors: A list of postprocessors for modifying logits from the model.
             For example, it can be a softmax operation to logits or set the ``-inf`` value for some IDs.
             Default: ``None``.
         :param item_count: the total number of items in the dataset, required only for ``Coverage`` calculations.
             Default: ``None``.
-        :param ground_truth_column: Name of key in batch that contains ground truth items.
-        :param train_column: Name of key in batch that contains items on which the model is trained.
+        :param ground_truth_column: A name of the key in a batch that contains ground truth items.
+            Default: ``"ground_truth"``.
+        :param train_column: A name of the key in a batch that contains items on which the model is trained.
+            Default: ``"train"``.
         :param verbose: if ``True``, prints validation/test metrics to stdout after each epoch.
         """
         self._metrics = metrics or DEFAULT_METRICS

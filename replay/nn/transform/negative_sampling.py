@@ -6,7 +6,7 @@ class UniformNegativeSamplingTransform(torch.nn.Module):
     Transform for global negative sampling.
 
     For every batch, transform generates a vector of size ``(num_negative_samples)``
-    consisting of random indices sampeled from a range of ``cardinality``. Unless a custom sample
+    consisting of random indices sampled from a range of ``cardinality``. Unless a custom sample
     distribution is provided, the indices are weighted equally.
 
     Example:
@@ -32,13 +32,13 @@ class UniformNegativeSamplingTransform(torch.nn.Module):
         generator: torch.Generator | None = None,
     ) -> None:
         """
-        :param cardinality: number of unique items in vocabulary (catalog).
+        :param cardinality: number of unique items in the vocabulary (or catalog).
             The specified cardinality value must not take into account the padding value.
         :param num_negative_samples: The size of negatives vector to generate.
-        :param out_feature_name: The name of result feature in batch.
+        :param out_feature_name: The name of the result feature in a batch.
         :param sample_distribution: The weighs of indices in the vocabulary. If specified, must
                 match the ``cardinality``. Default: ``None``.
-        :param generator: Random number generator to be used for sampling
+        :param generator: a random number generator to be used for sampling
                 from the distribution. Default: ``None``.
         """
         if sample_distribution is not None and sample_distribution.size(-1) != cardinality:
@@ -83,12 +83,13 @@ class MultiClassNegativeSamplingTransform(torch.nn.Module):
     """
     Transform for generating negatives using a fixed class-assignment matrix.
 
-    For every batch, transform generates a tensor of size ``(N, num_negative_samples)``, where N is number of classes.
-    This tensor consists of random indices sampled using specified fixed class-assignment matrix.
+    For every batch, transform generates a tensor of size ``(N, num_negative_samples)``,
+    where N is the number of classes.
+    This tensor consists of random indices sampled using the specified fixed class-assignment matrix.
 
-    Also, transform receives from batch by key a tensor ``negative_selector_name`` of shape (batch size,),
-    where i-th element in [0, N-1] specifies which class of N is used to select from sampled negatives that corresponds
-    to every i-th batch row (user's history sequence).
+    Also, transform receives a tensor `negative_selector_name` of shape (batch size,) from a batch by the key,
+    where the i-th element in [0, N-1] specifies which class of N is used to select from sampled negatives
+    that correspond to every i-th batch row (user's history sequence).
 
     The resulting negatives tensor has shape of ``(batch_size, num_negative_samples)``.
 
@@ -130,10 +131,10 @@ class MultiClassNegativeSamplingTransform(torch.nn.Module):
         :param num_negative_samples: The size of negatives vector to generate.
         :param sample_mask: The class-assignment (indicator) matrix of shape: ``(N, number of items in catalog)``,
             where ``sample_mask[n, i]`` is a weight (or binary indicator) of assigning item i to class n.
-        :param negative_selector_name: name of tensor in batch of shape (batch size,), where i-th element
+        :param negative_selector_name: a name of a tensor in a batch of shape (batch size,), where the i-th element
             in [0, N-1] specifies which class of N is used to get negatives corresponding to i-th ``query_id`` in batch.
-        :param out_feature_name: The name of result feature in batch.
-        :param generator: Random number generator to be used for sampling from the distribution. Default: ``None``.
+        :param out_feature_name: The name of the result feature in a batch.
+        :param generator: a random number generator to be used for sampling from the distribution. Default: ``None``.
         """
         if sample_mask.dim() != 2:
             msg = (

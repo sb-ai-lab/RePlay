@@ -19,7 +19,7 @@ class DiffTransformerBlock(torch.nn.Module):
         """
         :param embedding_dim: Total dimension of the model. Must be divisible by ``num_heads``.
         :param num_heads: Number of parallel attention heads.
-        :param lambda_init: Initial value for lambda.
+        :param lambda_init: an initial value for lambda.
         """
         super().__init__()
         self.attn_norm = torch.nn.RMSNorm(embedding_dim)
@@ -66,7 +66,7 @@ class DiffTransformerBlock(torch.nn.Module):
 class DiffTransformerLayer(torch.nn.Module):
     """
     Stacked blocks of the DiffTransformer Architecture.
-    Single block consists of Multi-Head Differential Attention followed by a SwiGLU Feed-Forward Network.
+    A single block consists of Multi-Head Differential Attention followed by a SwiGLU Feed-Forward Network.
 
     Source paper: https://arxiv.org/pdf/2410.05258\n
     Reference: https://github.com/nanowell/Differential-Transformer-PyTorch/blob/main/DiffTransformer.py
@@ -109,7 +109,8 @@ class DiffTransformerLayer(torch.nn.Module):
         """
         forward(input_embeddings, attention_mask)
         :param input_embeddings: Input tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
-        :param attention_mask: Causal-like mask for attention pattern, where ``-inf`` for ``PAD``, ``0`` - otherwise.\n
+        :param attention_mask: A causal-like mask for attention pattern,
+            where ``-inf`` for ``PAD``, ``0`` - otherwise.\n
             Possible shapes:\n
             1. ``(batch_size * num_heads, sequence_length, sequence_length)``
             2. ``(batch_size, num_heads, sequence_length, sequence_length)``

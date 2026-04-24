@@ -3,7 +3,7 @@ import torch
 
 class RenameTransform(torch.nn.Module):
     """
-    Renames specific feature columns into new ones. Changes names in original dict, not creates a new dict.
+    Renames specific feature columns into new ones. Changes names in the original dict, but does not create.
     Example:
 
     .. code-block:: python

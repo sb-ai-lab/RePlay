@@ -25,8 +25,8 @@ class SequenceRollTransform(torch.nn.Module):
         padding_value: int = 0,
     ) -> None:
         """
-        :param feature_name: Name of the tensor from the batch to be rolled.
-        :param roll: Number of positions to roll by. Default: ``-1``.
+        :param feature_name: A name of the tensor from the batch to be rolled.
+        :param roll: The number of positions to roll by. Default: ``-1``.
         :param padding_value: The value to use as padding for the sequence. Default: ``0``.
         """
         super().__init__()

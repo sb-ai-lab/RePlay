@@ -42,7 +42,7 @@ class PointWiseFeedForward(torch.nn.Module):
 
     def forward(self, input_embeddings: torch.LongTensor) -> torch.LongTensor:
         """
-        :param input_embeddings: Query feature tensor.
+        :param input_embeddings: A query feature tensor.
 
         :returns: Output tensors.
         """
@@ -89,9 +89,9 @@ class SwiGLU(torch.nn.Module):
         """
         Forward pass for SwiGLU.
 
-        :param input_embeddings: Input tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param input_embeddings: An input tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
 
-        :returns: Output tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :returns: An output tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
         """
         # Apply the gates
         activation = torch.nn.functional.silu(self.WG(input_embeddings))  # Activation part
@@ -101,7 +101,7 @@ class SwiGLU(torch.nn.Module):
 
 class SwiGLUEncoder(torch.nn.Module):
     """
-    MLP block consists of SwiGLU Feed-Forward network followed by a RMSNorm layer with skip connection.
+    The MLP block consists of a SwiGLU feed-forward network followed by a RMSNorm layer with a skip connection.
     """
 
     def __init__(self, embedding_dim: int, hidden_dim: int) -> None:
@@ -127,8 +127,8 @@ class SwiGLUEncoder(torch.nn.Module):
     ) -> torch.Tensor:
         """
         forward(input_embeddings)
-        :param input_embeddings: Input tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
-        :returns: Output tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :param input_embeddings: An input tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
+        :returns: An output tensor of shape ``(batch_size, sequence_length, embedding_dim)``.
         """
         x = self.norm1(self.sw1(input_embeddings) + input_embeddings)
         x = self.norm2(self.sw2(x) + x)
