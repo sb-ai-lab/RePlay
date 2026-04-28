@@ -131,6 +131,8 @@ class ItemTower(torch.nn.Module):
     **Note**: ItemTower loads feature tensors of all items to memory.
     """
 
+    FEATURE_BUFFER_PREFIX = "item_reference_"
+
     def __init__(
         self,
         schema: TensorSchema,
@@ -164,7 +166,9 @@ class ItemTower(torch.nn.Module):
         for feature_name in schema:
             if feature_name not in self.feature_names:
                 continue
-            self.register_buffer(f"item_reference_{feature_name}", item_features_reader[feature_name], persistent=True)
+            self.register_buffer(
+                f"{self.FEATURE_BUFFER_PREFIX}{feature_name}", item_features_reader[feature_name], persistent=True
+            )
 
         self.register_buffer("cache", None, persistent=True)
 
@@ -203,7 +207,7 @@ class ItemTower(torch.nn.Module):
         It expects the already processed result in the `item_features` argument.`
 
         :param item_features: Mapping from feature name to a tensor with values for all items.
-            Every tensor is registered as a persistent ``item_reference_*`` buffer.
+            Every tensor is registered as a persistent :attr:`FEATURE_BUFFER_PREFIX` buffer.
         :param embedder: An object of a class that performs the logic of
             generating embeddings from input data.
         :param embedding_aggregator: An object of a class that performs
@@ -222,7 +226,7 @@ class ItemTower(torch.nn.Module):
         model.encoder = encoder
 
         for feature_name, feature_tensor in item_features.items():
-            model.register_buffer(f"item_reference_{feature_name}", feature_tensor, persistent=True)
+            model.register_buffer(f"{cls.FEATURE_BUFFER_PREFIX}{feature_name}", feature_tensor, persistent=True)
 
         model.register_buffer("cache", None, persistent=True)
         return model
@@ -239,7 +243,7 @@ class ItemTower(torch.nn.Module):
         """
         Restore :class:`ItemTower` from checkpoint state dictionary.
 
-        The method infers required item reference buffers from ``item_reference_*`` entries
+        The method infers required item reference buffers from :attr:`FEATURE_BUFFER_PREFIX*` entries
         in ``state_dict``, creates a new :class:`ItemTower` instance, and loads parameters
         and buffers via :meth:`torch.nn.Module.load_state_dict`.
 
@@ -258,14 +262,13 @@ class ItemTower(torch.nn.Module):
             :meth:`torch.nn.Module.load_state_dict` (for example, ``strict``).
         :returns: Restored :class:`ItemTower` instance.
         """
-        prefix = "item_reference_"
         item_features = {
-            key.removeprefix(prefix): torch.empty_like(value)
+            key.removeprefix(cls.FEATURE_BUFFER_PREFIX): torch.empty_like(value)
             for key, value in state_dict.items()
-            if key.startswith(prefix)
+            if key.startswith(cls.FEATURE_BUFFER_PREFIX)
         }
         if not item_features:
-            msg = "Checkpoint does not contain item_reference_* buffers."
+            msg = f"Checkpoint does not contain {cls.FEATURE_BUFFER_PREFIX=} buffers."
             raise ValueError(msg)
 
         model = cls.from_item_features(
@@ -282,7 +285,7 @@ class ItemTower(torch.nn.Module):
         self.encoder.reset_parameters()
 
     def get_feature_buffer(self, feature_name: str) -> torch.Tensor:
-        buffer_name = f"item_reference_{feature_name}"
+        buffer_name = f"{self.FEATURE_BUFFER_PREFIX}{feature_name}"
         return self.get_buffer(buffer_name)
 
     def _get_any_feature_buffer(self) -> torch.Tensor:
