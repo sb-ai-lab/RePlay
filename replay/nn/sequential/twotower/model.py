@@ -196,6 +196,23 @@ class ItemTower(torch.nn.Module):
         embedding_aggregator: AggregatorProto,
         encoder: ItemEncoderProto,
     ) -> "ItemTower":
+        """
+        Build :class:`ItemTower` from preloaded item feature tensors.
+        Unlike the constructor, this method does not use a reader object
+        and therefore skips the reader's internal input-processing logic.
+        It expects the already processed result in the `item_features` argument.`
+
+        :param item_features: Mapping from feature name to a tensor with values for all items.
+            Every tensor is registered as a persistent ``item_reference_*`` buffer.
+        :param embedder: An object of a class that performs the logic of
+            generating embeddings from input data.
+        :param embedding_aggregator: An object of a class that performs
+            the logic of aggregating multiple embeddings.
+        :param encoder: An object of a class that performs the logic of generating
+            an item hidden embedding representation based for
+            the features got from ``item_features_reader``.
+        :returns: Initialized :class:`ItemTower` instance with item reference buffers and empty cache.
+        """
         model = cls.__new__(cls)
         torch.nn.Module.__init__(model)
 
@@ -219,6 +236,28 @@ class ItemTower(torch.nn.Module):
         encoder: ItemEncoderProto,
         **kwargs,
     ) -> "ItemTower":
+        """
+        Restore :class:`ItemTower` from checkpoint state dictionary.
+
+        The method infers required item reference buffers from ``item_reference_*`` entries
+        in ``state_dict``, creates a new :class:`ItemTower` instance, and loads parameters
+        and buffers via :meth:`torch.nn.Module.load_state_dict`.
+
+        A checkpoint can also be loaded in the standard way by constructing :class:`ItemTower` via the constructor
+        and then calling :meth:`torch.nn.Module.load_state_dict`.
+        This method is a convenience wrapper that avoids explicit creation of a feature reader instance.
+
+        :param state_dict: A checkpoint state dictionary containing module parameters and buffers.
+        :param embedder: An object of a class used to embed item feature tensors.
+            Must match to the ``state_dict`` embedder.
+        :param embedding_aggregator: An object of a class used to aggregate per-feature embeddings.
+            Must match to the ``state_dict`` embedding_aggregator.
+        :param encoder: An object of a class used to encode aggregated item embeddings.
+            Must match to the ``state_dict`` encoder.
+        :param kwargs: Additional keyword arguments forwarded to
+            :meth:`torch.nn.Module.load_state_dict` (for example, ``strict``).
+        :returns: Restored :class:`ItemTower` instance.
+        """
         prefix = "item_reference_"
         item_features = {
             key.removeprefix(prefix): torch.empty_like(value)
