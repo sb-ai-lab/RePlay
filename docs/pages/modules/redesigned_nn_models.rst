@@ -76,7 +76,7 @@ ItemTower
 ``````````````````````````````
 
 .. autoclass:: replay.nn.sequential.ItemTower
-   :members: __init__, forward, from_checkpoint
+   :members: __init__, forward, from_item_features, from_checkpoint
 
 .. FeaturesReader_:
 

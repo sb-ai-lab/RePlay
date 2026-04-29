@@ -263,7 +263,7 @@ class ItemTower(torch.nn.Module):
         :returns: Restored :class:`ItemTower` instance.
         """
         item_features = {
-            key.removeprefix(cls.FEATURE_BUFFER_PREFIX): torch.empty_like(value)
+            key.removeprefix(cls.FEATURE_BUFFER_PREFIX): value
             for key, value in state_dict.items()
             if key.startswith(cls.FEATURE_BUFFER_PREFIX)
         }
