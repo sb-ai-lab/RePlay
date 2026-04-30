@@ -40,6 +40,9 @@ class LightningModule(lightning.LightningModule):
         self._lr_scheduler_factory = lr_scheduler_factory
         self.candidates_to_score = None
 
+        # compiled model loses `forward` signature, so use original model instead
+        self._model_signature = inspect.signature(getattr(model, "_orig_mod", model).forward)
+
     def forward(self, batch: dict) -> TrainOutput | InferenceOutput:
         """
         Implementation of the forward function.
@@ -56,7 +59,7 @@ class LightningModule(lightning.LightningModule):
         if "candidates_to_score" not in batch and self.candidates_to_score is not None and not self.training:
             batch["candidates_to_score"] = self.candidates_to_score
         # select only args for model.forward
-        modified_batch = {k: v for k, v in batch.items() if k in inspect.signature(self.model.forward).parameters}
+        modified_batch = {k: v for k, v in batch.items() if k in self._model_signature.parameters}
         return self.model(**modified_batch)
 
     def training_step(self, batch: dict) -> torch.Tensor:
