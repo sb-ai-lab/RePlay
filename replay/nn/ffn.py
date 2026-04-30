@@ -20,19 +20,25 @@ class PointWiseFeedForward(torch.nn.Module):
         embedding_dim: int,
         dropout: float,
         activation: Literal["relu", "gelu"] = "gelu",
+        hidden_dim: int | None = None,
     ) -> None:
         """
         :param embedding_dim: Dimension of the input features.
         :param dropout: probability of an element to be zeroed.
         :param activation: the name of the activation function.
             Default: ``"gelu"``.
+        :param hidden_dim: hidden layer dimension. If ``None``, uses ``embedding_dim``.
+            Defaults to ``None``.
         """
         super().__init__()
 
-        self.conv1 = torch.nn.Conv1d(embedding_dim, embedding_dim, kernel_size=1)
+        if hidden_dim is None:
+            hidden_dim = embedding_dim
+
+        self.conv1 = torch.nn.Conv1d(embedding_dim, hidden_dim, kernel_size=1)
         self.dropout1 = torch.nn.Dropout(p=dropout)
         self.activation = create_activation(activation)
-        self.conv2 = torch.nn.Conv1d(embedding_dim, embedding_dim, kernel_size=1)
+        self.conv2 = torch.nn.Conv1d(hidden_dim, embedding_dim, kernel_size=1)
         self.dropout2 = torch.nn.Dropout(p=dropout)
 
     def reset_parameters(self) -> None:
