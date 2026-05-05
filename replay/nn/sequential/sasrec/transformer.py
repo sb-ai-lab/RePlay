@@ -5,6 +5,7 @@ import torch
 
 from replay.data.nn import TensorMap
 from replay.nn.ffn import PointWiseFeedForward
+from replay.nn.moe import TopKMixtureOfExpertsBlock, TopKMixtureOfExpertsConfig
 
 
 class SasRecTransformerLayer(torch.nn.Module):
@@ -22,6 +23,7 @@ class SasRecTransformerLayer(torch.nn.Module):
         num_blocks: int,
         dropout: float,
         activation: Literal["relu", "gelu"] = "gelu",
+        moe_config: TopKMixtureOfExpertsConfig | None = None,
     ) -> None:
         """
         :param embedding_dim: Total dimension of the model. Must be divisible by num_heads.
@@ -30,6 +32,9 @@ class SasRecTransformerLayer(torch.nn.Module):
         :param dropout: probability of an element to be zeroed.
         :param activation: the name of the activation function.
             Default: ``"gelu"``.
+        :param moe_config: top-K Mixture-of-Experts configuration.
+            If ``None``, original feed-forward network is used.
+            Default: ``None``.
         """
         super().__init__()
         self.num_blocks = num_blocks
@@ -49,10 +54,19 @@ class SasRecTransformerLayer(torch.nn.Module):
         )
         self.forward_layers = torch.nn.ModuleList(
             [
-                PointWiseFeedForward(
-                    embedding_dim=embedding_dim,
-                    dropout=dropout,
-                    activation=activation,
+                (
+                    PointWiseFeedForward(
+                        embedding_dim=embedding_dim,
+                        dropout=dropout,
+                        activation=activation,
+                    )
+                    if moe_config is None
+                    else TopKMixtureOfExpertsBlock(
+                        config=moe_config,
+                        embedding_dim=embedding_dim,
+                        dropout=dropout,
+                        activation=activation,
+                    )
                 )
                 for _ in range(num_blocks)
             ]

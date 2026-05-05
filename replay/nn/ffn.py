@@ -20,6 +20,7 @@ class PointWiseFeedForward(torch.nn.Module):
         embedding_dim: int,
         dropout: float,
         activation: Literal["relu", "gelu"] = "gelu",
+        residual: bool = True,
     ) -> None:
         """
         :param embedding_dim: Dimension of the input features.
@@ -28,6 +29,8 @@ class PointWiseFeedForward(torch.nn.Module):
             Default: ``"gelu"``.
         """
         super().__init__()
+
+        self.residual = residual
 
         self.conv1 = torch.nn.Conv1d(embedding_dim, embedding_dim, kernel_size=1)
         self.dropout1 = torch.nn.Dropout(p=dropout)
@@ -52,9 +55,11 @@ class PointWiseFeedForward(torch.nn.Module):
         x = self.conv2(x)
         x = self.dropout2(x)
         x = x.transpose(-1, -2)
-        x += input_embeddings
 
-        return x
+        if self.residual:
+            return x + input_embeddings
+        else:
+            return x
 
 
 class SwiGLU(torch.nn.Module):
