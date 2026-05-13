@@ -120,6 +120,13 @@ class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
     ) -> _T:  # pragma: no cover
         pass
 
+    @staticmethod
+    def _to_numpy_compatible(tensor: torch.Tensor) -> torch.Tensor:
+        if tensor.dtype == torch.bfloat16:
+            return tensor.to(torch.float32)
+
+        return tensor
+
 
 class PandasTopItemsCallback(TopItemsCallbackBase[PandasDataFrame]):
     """
@@ -136,7 +143,7 @@ class PandasTopItemsCallback(TopItemsCallbackBase[PandasDataFrame]):
             {
                 self.query_column: query_ids.flatten().cpu().numpy(),
                 self.item_column: list(item_ids.cpu().numpy()),
-                self.rating_column: list(item_scores.cpu().numpy()),
+                self.rating_column: list(self._to_numpy_compatible(item_scores.cpu()).numpy()),
             }
         )
         return prediction.explode([self.item_column, self.rating_column])
@@ -157,7 +164,7 @@ class PolarsTopItemsCallback(TopItemsCallbackBase[PolarsDataFrame]):
             {
                 self.query_column: query_ids.flatten().cpu().numpy(),
                 self.item_column: list(item_ids.cpu().numpy()),
-                self.rating_column: list(item_scores.cpu().numpy()),
+                self.rating_column: list(self._to_numpy_compatible(item_scores.cpu()).numpy()),
             }
         )
         return prediction.explode([self.item_column, self.rating_column])
@@ -216,7 +223,7 @@ class SparkTopItemsCallback(TopItemsCallbackBase[SparkDataFrame]):
                     zip(
                         query_ids.flatten().cpu().numpy().tolist(),
                         item_ids.cpu().numpy().tolist(),
-                        item_scores.cpu().numpy().tolist(),
+                        self._to_numpy_compatible(item_scores.cpu()).numpy().tolist(),
                     )
                 ),
                 schema=schema,
