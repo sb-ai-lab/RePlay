@@ -5843,4 +5843,4 @@ torch = ["lightning", "pytorch-optimizer", "torch"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <3.15"
-content-hash = "ad345cd1e48c20a98bf72a5e6d272416ff9c664373c9e37c16eb8874833c6e8b"
+content-hash = "28b6fbfe9209cc36ff61a7b931ef56fe4ee683d0c36239a745b1a218b11f0701"
