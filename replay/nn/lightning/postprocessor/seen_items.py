@@ -66,7 +66,7 @@ class SeenItemsFilter(PostprocessorBase):
         seen_ids_flat = factored_ids[padding_mask]
 
         if self._candidates is not None:
-            _logits = torch.full((logits.size(0), self.item_count), -torch.inf)
+            _logits = logits.new_full((logits.size(0), self.item_count), -torch.inf)
             _logits[:, self._candidates] = torch.reshape(logits, _logits[:, self.candidates].shape)
             logits = _logits
 
