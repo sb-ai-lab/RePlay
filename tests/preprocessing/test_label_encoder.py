@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import pytest
+from polars.testing import assert_frame_equal
 
 from replay.preprocessing import LabelEncoder, LabelEncoderPartialFitWarning, LabelEncodingRule, SequenceEncodingRule
 from replay.utils import PYSPARK_AVAILABLE, PandasDataFrame, PolarsDataFrame, SparkDataFrame
@@ -141,6 +142,73 @@ def test_label_encoder_partial_fit_determinism(column, random_string_spark_df, s
     assert mapping_1 == mapping_2, "LabelEncoder.fit works non-deterministically (comparison at launch 1 and 2)"
     assert mapping_1 == mapping_3, "LabelEncoder.fit works non-deterministically (comparison at launch 1 and 3)"
     assert mapping_2 == mapping_3, "LabelEncoder.fit works non-deterministically (comparison at launch 2 and 3)"
+
+
+@pytest.mark.core
+@pytest.mark.parametrize(
+    "df_name, column",
+    [
+        pytest.param("pandas_df_for_labelencoder_with_null_modified", "item1"),
+        pytest.param("polars_df_for_labelencoder_with_null_modified", "item1"),
+    ],
+)
+def test_label_encoder_determinism_pandas_polars(df_name, column, request):
+    df = request.getfixturevalue(df_name)
+
+    if isinstance(df, PandasDataFrame):
+        df_1 = df[[column]].copy()
+        df_2 = df[[column]].sort_values(column, ascending=False).reset_index(drop=True)
+    else:
+        df_1 = df.select(column)
+        df_2 = df.select(column).sort(column, descending=True)
+
+    encoder_1 = LabelEncoder([LabelEncodingRule(column)])
+    encoder_1.fit(df_1)
+    mapping_1 = encoder_1.mapping[column]
+
+    encoder_2 = LabelEncoder([LabelEncodingRule(column)])
+    encoder_2.fit(df_2)
+    mapping_2 = encoder_2.mapping[column]
+
+    assert mapping_1 == mapping_2, "LabelEncoder.fit works non-deterministically"
+
+
+@pytest.mark.core
+@pytest.mark.parametrize(
+    "df_name, modified_df_name, column",
+    [
+        pytest.param(
+            "pandas_df_for_labelencoder_with_null", "pandas_df_for_labelencoder_with_null_and_unknown", "item1"
+        ),
+        pytest.param(
+            "polars_df_for_labelencoder_with_null", "polars_df_for_labelencoder_with_null_and_unknown", "item1"
+        ),
+    ],
+)
+def test_label_encoder_partial_fit_determinism_pandas_polars(df_name, modified_df_name, column, request):
+    df = request.getfixturevalue(df_name)
+    df_modified = request.getfixturevalue(modified_df_name)
+
+    if isinstance(df, PandasDataFrame):
+        base_df = df[[column]].copy()
+        df_1 = df_modified[[column]].copy()
+        df_2 = df_modified[[column]].sort_values(column, ascending=False).reset_index(drop=True)
+    else:
+        base_df = df.select(column)
+        df_1 = df_modified.select(column)
+        df_2 = df_modified.select(column).sort(column, descending=True)
+
+    encoder_1 = LabelEncoder([LabelEncodingRule(column)])
+    encoder_1.fit(base_df)
+    encoder_1.partial_fit(df_1)
+    mapping_1 = encoder_1.mapping[column]
+
+    encoder_2 = LabelEncoder([LabelEncodingRule(column)])
+    encoder_2.fit(base_df)
+    encoder_2.partial_fit(df_2)
+    mapping_2 = encoder_2.mapping[column]
+
+    assert mapping_1 == mapping_2, "LabelEncoder.partial_fit works non-deterministically"
 
 
 @pytest.mark.spark
@@ -452,6 +520,43 @@ def test_none_type_passed_as_default_value_pandas_polars(
     assert mapped_interactions.tail(1)["item2"].to_list()[0] is None
 
 
+@pytest.mark.core
+def test_label_encoder_transform_with_seen_null_and_error_strategy_polars(
+    polars_df_for_labelencoder_with_null,
+    polars_df_for_labelencoder_with_null_modified,
+):
+    encoder = LabelEncoder([LabelEncodingRule("item1", handle_unknown="error")]).fit(
+        polars_df_for_labelencoder_with_null
+    )
+    assert None in encoder.mapping["item1"]
+
+    transformed = encoder.transform(polars_df_for_labelencoder_with_null_modified)
+    assert transformed["item1"].null_count() == 0
+
+    rebuilded_original = encoder.inverse_transform(transformed)
+
+    assert_frame_equal(
+        polars_df_for_labelencoder_with_null_modified,
+        rebuilded_original,
+        check_column_order=False,
+        check_row_order=False,
+    )
+
+
+@pytest.mark.core
+def test_label_encoder_transform_with_unknown_and_seen_null_raises_error_polars(
+    polars_df_for_labelencoder_with_null,
+    polars_df_for_labelencoder_with_null_and_unknown,
+):
+    encoder = LabelEncoder([LabelEncodingRule("item1")]).fit(polars_df_for_labelencoder_with_null)
+
+    with pytest.raises(
+        ValueError,
+        match=r"Found unknown labels \['item_3'\] in column item1 during transform",
+    ):
+        encoder.transform(polars_df_for_labelencoder_with_null_and_unknown)
+
+
 @pytest.mark.spark
 def test_label_encoder_with_handled_null_values_spark(
     spark_df_for_labelencoder,
@@ -466,6 +571,37 @@ def test_label_encoder_with_handled_null_values_spark(
 
     assert str(mapped_interactions.iloc[-1]["item1"]) == "nan"
     assert str(mapped_interactions.iloc[-1]["item2"]) == "2"
+
+
+@pytest.mark.spark
+def test_label_encoder_transform_with_seen_null_and_error_strategy_spark(
+    spark_df_for_labelencoder_with_null,
+    spark_df_for_labelencoder_with_null_modified,
+):
+    encoder = LabelEncoder([LabelEncodingRule("item1", handle_unknown="error")]).fit(
+        spark_df_for_labelencoder_with_null
+    )
+    assert None in encoder.mapping["item1"]
+
+    transformed = encoder.transform(spark_df_for_labelencoder_with_null_modified)
+    assert transformed.filter(F.col("item1").isNull()).count() == 0
+
+    rebuilded_original = encoder.inverse_transform(transformed)
+    sparkDataFrameEqual(spark_df_for_labelencoder_with_null_modified, rebuilded_original)
+
+
+@pytest.mark.spark
+def test_label_encoder_transform_with_unknown_and_seen_null_raises_error_spark(
+    spark_df_for_labelencoder_with_null,
+    spark_df_for_labelencoder_with_null_and_unknown,
+):
+    encoder = LabelEncoder([LabelEncodingRule("item1")]).fit(spark_df_for_labelencoder_with_null)
+
+    with pytest.raises(
+        ValueError,
+        match=r"Found unknown labels \['item_3'\] in column item1 during transform",
+    ):
+        encoder.transform(spark_df_for_labelencoder_with_null_and_unknown)
 
 
 @pytest.mark.spark
@@ -511,6 +647,28 @@ def test_label_encoder_with_null_values_pandas_polars(
     encoder.set_default_values({"item1": "last", "item2": 5})
     with pytest.raises(ValueError):
         encoder.transform(df_modified)
+
+
+@pytest.mark.parametrize(
+    "df_name",
+    [
+        pytest.param("simple_dataframe_pandas", marks=pytest.mark.core),
+        pytest.param("simple_dataframe_polars", marks=pytest.mark.core),
+        pytest.param("simple_dataframe", marks=pytest.mark.spark),
+    ],
+)
+def test_label_encoding_rule_inverse_transform_raises_error_for_missing_column(df_name, request):
+    df = request.getfixturevalue(df_name)
+    rule = LabelEncodingRule("user_id").fit(df)
+    transformed = rule.transform(df)
+
+    if isinstance(transformed, PandasDataFrame):
+        transformed_without_column = transformed.drop(columns=["user_id"])
+    else:
+        transformed_without_column = transformed.drop("user_id")
+
+    with pytest.raises(KeyError, match=r"Column 'user_id' is not found in the input dataframe."):
+        rule.inverse_transform(transformed_without_column)
 
 
 @pytest.mark.core
