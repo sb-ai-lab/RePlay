@@ -168,6 +168,7 @@ class SasRec(torch.nn.Module):
         ...        num_blocks=2,
         ...        dropout=0.3,
         ...        activation="relu",
+        ...        hidden_dim=1024,
         ...    ),
         ...    output_normalization=torch.nn.LayerNorm(256),
         ... )
@@ -207,6 +208,7 @@ class SasRec(torch.nn.Module):
         dropout: float = 0.3,
         excluded_features: list[str] | None = None,
         categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
+        hidden_dim: int | None = None,
     ) -> "SasRec":
         from replay.nn.agg import SumAggregator
         from replay.nn.embedding import SequenceEmbedding
@@ -244,6 +246,7 @@ class SasRec(torch.nn.Module):
                 num_blocks=num_blocks,
                 dropout=dropout,
                 activation="relu",
+                hidden_dim=hidden_dim,
             ),
             output_normalization=torch.nn.LayerNorm(embedding_dim),
         )
