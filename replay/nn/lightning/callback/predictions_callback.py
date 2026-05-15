@@ -2,6 +2,7 @@ import abc
 from typing import Generic, TypeVar
 
 import lightning
+import numpy as np
 import torch
 
 from replay.nn.lightning import LightningModule
@@ -24,6 +25,18 @@ else:
 
 
 _T = TypeVar("_T")
+
+
+def _to_numpy(tensor: torch.Tensor) -> np.ndarray:
+    """Convert a tensor to a NumPy array, casting unsupported dtypes when necessary.
+
+    :param tensor: tensor to convert.
+    :return: NumPy array.
+    """
+    if tensor.dtype == torch.bfloat16:
+        tensor = tensor.to(torch.float32)
+
+    return tensor.cpu().numpy()
 
 
 class TopItemsCallbackBase(lightning.Callback, Generic[_T]):
@@ -134,9 +147,9 @@ class PandasTopItemsCallback(TopItemsCallbackBase[PandasDataFrame]):
     ) -> PandasDataFrame:
         prediction = PandasDataFrame(
             {
-                self.query_column: query_ids.flatten().cpu().numpy(),
-                self.item_column: list(item_ids.cpu().numpy()),
-                self.rating_column: list(item_scores.cpu().numpy()),
+                self.query_column: _to_numpy(query_ids.flatten()),
+                self.item_column: list(_to_numpy(item_ids)),
+                self.rating_column: list(_to_numpy(item_scores)),
             }
         )
         return prediction.explode([self.item_column, self.rating_column])
@@ -155,9 +168,9 @@ class PolarsTopItemsCallback(TopItemsCallbackBase[PolarsDataFrame]):
     ) -> PolarsDataFrame:
         prediction = PolarsDataFrame(
             {
-                self.query_column: query_ids.flatten().cpu().numpy(),
-                self.item_column: list(item_ids.cpu().numpy()),
-                self.rating_column: list(item_scores.cpu().numpy()),
+                self.query_column: _to_numpy(query_ids.flatten()),
+                self.item_column: list(_to_numpy(item_ids)),
+                self.rating_column: list(_to_numpy(item_scores)),
             }
         )
         return prediction.explode([self.item_column, self.rating_column])
@@ -214,9 +227,9 @@ class SparkTopItemsCallback(TopItemsCallbackBase[SparkDataFrame]):
             self.spark_session.createDataFrame(
                 data=list(
                     zip(
-                        query_ids.flatten().cpu().numpy().tolist(),
-                        item_ids.cpu().numpy().tolist(),
-                        item_scores.cpu().numpy().tolist(),
+                        _to_numpy(query_ids.flatten()).tolist(),
+                        _to_numpy(item_ids).tolist(),
+                        _to_numpy(item_scores).tolist(),
                     )
                 ),
                 schema=schema,
