@@ -208,7 +208,7 @@ class SasRec(torch.nn.Module):
         dropout: float = 0.3,
         excluded_features: Optional[list[str]] = None,
         categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
-        hidden_dim: int | None = None,
+        hidden_dim: Optional[int] = None,
     ) -> "SasRec":
         from replay.nn.agg import SumAggregator
         from replay.nn.embedding import SequenceEmbedding

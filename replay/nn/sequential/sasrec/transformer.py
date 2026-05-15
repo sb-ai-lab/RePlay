@@ -1,5 +1,5 @@
 import contextlib
-from typing import Literal
+from typing import Literal, Optional
 
 import torch
 
@@ -22,7 +22,7 @@ class SasRecTransformerLayer(torch.nn.Module):
         num_blocks: int,
         dropout: float,
         activation: Literal["relu", "gelu"] = "gelu",
-        hidden_dim: int | None = None,
+        hidden_dim: Optional[int] = None,
     ) -> None:
         """
         :param embedding_dim: Total dimension of the model. Must be divisible by num_heads.

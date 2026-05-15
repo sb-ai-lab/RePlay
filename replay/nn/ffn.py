@@ -1,5 +1,5 @@
 import contextlib
-from typing import Literal
+from typing import Literal, Optional
 
 import torch
 
@@ -20,7 +20,7 @@ class PointWiseFeedForward(torch.nn.Module):
         embedding_dim: int,
         dropout: float,
         activation: Literal["relu", "gelu"] = "gelu",
-        hidden_dim: int | None = None,
+        hidden_dim: Optional[int] = None,
     ) -> None:
         """
         :param embedding_dim: Dimension of the input features.
