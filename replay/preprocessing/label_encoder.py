@@ -439,6 +439,10 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             msg = "Label encoder is not fitted"
             raise RuntimeError(msg)
 
+        if self._col not in df.columns:
+            msg = f"Column '{self._col}' is not found in the input dataframe. Available columns: {df.columns}."
+            raise KeyError(msg)
+
         default_value = len(self._mapping) if self._default_value == "last" else self._default_value
 
         if isinstance(df, PandasDataFrame):
@@ -490,6 +494,10 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         if self._mapping is None:
             msg = "Label encoder is not fitted"
             raise RuntimeError(msg)
+
+        if self._col not in df.columns:
+            msg = f"Column '{self._col}' is not found in the input dataframe. Available columns: {df.columns}."
+            raise KeyError(msg)
 
         if isinstance(df, PandasDataFrame):
             transformed_df = self._inverse_transform_pandas(df)
