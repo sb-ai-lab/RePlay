@@ -22,6 +22,7 @@ class SasRecTransformerLayer(torch.nn.Module):
         num_blocks: int,
         dropout: float,
         activation: Literal["relu", "gelu"] = "gelu",
+        hidden_dim: int | None = None,
     ) -> None:
         """
         :param embedding_dim: Total dimension of the model. Must be divisible by num_heads.
@@ -30,6 +31,8 @@ class SasRecTransformerLayer(torch.nn.Module):
         :param dropout: probability of an element to be zeroed.
         :param activation: the name of the activation function.
             Default: ``"gelu"``.
+        :param hidden_dim: hidden layer dimension of feed-forward network. If ``None``, uses ``embedding_dim``.
+            Defaults to ``None``.
         """
         super().__init__()
         self.num_blocks = num_blocks
@@ -53,6 +56,7 @@ class SasRecTransformerLayer(torch.nn.Module):
                     embedding_dim=embedding_dim,
                     dropout=dropout,
                     activation=activation,
+                    hidden_dim=hidden_dim,
                 )
                 for _ in range(num_blocks)
             ]
