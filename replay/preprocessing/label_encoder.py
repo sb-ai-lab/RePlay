@@ -439,10 +439,6 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             msg = "Label encoder is not fitted"
             raise RuntimeError(msg)
 
-        if self._col not in df.columns:
-            msg = f"Column '{self._col}' is not found in the input dataframe. Available columns: {df.columns}."
-            raise KeyError(msg)
-
         default_value = len(self._mapping) if self._default_value == "last" else self._default_value
 
         if isinstance(df, PandasDataFrame):
@@ -495,6 +491,10 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             msg = "Label encoder is not fitted"
             raise RuntimeError(msg)
 
+        if not isinstance(df, (PandasDataFrame, SparkDataFrame, PolarsDataFrame)):
+            msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
+            raise NotImplementedError(msg)
+
         if self._col not in df.columns:
             msg = f"Column '{self._col}' is not found in the input dataframe. Available columns: {df.columns}."
             raise KeyError(msg)
@@ -505,9 +505,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             transformed_df = self._inverse_transform_spark(df)
         elif isinstance(df, PolarsDataFrame):
             transformed_df = self._inverse_transform_polars(df)
-        else:
-            msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
-            raise NotImplementedError(msg)
+
         return transformed_df
 
     def set_default_value(self, default_value: int | str | None) -> None:

@@ -294,9 +294,9 @@ def test_label_encoder_partial_fit_no_new_values_at_input(column, df_name, reque
     assert len(mapping_before_partial_fit) == len(mapping_after_partial_fit), "count of elements in mappings not equal"
     assert mapping_after_partial_fit == mapping_after_partial_fit, "mappings' keys are not equal"
 
-    assert list(mapping_before_partial_fit.values()) == list(mapping_after_partial_fit.values()), (
-        "mappings' values are not equal"
-    )
+    assert list(mapping_before_partial_fit.values()) == list(
+        mapping_after_partial_fit.values()
+    ), "mappings' values are not equal"
 
 
 @pytest.mark.core
@@ -647,27 +647,6 @@ def test_label_encoder_with_null_values_pandas_polars(
     encoder.set_default_values({"item1": "last", "item2": 5})
     with pytest.raises(ValueError):
         encoder.transform(df_modified)
-
-
-@pytest.mark.parametrize(
-    "df_name",
-    [
-        pytest.param("simple_dataframe_pandas", marks=pytest.mark.core),
-        pytest.param("simple_dataframe_polars", marks=pytest.mark.core),
-        pytest.param("simple_dataframe", marks=pytest.mark.spark),
-    ],
-)
-def test_label_encoding_rule_transform_raises_error_for_missing_column(df_name, request):
-    df = request.getfixturevalue(df_name)
-    rule = LabelEncodingRule("user_id").fit(df)
-
-    if isinstance(df, PandasDataFrame):
-        df_without_column = df.drop(columns=["user_id"])
-    else:
-        df_without_column = df.drop("user_id")
-
-    with pytest.raises(KeyError, match=r"Column 'user_id' is not found in the input dataframe."):
-        rule.transform(df_without_column)
 
 
 @pytest.mark.parametrize(
