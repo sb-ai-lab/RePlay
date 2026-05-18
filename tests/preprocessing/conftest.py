@@ -34,6 +34,35 @@ def pandas_df_for_labelencoder_new_data():
 
 
 @pytest.fixture(scope="module")
+def pandas_df_for_labelencoder_with_null(pandas_df_for_labelencoder):
+    return pd.concat(
+        [
+            pandas_df_for_labelencoder,
+            pd.DataFrame({"user_id": ["u3"], "item1": [None], "item2": ["item_1"]}),
+        ],
+        ignore_index=True,
+    )
+
+
+@pytest.fixture(scope="module")
+def pandas_df_for_labelencoder_with_null_modified(pandas_df_for_labelencoder_with_null):
+    return pd.concat(
+        [
+            pandas_df_for_labelencoder_with_null,
+            pd.DataFrame({"user_id": ["u4"], "item1": [None], "item2": ["item_2"]}),
+        ],
+        ignore_index=True,
+    )
+
+
+@pytest.fixture(scope="module")
+def pandas_df_for_labelencoder_with_null_and_unknown(pandas_df_for_labelencoder_with_null_modified):
+    df = pandas_df_for_labelencoder_with_null_modified.copy()
+    df.loc[df["user_id"] == "u4", "item1"] = "item_3"
+    return df
+
+
+@pytest.fixture(scope="module")
 def pandas_df_for_grouped_labelencoder_new_data():
     return pd.DataFrame({"user_id": [["u4", "u5"]], "item1": [["item_4", "item_5"]], "item2": [["item_4", "item_5"]]})
 
@@ -76,8 +105,38 @@ def polars_df_for_labelencoder_modified(pandas_df_for_labelencoder_modified):
 
 
 @pytest.fixture(scope="module")
+def polars_df_for_labelencoder_with_null(pandas_df_for_labelencoder_with_null):
+    return pl.from_pandas(pandas_df_for_labelencoder_with_null)
+
+
+@pytest.fixture(scope="module")
+def polars_df_for_labelencoder_with_null_modified(pandas_df_for_labelencoder_with_null_modified):
+    return pl.from_pandas(pandas_df_for_labelencoder_with_null_modified)
+
+
+@pytest.fixture(scope="module")
+def polars_df_for_labelencoder_with_null_and_unknown(pandas_df_for_labelencoder_with_null_and_unknown):
+    return pl.from_pandas(pandas_df_for_labelencoder_with_null_and_unknown)
+
+
+@pytest.fixture(scope="module")
 def spark_df_for_labelencoder_modified(spark, pandas_df_for_labelencoder_modified):
     return spark.createDataFrame(pandas_df_for_labelencoder_modified)
+
+
+@pytest.fixture(scope="module")
+def spark_df_for_labelencoder_with_null(spark, pandas_df_for_labelencoder_with_null):
+    return spark.createDataFrame(pandas_df_for_labelencoder_with_null)
+
+
+@pytest.fixture(scope="module")
+def spark_df_for_labelencoder_with_null_modified(spark, pandas_df_for_labelencoder_with_null_modified):
+    return spark.createDataFrame(pandas_df_for_labelencoder_with_null_modified)
+
+
+@pytest.fixture(scope="module")
+def spark_df_for_labelencoder_with_null_and_unknown(spark, pandas_df_for_labelencoder_with_null_and_unknown):
+    return spark.createDataFrame(pandas_df_for_labelencoder_with_null_and_unknown)
 
 
 @pytest.fixture(scope="module")

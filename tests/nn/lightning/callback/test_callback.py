@@ -37,6 +37,7 @@ from replay.utils.session_handler import get_spark_session
         None,
     ],
 )
+@pytest.mark.parametrize("precision", ["32-true", "bf16-mixed"])
 def test_prediction_callbacks_fast_forward(
     parquet_module,
     tensor_schema,
@@ -44,6 +45,7 @@ def test_prediction_callbacks_fast_forward(
     callback_class,
     is_postprocessor,
     candidates,
+    precision,
 ):
     cardinality = tensor_schema["item_id"].cardinality
 
@@ -66,7 +68,7 @@ def test_prediction_callbacks_fast_forward(
     if candidates is not None:
         model.candidates_to_score = candidates
 
-    trainer = L.Trainer(inference_mode=True, accelerator="cpu", callbacks=[callback])
+    trainer = L.Trainer(inference_mode=True, accelerator="cpu", precision=precision, callbacks=[callback])
     predicted = trainer.predict(model, datamodule=parquet_module)
 
     assert len(predicted) == len(parquet_module.predict_dataloader())

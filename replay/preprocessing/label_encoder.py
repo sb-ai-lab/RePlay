@@ -7,6 +7,7 @@ Contains classes for encoding categorical data
 """
 
 import abc
+import inspect
 import json
 import os
 import warnings
@@ -30,6 +31,14 @@ if PYSPARK_AVAILABLE:
     from replay.utils.session_handler import get_spark_session
 
 HandleUnknownStrategies = Literal["error", "use_default_value", "drop"]
+
+
+# Polars renamed the null-matching join argument from `join_nulls` to `nulls_equal` in 1.24,
+# so it should be resolved the supported keyword dynamically to keep the code compatible across versions.
+def _polars_join_nulls_kwargs() -> dict[str, bool]:
+    join_parameters = inspect.signature(pl.DataFrame.join).parameters
+    param_name = "join_nulls" if "join_nulls" in join_parameters else "nulls_equal"
+    return {param_name: True}
 
 
 class LabelEncoderTransformWarning(Warning):
@@ -185,11 +194,11 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         self._mapping = mapping_on_spark.rdd.collectAsMap()
 
     def _fit_pandas(self, df: PandasDataFrame) -> None:
-        unique_col_values = df[self._col].sort_values().drop_duplicates().reset_index(drop=True)
+        unique_col_values = df[self._col].sort_values(na_position="first").drop_duplicates().reset_index(drop=True)
         self._mapping = {val: key for key, val in unique_col_values.to_dict().items()}
 
     def _fit_polars(self, df: PolarsDataFrame) -> None:
-        unique_col_values = df.sort(self._col).select(self._col).unique()
+        unique_col_values = df.select(self._col).unique().sort(self._col)
         self._mapping = {key: val for val, key in enumerate(unique_col_values.to_series().to_list())}
 
     def fit(self, df: DataFrameLike) -> "LabelEncodingRule":
@@ -255,7 +264,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
     def _partial_fit_pandas(self, df: PandasDataFrame) -> None:
         assert self._mapping is not None
 
-        new_unique_values = set(df[self._col].tolist()) - set(self._mapping)
+        new_unique_values = list(set(df[self._col].tolist()) - set(self._mapping))
         if len(new_unique_values) == 0:
             warnings.warn(
                 "partial_fit will have no effect because "
@@ -263,6 +272,10 @@ class LabelEncodingRule(BaseLabelEncodingRule):
                 LabelEncoderPartialFitWarning,
             )
             return
+
+        # Keep mapping order deterministic, with None ordered before non-null values.
+        new_unique_values.sort(key=lambda x: (x is not None, x))
+
         last_mapping_value = max(self._mapping.values())
         new_data: dict = {value: last_mapping_value + i for i, value in enumerate(new_unique_values, start=1)}
         self._mapping.update(new_data)
@@ -272,7 +285,7 @@ class LabelEncodingRule(BaseLabelEncodingRule):
     def _partial_fit_polars(self, df: PolarsDataFrame) -> None:
         assert self._mapping is not None
 
-        new_unique_values = set(df.select(self._col).unique().to_series().to_list()) - set(self._mapping)
+        new_unique_values = list(set(df.select(self._col).unique().to_series().to_list()) - set(self._mapping))
         if len(new_unique_values) == 0:
             warnings.warn(
                 "partial_fit will have no effect because "
@@ -280,6 +293,10 @@ class LabelEncodingRule(BaseLabelEncodingRule):
                 LabelEncoderPartialFitWarning,
             )
             return
+
+        # Keep mapping order deterministic, with None ordered before non-null values.
+        new_unique_values.sort(key=lambda x: (x is not None, x))
+
         new_data: dict = {value: max(self._mapping.values()) + i for i, value in enumerate(new_unique_values, start=1)}
         self._mapping.update(new_data)
         self._inverse_mapping.update({v: k for k, v in new_data.items()})
@@ -353,8 +370,10 @@ class LabelEncodingRule(BaseLabelEncodingRule):
         mapping_on_spark = get_spark_session().createDataFrame(
             data=list(self.get_mapping().items()), schema=[self._col, self._target_col]
         )
-        transformed_df = df.join(mapping_on_spark, on=self._col, how="left").withColumn(
-            "unknown_mask", sf.isnull(self._target_col)
+        transformed_df = (
+            df.join(mapping_on_spark, on=df[self._col].eqNullSafe(mapping_on_spark[self._col]), how="left")
+            .drop(mapping_on_spark[self._col])
+            .withColumn("unknown_mask", sf.isnull(self._target_col))
         )
         unknown_label_count = transformed_df.select(sf.sum(sf.col("unknown_mask").cast("long"))).first()[0]
         if unknown_label_count > 0:
@@ -384,9 +403,10 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             schema=[self._col, self._target_col],
         )
         mapping_on_polars = mapping_on_polars.with_columns(pl.col(self._col).cast(df.get_column(self._col).dtype))
-        transformed_df = df.join(mapping_on_polars, on=self._col, how="left").with_columns(
-            pl.col(self._target_col).is_null().alias("unknown_mask")
-        )
+        transformed_df = df.join(
+            mapping_on_polars, on=self._col, how="left", coalesce=True, **_polars_join_nulls_kwargs()
+        ).with_columns(pl.col(self._target_col).is_null().alias("unknown_mask"))
+
         unknown_df = transformed_df.filter(pl.col("unknown_mask"))
         if not unknown_df.is_empty():
             if self._handle_unknown == "drop":
@@ -471,15 +491,21 @@ class LabelEncodingRule(BaseLabelEncodingRule):
             msg = "Label encoder is not fitted"
             raise RuntimeError(msg)
 
+        if not isinstance(df, (PandasDataFrame, SparkDataFrame, PolarsDataFrame)):
+            msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
+            raise NotImplementedError(msg)
+
+        if self._col not in df.columns:
+            msg = f"Column '{self._col}' is not found in the input dataframe. Available columns: {df.columns}."
+            raise KeyError(msg)
+
         if isinstance(df, PandasDataFrame):
             transformed_df = self._inverse_transform_pandas(df)
         elif isinstance(df, SparkDataFrame):
             transformed_df = self._inverse_transform_spark(df)
         elif isinstance(df, PolarsDataFrame):
             transformed_df = self._inverse_transform_polars(df)
-        else:
-            msg = f"{self.__class__.__name__} is not implemented for {type(df)}"
-            raise NotImplementedError(msg)
+
         return transformed_df
 
     def set_default_value(self, default_value: Optional[Union[int, str]]) -> None:

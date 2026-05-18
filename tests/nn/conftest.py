@@ -384,27 +384,34 @@ def parquet_module_with_multiple_val_paths(
 
 
 @pytest.fixture
-def item_features_reader(request, tensor_schema, item_features_path):
-    item_tower_names = getattr(request, "param", tensor_schema.names)
+def create_item_features_reader(tensor_schema, item_features_path):
+    def _create(item_tower_names):
+        metadata = {
+            "item_id": {},
+            "num_feature": {},
+            "cat_list_feature": {"shape": 3, "padding": tensor_schema["cat_list_feature"].padding_value},
+            "num_list_feature": {
+                "shape": tensor_schema["num_list_feature"].tensor_dim,
+                "padding": tensor_schema["num_list_feature"].padding_value,
+            },
+            "emb_list_feature": {
+                "shape": tensor_schema["emb_list_feature"].tensor_dim,
+                "padding": tensor_schema["emb_list_feature"].padding_value,
+            },
+        }
+        return FeaturesReader(
+            schema=tensor_schema,
+            path=item_features_path,
+            metadata={k: v for k, v in metadata.items() if k in item_tower_names},
+        )
 
-    metadata = {
-        "item_id": {},
-        "num_feature": {},
-        "cat_list_feature": {"shape": 3, "padding": tensor_schema["cat_list_feature"].padding_value},
-        "num_list_feature": {
-            "shape": tensor_schema["num_list_feature"].tensor_dim,
-            "padding": tensor_schema["num_list_feature"].padding_value,
-        },
-        "emb_list_feature": {
-            "shape": tensor_schema["emb_list_feature"].tensor_dim,
-            "padding": tensor_schema["emb_list_feature"].padding_value,
-        },
-    }
-    return FeaturesReader(
-        schema=tensor_schema.subset(item_tower_names),
-        path=item_features_path,
-        metadata={k: v for k, v in metadata.items() if k in item_tower_names},
-    )
+    return _create
+
+
+@pytest.fixture
+def item_features_reader(request, tensor_schema, create_item_features_reader):
+    item_tower_names = getattr(request, "param", tensor_schema.names)
+    return create_item_features_reader(item_tower_names)
 
 
 @pytest.fixture(scope="module")
