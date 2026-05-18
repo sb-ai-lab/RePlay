@@ -544,6 +544,7 @@ class TwoTower(torch.nn.Module):
         dropout: float = 0.3,
         excluded_features: Optional[list[str]] = None,
         categorical_list_feature_aggregation_method: str = "sum",
+        hidden_dim: int | None = None,
     ) -> "TwoTower":
         """
         Class method for fast creating an instance of TwoTower with typical types
@@ -573,6 +574,8 @@ class TwoTower(torch.nn.Module):
         :param categorical_list_feature_aggregation_method: Mode to aggregate tokens
             in token item representation (categorical list only).
             Default: ``"sum"``.
+        :param hidden_dim: hidden layer dimension of feed-forward network. If ``None``, uses ``embedding_dim``.
+            Defaults to ``None``.
         :return: an instance of TwoTower class.
         """
         from replay.nn.agg import SumAggregator
@@ -617,6 +620,7 @@ class TwoTower(torch.nn.Module):
                     num_blocks=num_blocks,
                     dropout=dropout,
                     activation="relu",
+                    hidden_dim=hidden_dim,
                 ),
                 query_tower_output_normalization=torch.nn.LayerNorm(embedding_dim),
                 item_encoder=SwiGLUEncoder(embedding_dim=embedding_dim, hidden_dim=2 * embedding_dim),

@@ -210,6 +210,30 @@ class SasRec(torch.nn.Module):
         categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
         hidden_dim: Optional[int] = None,
     ) -> "SasRec":
+        """
+        A class method for fast creation of the SasRec instance.\n
+        The model has the standard SasRec transformer layers and the Cross-Entropy loss.\n
+        Embeddings of every feature are aggregated via sum.
+
+        To create an instance of SasRec with other types of blocks, please use the class constructor.
+
+        :param schema: a tensor schema object with meta information on features.
+        :param embedding_dim: model embeddings dimension. Default: ``192``.
+        :param num_heads: number of heads in a transformer layer. Default: ``4``.
+        :param num_blocks: number of blocks in a transformer layer. Default: ``2``.
+        :param max_sequence_length: maximun length of a sequence. Default: ``50``.
+        :param dropout: a dropout value. Default: ``0.3``
+        :param excluded_features: A list containing the names of features
+            for which you do not need to generate an embedding.
+            Fragments from this list are expected to be contained in ``schema``.
+            Default: ``None``.
+        :param categorical_list_feature_aggregation_method: Mode to aggregate tokens
+            in token item representation (categorical list only).
+            Default: ``"sum"``.
+        :param hidden_dim: hidden layer dimension of feed-forward network. If ``None``, uses ``embedding_dim``.
+            Defaults to ``None``.
+        :return: an instance of SasRec class.
+        """
         from replay.nn.agg import SumAggregator
         from replay.nn.embedding import SequenceEmbedding
         from replay.nn.loss import CE
