@@ -544,7 +544,7 @@ class TwoTower(torch.nn.Module):
         dropout: float = 0.3,
         excluded_features: Optional[list[str]] = None,
         categorical_list_feature_aggregation_method: str = "sum",
-        hidden_dim: int | None = None,
+        hidden_dim: Optional[int] = None,
     ) -> "TwoTower":
         """
         Class method for fast creating an instance of TwoTower with typical types
