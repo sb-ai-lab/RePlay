@@ -215,7 +215,7 @@ class SasRec(torch.nn.Module):
         The model has the standard SasRec transformer layers and the Cross-Entropy loss.\n
         Embeddings of every feature are aggregated via sum.
 
-        To create an instance of TwoTower with other types of blocks, please use the class constructor.
+        To create an instance of SasRec with other types of blocks, please use the class constructor.
 
         :param schema: a tensor schema object with meta information on features.
         :param embedding_dim: model embeddings dimension. Default: ``192``.
