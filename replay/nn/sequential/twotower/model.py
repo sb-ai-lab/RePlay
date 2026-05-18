@@ -131,6 +131,8 @@ class ItemTower(torch.nn.Module):
     **Note**: ItemTower loads feature tensors of all items into memory.
     """
 
+    FEATURE_BUFFER_PREFIX = "item_reference_"
+
     def __init__(
         self,
         schema: TensorSchema,
@@ -164,18 +166,131 @@ class ItemTower(torch.nn.Module):
         for feature_name in schema:
             if feature_name not in self.feature_names:
                 continue
+            self.register_buffer(
+                f"{self.FEATURE_BUFFER_PREFIX}{feature_name}", item_features_reader[feature_name], persistent=True
+            )
 
-            self.register_buffer(f"item_reference_{feature_name}", item_features_reader[feature_name])
+        self.register_buffer("cache", None, persistent=True)
 
-        self.cache = None
+    def _load_from_state_dict(
+        self,
+        state_dict: dict[str, torch.Tensor],
+        prefix: str,
+        local_metadata: dict[str, object],
+        strict: bool,
+        missing_keys: list[str],
+        unexpected_keys: list[str],
+        error_msgs: list[str],
+    ):
+        cache_key = f"{prefix}cache"
+        cache = state_dict.pop(cache_key, None)
+        super()._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+        )
+        if cache is not None:
+            assert cache.shape[0] == self._get_any_feature_buffer().shape[0]
+            assert cache.shape[1] == self.embedding_aggregator.embedding_dim
+            self.cache = cache
+
+    @classmethod
+    def from_item_features(
+        cls,
+        item_features: dict[str, torch.Tensor],
+        embedder: EmbedderProto,
+        embedding_aggregator: AggregatorProto,
+        encoder: ItemEncoderProto,
+    ) -> "ItemTower":
+        """
+        Build :class:`ItemTower` from preloaded item feature tensors.
+        Unlike the constructor, this method does not use a reader object
+        and therefore skips the reader's internal input-processing logic.
+        It expects the already processed result in the `item_features` argument.`
+
+        :param item_features: Mapping from feature name to a tensor with values for all items.
+            Every tensor is registered as a persistent :attr:`FEATURE_BUFFER_PREFIX` buffer.
+        :param embedder: An object of a class that performs the logic of
+            generating embeddings from input data.
+        :param embedding_aggregator: An object of a class that performs
+            the logic of aggregating multiple embeddings.
+        :param encoder: An object of a class that performs the logic of generating
+            an item hidden embedding representation based for
+            the features got from ``item_features_reader``.
+        :returns: Initialized :class:`ItemTower` instance with item reference buffers and empty cache.
+        """
+        model = cls.__new__(cls)
+        torch.nn.Module.__init__(model)
+
+        model.embedder = embedder
+        model.feature_names = list(item_features)
+        model.embedding_aggregator = embedding_aggregator
+        model.encoder = encoder
+
+        for feature_name, feature_tensor in item_features.items():
+            model.register_buffer(f"{cls.FEATURE_BUFFER_PREFIX}{feature_name}", feature_tensor, persistent=True)
+
+        model.register_buffer("cache", None, persistent=True)
+        return model
+
+    @classmethod
+    def from_checkpoint(
+        cls,
+        state_dict: dict[str, torch.Tensor],
+        embedder: EmbedderProto,
+        embedding_aggregator: AggregatorProto,
+        encoder: ItemEncoderProto,
+        **kwargs,
+    ) -> "ItemTower":
+        """
+        Restore :class:`ItemTower` from checkpoint state dictionary.
+
+        The method infers required item reference buffers from :attr:`FEATURE_BUFFER_PREFIX*` entries
+        in ``state_dict``, creates a new :class:`ItemTower` instance, and loads parameters
+        and buffers via :meth:`torch.nn.Module.load_state_dict`.
+
+        A checkpoint can also be loaded in the standard way by constructing :class:`ItemTower` via the constructor
+        and then calling :meth:`torch.nn.Module.load_state_dict`.
+        This method is a convenience wrapper that avoids explicit creation of a feature reader instance.
+
+        :param state_dict: A checkpoint state dictionary containing module parameters and buffers.
+        :param embedder: An object of a class used to embed item feature tensors.
+            Must match to the ``state_dict`` embedder.
+        :param embedding_aggregator: An object of a class used to aggregate per-feature embeddings.
+            Must match to the ``state_dict`` embedding_aggregator.
+        :param encoder: An object of a class used to encode aggregated item embeddings.
+            Must match to the ``state_dict`` encoder.
+        :param kwargs: Additional keyword arguments forwarded to
+            :meth:`torch.nn.Module.load_state_dict` (for example, ``strict``).
+        :returns: Restored :class:`ItemTower` instance.
+        """
+        item_features = {
+            key.removeprefix(cls.FEATURE_BUFFER_PREFIX): value
+            for key, value in state_dict.items()
+            if key.startswith(cls.FEATURE_BUFFER_PREFIX)
+        }
+        if not item_features:
+            msg = f"Checkpoint does not contain {cls.FEATURE_BUFFER_PREFIX=} buffers."
+            raise ValueError(msg)
+
+        model = cls.from_item_features(
+            item_features=item_features,
+            embedder=embedder,
+            embedding_aggregator=embedding_aggregator,
+            encoder=encoder,
+        )
+        model.load_state_dict(state_dict, **kwargs)
+        return model
 
     def reset_parameters(self) -> None:
         self.embedding_aggregator.reset_parameters()
         self.encoder.reset_parameters()
 
     def get_feature_buffer(self, feature_name: str) -> torch.Tensor:
-        buffer_name = f"item_reference_{feature_name}"
+        buffer_name = f"{self.FEATURE_BUFFER_PREFIX}{feature_name}"
         return self.get_buffer(buffer_name)
+
+    def _get_any_feature_buffer(self) -> torch.Tensor:
+        feature_name = next(iter(self.feature_names))
+        return self.get_feature_buffer(feature_name)
 
     def forward(
         self,
@@ -325,66 +440,72 @@ class TwoTower(torch.nn.Module):
 
     .. code-block:: python
 
-        from replay.data import FeatureHint, FeatureSource, FeatureType
-        from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
-        from replay.nn.agg import SumAggregator
-        from replay.nn.embedding import SequenceEmbedding
-        from replay.nn.ffn import SwiGLUEncoder
-        from replay.nn.mask import DefaultAttentionMask
-        from replay.nn.loss import CESampled
-        from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
-        from replay.nn.sequential.twotower import FeaturesReader
-
-        tensor_schema = TensorSchema(
-            [
-                TensorFeatureInfo(
-                    "item_id",
-                    is_seq=True,
-                    feature_type=FeatureType.CATEGORICAL,
-                    embedding_dim=256,
-                    padding_value=NUM_UNIQUE_ITEMS,
-                    cardinality=NUM_UNIQUE_ITEMS,
-                    feature_hint=FeatureHint.ITEM_ID,
-                    feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")]
-                ),
-            ]
-        )
-
-        common_aggregator = SumAggregator(embedding_dim=256)
-
-        body = TwoTowerBody(
-            schema=tensor_schema,
-            embedder=SequenceEmbedding(schema=tensor_schema),
-            attn_mask_builder=DefaultAttentionMask(
-                reference_feature_name=tensor_schema.item_id_feature_name,
-                num_heads=2,
-            ),
-            query_tower_feature_names=tensor_schema.names,
-            query_embedding_aggregator=PositionAwareAggregator(
-                embedding_aggregator=common_aggregator,
-                max_sequence_length=100,
-                dropout=0.2,
-            ),
-            item_embedding_aggregator=common_aggregator,
-            query_encoder=SasRecTransformerLayer(
-               embedding_dim=256,
-               num_heads=2,
-               num_blocks=2,
-               dropout=0.3,
-               activation="relu",
-            ),
-            query_tower_output_normalization=torch.nn.LayerNorm(256),
-            item_encoder=SwiGLUEncoder(embedding_dim=256, hidden_dim=2*256),
-            item_features_reader=FeaturesReader(
-                schema=tensor_schema,
-                metadata={"item_id": {}},
-                path="item_features.parquet",
-            ),
-        )
-        twotower = TwoTower(
-            body=body,
-            loss=CESampled(ignore_index=tensor_schema["item_id"].padding_value),
-        )
+        >>> import pandas as pd
+        >>> from replay.data import FeatureHint, FeatureSource, FeatureType
+        >>> from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
+        >>> from replay.nn.agg import SumAggregator
+        >>> from replay.nn.embedding import SequenceEmbedding
+        >>> from replay.nn.ffn import SwiGLUEncoder
+        >>> from replay.nn.mask import DefaultAttentionMask
+        >>> from replay.nn.loss import CESampled
+        >>> from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
+        >>> from replay.nn.sequential.twotower import FeaturesReader, TwoTowerBody, TwoTower
+        ...
+        >>> NUM_UNIQUE_ITEMS = 200 # number of unique item_id in the item catalog
+        >>> tensor_schema = TensorSchema(
+        ...     [
+        ...         TensorFeatureInfo(
+        ...             "item_id",
+        ...             is_seq=True,
+        ...             feature_type=FeatureType.CATEGORICAL,
+        ...             embedding_dim=256,
+        ...             padding_value=NUM_UNIQUE_ITEMS,
+        ...             cardinality=NUM_UNIQUE_ITEMS,
+        ...             feature_hint=FeatureHint.ITEM_ID,
+        ...             feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")]
+        ...         ),
+        ...     ]
+        ... )
+        >>> # encoded item features including item_id
+        >>> ITEM_FEATURES_PATH = "item_catalog_encoded.parquet"
+        >>> item_catalog_encoded = pd.DataFrame({"item_id": [i for i in range(NUM_UNIQUE_ITEMS)]})
+        >>> item_catalog_encoded.to_parquet(ITEM_FEATURES_PATH)
+        ...
+        >>> common_aggregator = SumAggregator(embedding_dim=256)
+        ...
+        >>> body = TwoTowerBody(
+        ...     schema=tensor_schema,
+        ...     embedder=SequenceEmbedding(schema=tensor_schema),
+        ...     attn_mask_builder=DefaultAttentionMask(
+        ...         reference_feature_name=tensor_schema.item_id_feature_name,
+        ...         num_heads=2,
+        ...     ),
+        ...     query_tower_feature_names=tensor_schema.names,
+        ...     query_embedding_aggregator=PositionAwareAggregator(
+        ...         embedding_aggregator=common_aggregator,
+        ...         max_sequence_length=100,
+        ...         dropout=0.2,
+        ...     ),
+        ...     item_embedding_aggregator=common_aggregator,
+        ...     query_encoder=SasRecTransformerLayer(
+        ...        embedding_dim=256,
+        ...        num_heads=2,
+        ...        num_blocks=2,
+        ...        dropout=0.3,
+        ...        activation="relu",
+        ...     ),
+        ...     query_tower_output_normalization=torch.nn.LayerNorm(256),
+        ...     item_encoder=SwiGLUEncoder(embedding_dim=256, hidden_dim=2*256),
+        ...     item_features_reader=FeaturesReader(
+        ...         schema=tensor_schema,
+        ...         metadata={"item_id": {}},
+        ...         path=ITEM_FEATURES_PATH,
+        ...     ),
+        ... )
+        >>> twotower = TwoTower(
+        ...     body=body,
+        ...     loss=CESampled(ignore_index=tensor_schema[tensor_schema.item_id_feature_name].padding_value),
+        ... )
 
     """
 
@@ -423,6 +544,7 @@ class TwoTower(torch.nn.Module):
         dropout: float = 0.3,
         excluded_features: Optional[list[str]] = None,
         categorical_list_feature_aggregation_method: str = "sum",
+        hidden_dim: Optional[int] = None,
     ) -> "TwoTower":
         """
         Class method for fast creating an instance of TwoTower with typical types
@@ -452,6 +574,8 @@ class TwoTower(torch.nn.Module):
         :param categorical_list_feature_aggregation_method: Mode to aggregate tokens
             in token item representation (categorical list only).
             Default: ``"sum"``.
+        :param hidden_dim: hidden layer dimension of feed-forward network. If ``None``, uses ``embedding_dim``.
+            Defaults to ``None``.
         :return: an instance of TwoTower class.
         """
         from replay.nn.agg import SumAggregator
@@ -496,6 +620,7 @@ class TwoTower(torch.nn.Module):
                     num_blocks=num_blocks,
                     dropout=dropout,
                     activation="relu",
+                    hidden_dim=hidden_dim,
                 ),
                 query_tower_output_normalization=torch.nn.LayerNorm(embedding_dim),
                 item_encoder=SwiGLUEncoder(embedding_dim=embedding_dim, hidden_dim=2 * embedding_dim),

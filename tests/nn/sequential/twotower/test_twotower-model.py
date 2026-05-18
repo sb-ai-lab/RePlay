@@ -9,7 +9,7 @@ from replay.nn.ffn import SwiGLUEncoder
 from replay.nn.mask import DefaultAttentionMask
 from replay.nn.output import InferenceOutput, TrainOutput
 from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
-from replay.nn.sequential.twotower import TwoTowerBody
+from replay.nn.sequential.twotower import ItemTower, TwoTowerBody
 
 
 def test_query_tower_forward(twotower_model, sequential_sample):
@@ -29,6 +29,53 @@ def test_item_tower_forward(tensor_schema_with_equal_embedding_dims, twotower_mo
     else:
         num_items = tensor_schema_with_equal_embedding_dims["item_id"].cardinality
     assert output.shape == (num_items, tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim)
+
+
+def test_item_tower_from_checkpoint(create_twotower_model, tmp_path):
+    source_model = create_twotower_model()
+    source_item_tower = source_model.body.item_tower
+    source_item_tower.eval()
+    source_item_tower()
+
+    checkpoint_path = tmp_path / "item_tower.ckpt"
+    torch.save(source_item_tower.state_dict(), checkpoint_path)
+
+    target_model = create_twotower_model()
+    loaded_item_tower = ItemTower.from_checkpoint(
+        state_dict=torch.load(checkpoint_path),
+        embedder=target_model.body.embedder,
+        embedding_aggregator=target_model.body.item_tower.embedding_aggregator,
+        encoder=target_model.body.item_tower.encoder,
+    )
+    loaded_item_tower.eval()
+
+    expected_state_dict = source_item_tower.state_dict()
+    actual_state_dict = loaded_item_tower.state_dict()
+
+    assert "cache" in actual_state_dict.keys()
+    assert expected_state_dict.keys() == actual_state_dict.keys()
+    for key in expected_state_dict:
+        torch.testing.assert_close(actual_state_dict[key], expected_state_dict[key])
+
+
+def test_item_tower_from_checkpoint_without_item_references_raises_error(create_twotower_model, tmp_path):
+    source_model = create_twotower_model()
+    checkpoint_path = tmp_path / "item_tower_without_item_references.ckpt"
+    torch.save(source_model.body.item_tower.state_dict(), checkpoint_path)
+
+    state_dict = torch.load(checkpoint_path)
+    state_dict_without_item_references = {
+        key: value for key, value in state_dict.items() if not key.startswith("item_reference_")
+    }
+
+    target_model = create_twotower_model()
+    with pytest.raises(ValueError):
+        ItemTower.from_checkpoint(
+            state_dict=state_dict_without_item_references,
+            embedder=target_model.body.embedder,
+            embedding_aggregator=target_model.body.item_tower.embedding_aggregator,
+            encoder=target_model.body.item_tower.encoder,
+        )
 
 
 @pytest.mark.parametrize(

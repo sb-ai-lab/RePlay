@@ -125,55 +125,57 @@ class SasRec(torch.nn.Module):
 
     .. code-block:: python
 
-        from replay.data import FeatureHint, FeatureSource, FeatureType
-        from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
-        from replay.nn.agg import SumAggregator
-        from replay.nn.embedding import SequenceEmbedding
-        from replay.nn.mask import DefaultAttentionMask
-        from replay.nn.loss import CESampled
-        from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
-
-        tensor_schema = TensorSchema(
-            [
-                TensorFeatureInfo(
-                    "item_id",
-                    is_seq=True,
-                    feature_type=FeatureType.CATEGORICAL,
-                    embedding_dim=256,
-                    padding_value=NUM_UNIQUE_ITEMS,
-                    cardinality=NUM_UNIQUE_ITEMS,
-                    feature_hint=FeatureHint.ITEM_ID,
-                    feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")]
-                ),
-            ]
-        )
-
-        body = SasRecBody(
-            embedder=SequenceEmbedding(
-                schema=tensor_schema,
-            ),
-            embedding_aggregator=PositionAwareAggregator(
-                embedding_aggregator=SumAggregator(embedding_dim=256),
-                max_sequence_length=100,
-                dropout=0.2,
-            ),
-            attn_mask_builder=DefaultAttentionMask(
-                reference_feature_name=tensor_schema.item_id_feature_name,
-                num_heads=2,
-            ),
-            encoder=SasRecTransformerLayer(
-                embedding_dim=256,
-                num_heads=2,
-                num_blocks=2,
-                dropout=0.3,
-                activation="relu",
-            ),
-            output_normalization=torch.nn.LayerNorm(256),
-        )
-        sasrec = SasRec(
-            body=body,
-            loss=CESampled(padding_idx=tensor_schema.item_id_features.item().padding_value)
-        )
+        >>> from replay.data import FeatureHint, FeatureSource, FeatureType
+        >>> from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
+        >>> from replay.nn.agg import SumAggregator
+        >>> from replay.nn.embedding import SequenceEmbedding
+        >>> from replay.nn.mask import DefaultAttentionMask
+        >>> from replay.nn.loss import CESampled
+        >>> from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer, SasRecBody, SasRec
+        ...
+        >>> NUM_UNIQUE_ITEMS = 200 # number of unique item_id in the item catalog
+        >>> tensor_schema = TensorSchema(
+        ...     [
+        ...         TensorFeatureInfo(
+        ...             "item_id",
+        ...             is_seq=True,
+        ...             feature_type=FeatureType.CATEGORICAL,
+        ...             embedding_dim=256,
+        ...             padding_value=NUM_UNIQUE_ITEMS,
+        ...             cardinality=NUM_UNIQUE_ITEMS,
+        ...             feature_hint=FeatureHint.ITEM_ID,
+        ...             feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")]
+        ...         ),
+        ...     ]
+        ... )
+        ...
+        >>> body = SasRecBody(
+        ...    embedder=SequenceEmbedding(
+        ...        schema=tensor_schema,
+        ...    ),
+        ...    embedding_aggregator=PositionAwareAggregator(
+        ...        embedding_aggregator=SumAggregator(embedding_dim=256),
+        ...        max_sequence_length=100,
+        ...        dropout=0.2,
+        ...    ),
+        ...    attn_mask_builder=DefaultAttentionMask(
+        ...        reference_feature_name=tensor_schema.item_id_feature_name,
+        ...        num_heads=2,
+        ...    ),
+        ...    encoder=SasRecTransformerLayer(
+        ...        embedding_dim=256,
+        ...        num_heads=2,
+        ...        num_blocks=2,
+        ...        dropout=0.3,
+        ...        activation="relu",
+        ...        hidden_dim=1024,
+        ...    ),
+        ...    output_normalization=torch.nn.LayerNorm(256),
+        ... )
+        >>> sasrec = SasRec(
+        ...     body=body,
+        ...     loss=CESampled(ignore_index=tensor_schema[tensor_schema.item_id_feature_name].padding_value),
+        ... )
 
     """
 
@@ -206,7 +208,32 @@ class SasRec(torch.nn.Module):
         dropout: float = 0.3,
         excluded_features: Optional[list[str]] = None,
         categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
+        hidden_dim: Optional[int] = None,
     ) -> "SasRec":
+        """
+        A class method for fast creation of the SasRec instance.\n
+        The model has the standard SasRec transformer layers and the Cross-Entropy loss.\n
+        Embeddings of every feature are aggregated via sum.
+
+        To create an instance of SasRec with other types of blocks, please use the class constructor.
+
+        :param schema: a tensor schema object with meta information on features.
+        :param embedding_dim: model embeddings dimension. Default: ``192``.
+        :param num_heads: number of heads in a transformer layer. Default: ``4``.
+        :param num_blocks: number of blocks in a transformer layer. Default: ``2``.
+        :param max_sequence_length: maximun length of a sequence. Default: ``50``.
+        :param dropout: a dropout value. Default: ``0.3``
+        :param excluded_features: A list containing the names of features
+            for which you do not need to generate an embedding.
+            Fragments from this list are expected to be contained in ``schema``.
+            Default: ``None``.
+        :param categorical_list_feature_aggregation_method: Mode to aggregate tokens
+            in token item representation (categorical list only).
+            Default: ``"sum"``.
+        :param hidden_dim: hidden layer dimension of feed-forward network. If ``None``, uses ``embedding_dim``.
+            Defaults to ``None``.
+        :return: an instance of SasRec class.
+        """
         from replay.nn.agg import SumAggregator
         from replay.nn.embedding import SequenceEmbedding
         from replay.nn.loss import CE
@@ -243,6 +270,7 @@ class SasRec(torch.nn.Module):
                 num_blocks=num_blocks,
                 dropout=dropout,
                 activation="relu",
+                hidden_dim=hidden_dim,
             ),
             output_normalization=torch.nn.LayerNorm(embedding_dim),
         )
