@@ -138,7 +138,7 @@ ruff:
   tags:
     - ${RUNNER}
 
-black:
+ruff-format:
   stage: code_quality
   variables:
     WRAPPER_EXTRAS: --only dev
@@ -146,7 +146,7 @@ black:
     - *wrapper_install
   script:
     - *activate_poetry
-    - poetry run black . --check --diff
+    - poetry run ruff format . --check --diff
   tags:
     - ${RUNNER}
 
@@ -229,7 +229,7 @@ sphinx-job:
   stage: docs_quality
   needs:
     - ruff
-    - black
+    - ruff-format
     - toml-sort
     - poetry-check
   variables:
@@ -278,7 +278,7 @@ sphinx-job:
     - ${RUNNER}
   needs:
     - ruff
-    - black
+    - ruff-format
     - toml-sort
     - poetry-check
   before_script:

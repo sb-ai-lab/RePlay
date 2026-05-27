@@ -21,13 +21,14 @@ from replay.utils import (
     PolarsDataFrame,
     SparkDataFrame,
 )
-from replay.utils.session_handler import get_spark_session
 
 from .schema import FeatureHint, FeatureInfo, FeatureSchema, FeatureSource, FeatureType
 
 if PYSPARK_AVAILABLE:
     import pyspark.sql.functions as sf
     from pyspark.storagelevel import StorageLevel
+
+    from replay.utils.session_handler import get_spark_session
 
 
 class Dataset:

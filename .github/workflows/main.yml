@@ -27,8 +27,8 @@ jobs:
           poetry cache clear PyPI --all
       - name: ruff
         run: poetry run ruff check .
-      - name: black
-        run: poetry run black . --check --diff
+      - name: ruff-format
+        run: poetry run ruff format . --check --diff
       - name: poetry-check
         run: |
           ./poetry_wrapper.sh check
