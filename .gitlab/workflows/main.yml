@@ -430,8 +430,6 @@ pytest-experimental:
   # cache:
   #   <<: *global_cache
   #   key: ${CI_COMMIT_REF_SLUG}_${py_version}
-  variables: 
-    WRAPPER_EXTRAS: --only dev
   before_script:
     - *wrapper_install
   script:
@@ -463,6 +461,7 @@ merge-coverage-py310:
   <<: *merge-coverage-template
   variables:
     py_version: py310
+    WRAPPER_EXTRAS: --only tests
   needs:
     - "pytest-core: [py310]"
     - "pytest-conditional: [py310]"
@@ -476,6 +475,7 @@ merge-coverage-py311:
   <<: *merge-coverage-template
   variables:
     py_version: py311
+    WRAPPER_EXTRAS: --only tests
   needs:
     - "pytest-core: [py311]"
     - "pytest-conditional: [py311]"
@@ -489,6 +489,7 @@ merge-coverage-py312:
   <<: *merge-coverage-template
   variables:
     py_version: py312
+    WRAPPER_EXTRAS: --only tests
   needs:
     - "pytest-core: [py312]"
     - "pytest-conditional: [py312]"
@@ -502,6 +503,7 @@ merge-coverage-py313:
   <<: *merge-coverage-template
   variables:
     py_version: py313
+    WRAPPER_EXTRAS: --only tests
   needs:
     - "pytest-core: [py313]"
     - "pytest-conditional: [py313]"
@@ -515,6 +517,7 @@ merge-coverage-py314:
   <<: *merge-coverage-template
   variables:
     py_version: py314
+    WRAPPER_EXTRAS: --only tests
   needs:
     - "pytest-core: [py314]"
     - "pytest-conditional: [py314]"
