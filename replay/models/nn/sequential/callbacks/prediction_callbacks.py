@@ -66,7 +66,9 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
         self._item_scores: list[torch.Tensor] = []
 
     def on_predict_epoch_start(
-        self, trainer: lightning.Trainer, pl_module: lightning.LightningModule  # noqa: ARG002
+        self,
+        trainer: lightning.Trainer,
+        pl_module: lightning.LightningModule,  # noqa: ARG002
     ) -> None:
         self._query_batches.clear()
         self._item_batches.clear()
@@ -124,8 +126,7 @@ class BasePredictionCallback(lightning.Callback, Generic[_T]):
 
 
 @deprecated(
-    "`PandasPredictionCallback` class is deprecated. "
-    "Use `replay.nn.lightning.callback.PandasTopItemsCallback` instead."
+    "`PandasPredictionCallback` class is deprecated. Use `replay.nn.lightning.callback.PandasTopItemsCallback` instead."
 )
 class PandasPredictionCallback(BasePredictionCallback[PandasDataFrame]):
     """
@@ -149,8 +150,7 @@ class PandasPredictionCallback(BasePredictionCallback[PandasDataFrame]):
 
 
 @deprecated(
-    "`PolarsPredictionCallback` class is deprecated. "
-    "Use `replay.nn.lightning.callback.PolarsTopItemsCallback` instead."
+    "`PolarsPredictionCallback` class is deprecated. Use `replay.nn.lightning.callback.PolarsTopItemsCallback` instead."
 )
 class PolarsPredictionCallback(BasePredictionCallback[PolarsDataFrame]):
     """
@@ -174,8 +174,7 @@ class PolarsPredictionCallback(BasePredictionCallback[PolarsDataFrame]):
 
 
 @deprecated(
-    "`SparkPredictionCallback` class is deprecated. "
-    "Use `replay.nn.lightning.callback.SparkTopItemsCallback` instead."
+    "`SparkPredictionCallback` class is deprecated. Use `replay.nn.lightning.callback.SparkTopItemsCallback` instead."
 )
 class SparkPredictionCallback(BasePredictionCallback[SparkDataFrame]):
     """
@@ -237,8 +236,7 @@ class SparkPredictionCallback(BasePredictionCallback[SparkDataFrame]):
 
 
 @deprecated(
-    "`TorchPredictionCallback` class is deprecated. "
-    "Use `replay.nn.lightning.callback.TorchTopItemsCallback` instead."
+    "`TorchPredictionCallback` class is deprecated. Use `replay.nn.lightning.callback.TorchTopItemsCallback` instead."
 )
 class TorchPredictionCallback(BasePredictionCallback[tuple[torch.LongTensor, torch.LongTensor, torch.Tensor]]):
     """
@@ -288,7 +286,9 @@ class QueryEmbeddingsPredictionCallback(lightning.Callback):
         self._embeddings_per_batch: list[torch.Tensor] = []
 
     def on_predict_epoch_start(
-        self, trainer: lightning.Trainer, pl_module: lightning.LightningModule  # noqa: ARG002
+        self,
+        trainer: lightning.Trainer,
+        pl_module: lightning.LightningModule,  # noqa: ARG002
     ) -> None:
         self._embeddings_per_batch.clear()
 

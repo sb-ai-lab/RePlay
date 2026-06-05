@@ -174,9 +174,7 @@ def test_metric_calc_with_gt_users(quality_metrics, recs, true):
             true,
             1,
             ground_truth_users=true.select("user_idx").distinct(),
-        ) == metric(
-            recs, true, 1
-        ), str(metric)
+        ) == metric(recs, true, 1), str(metric)
 
 
 @pytest.mark.experimental

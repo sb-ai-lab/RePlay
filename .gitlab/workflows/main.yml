@@ -129,31 +129,20 @@ stages:
 ruff:
   stage: code_quality
   variables:
-    WRAPPER_EXTRAS: --only dev
+    WRAPPER_EXTRAS: --only style
   before_script:
     - *wrapper_install
   script:
     - *activate_poetry
     - poetry run ruff check .
-  tags:
-    - ${RUNNER}
-
-ruff-format:
-  stage: code_quality
-  variables:
-    WRAPPER_EXTRAS: --only dev
-  before_script:
-    - *wrapper_install
-  script:
-    - *activate_poetry
-    - poetry run ruff format . --check --diff
+    - poetry run ruff format . --check
   tags:
     - ${RUNNER}
 
 poetry-check:
   stage: code_quality
   variables:
-    WRAPPER_EXTRAS: --only dev
+    WRAPPER_EXTRAS: --only style
   before_script:
     - *wrapper_install
   script:
@@ -165,7 +154,7 @@ poetry-check:
 toml-sort:
   stage: code_quality
   variables:
-    WRAPPER_EXTRAS: --only dev
+    WRAPPER_EXTRAS: --only style
   before_script:
     - *wrapper_install
   script:
@@ -229,7 +218,6 @@ sphinx-job:
   stage: docs_quality
   needs:
     - ruff
-    - ruff-format
     - toml-sort
     - poetry-check
   variables:

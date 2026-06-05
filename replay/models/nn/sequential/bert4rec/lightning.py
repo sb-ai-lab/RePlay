@@ -109,7 +109,10 @@ class Bert4Rec(lightning.LightningModule):
         return loss
 
     def predict_step(
-        self, batch: Bert4RecPredictionBatch | dict, batch_idx: int, dataloader_idx: int = 0  # noqa: ARG002
+        self,
+        batch: Bert4RecPredictionBatch | dict,
+        batch_idx: int,
+        dataloader_idx: int = 0,  # noqa: ARG002
     ) -> torch.Tensor:
         """
         :param batch (Bert4RecPredictionBatch): Batch of prediction data.
@@ -186,7 +189,10 @@ class Bert4Rec(lightning.LightningModule):
         )
 
     def validation_step(
-        self, batch: Bert4RecValidationBatch | dict, batch_idx: int, dataloader_idx: int = 0  # noqa: ARG002
+        self,
+        batch: Bert4RecValidationBatch | dict,
+        batch_idx: int,
+        dataloader_idx: int = 0,  # noqa: ARG002
     ) -> torch.Tensor:
         """
         :param batch: Batch of prediction data.

@@ -192,7 +192,9 @@ class NeighbourRec(ANNMixin, Recommender, ABC):
         return similarity_df, {"features_col": None}
 
     def _get_vectors_to_infer_ann_inner(
-        self, interactions: SparkDataFrame, queries: SparkDataFrame  # noqa: ARG002
+        self,
+        interactions: SparkDataFrame,
+        queries: SparkDataFrame,  # noqa: ARG002
     ) -> SparkDataFrame:
         user_vectors = interactions.groupBy("user_idx").agg(
             sf.collect_list("item_idx").alias("vector_items"), sf.collect_list("relevance").alias("vector_relevances")

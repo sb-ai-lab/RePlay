@@ -102,7 +102,7 @@ class Trainer:
                 current_lr = self.lr_scheduler.get_lr()
             else:
                 current_lr = self.optimizer.param_groups[-1]["lr"]
-            pbar.set_description(f"epoch {epoch+1} iter {iter_}: train loss {loss.item():.5f}, lr {current_lr}")
+            pbar.set_description(f"epoch {epoch + 1} iter {iter_}: train loss {loss.item():.5f}, lr {current_lr}")
 
     def _evaluation_epoch(self, epoch):
         self.model.eval()

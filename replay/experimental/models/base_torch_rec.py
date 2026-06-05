@@ -86,7 +86,7 @@ class TorchRecommender(Recommender):
                 best_checkpoint = "/".join(
                     [
                         self.checkpoint_path,
-                        f"/best_{model_name}_{epoch+1}_loss={valid_loss}.pt",
+                        f"/best_{model_name}_{epoch + 1}_loss={valid_loss}.pt",
                     ]
                 )
                 self._save_model(best_checkpoint)
