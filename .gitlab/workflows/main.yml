@@ -287,6 +287,8 @@ sphinx-job:
 pytest-core:
   <<: *pytest_template
   stage: test_core
+  variables: 
+    WRAPPER_EXTRAS: --with tests
   script:
     - *activate_poetry
     - poetry run pytest -m core tests/ --ignore=tests/experimental --ignore=tests/conditional
@@ -300,7 +302,7 @@ pytest-conditional:
   <<: *pytest_template
   stage: test_conditional
   variables:
-    WRAPPER_ARGS: --experimental
+    WRAPPER_ARGS: --with tests --experimental
   script:
     - *install_conditionals
     - *activate_poetry
@@ -314,6 +316,8 @@ pytest-conditional:
 pytest-torch:
   <<: *pytest_template
   stage: test_torch
+  variables:
+    WRAPPER_EXTRAS: --with tests
   script:
     - *activate_poetry
     - *install_torch_cpu
@@ -333,7 +337,7 @@ pytest-spark:
   <<: *pytest_template
   stage: test_spark
   variables:
-    WRAPPER_EXTRAS: -E spark
+    WRAPPER_EXTRAS: -E spark --with tests
   script:
     - *activate_poetry
     - *install_pyspark_by_python
@@ -354,7 +358,7 @@ pytest-spark-and-torch:
   <<: *pytest_template
   stage: test_spark_torch
   variables:
-    WRAPPER_EXTRAS: -E spark
+    WRAPPER_EXTRAS: -E spark --with tests
   script:
     - *activate_poetry
     - *install_pyspark_by_python
@@ -377,7 +381,7 @@ pytest-models:
   <<: *pytest_template
   stage: test_models
   variables:
-    WRAPPER_EXTRAS: -E spark
+    WRAPPER_EXTRAS: -E spark --with tests
   script:
     - *activate_poetry
     - *install_pyspark_by_python
@@ -407,7 +411,7 @@ pytest-experimental:
         - "py314"
   stage: test_experimental
   variables:
-    WRAPPER_ARGS: --experimental
+    WRAPPER_ARGS: --with tests --experimental
   script:
     - *install_conditionals
     - *activate_poetry
