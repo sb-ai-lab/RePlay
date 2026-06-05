@@ -34,7 +34,6 @@ author = "Sber AI Lab"
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
-    "sphinx_enum_extend",
     "myst_parser",
     # "sphinx.ext.autosectionlabel",
 ]
