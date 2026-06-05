@@ -69,6 +69,7 @@ def get_spark_session(
         core_count = int(os.environ.get("REPLAY_SPARK_CORE_COUNT", "-1"))
     if spark_memory is None:
         import psutil
+
         env_var = os.environ.get("REPLAY_SPARK_MEMORY")
         spark_memory = int(env_var) if env_var is not None else floor(psutil.virtual_memory().total / 1024**3 * 0.7)
     if shuffle_partitions is None:
