@@ -241,8 +241,8 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
 
     def _get_vectors_to_infer_ann_inner(
         self,
-        interactions: SparkDataFrame,
-        queries: SparkDataFrame,  # noqa: ARG002
+        interactions: SparkDataFrame,  # noqa: ARG002
+        queries: SparkDataFrame,
     ) -> SparkDataFrame:
         user_vectors, _ = self.get_features(queries)
         return user_vectors

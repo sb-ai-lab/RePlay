@@ -613,7 +613,7 @@ class BaseRecommender(IsSavable, IsOptimizible, RecommenderCommons, ABC):
 
     def _get_features(
         self,
-        ids: SparkDataFrame,
+        ids: SparkDataFrame,  # noqa: ARG002
         features: SparkDataFrame | None,  # noqa: ARG002
     ) -> tuple[SparkDataFrame | None, int | None]:
         """

@@ -287,7 +287,7 @@ class QueryEmbeddingsPredictionCallback(lightning.Callback):
 
     def on_predict_epoch_start(
         self,
-        trainer: lightning.Trainer,
+        trainer: lightning.Trainer,  # noqa: ARG002
         pl_module: lightning.LightningModule,  # noqa: ARG002
     ) -> None:
         self._embeddings_per_batch.clear()

@@ -111,7 +111,7 @@ class Bert4Rec(lightning.LightningModule):
     def predict_step(
         self,
         batch: Bert4RecPredictionBatch | dict,
-        batch_idx: int,
+        batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> torch.Tensor:
         """
@@ -191,7 +191,7 @@ class Bert4Rec(lightning.LightningModule):
     def validation_step(
         self,
         batch: Bert4RecValidationBatch | dict,
-        batch_idx: int,
+        batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> torch.Tensor:
         """
