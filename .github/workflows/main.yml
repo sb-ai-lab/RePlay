@@ -26,9 +26,9 @@ jobs:
           eval "$(poetry env activate)"
           poetry cache clear PyPI --all
       - name: ruff
-        run: poetry run ruff check .
-      - name: ruff-format
-        run: poetry run ruff format . --check --diff
+        run: |
+          poetry run ruff check .
+          poetry run ruff format . --check --diff
       - name: poetry-check
         run: |
           ./poetry_wrapper.sh check
