@@ -266,7 +266,6 @@ sphinx-job:
     - ${RUNNER}
   needs:
     - ruff
-    - ruff-format
     - toml-sort
     - poetry-check
   before_script:
