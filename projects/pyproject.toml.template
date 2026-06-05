@@ -31,7 +31,13 @@ tests = [
     "pytest (>=9.0.0)",
     "pytest-mock (>3.15, <4.0)",
     "pytest-cov (>=3.0)",
-    "statsmodels (>=0.14, <0.16)",
+{% if project == "experimental" %}
+    "statsmodels (>=0.14,<0.16); python_version < '3.13'",
+    "statsmodels (>=0.14.6,<0.16); python_version >= '3.13'",
+{% endif %}
+{% if project == "default" %}
+    "statsmodels (>=0.14.6,<0.16)",
+{% endif %}
 ]
 
 [project]
