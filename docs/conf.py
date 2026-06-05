@@ -33,6 +33,7 @@ author = "Sber AI Lab"
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "enum_tools.autoenum",
     "sphinx.ext.autodoc",
     "myst_parser",
     # "sphinx.ext.autosectionlabel",

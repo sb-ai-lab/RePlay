@@ -15,17 +15,17 @@ DatasetLabelEncoder
 
 FeatureType
 ----------------------
-.. auto_autoenum:: replay.data.FeatureType
+.. autoenum:: replay.data.FeatureType
     :members:
 
 FeatureSource
 ----------------------
-.. auto_autoenum:: replay.data.FeatureSource
+.. autoenum:: replay.data.FeatureSource
     :members:
 
 FeatureHint
 ----------------------
-.. auto_autoenum:: replay.data.FeatureHint
+.. autoenum:: replay.data.FeatureHint
     :members:
 
 FeatureInfo
