@@ -68,6 +68,7 @@ dependencies = [
     "scikit-learn (>=1.6.1,<1.9.0)",
     "pyarrow (<24)",
     "tqdm (>=4.67,<5)",
+    "typing-extensions (>=4.12.0,<5)",
 {% if project == "default" %}
     "pyspark (>=3.0,<5); extra == 'spark'",
     "psutil (<8); extra == 'spark'",

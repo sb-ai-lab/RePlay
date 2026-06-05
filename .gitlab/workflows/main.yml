@@ -222,6 +222,7 @@ sphinx-job:
     - poetry-check
   variables:
     WRAPPER_ARGS: --experimental
+    WRAPPER_EXTRAS: --with docs
   before_script:
     - *wrapper_install
     - *install_conditionals
@@ -302,7 +303,8 @@ pytest-conditional:
   <<: *pytest_template
   stage: test_conditional
   variables:
-    WRAPPER_ARGS: --with tests --experimental
+    WRAPPER_ARGS: --experimental
+    WRAPPER_EXTRAS: --with tests
   script:
     - *install_conditionals
     - *activate_poetry
@@ -411,7 +413,8 @@ pytest-experimental:
         - "py314"
   stage: test_experimental
   variables:
-    WRAPPER_ARGS: --with tests --experimental
+    WRAPPER_ARGS: --experimental
+    WRAPPER_EXTRAS: --with tests
   script:
     - *install_conditionals
     - *activate_poetry

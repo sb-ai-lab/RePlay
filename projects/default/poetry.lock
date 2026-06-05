@@ -4092,7 +4092,7 @@ files = [
     {file = "typing_extensions-4.15.0-py3-none-any.whl", hash = "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548"},
     {file = "typing_extensions-4.15.0.tar.gz", hash = "sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466"},
 ]
-markers = {main = "extra == \"torch\"", tests = "python_version == \"3.10\""}
+markers = {tests = "python_version == \"3.10\""}
 
 [[package]]
 name = "tzdata"
@@ -4287,4 +4287,4 @@ torch = ["lightning", "pytorch-optimizer", "torch"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <3.15"
-content-hash = "e1d575bba7621730b3d98f1629ba1866debd2936353506d05dfcaab69c75ed26"
+content-hash = "3b69bea7f25adb9e211790803894ed6dab92a8fa925295af785ab5d319792c1a"
