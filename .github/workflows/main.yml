@@ -2,7 +2,7 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [main, 'release/**', 'feature/update-pyproject']
+    branches: [main, 'release/**']
   pull_request:
     branches: [main, refactoring]
   workflow_dispatch:
