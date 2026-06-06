@@ -2,7 +2,7 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [main, 'release/**']
+    branches: [main, 'release/**', 'feature/update-pyproject']
   pull_request:
     branches: [main, refactoring]
   workflow_dispatch:
@@ -17,10 +17,10 @@ jobs:
         uses: ./.github/actions/ci-setup
         with:
           python-version: "3.10"
-      - name: install_dev_dependencies
+      - name: install_core_dependencies_with_style
         uses: ./.github/actions/install-poetry-deps
         with:
-          with-dev: "true"
+          dependency-groups: "style"
       - name: clear_poetry_cache
         run: |
           eval "$(poetry env activate)"
@@ -279,10 +279,10 @@ jobs:
         uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
-      - name: install_only_dev_dependencies
+      - name: install_core_dependencies
         uses: ./.github/actions/install-poetry-deps
         with:
-          only-dev: "true"
+          dependency-groups: "tests"
       - name: download_coverage_reports
         uses: actions/download-artifact@v4
         with:
