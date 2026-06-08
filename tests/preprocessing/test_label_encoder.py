@@ -294,9 +294,9 @@ def test_label_encoder_partial_fit_no_new_values_at_input(column, df_name, reque
     assert len(mapping_before_partial_fit) == len(mapping_after_partial_fit), "count of elements in mappings not equal"
     assert mapping_after_partial_fit == mapping_after_partial_fit, "mappings' keys are not equal"
 
-    assert list(mapping_before_partial_fit.values()) == list(
-        mapping_after_partial_fit.values()
-    ), "mappings' values are not equal"
+    assert list(mapping_before_partial_fit.values()) == list(mapping_after_partial_fit.values()), (
+        "mappings' values are not equal"
+    )
 
 
 @pytest.mark.core

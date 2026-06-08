@@ -130,7 +130,7 @@ class GreedyDiscretizingRule(BaseDiscretizingRule):
         assert max_bin > 0
 
         if total_cnt < max_bin * min_data_in_bin:
-            warn_msg = f"Expected at least {max_bin*min_data_in_bin} samples (n_bins*min_data_in_bin) \
+            warn_msg = f"Expected at least {max_bin * min_data_in_bin} samples (n_bins*min_data_in_bin) \
 = ({self._n_bins}*{min_data_in_bin}). Got {total_cnt}. The number of bins will be less in the result"
             warnings.warn(warn_msg)
         if num_distinct_values <= max_bin:

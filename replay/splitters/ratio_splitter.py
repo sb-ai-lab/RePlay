@@ -304,9 +304,7 @@ class RatioSplitter(Splitter):
                 & (interactions["count"] * ratio < 1)
                 & (interactions["train_size"] > 1),
                 "train_size",
-            ] = (
-                interactions["train_size"] - 1
-            )
+            ] = interactions["train_size"] - 1
 
         interactions["is_test"] = interactions["row_num"] > interactions["train_size"]
         if self.session_id_column:

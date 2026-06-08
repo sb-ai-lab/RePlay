@@ -612,7 +612,9 @@ class BaseRecommender(IsSavable, IsOptimizible, RecommenderCommons, ABC):
         return vectors, rank
 
     def _get_features(
-        self, ids: SparkDataFrame, features: SparkDataFrame | None  # noqa: ARG002
+        self,
+        ids: SparkDataFrame,  # noqa: ARG002
+        features: SparkDataFrame | None,  # noqa: ARG002
     ) -> tuple[SparkDataFrame | None, int | None]:
         """
         Get embeddings from model

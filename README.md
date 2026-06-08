@@ -226,6 +226,7 @@ pip install ligfhtfm
 12. [12_neural_ts_exp.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/12_neural_ts_exp.ipynb) - An example of using Neural Thompson Sampling bandit model (based on Wide&Deep architecture).
 13. [13_personalized_bandit_comparison.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/13_personalized_bandit_comparison.ipynb) - A comparison of context-free and contextual bandit models.
 14. [14_hierarchical_recommender.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/14_hierarchical_recommender.ipynb) - An example of using HierarchicalRecommender with user-disjoint LinUCB.
+15. [15_twotower_example.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/15_twotower_example.ipynb) - An example of using transformer-based TwoTower model with batch-wise reading and preprocessing via ParquetModule.
 
 ### Videos and papers
 * **Video guides**:

@@ -207,7 +207,9 @@ class ALSWrap(Recommender, ItemVectorModel):
         )
 
     def _get_features(
-        self, ids: SparkDataFrame, features: SparkDataFrame | None  # noqa: ARG002
+        self,
+        ids: SparkDataFrame,
+        features: SparkDataFrame | None,  # noqa: ARG002
     ) -> tuple[SparkDataFrame | None, int | None]:
         entity = "user" if "user_idx" in ids.columns else "item"
         als_factors = getattr(self.model, f"{entity}Factors")
@@ -238,7 +240,9 @@ class ScalaALSWrap(ALSWrap, ANNMixin):
         }
 
     def _get_vectors_to_infer_ann_inner(
-        self, interactions: SparkDataFrame, queries: SparkDataFrame  # noqa: ARG002
+        self,
+        interactions: SparkDataFrame,  # noqa: ARG002
+        queries: SparkDataFrame,
     ) -> SparkDataFrame:
         user_vectors, _ = self.get_features(queries)
         return user_vectors

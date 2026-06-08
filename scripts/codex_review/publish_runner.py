@@ -71,9 +71,7 @@ class ReviewCommentsPublisher:
         confidence_percent = round(confidence * 100)
 
         discussion_body = (
-            f"### [P{priority}][Confidence: {confidence_percent}%] {title}\n\n"
-            f"{body}\n\n"
-            f"- Location: {path}:{line_label}"
+            f"### [P{priority}][Confidence: {confidence_percent}%] {title}\n\n{body}\n\n- Location: {path}:{line_label}"
         )
         return discussion_body, path, end_line
 

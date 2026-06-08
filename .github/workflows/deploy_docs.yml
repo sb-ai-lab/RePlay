@@ -38,11 +38,11 @@ jobs:
           python-version: "3.10"
       - name: clear_poetry_cache
         run: poetry cache clear PyPI --all
-      - name: install_experimental_dev_dependencies
+      - name: install_experimental_docs_dependencies
         uses: ./.github/actions/install-poetry-deps
         with:
           experimental: "true"
-          with-dev: "true"
+          dependency-groups: "docs"
       - name: install_conditionals
         uses: ./.github/actions/install-conditionals
       - name: build_docs
