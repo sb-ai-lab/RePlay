@@ -71,7 +71,9 @@ class ValidationMetricsCallback(lightning.Callback):
         return [len(dataloader) for dataloader in dataloaders]
 
     def on_validation_epoch_start(
-        self, trainer: lightning.Trainer, pl_module: lightning.LightningModule  # noqa: ARG002
+        self,
+        trainer: lightning.Trainer,
+        pl_module: lightning.LightningModule,  # noqa: ARG002
     ) -> None:
         self._dataloaders_size = self._get_dataloaders_size(trainer.val_dataloaders)
         self._metrics_builders = [

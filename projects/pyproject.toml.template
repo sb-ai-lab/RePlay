@@ -1,35 +1,43 @@
 [build-system]
-requires = [
-    "poetry-core>=2.2.1",
-    "poetry-dynamic-versioning>=1.0.0,<2.0.0",
-    "setuptools",
-]
+requires = ["poetry-core>=2.2.1", "poetry-dynamic-versioning>=1.0.0,<2.0.0  ", "setuptools"]
 build-backend = "poetry_dynamic_versioning.backend"
 
 [dependency-groups]
 dev = [
+    {include-group = "docs"},
+    {include-group = "style"},
+    {include-group = "tests"},
+]
+docs = [
+    "enum-tools[sphinx] (>=0.13.0,<0.14)",
+    "sphinx >=8.1.3,<8.2",
+    "sphinx-rtd-theme>=3.0.1,<3.1.0",
+    "sphinx-autodoc-typehints (>=3.0.0)",
+    "myst-parser",
+    "ghp-import (==2.1.0)",
+    "docutils (>=0.20.0)",
+]
+style = [
+    "ruff (>=0.11.0,<1)",
+    "toml-sort (>=0.23, <0.24)",
+]
+tests = [
     "coverage-conditional-plugin (>=0.9, <1)",
-    "jupyter (>=1.0, <1.1)",
-    "jupyterlab (>=3.6, <5)",
+    "data-science-types (==0.2.23)",
+    "filelock (>=3.14, <4)",
+    "hypothesis",
+    "implicit (>=0.7.2,<0.8)",
     "pyarrow-stubs",
     "pytest (>=9.0.0)",
     "pytest-mock (>3.15, <4.0)",
     "pytest-cov (>=3.0)",
-    "statsmodels (>=0.14, <0.16)",
-    "black (>=24.10.0)",
-    "ruff (>=0.11.0,<1)",
-    "hypothesis",
-    "toml-sort (>=0.23, <0.24)",
-    "sphinx (==5.3.0)",
-    "sphinx-rtd-theme (==1.2.2)",
-    "sphinx-autodoc-typehints (==1.23.0)",
-    "sphinx-enum-extend (==0.1.3)",
-    "myst-parser (==1.0.0)",
-    "ghp-import (==2.1.0)",
-    "docutils (==0.16)",
-    "data-science-types (==0.2.23)",
-    "filelock (>=3.14, <4)",
-    "implicit (>=0.7.2,<0.8)",
+{% if project == "experimental" %}
+    "statsmodels (>=0.14,<0.16); python_version < '3.13'",
+    "statsmodels (>=0.14.6,<0.16); python_version >= '3.13'",
+{% endif %}
+{% if project == "default" %}
+    "statsmodels (>=0.14.6,<0.16)",
+{% endif %}
 ]
 
 [project]
@@ -66,6 +74,7 @@ dependencies = [
     "scikit-learn (>=1.6.1,<1.9.0)",
     "pyarrow (<24)",
     "tqdm (>=4.67,<5)",
+    "typing-extensions (>=4.12.0,<5)",
 {% if project == "default" %}
     "pyspark (>=3.0,<5); extra == 'spark'",
     "psutil (<8); extra == 'spark'",
@@ -74,6 +83,7 @@ dependencies = [
     "lightning (<3.0.0); extra == 'torch'",
 {% endif %}
 {% if project == "experimental" %}
+    "ipython (>=8.0,<10)",
     "torch (>=1.8,<3.0.0)",
     "lightning (<3.0.0)",
     "pytorch-optimizer (>=3.8.0,<4)",
@@ -97,10 +107,6 @@ torch = ["torch", "pytorch-optimizer", "lightning"]
 homepage = "https://sb-ai-lab.github.io/RePlay/"
 repository = "https://github.com/sb-ai-lab/RePlay"
 
-[tool.black]
-line-length = 120
-target-version = ["py310", "py311", "py312", "py313", "py314"]
-
 [tool.coverage.coverage_conditional_plugin.rules]
 py-lt-311 = "sys_version_info < (3, 11)"
 py-lt-313 = "sys_version_info < (3, 13)"
@@ -122,6 +128,18 @@ exclude = [
 {% endif %}
 ]
 version = "0.0.0"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.style]
+optional = true
+
+[tool.poetry.group.tests]
+optional = true
 
 [tool.poetry-dynamic-versioning]
 enable = true
@@ -154,6 +172,7 @@ markers = [
 [tool.ruff]
 exclude = [".git", ".venv", "__pycache__", "env", "venv", "docs", "projects", "examples"]
 line-length = 120
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["ARG", "C4", "E", "EM", "ERA", "F", "FLY", "I", "INP", "ISC", "N", "PERF", "PGH", "PIE", "PYI", "Q", "RUF", "SIM", "TID", "W"]

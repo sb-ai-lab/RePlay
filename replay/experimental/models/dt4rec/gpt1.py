@@ -283,9 +283,9 @@ class GPT(nn.Module):
         inter_params = decay & no_decay
         union_params = decay | no_decay
         assert len(inter_params) == 0, f"parameters {inter_params!s} made it into both decay/no_decay sets!"
-        assert (
-            len(param_dict.keys() - union_params) == 0
-        ), f"parameters {param_dict.keys() - union_params!s} were not separated into either decay/no_decay set!"
+        assert len(param_dict.keys() - union_params) == 0, (
+            f"parameters {param_dict.keys() - union_params!s} were not separated into either decay/no_decay set!"
+        )
 
         optim_groups = [
             {

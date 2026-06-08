@@ -141,7 +141,7 @@ You can just get pyproject.toml file from step 6, to start using linters and for
 In order to automate checking of the code quality, please run:
 ```bash
 poetry run ruff check .
-poetry run black --check --diff -- .
+poetry run ruff format --check .
 ./poetry_wrapper.sh check
 ./poetry_wrapper.sh --experimental check
 ```

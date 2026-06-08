@@ -32,9 +32,9 @@ class ScalableCrossEntropyLoss:
 
         :param SCEParams: A dataclass with the ScalableCrossEntropyLoss parameters.
         """
-        assert all(
-            param is not None for param in sce_params._get_not_none_params()
-        ), "You should define ``n_buckets``, ``bucket_size_x``, ``bucket_size_y`` when using SCE loss function."
+        assert all(param is not None for param in sce_params._get_not_none_params()), (
+            "You should define ``n_buckets``, ``bucket_size_x``, ``bucket_size_y`` when using SCE loss function."
+        )
         self._n_buckets = sce_params.n_buckets
         self._bucket_size_x = sce_params.bucket_size_x
         self._bucket_size_y = sce_params.bucket_size_y
@@ -105,9 +105,7 @@ class ScalableCrossEntropyLoss:
         wrong_class_logits = wrong_class_logits.masked_fill(mask, float("-inf"))  # (n_b, bs_x, bs_y)
         correct_class_logits = torch.index_select(correct_class_logits_, dim=0, index=top_x_bucket.view(-1)).view(
             self._n_buckets, self._bucket_size_x
-        )[
-            :, :, None
-        ]  # (n_b, bs_x, 1)
+        )[:, :, None]  # (n_b, bs_x, 1)
         logits = torch.cat((wrong_class_logits, correct_class_logits), dim=2)  # (n_b, bs_x, bs_y + 1)
 
         loss_ = torch.nn.functional.cross_entropy(

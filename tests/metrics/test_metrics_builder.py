@@ -115,9 +115,9 @@ def test_seen_metrics(random_train_test_recs):
     )
     for metric_name, evaluation_value in evaluation_metrics.items():
         builder_value = builder_metrics[metric_name]
-        assert evaluation_value == approx(
-            builder_value, abs=ABS
-        ), f"metric = {metric_name}, evaluation = {evaluation_value}, builder = {builder_value}"
+        assert evaluation_value == approx(builder_value, abs=ABS), (
+            f"metric = {metric_name}, evaluation = {evaluation_value}, builder = {builder_value}"
+        )
 
 
 @pytest.mark.spark
@@ -152,9 +152,9 @@ def test_unseen_metrics(random_train_test_recs):
 
     for metric_name, evaluation_value in evaluation_metrics.items():
         builder_value = builder_metrics[metric_name]
-        assert evaluation_value == approx(
-            builder_value, abs=ABS
-        ), f"metric = {metric_name}, evaluation = {evaluation_value}, builder = {builder_value}"
+        assert evaluation_value == approx(builder_value, abs=ABS), (
+            f"metric = {metric_name}, evaluation = {evaluation_value}, builder = {builder_value}"
+        )
 
 
 @pytest.mark.spark

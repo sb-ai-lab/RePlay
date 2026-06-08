@@ -146,7 +146,9 @@ class ALSWrap(Recommender, ItemVectorModel):
         )
 
     def _get_features(
-        self, ids: SparkDataFrame, features: SparkDataFrame | None  # noqa: ARG002
+        self,
+        ids: SparkDataFrame,
+        features: SparkDataFrame | None,  # noqa: ARG002
     ) -> tuple[SparkDataFrame | None, int | None]:
         entity = "user" if self.query_column in ids.columns else "item"
         entity_col = self.query_column if self.query_column in ids.columns else self.item_column

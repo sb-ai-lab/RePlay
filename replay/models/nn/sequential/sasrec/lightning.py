@@ -15,9 +15,7 @@ from .model import SasRecModel
 
 
 @deprecated(
-    "`SasRec` class is deprecated. "
-    "Use `replay.nn.sequential.SasRec` "
-    "and `replay.nn.lightning.LightningModule` instead."
+    "`SasRec` class is deprecated. Use `replay.nn.sequential.SasRec` and `replay.nn.lightning.LightningModule` instead."
 )
 class SasRec(lightning.LightningModule):
     """

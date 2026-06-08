@@ -129,31 +129,20 @@ stages:
 ruff:
   stage: code_quality
   variables:
-    WRAPPER_EXTRAS: --only dev
+    WRAPPER_EXTRAS: --only style
   before_script:
     - *wrapper_install
   script:
     - *activate_poetry
     - poetry run ruff check .
-  tags:
-    - ${RUNNER}
-
-black:
-  stage: code_quality
-  variables:
-    WRAPPER_EXTRAS: --only dev
-  before_script:
-    - *wrapper_install
-  script:
-    - *activate_poetry
-    - poetry run black . --check --diff
+    - poetry run ruff format . --check
   tags:
     - ${RUNNER}
 
 poetry-check:
   stage: code_quality
   variables:
-    WRAPPER_EXTRAS: --only dev
+    WRAPPER_EXTRAS: --only style
   before_script:
     - *wrapper_install
   script:
@@ -165,7 +154,7 @@ poetry-check:
 toml-sort:
   stage: code_quality
   variables:
-    WRAPPER_EXTRAS: --only dev
+    WRAPPER_EXTRAS: --only style
   before_script:
     - *wrapper_install
   script:
@@ -229,11 +218,11 @@ sphinx-job:
   stage: docs_quality
   needs:
     - ruff
-    - black
     - toml-sort
     - poetry-check
   variables:
     WRAPPER_ARGS: --experimental
+    WRAPPER_EXTRAS: --with docs
   before_script:
     - *wrapper_install
     - *install_conditionals
@@ -278,7 +267,6 @@ sphinx-job:
     - ${RUNNER}
   needs:
     - ruff
-    - black
     - toml-sort
     - poetry-check
   before_script:
@@ -300,6 +288,8 @@ sphinx-job:
 pytest-core:
   <<: *pytest_template
   stage: test_core
+  variables: 
+    WRAPPER_EXTRAS: --with tests
   script:
     - *activate_poetry
     - poetry run pytest -m core tests/ --ignore=tests/experimental --ignore=tests/conditional
@@ -314,6 +304,7 @@ pytest-conditional:
   stage: test_conditional
   variables:
     WRAPPER_ARGS: --experimental
+    WRAPPER_EXTRAS: --with tests
   script:
     - *install_conditionals
     - *activate_poetry
@@ -327,6 +318,8 @@ pytest-conditional:
 pytest-torch:
   <<: *pytest_template
   stage: test_torch
+  variables:
+    WRAPPER_EXTRAS: --with tests
   script:
     - *activate_poetry
     - *install_torch_cpu
@@ -346,7 +339,7 @@ pytest-spark:
   <<: *pytest_template
   stage: test_spark
   variables:
-    WRAPPER_EXTRAS: -E spark
+    WRAPPER_EXTRAS: -E spark --with tests
   script:
     - *activate_poetry
     - *install_pyspark_by_python
@@ -367,7 +360,7 @@ pytest-spark-and-torch:
   <<: *pytest_template
   stage: test_spark_torch
   variables:
-    WRAPPER_EXTRAS: -E spark
+    WRAPPER_EXTRAS: -E spark --with tests
   script:
     - *activate_poetry
     - *install_pyspark_by_python
@@ -390,7 +383,7 @@ pytest-models:
   <<: *pytest_template
   stage: test_models
   variables:
-    WRAPPER_EXTRAS: -E spark
+    WRAPPER_EXTRAS: -E spark --with tests
   script:
     - *activate_poetry
     - *install_pyspark_by_python
@@ -421,6 +414,7 @@ pytest-experimental:
   stage: test_experimental
   variables:
     WRAPPER_ARGS: --experimental
+    WRAPPER_EXTRAS: --with tests
   script:
     - *install_conditionals
     - *activate_poetry
@@ -436,8 +430,6 @@ pytest-experimental:
   # cache:
   #   <<: *global_cache
   #   key: ${CI_COMMIT_REF_SLUG}_${py_version}
-  variables: 
-    WRAPPER_EXTRAS: --only dev
   before_script:
     - *wrapper_install
   script:
@@ -469,6 +461,7 @@ merge-coverage-py310:
   <<: *merge-coverage-template
   variables:
     py_version: py310
+    WRAPPER_EXTRAS: --only tests
   needs:
     - "pytest-core: [py310]"
     - "pytest-conditional: [py310]"
@@ -482,6 +475,7 @@ merge-coverage-py311:
   <<: *merge-coverage-template
   variables:
     py_version: py311
+    WRAPPER_EXTRAS: --only tests
   needs:
     - "pytest-core: [py311]"
     - "pytest-conditional: [py311]"
@@ -495,6 +489,7 @@ merge-coverage-py312:
   <<: *merge-coverage-template
   variables:
     py_version: py312
+    WRAPPER_EXTRAS: --only tests
   needs:
     - "pytest-core: [py312]"
     - "pytest-conditional: [py312]"
@@ -508,6 +503,7 @@ merge-coverage-py313:
   <<: *merge-coverage-template
   variables:
     py_version: py313
+    WRAPPER_EXTRAS: --only tests
   needs:
     - "pytest-core: [py313]"
     - "pytest-conditional: [py313]"
@@ -521,6 +517,7 @@ merge-coverage-py314:
   <<: *merge-coverage-template
   variables:
     py_version: py314
+    WRAPPER_EXTRAS: --only tests
   needs:
     - "pytest-core: [py314]"
     - "pytest-conditional: [py314]"
