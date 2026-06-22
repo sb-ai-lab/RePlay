@@ -4,7 +4,7 @@ import torch
 
 from replay.data.nn import TensorMap
 
-from .base import mask_negative_logits
+from .base import mask_negative_logits, weighted_mean
 
 
 class LogOutCE(torch.nn.Module):
@@ -224,5 +224,5 @@ class LogOutCEWeighted(LogOutCE):
         loss: torch.Tensor = super().forward(model_embeddings, None, positive_labels, None, None, target_padding_mask)
         sample_weight = feature_tensors[self.feature_name]
         sample_weight = sample_weight[target_padding_mask]
-        loss = (loss * sample_weight).mean()
+        loss = weighted_mean(loss, sample_weight)
         return loss
