@@ -14,6 +14,7 @@ from replay.nn.loss import (
     LogOutCE,
     LogOutCEWeighted,
 )
+from replay.nn.loss.base import weighted_mean
 
 
 @pytest.mark.parametrize(
@@ -132,3 +133,55 @@ def test_loss_forward_with_multiclass_negatives(loss, batch_name, request):
     batch = request.getfixturevalue(batch_name)
 
     loss(**batch)
+
+
+def test_weighted_mean_clamps_zero_denominator():
+    loss = torch.ones(2)
+    sample_weight = torch.zeros_like(loss)
+
+    torch.testing.assert_close(weighted_mean(loss, sample_weight), torch.tensor(0.0))
+
+
+@pytest.mark.parametrize(
+    ("weighted_loss_factory", "base_loss_factory", "sample_weight_mode"),
+    [
+        (
+            lambda: CEWeighted(feature_name="sample_weight", ignore_index=3),
+            lambda: CE(reduction="none", ignore_index=3),
+            "flat",
+        ),
+        (
+            lambda: CESampledWeighted(feature_name="sample_weight"),
+            lambda: CESampled(reduction="none"),
+            "masked",
+        ),
+        (
+            lambda: LogOutCEWeighted(feature_name="sample_weight", cardinality=3),
+            lambda: LogOutCE(cardinality=3, reduction="none"),
+            "masked",
+        ),
+    ],
+    ids=["CEWeighted", "CESampledWeighted", "LogOutCEWeighted"],
+)
+def test_weighted_losses_use_weighted_mean(
+    weighted_loss_factory,
+    base_loss_factory,
+    sample_weight_mode,
+    hidden_simple_weighted_batch,
+    deterministic_logits_callback,
+):
+    loss = weighted_loss_factory()
+    loss.logits_callback = deterministic_logits_callback
+    base_loss = base_loss_factory()
+    base_loss.logits_callback = deterministic_logits_callback
+    sample_weight = hidden_simple_weighted_batch["feature_tensors"]["sample_weight"]
+
+    if sample_weight_mode == "flat":
+        sample_weight = sample_weight.view(-1)
+    else:
+        sample_weight = sample_weight[hidden_simple_weighted_batch["target_padding_mask"]]
+
+    actual = loss(**hidden_simple_weighted_batch)
+    expected = weighted_mean(base_loss(**hidden_simple_weighted_batch), sample_weight)
+
+    torch.testing.assert_close(actual, expected)

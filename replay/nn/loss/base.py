@@ -196,3 +196,8 @@ def mask_negative_logits(
     negative_mask = negative_mask.sum(-2).bool()
     negative_logits.masked_fill_(negative_mask, -1e9)
     return negative_logits
+
+
+def weighted_mean(loss: torch.Tensor, sample_weight: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
+    """Calculate a weighted mean with a safe denominator."""
+    return (loss * sample_weight).sum() / sample_weight.sum().clamp_min(eps)

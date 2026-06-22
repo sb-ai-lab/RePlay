@@ -4,7 +4,7 @@ import torch
 
 from replay.data.nn import TensorMap
 
-from .base import SampledLossBase, mask_negative_logits
+from .base import SampledLossBase, mask_negative_logits, weighted_mean
 
 
 class CE(torch.nn.Module):
@@ -139,7 +139,8 @@ class CEWeighted(CE):
             target_padding_mask,
         )
         sample_weight = feature_tensors[self.feature_name]
-        loss = (loss * sample_weight).mean()
+        sample_weight = sample_weight.view_as(loss)
+        loss = weighted_mean(loss, sample_weight)
         return loss
 
 
@@ -313,5 +314,5 @@ class CESampledWeighted(CESampled):
         )
         sample_weight = feature_tensors[self.feature_name]
         sample_weight = sample_weight[target_padding_mask]
-        loss = (loss * sample_weight).mean()
+        loss = weighted_mean(loss, sample_weight)
         return loss
