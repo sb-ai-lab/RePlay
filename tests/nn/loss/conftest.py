@@ -3,6 +3,8 @@ import pytest
 pytest.importorskip("torch")
 import torch
 
+from replay.nn.head import EmbeddingTyingHead
+
 
 @pytest.fixture
 def hidden_simple_batch():
@@ -56,3 +58,24 @@ def hidden_simple_batch_multiclass_negatives_multipositive(hidden_simple_batch_m
         "target_padding_mask"
     ].repeat(1, 1, 5)
     return hidden_simple_batch_multiclass_negatives
+
+
+@pytest.fixture
+def hidden_simple_weighted_batch(hidden_simple_batch):
+    sample_weight = torch.zeros_like(hidden_simple_batch["feature_tensors"]["sample_weight"])
+    sample_weight[hidden_simple_batch["target_padding_mask"]] = torch.tensor([0.1, 10.0, 0.1, 10.0])
+    hidden_simple_batch["feature_tensors"]["sample_weight"] = sample_weight
+    return hidden_simple_batch
+
+
+@pytest.fixture
+def deterministic_logits_callback():
+    head = EmbeddingTyingHead()
+    item_embeddings = torch.arange(3 * 32, dtype=torch.float32).view(3, 32) / 100
+
+    def get_logits(model_embeddings, item_ids=None):
+        if item_ids is None:
+            return head(model_embeddings, item_embeddings)
+        return head(model_embeddings, item_embeddings[item_ids])
+
+    return get_logits
