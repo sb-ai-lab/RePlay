@@ -345,6 +345,11 @@ _________________________________
 .. autoclass:: replay.nn.transform.UniformNegativeSamplingTransform
     :members: __init__
 
+SparseUniformNegativeSamplingTransform
+______________________________________
+.. autoclass:: replay.nn.transform.SparseUniformNegativeSamplingTransform
+    :members: __init__
+
 MultiClassNegativeSamplingTransform
 ____________________________________
 .. autoclass:: replay.nn.transform.MultiClassNegativeSamplingTransform
