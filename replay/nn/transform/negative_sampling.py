@@ -1,6 +1,30 @@
 import torch
 
 
+def _validated_sample_distribution(
+    cardinality: int,
+    sample_distribution: torch.Tensor | None,
+) -> torch.Tensor:
+    if sample_distribution is None:
+        return torch.ones(cardinality)
+    if sample_distribution.ndim != 1:
+        msg = "sample_distribution must be a one-dimensional tensor."
+        raise ValueError(msg)
+    if sample_distribution.numel() != cardinality:
+        msg = (
+            "The sample_distribution parameter has an incorrect size. "
+            f"Got {sample_distribution.numel()}, expected {cardinality}."
+        )
+        raise ValueError(msg)
+    if not sample_distribution.is_floating_point():
+        msg = "sample_distribution must have a floating-point dtype."
+        raise TypeError(msg)
+    if not torch.isfinite(sample_distribution).all() or (sample_distribution < 0).any():
+        msg = "sample_distribution must contain finite non-negative weights."
+        raise ValueError(msg)
+    return sample_distribution
+
+
 class UniformNegativeSamplingTransform(torch.nn.Module):
     """
     Transform for global negative sampling.
@@ -76,6 +100,103 @@ class UniformNegativeSamplingTransform(torch.nn.Module):
         )
 
         output_batch[self.out_feature_name] = negatives
+        return output_batch
+
+
+class SparseUniformNegativeSamplingTransform(torch.nn.Module):
+    """
+    Sample unique negatives from items with positive sampling weights.
+
+    Unlike :class:`UniformNegativeSamplingTransform`, this transform stores and samples only
+    the positive-weight part of a sparse distribution. Sampled positions are mapped back to
+    catalog item IDs before they are added to the batch. A dense distribution uses the original
+    representation without an additional item mapping.
+    """
+
+    def __init__(
+        self,
+        cardinality: int,
+        num_negative_samples: int,
+        *,
+        out_feature_name: str | None = "negative_labels",
+        sample_distribution: torch.Tensor | None = None,
+        generator: torch.Generator | None = None,
+    ) -> None:
+        """
+        :param cardinality: number of unique items in the catalog, excluding padding.
+        :param num_negative_samples: number of unique negative item IDs to generate.
+        :param out_feature_name: name of the generated batch feature.
+        :param sample_distribution: one-dimensional, non-negative sampling weights for the
+            complete catalog. Zero-weight items are removed from the stored distribution.
+        :param generator: random number generator used for sampling.
+        """
+        if cardinality <= 0:
+            msg = "cardinality must be positive."
+            raise ValueError(msg)
+        if num_negative_samples <= 0:
+            msg = "num_negative_samples must be positive."
+            raise ValueError(msg)
+        if num_negative_samples >= cardinality:
+            msg = (
+                "The num_negative_samples parameter has an incorrect value. "
+                f"Got {num_negative_samples}, expected less than catalog cardinality ({cardinality})."
+            )
+            raise ValueError(msg)
+        sample_distribution = _validated_sample_distribution(cardinality, sample_distribution)
+
+        positive_weight_count = torch.count_nonzero(sample_distribution).item()
+        if positive_weight_count < num_negative_samples:
+            msg = (
+                "sample_distribution must contain at least "
+                f"{num_negative_samples} positive-weight candidates, got {positive_weight_count}"
+            )
+            raise ValueError(msg)
+
+        super().__init__()
+        self.out_feature_name = out_feature_name
+        self.num_negative_samples = num_negative_samples
+        self.generator = generator
+        if positive_weight_count == cardinality:
+            candidate_ids = None
+            compact_distribution = sample_distribution
+        else:
+            candidate_ids = torch.nonzero(sample_distribution > 0, as_tuple=True)[0]
+            compact_distribution = sample_distribution[candidate_ids].contiguous()
+        self.register_buffer("candidate_ids", candidate_ids)
+        self.register_buffer("sample_distribution", compact_distribution.detach())
+
+    def _validate_generator_device(self) -> None:
+        if self.generator is None:
+            return
+        generator_device = torch.device(self.generator.device)
+        distribution_device = self.sample_distribution.device
+        devices_are_compatible = generator_device.type == distribution_device.type and (
+            generator_device.type != "cuda"
+            or generator_device.index is None
+            or distribution_device.index is None
+            or generator_device.index == distribution_device.index
+        )
+        if not devices_are_compatible:
+            msg = (
+                "generator and sample_distribution must be on the same device; "
+                f"got {generator_device} and {distribution_device}. Replace generator after moving the transform."
+            )
+            raise RuntimeError(msg)
+
+    def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        """Add a shared unique negative pool to a shallow batch copy."""
+        self._validate_generator_device()
+        compact_ids = torch.multinomial(
+            self.sample_distribution,
+            num_samples=self.num_negative_samples,
+            replacement=False,
+            generator=self.generator,
+        )
+
+        output_batch = dict(batch)
+        output_batch[self.out_feature_name] = (
+            compact_ids if self.candidate_ids is None else torch.take(self.candidate_ids, compact_ids)
+        )
         return output_batch
 
 
