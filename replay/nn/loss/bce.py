@@ -187,6 +187,7 @@ class BCESampled(SampledLossBase):
         negative_logits = sampled["negative_logits"]  # [masked_batch_size, num_negatives]
         positive_labels = sampled["positive_labels"]  # [masked_batch_size, num_positives]
         negative_labels = sampled["negative_labels"]  # [masked_batch_size, num_negatives] or [num_negatives]
+        ignored_negatives = negative_labels == self.negative_labels_ignore_index
 
         # Reject negative samples matching target label & correct for remaining samples
         negative_logits = mask_negative_logits(
@@ -208,7 +209,8 @@ class BCESampled(SampledLossBase):
             torch.log((1 - negative_prob) + self.log_epsilon),
             -self.clamp_border,
             self.clamp_border,
-        ).sum()
+        )
+        negative_loss = negative_loss.masked_fill(ignored_negatives, 0).sum()
 
         loss = -(positive_loss + negative_loss)
         loss /= positive_logits.size(0)
