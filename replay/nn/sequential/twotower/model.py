@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Sequence
 from typing import Protocol
 
@@ -13,6 +14,8 @@ from replay.nn.output import InferenceOutput, TrainOutput
 from replay.nn.utils import warning_is_not_none
 
 from .reader import FeaturesReaderProtocol
+
+logger = logging.getLogger(__name__)
 
 
 class EmbedderProto(Protocol):
@@ -140,6 +143,7 @@ class ItemTower(torch.nn.Module):
         embedder: EmbedderProto,
         embedding_aggregator: AggregatorProto,
         encoder: ItemEncoderProto,
+        cache_batch_size: int | None = None,
     ):
         """
         :param schema: a tensor schema object with meta information on features.
@@ -156,12 +160,18 @@ class ItemTower(torch.nn.Module):
         :param encoder: An object of a class that performs the logic of generating
             an item hidden embedding representation based for
             the features got from ``item_features_reader``.
+        :param cache_batch_size: maximum number of item rows encoded at once when the full
+            evaluation cache is first built. ``None`` encodes the complete catalog at once.
         """
+        if cache_batch_size is not None and cache_batch_size <= 0:
+            msg = f"cache_batch_size must be positive, got {cache_batch_size}."
+            raise ValueError(msg)
         super().__init__()
         self.embedder = embedder
         self.feature_names = item_features_reader.feature_names
         self.embedding_aggregator = embedding_aggregator
         self.encoder = encoder
+        self.cache_batch_size = cache_batch_size
 
         for feature_name in schema:
             if feature_name not in self.feature_names:
@@ -224,6 +234,7 @@ class ItemTower(torch.nn.Module):
         model.feature_names = list(item_features)
         model.embedding_aggregator = embedding_aggregator
         model.encoder = encoder
+        model.cache_batch_size = None
 
         for feature_name, feature_tensor in item_features.items():
             model.register_buffer(f"{cls.FEATURE_BUFFER_PREFIX}{feature_name}", feature_tensor, persistent=True)
@@ -292,6 +303,32 @@ class ItemTower(torch.nn.Module):
         feature_name = next(iter(self.feature_names))
         return self.get_feature_buffer(feature_name)
 
+    def _encode_item_rows(self, row_slice: slice) -> torch.Tensor:
+        feature_tensors = {
+            feature_name: self.get_feature_buffer(feature_name)[row_slice] for feature_name in self.feature_names
+        }
+        embeddings = self.embedder(feature_tensors, self.feature_names)
+        aggregated_embeddings = self.embedding_aggregator(embeddings)
+        hidden_state = self.encoder(feature_tensors=feature_tensors, input_embeddings=aggregated_embeddings)
+        assert aggregated_embeddings.size() == hidden_state.size()
+        return hidden_state
+
+    def _build_chunked_cache(self, item_count: int) -> torch.Tensor:
+        cache_batch_size = self.cache_batch_size
+        if cache_batch_size is None:  # pragma: no cover
+            msg = "cache_batch_size must be set before building a chunked cache."
+            raise RuntimeError(msg)
+        logger.info("Building the %s-item evaluation cache in chunks of %s", item_count, cache_batch_size)
+        first_end = min(cache_batch_size, item_count)
+        first_chunk = self._encode_item_rows(slice(0, first_end))
+        cache = first_chunk.new_empty((item_count, *first_chunk.shape[1:]))
+        cache[:first_end].copy_(first_chunk)
+        for start in range(first_end, item_count, cache_batch_size):
+            end = min(start + cache_batch_size, item_count)
+            cache[start:end].copy_(self._encode_item_rows(slice(start, end)))
+        self.cache = cache
+        return cache
+
     def forward(
         self,
         candidates_to_score: torch.LongTensor | None = None,
@@ -312,6 +349,11 @@ class ItemTower(torch.nn.Module):
             if candidates_to_score is None:
                 return self.cache
             return self.cache[candidates_to_score]
+
+        if not self.training and candidates_to_score is None and self.cache_batch_size is not None:
+            item_count = self._get_any_feature_buffer().shape[0]
+            if item_count > self.cache_batch_size:
+                return self._build_chunked_cache(item_count)
 
         if candidates_to_score is None:
             feature_tensors = {
@@ -357,6 +399,7 @@ class TwoTowerBody(torch.nn.Module):
         query_tower_output_normalization: NormalizerProto,
         item_encoder: ItemEncoderProto,
         item_features_reader: FeaturesReaderProtocol,
+        item_cache_batch_size: int | None = None,
     ):
         """
         :param schema: tensor schema object with metainformation about features.
@@ -386,6 +429,8 @@ class TwoTowerBody(torch.nn.Module):
             You can use :class:`replay.nn.sequential.twotower.FeaturesReader` as a standard class.\n
             But you can implement your own feature processing,
             just follow the :class:`replay.nn.sequential.twotower.FeaturesReaderProtocol` protocol.
+        :param item_cache_batch_size: maximum number of item rows encoded at once when the full
+            evaluation cache is first built. ``None`` encodes the complete catalog at once.
 
         """
         super().__init__()
@@ -410,6 +455,7 @@ class TwoTowerBody(torch.nn.Module):
             embedder,
             item_embedding_aggregator,
             item_encoder,
+            cache_batch_size=item_cache_batch_size,
         )
 
     def reset_parameters(self) -> None:
@@ -545,6 +591,7 @@ class TwoTower(torch.nn.Module):
         excluded_features: list[str] | None = None,
         categorical_list_feature_aggregation_method: str = "sum",
         hidden_dim: int | None = None,
+        item_cache_batch_size: int | None = None,
     ) -> "TwoTower":
         """
         A class method for fast creation of the TwoTower instance.\n
@@ -575,6 +622,8 @@ class TwoTower(torch.nn.Module):
             Default: ``"sum"``.
         :param hidden_dim: hidden layer dimension of feed-forward network. If ``None``, uses ``embedding_dim``.
             Defaults to ``None``.
+        :param item_cache_batch_size: maximum number of item rows encoded at once when the full
+            evaluation cache is first built. ``None`` encodes the complete catalog at once.
         :return: an instance of TwoTower class.
         """
         from replay.nn.agg import SumAggregator
@@ -624,6 +673,7 @@ class TwoTower(torch.nn.Module):
                 query_tower_output_normalization=torch.nn.LayerNorm(embedding_dim),
                 item_encoder=SwiGLUEncoder(embedding_dim=embedding_dim, hidden_dim=2 * embedding_dim),
                 item_features_reader=item_features_reader,
+                item_cache_batch_size=item_cache_batch_size,
             ),
             loss=CE(ignore_index=schema.item_id_features.item().padding_value),
             context_merger=None,
