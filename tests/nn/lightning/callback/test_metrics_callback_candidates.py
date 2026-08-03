@@ -1,9 +1,12 @@
 from types import SimpleNamespace
 from unittest.mock import Mock
 
+import lightning as L
 import pytest
 import torch
+from torch.utils.data import DataLoader
 
+from replay.nn.lightning import LightningModule
 from replay.nn.lightning.callback import ComputeMetricsCallback
 from replay.nn.lightning.postprocessor import SeenItemsFilter
 
@@ -16,6 +19,13 @@ class _RecordingMetricsBuilder:
 
     def add_prediction(self, predictions, ground_truth, train=None):
         self.predictions.append(predictions)
+
+
+class _FixedCandidateModel(torch.nn.Module):
+    def forward(self, query_id, candidates_to_score=None):
+        assert candidates_to_score is not None
+        logits = torch.tensor([0.8, 0.9, 0.1], device=query_id.device)
+        return {"logits": logits.expand(query_id.shape[0], -1)}
 
 
 def _callback_with_builder(candidates=None, postprocessors=None):
@@ -78,6 +88,35 @@ def test_row_wise_candidates_are_mapped_and_seen_items_are_masked():
     )
 
     torch.testing.assert_close(builder.predictions[0], torch.tensor([[4, 3], [5, 0]]))
+
+
+@pytest.mark.torch
+def test_lightning_validation_maps_candidates_after_seen_item_filtering():
+    callback = ComputeMetricsCallback(
+        metrics=["recall"],
+        ks=[1],
+        item_count=8,
+        postprocessors=[SeenItemsFilter(item_count=8)],
+        verbose=False,
+    )
+    model = LightningModule(_FixedCandidateModel())
+    model.candidates_to_score = torch.tensor([4, 1, 3])
+    dataloader = DataLoader(
+        [{"query_id": torch.tensor(0), "ground_truth": torch.tensor([4]), "seen_ids": torch.tensor([1])}],
+        batch_size=1,
+    )
+    trainer = L.Trainer(
+        callbacks=[callback],
+        accelerator="cpu",
+        logger=False,
+        enable_checkpointing=False,
+        enable_model_summary=False,
+        enable_progress_bar=False,
+    )
+
+    trainer.validate(model, dataloaders=dataloader)
+
+    assert callback.get_metrics()[0]["recall@1"] == 1.0
 
 
 @pytest.mark.parametrize(

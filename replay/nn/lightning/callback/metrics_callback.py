@@ -29,6 +29,10 @@ class ComputeMetricsCallback(lightning.Callback):
     To calculate the ``coverage`` and ``novelty`` metrics, the batch must additionally contain the ``train_column`` key.
     The padding value of this tensor can be any, the main condition is that the padding value does not overlap
     with the existing item ID values. For example, these can be negative values.
+
+    When only selected candidates are scored, their global item IDs must be supplied through
+    ``LightningModule.candidates_to_score`` or the batch key ``candidates_to_score``. A one-dimensional
+    tensor is shared by the batch; a two-dimensional batch tensor provides candidates per row.
     """
 
     def __init__(
