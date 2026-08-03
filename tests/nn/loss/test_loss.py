@@ -135,8 +135,10 @@ def test_loss_forward_with_multiclass_negatives(loss, batch_name, request):
     loss(**batch)
 
 
-@pytest.mark.parametrize("loss", [CESampled(), BCESampled(), LogInCESampled()])
-def test_sampled_loss_ignores_padded_negatives(loss):
+@pytest.mark.parametrize("loss_class", [CESampled, BCESampled, LogInCESampled])
+@pytest.mark.parametrize("negative_labels_ignore_index", [-100, 0])
+def test_sampled_loss_ignores_padded_negatives(loss_class, negative_labels_ignore_index):
+    loss = loss_class(negative_labels_ignore_index=negative_labels_ignore_index)
     item_embeddings = torch.tensor([[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0]])
 
     def get_logits(model_embeddings, item_ids):
@@ -156,7 +158,7 @@ def test_sampled_loss_ignores_padded_negatives(loss):
     embeddings_with_padding = torch.tensor([[[1.0, 0.0]]], requires_grad=True)
     with_padding = loss(
         model_embeddings=embeddings_with_padding,
-        negative_labels=torch.tensor([1, -100, 2]),
+        negative_labels=torch.tensor([1, negative_labels_ignore_index, 2]),
         **batch,
     )
     with_padding.backward()
