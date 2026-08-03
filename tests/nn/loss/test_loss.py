@@ -135,6 +135,44 @@ def test_loss_forward_with_multiclass_negatives(loss, batch_name, request):
     loss(**batch)
 
 
+@pytest.mark.parametrize("loss", [CESampled(), BCESampled(), LogInCESampled()])
+def test_sampled_loss_ignores_padded_negatives(loss):
+    item_embeddings = torch.tensor([[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0]])
+
+    def get_logits(model_embeddings, item_ids):
+        selected_item_embeddings = item_embeddings[item_ids]
+        if item_ids.ndim == 1:
+            return model_embeddings @ selected_item_embeddings.T
+        return torch.einsum("bd,bnd->bn", model_embeddings, selected_item_embeddings)
+
+    loss.logits_callback = get_logits
+    batch = {
+        "feature_tensors": {},
+        "positive_labels": torch.tensor([[[0]]]),
+        "padding_mask": torch.tensor([[True]]),
+        "target_padding_mask": torch.tensor([[[True]]]),
+    }
+
+    embeddings_with_padding = torch.tensor([[[1.0, 0.0]]], requires_grad=True)
+    with_padding = loss(
+        model_embeddings=embeddings_with_padding,
+        negative_labels=torch.tensor([1, -100, 2]),
+        **batch,
+    )
+    with_padding.backward()
+
+    embeddings_without_padding = torch.tensor([[[1.0, 0.0]]], requires_grad=True)
+    without_padding = loss(
+        model_embeddings=embeddings_without_padding,
+        negative_labels=torch.tensor([1, 2]),
+        **batch,
+    )
+    without_padding.backward()
+
+    torch.testing.assert_close(with_padding, without_padding)
+    torch.testing.assert_close(embeddings_with_padding.grad, embeddings_without_padding.grad)
+
+
 def test_weighted_mean_clamps_zero_denominator():
     loss = torch.ones(2)
     sample_weight = torch.zeros_like(loss)
