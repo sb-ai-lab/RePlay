@@ -4,7 +4,12 @@ from replay.data.nn import TensorMap
 
 
 class LengthBucketedQueryEncoder(torch.nn.Module):
-    """Evaluate similarly sized left-padded sequences together during training."""
+    """Evaluate similarly sized left-padded sequences together during training.
+
+    Cropped padding positions are restored as zeros. Downstream training code
+    must ignore them through its target mask. RePlay attention masks may be
+    shared, batch-aligned, or flattened as ``[batch * heads, sequence, sequence]``.
+    """
 
     def __init__(
         self,
@@ -40,7 +45,7 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
 
     def reset_parameters(self) -> None:
         reset_parameters = getattr(self.encoder, "reset_parameters", None)
-        if reset_parameters is not None:
+        if callable(reset_parameters):
             reset_parameters()
 
     @staticmethod
@@ -71,8 +76,10 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
         sequence_length: int,
     ) -> torch.Tensor:
         mask = attention_mask
-        if mask.ndim >= 2 and mask.shape[-2:] == (sequence_length, sequence_length):
-            mask = mask[..., left_crop:, left_crop:]
+        if mask.ndim < 2 or mask.shape[-2:] != (sequence_length, sequence_length):
+            msg = "attention_mask must end with [sequence, sequence] dimensions."
+            raise ValueError(msg)
+        mask = mask[..., left_crop:, left_crop:]
         if mask.ndim == 2:
             return mask
         if mask.size(0) == batch_size:
@@ -81,7 +88,8 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
             num_heads = mask.size(0) // batch_size
             mask = mask.reshape(batch_size, num_heads, *mask.shape[-2:])
             return mask.index_select(0, row_indices).reshape(-1, *mask.shape[-2:])
-        return mask
+        msg = "attention_mask must be shared, batch-aligned, or flattened as [batch * heads, sequence, sequence]."
+        raise ValueError(msg)
 
     def forward(
         self,

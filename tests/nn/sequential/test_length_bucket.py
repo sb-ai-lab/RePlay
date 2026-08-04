@@ -1,3 +1,4 @@
+import pytest
 import torch
 
 from replay.nn.sequential import LengthBucketedQueryEncoder
@@ -89,3 +90,35 @@ def test_bucketed_encoder_bypasses_small_and_evaluation_batches():
     wrapper.eval()(features, embeddings, padding_mask, attention_mask)
 
     assert encoder.input_shapes == [(2, 4, 2), (2, 4, 2)]
+
+
+def test_bucketed_encoder_slices_flattened_multihead_mask_by_row():
+    batch_size, num_heads, sequence_length = 3, 2, 5
+    mask = torch.arange(batch_size * num_heads * sequence_length**2).reshape(
+        batch_size * num_heads,
+        sequence_length,
+        sequence_length,
+    )
+    row_indices = torch.tensor([2, 0])
+
+    actual = LengthBucketedQueryEncoder._slice_attention_mask(
+        mask,
+        row_indices,
+        left_crop=2,
+        batch_size=batch_size,
+        sequence_length=sequence_length,
+    )
+    expected = mask.reshape(batch_size, num_heads, sequence_length, sequence_length)[row_indices, :, 2:, 2:]
+
+    torch.testing.assert_close(actual, expected.reshape(-1, 3, 3))
+
+
+def test_bucketed_encoder_rejects_unsupported_attention_mask_layout():
+    with pytest.raises(ValueError, match="batch-aligned"):
+        LengthBucketedQueryEncoder._slice_attention_mask(
+            torch.zeros(1, 2, 4, 4),
+            torch.tensor([0]),
+            left_crop=0,
+            batch_size=3,
+            sequence_length=4,
+        )
