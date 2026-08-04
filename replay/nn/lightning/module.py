@@ -1,4 +1,5 @@
 import inspect
+from collections.abc import Mapping
 from typing import Any
 
 import lightning
@@ -21,6 +22,9 @@ class LightningModule(lightning.LightningModule):
         model: torch.nn.Module,
         optimizer_factory: BaseOptimizerFactory | None = None,
         lr_scheduler_factory: BaseLRSchedulerFactory | None = None,
+        *,
+        epoch_only_training_metrics: bool = False,
+        training_batch_size_feature_name: str | None = None,
     ) -> None:
         """
         :param model: Initialized model.\n
@@ -31,6 +35,10 @@ class LightningModule(lightning.LightningModule):
             Default: ``None``.
         :param lr_scheduler_factory: The learning rate schedule factory.
             Default: ``None``.
+        :param epoch_only_training_metrics: accumulate training metrics locally and synchronize them
+            at epoch end instead of every step. Default: ``False``.
+        :param training_batch_size_feature_name: feature used to determine batch size when
+            epoch-level reduction is enabled. By default all tensors in ``feature_tensors`` are checked.
         """
         super().__init__()
         self.save_hyperparameters(ignore=["model"])
@@ -39,6 +47,8 @@ class LightningModule(lightning.LightningModule):
         self._optimizer_factory = optimizer_factory
         self._lr_scheduler_factory = lr_scheduler_factory
         self.candidates_to_score = None
+        self.epoch_only_training_metrics = epoch_only_training_metrics
+        self.training_batch_size_feature_name = training_batch_size_feature_name
 
     def forward(self, batch: dict) -> TrainOutput | InferenceOutput:
         """
@@ -60,6 +70,8 @@ class LightningModule(lightning.LightningModule):
         return self.model(**modified_batch)
 
     def training_step(self, batch: dict) -> torch.Tensor:
+        if self.epoch_only_training_metrics:
+            return self._training_step_with_epoch_metrics(batch)
         model_output: TrainOutput = self(batch)
         loss = model_output["loss"]
         lr = self.optimizers().param_groups[0]["lr"]  # Get current learning rate
@@ -72,6 +84,64 @@ class LightningModule(lightning.LightningModule):
             prog_bar=True,
             sync_dist=True,
         )
+        return loss
+
+    def _infer_training_batch_size(self, batch: Mapping[str, Any]) -> int:
+        feature_tensors = batch.get("feature_tensors")
+        if not isinstance(feature_tensors, Mapping):
+            msg = "Training batch must contain a 'feature_tensors' mapping."
+            raise ValueError(msg)
+        feature_name = self.training_batch_size_feature_name
+        if feature_name is not None:
+            feature = feature_tensors.get(feature_name)
+            if not isinstance(feature, torch.Tensor) or feature.ndim == 0:
+                msg = f"Batch-size feature '{feature_name}' must be a non-scalar tensor."
+                raise ValueError(msg)
+            batch_sizes = {int(feature.shape[0])}
+        else:
+            batch_sizes = {
+                int(value.shape[0])
+                for value in feature_tensors.values()
+                if isinstance(value, torch.Tensor) and value.ndim > 0
+            }
+            if len(batch_sizes) != 1:
+                msg = (
+                    "Feature tensors must have one common batch size. Set "
+                    "training_batch_size_feature_name when the mapping contains shared tensors."
+                )
+                raise ValueError(msg)
+        batch_size = batch_sizes.pop()
+        if batch_size <= 0:
+            msg = f"Training batch size must be positive, got {batch_size}."
+            raise ValueError(msg)
+        return batch_size
+
+    def _training_step_with_epoch_metrics(self, batch: dict) -> torch.Tensor:
+        model_output: TrainOutput = self(batch)
+        loss = model_output["loss"]
+        learning_rate = self.optimizers().param_groups[0]["lr"]
+        batch_size = self._infer_training_batch_size(batch)
+        detached_learning_rate = torch.as_tensor(learning_rate, device=self.device)
+
+        self.log(
+            "learning_rate_epoch",
+            detached_learning_rate,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            sync_dist=True,
+            batch_size=batch_size,
+        )
+        self.log(
+            "train_loss_epoch",
+            loss,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            sync_dist=True,
+            batch_size=batch_size,
+        )
+
         return loss
 
     @override
