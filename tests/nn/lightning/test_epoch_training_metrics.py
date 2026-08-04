@@ -22,6 +22,11 @@ class ConstantLossModel(LossModel):
         return {"loss": self.scale * 0 + 4}
 
 
+class BatchMeanLossModel(LossModel):
+    def forward(self, feature_tensors):
+        return {"loss": self.scale * 0 + feature_tensors["value"].float().mean()}
+
+
 def make_batch(batch_size):
     return {
         "feature_tensors": {
@@ -45,7 +50,7 @@ def test_default_training_step_keeps_existing_logging():
     assert all(call.kwargs["sync_dist"] is True for call in log.call_args_list)
 
 
-def test_epoch_mode_defers_distributed_metrics_and_preserves_weights():
+def test_epoch_mode_uses_rank_zero_step_metrics_without_synchronization():
     module = LightningModule(ConstantLossModel(2.0), epoch_only_training_metrics=True)
     module._trainer = SimpleNamespace(global_rank=0)
 
@@ -54,11 +59,12 @@ def test_epoch_mode_defers_distributed_metrics_and_preserves_weights():
             loss = module.training_step(make_batch(3))
 
     assert loss.requires_grad
-    assert [call.args[0] for call in log.call_args_list] == ["learning_rate_epoch", "train_loss_epoch"]
+    assert [call.args[0] for call in log.call_args_list] == ["learning_rate_step", "train_loss_step"]
     for call in log.call_args_list:
-        assert call.kwargs["on_step"] is False
-        assert call.kwargs["on_epoch"] is True
-        assert call.kwargs["sync_dist"] is True
+        assert call.kwargs["on_step"] is True
+        assert call.kwargs["on_epoch"] is False
+        assert call.kwargs["sync_dist"] is False
+        assert call.kwargs["rank_zero_only"] is True
         assert call.kwargs["batch_size"] == 3
 
 
@@ -80,9 +86,9 @@ def test_epoch_mode_uses_named_batch_feature_for_shared_tensors():
 
 
 def test_epoch_mode_reports_metrics_with_lightning_trainer():
-    module = LightningModule(ConstantLossModel(2.0), epoch_only_training_metrics=True)
+    module = LightningModule(BatchMeanLossModel(2.0), epoch_only_training_metrics=True)
     dataloader = DataLoader(
-        [{"feature_tensors": {"item_id": torch.tensor([item_id])}} for item_id in range(5)],
+        [{"feature_tensors": {"value": torch.tensor(float(item_id))}} for item_id in range(5)],
         batch_size=2,
     )
     trainer = lightning.Trainer(
@@ -95,5 +101,11 @@ def test_epoch_mode_reports_metrics_with_lightning_trainer():
 
     trainer.fit(module, train_dataloaders=dataloader)
 
-    torch.testing.assert_close(trainer.callback_metrics["train_loss_epoch"], torch.tensor(4.0))
+    torch.testing.assert_close(trainer.callback_metrics["train_loss_epoch"], torch.tensor(2.0, dtype=torch.float64))
     assert "learning_rate_epoch" in trainer.callback_metrics
+
+
+def test_epoch_mode_infers_batch_size_from_top_level_tensors():
+    module = LightningModule(LossModel(1.0), epoch_only_training_metrics=True)
+
+    assert module._infer_training_batch_size({"item_id": torch.zeros(3, 4, dtype=torch.long)}) == 3
