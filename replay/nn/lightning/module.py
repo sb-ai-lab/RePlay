@@ -49,6 +49,9 @@ class LightningModule(lightning.LightningModule):
         self.candidates_to_score = None
         self.epoch_only_training_metrics = epoch_only_training_metrics
         self.training_batch_size_feature_name = training_batch_size_feature_name
+        self.register_buffer("_train_loss_sum", torch.zeros((), dtype=torch.float64), persistent=False)
+        self.register_buffer("_learning_rate_sum", torch.zeros((), dtype=torch.float64), persistent=False)
+        self.register_buffer("_training_row_count", torch.zeros((), dtype=torch.float64), persistent=False)
 
     def forward(self, batch: dict) -> TrainOutput | InferenceOutput:
         """
@@ -88,12 +91,10 @@ class LightningModule(lightning.LightningModule):
 
     def _infer_training_batch_size(self, batch: Mapping[str, Any]) -> int:
         feature_tensors = batch.get("feature_tensors")
-        if not isinstance(feature_tensors, Mapping):
-            msg = "Training batch must contain a 'feature_tensors' mapping."
-            raise ValueError(msg)
+        batch_tensors = feature_tensors if isinstance(feature_tensors, Mapping) else batch
         feature_name = self.training_batch_size_feature_name
         if feature_name is not None:
-            feature = feature_tensors.get(feature_name)
+            feature = batch_tensors.get(feature_name)
             if not isinstance(feature, torch.Tensor) or feature.ndim == 0:
                 msg = f"Batch-size feature '{feature_name}' must be a non-scalar tensor."
                 raise ValueError(msg)
@@ -101,12 +102,12 @@ class LightningModule(lightning.LightningModule):
         else:
             batch_sizes = {
                 int(value.shape[0])
-                for value in feature_tensors.values()
+                for value in batch_tensors.values()
                 if isinstance(value, torch.Tensor) and value.ndim > 0
             }
             if len(batch_sizes) != 1:
                 msg = (
-                    "Feature tensors must have one common batch size. Set "
+                    "Batch tensors must have one common batch size. Set "
                     "training_batch_size_feature_name when the mapping contains shared tensors."
                 )
                 raise ValueError(msg)
@@ -121,28 +122,75 @@ class LightningModule(lightning.LightningModule):
         loss = model_output["loss"]
         learning_rate = self.optimizers().param_groups[0]["lr"]
         batch_size = self._infer_training_batch_size(batch)
-        detached_learning_rate = torch.as_tensor(learning_rate, device=self.device)
+        detached_loss = loss.detach().to(device=self._train_loss_sum.device, dtype=self._train_loss_sum.dtype)
+        detached_learning_rate = torch.as_tensor(
+            learning_rate,
+            device=self._learning_rate_sum.device,
+            dtype=self._learning_rate_sum.dtype,
+        )
+        self._train_loss_sum.add_(detached_loss * batch_size)
+        self._learning_rate_sum.add_(detached_learning_rate * batch_size)
+        self._training_row_count.add_(batch_size)
 
-        self.log(
-            "learning_rate_epoch",
-            detached_learning_rate,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            sync_dist=True,
-            batch_size=batch_size,
-        )
-        self.log(
-            "train_loss_epoch",
-            loss,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            sync_dist=True,
-            batch_size=batch_size,
-        )
+        if self.global_rank == 0:
+            self.log(
+                "learning_rate_step",
+                detached_learning_rate,
+                on_step=True,
+                on_epoch=False,
+                prog_bar=True,
+                sync_dist=False,
+                rank_zero_only=True,
+                batch_size=batch_size,
+            )
+            self.log(
+                "train_loss_step",
+                detached_loss,
+                on_step=True,
+                on_epoch=False,
+                prog_bar=True,
+                sync_dist=False,
+                rank_zero_only=True,
+                batch_size=batch_size,
+            )
 
         return loss
+
+    def on_train_epoch_start(self) -> None:
+        if self.epoch_only_training_metrics:
+            self._train_loss_sum.zero_()
+            self._learning_rate_sum.zero_()
+            self._training_row_count.zero_()
+        super().on_train_epoch_start()
+
+    def on_train_epoch_end(self) -> None:
+        if self.epoch_only_training_metrics:
+            totals = torch.stack((self._train_loss_sum, self._learning_rate_sum, self._training_row_count))
+            if torch.distributed.is_available() and torch.distributed.is_initialized():
+                torch.distributed.all_reduce(totals, op=torch.distributed.ReduceOp.SUM)
+            if totals[2].item() <= 0:
+                msg = "Cannot aggregate training metrics without rows."
+                raise RuntimeError(msg)
+            if self.global_rank == 0:
+                self.log(
+                    "train_loss_epoch",
+                    totals[0] / totals[2],
+                    on_step=False,
+                    on_epoch=True,
+                    prog_bar=True,
+                    sync_dist=False,
+                    rank_zero_only=True,
+                )
+                self.log(
+                    "learning_rate_epoch",
+                    totals[1] / totals[2],
+                    on_step=False,
+                    on_epoch=True,
+                    prog_bar=True,
+                    sync_dist=False,
+                    rank_zero_only=True,
+                )
+        super().on_train_epoch_end()
 
     @override
     def predict_step(self, batch: dict, batch_idx: int, dataloader_idx: int = 0) -> torch.Tensor:
