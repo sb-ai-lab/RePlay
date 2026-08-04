@@ -320,6 +320,18 @@ def test_target_aware_trim_rejects_mismatched_masks():
         transform(batch)
 
 
+def test_target_aware_trim_rejects_non_boolean_masks():
+    batch = {
+        "item_id": torch.tensor([[0, 3, 4]]),
+        "padding_mask": torch.tensor([[0, 1, 1]]),
+        "target_padding_mask": torch.tensor([[False, True, True]]),
+    }
+    transform = TargetAwareAdaptiveTrimTransform("item_id", min_sequence_elements=0)
+
+    with pytest.raises(TypeError, match="boolean dtype"):
+        transform(batch)
+
+
 def test_select_transform(random_batch):
     features = ["item_id", ("cat_feature",)]
     transform = SelectTransform(features)
