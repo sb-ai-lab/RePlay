@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from replay.nn.sequential import LengthBucketedQueryEncoder
+from replay.nn.sequential import LengthBucketedQueryEncoder, SasRecTransformerLayer
 
 
 class ToyEncoder(torch.nn.Module):
@@ -122,3 +122,24 @@ def test_bucketed_encoder_rejects_unsupported_attention_mask_layout():
             batch_size=3,
             sequence_length=4,
         )
+
+
+def test_bucketed_sasrec_matches_full_batch_with_flattened_multihead_mask():
+    torch.manual_seed(8)
+    features, baseline_embeddings, padding_mask, attention_mask = make_batch([2, 6, 3, 5], 7, 4)
+    baseline_embeddings.requires_grad_(True)
+    bucketed_embeddings = baseline_embeddings.detach().clone().requires_grad_(True)
+    baseline_encoder = SasRecTransformerLayer(embedding_dim=4, num_heads=2, num_blocks=1, dropout=0.0)
+    bucketed_encoder = SasRecTransformerLayer(embedding_dim=4, num_heads=2, num_blocks=1, dropout=0.0)
+    bucketed_encoder.load_state_dict(baseline_encoder.state_dict())
+    wrapper = LengthBucketedQueryEncoder(bucketed_encoder, bucket_size=2, min_input_elements=0)
+    multihead_mask = attention_mask[:, 0].repeat_interleave(2, dim=0)
+
+    baseline_output = baseline_encoder(features, baseline_embeddings, padding_mask, multihead_mask)
+    bucketed_output = wrapper(features, bucketed_embeddings, padding_mask, multihead_mask)
+    active = padding_mask.unsqueeze(-1).expand_as(baseline_output)
+    torch.testing.assert_close(bucketed_output[active], baseline_output[active], rtol=1e-5, atol=1e-6)
+
+    baseline_output[active].square().sum().backward()
+    bucketed_output[active].square().sum().backward()
+    torch.testing.assert_close(bucketed_embeddings.grad, baseline_embeddings.grad, rtol=1e-5, atol=1e-6)
