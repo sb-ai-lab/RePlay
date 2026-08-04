@@ -13,7 +13,8 @@ from replay.nn.sequential.twotower import TwoTower
 class GroupedCESampled(CESampled):
     """Sampled CE with one independent negative pool per logical batch group.
 
-    Group losses are divided by ``groups_per_batch`` even for the final short
+    Negative pools must contain unique item IDs. Group losses are divided by
+    ``groups_per_batch`` even for the final short
     batch. This preserves the weighting of the original smaller batches when
     the physical batch size is increased together with gradient accumulation.
     """
@@ -23,6 +24,7 @@ class GroupedCESampled(CESampled):
         logical_batch_size: int,
         groups_per_batch: int,
         expected_num_negatives: int | None = None,
+        cardinality: int | None = None,
         negative_labels_ignore_index: int = -100,
         **kwargs,
     ) -> None:
@@ -30,6 +32,8 @@ class GroupedCESampled(CESampled):
         :param logical_batch_size: Number of rows that share one negative pool.
         :param groups_per_batch: Number of logical groups in a full physical batch.
         :param expected_num_negatives: Optional required size of every negative pool.
+        :param cardinality: Optional catalog size enabling collision masking without a
+            target-by-negative comparison matrix.
         :param negative_labels_ignore_index: Value ignored in negative labels.
         :param kwargs: Arguments passed to :class:`torch.nn.CrossEntropyLoss`.
         """
@@ -42,6 +46,9 @@ class GroupedCESampled(CESampled):
         if expected_num_negatives is not None and expected_num_negatives <= 0:
             msg = "The expected_num_negatives parameter must be positive."
             raise ValueError(msg)
+        if cardinality is not None and cardinality <= 0:
+            msg = "The cardinality parameter must be positive."
+            raise ValueError(msg)
         super().__init__(negative_labels_ignore_index=negative_labels_ignore_index, **kwargs)
         if self._loss.reduction != "mean":
             msg = "GroupedCESampled supports only mean reduction."
@@ -49,6 +56,8 @@ class GroupedCESampled(CESampled):
         self.logical_batch_size = logical_batch_size
         self.groups_per_batch = groups_per_batch
         self.expected_num_negatives = expected_num_negatives
+        self.cardinality = cardinality
+        self.register_buffer("_negative_column_lookup", None, persistent=False)
 
     def _validate_inputs(
         self,
@@ -93,15 +102,47 @@ class GroupedCESampled(CESampled):
         positive_labels: torch.LongTensor,
         negative_labels: torch.LongTensor,
     ) -> torch.Tensor:
-        negative_logits = mask_negative_logits(
-            negative_logits,
-            negative_labels,
-            positive_labels.unsqueeze(-1),
-            self.negative_labels_ignore_index,
-        )
+        negative_logits = self._mask_negative_logits(negative_logits, negative_labels, positive_labels)
         logits = torch.cat((positive_logits, negative_logits), dim=-1)
         target = torch.zeros(positive_logits.size(0), dtype=torch.long, device=logits.device)
         return self._loss(logits, target)
+
+    def _mask_negative_logits(
+        self,
+        negative_logits: torch.Tensor,
+        negative_labels: torch.LongTensor,
+        positive_labels: torch.LongTensor,
+    ) -> torch.Tensor:
+        if self.cardinality is None:
+            return mask_negative_logits(
+                negative_logits,
+                negative_labels,
+                positive_labels.unsqueeze(-1),
+                self.negative_labels_ignore_index,
+            )
+
+        lookup = self._negative_column_lookup
+        if lookup is None or lookup.device != negative_labels.device:
+            lookup = torch.empty(self.cardinality, dtype=torch.int32, device=negative_labels.device)
+            self._negative_column_lookup = lookup
+        lookup.fill_(-1)
+
+        valid_negatives = negative_labels.ge(0) & negative_labels.lt(self.cardinality)
+        negative_columns = torch.arange(negative_labels.numel(), dtype=lookup.dtype, device=negative_labels.device)
+        lookup[negative_labels[valid_negatives]] = negative_columns[valid_negatives]
+
+        valid_positives = positive_labels.ge(0) & positive_labels.lt(self.cardinality)
+        safe_positives = positive_labels.clamp(min=0, max=self.cardinality - 1)
+        collision_columns = lookup[safe_positives].long()
+        collision_rows = torch.arange(positive_labels.numel(), device=positive_labels.device)
+        collisions = valid_positives & collision_columns.ge(0)
+        masked_value = max(-1e9, torch.finfo(negative_logits.dtype).min)
+        negative_logits.masked_fill_(
+            negative_labels.eq(self.negative_labels_ignore_index).unsqueeze(0),
+            masked_value,
+        )
+        negative_logits[collision_rows[collisions], collision_columns[collisions]] = masked_value
+        return negative_logits
 
     def _score_group(
         self,
@@ -110,7 +151,11 @@ class GroupedCESampled(CESampled):
         negative_labels: torch.LongTensor,
     ) -> torch.Tensor:
         positive_logits = self.logits_callback(model_embeddings, positive_labels.unsqueeze(-1))
-        negative_logits = self.logits_callback(model_embeddings, negative_labels)
+        scoring_negative_labels = negative_labels.masked_fill(
+            negative_labels.eq(self.negative_labels_ignore_index),
+            0,
+        )
+        negative_logits = self.logits_callback(model_embeddings, scoring_negative_labels)
         return self._loss_from_logits(
             positive_logits,
             negative_logits,
@@ -314,6 +359,7 @@ class CatalogCachedGroupedCESampled(GroupedCESampled):
         super().__init__(
             logical_batch_size=logical_batch_size,
             groups_per_batch=groups_per_batch,
+            cardinality=cardinality,
             negative_labels_ignore_index=negative_labels_ignore_index,
             **kwargs,
         )

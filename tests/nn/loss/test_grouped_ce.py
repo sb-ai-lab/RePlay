@@ -156,3 +156,31 @@ def test_grouped_loss_validates_negative_pool_size():
 
     with pytest.raises(ValueError, match="must contain 8"):
         _loss(model, _batch(0))
+
+
+def test_grouped_loss_ignores_padded_negatives_before_item_lookup():
+    model = _make_model(
+        GroupedCESampled(
+            logical_batch_size=2,
+            groups_per_batch=2,
+            negative_labels_ignore_index=-100,
+        )
+    )
+    batch = list(_batch(0))
+    batch[2][:, -1] = -100
+
+    loss = _loss(model, tuple(batch))
+
+    assert torch.isfinite(loss)
+
+
+def test_grouped_loss_fast_collision_mask_matches_generic_path():
+    generic_model = _make_model(GroupedCESampled(logical_batch_size=2, groups_per_batch=2))
+    fast_model = _make_model(GroupedCESampled(logical_batch_size=2, groups_per_batch=2, cardinality=20))
+    fast_model.load_state_dict(copy.deepcopy(generic_model.state_dict()))
+    batch = _batch(3)
+
+    generic_loss = _loss(generic_model, batch)
+    fast_loss = _loss(fast_model, batch)
+
+    torch.testing.assert_close(fast_loss, generic_loss)

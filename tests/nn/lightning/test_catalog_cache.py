@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+import pytest
 import torch
 
 from replay.nn.lightning import CatalogCacheLightningModule
@@ -14,3 +15,10 @@ def test_accumulation_window_end_includes_short_final_window():
     assert module._is_accumulation_window_end(2)
     assert not module._is_accumulation_window_end(3)
     assert module._is_accumulation_window_end(4)
+
+
+def test_catalog_cache_module_rejects_model_without_cache_loss():
+    module = CatalogCacheLightningModule(torch.nn.Linear(2, 2))
+
+    with pytest.raises(TypeError, match="missing methods"):
+        module._catalog_cache_loss()
