@@ -79,6 +79,89 @@ class UniformNegativeSamplingTransform(torch.nn.Module):
         return output_batch
 
 
+class GroupedUniformNegativeSamplingTransform(UniformNegativeSamplingTransform):
+    """Draw an independent negative pool for each logical batch group.
+
+    This transform allows several logical batches to be packed into one larger
+    physical batch without changing how often negatives are sampled.
+    """
+
+    def __init__(
+        self,
+        cardinality: int,
+        num_negative_samples: int,
+        group_size: int,
+        groups_per_batch: int,
+        *,
+        batch_feature_name: str = "positive_labels",
+        out_feature_name: str = "negative_labels",
+        sample_distribution: torch.Tensor | None = None,
+        generator: torch.Generator | None = None,
+    ) -> None:
+        """
+        :param cardinality: Number of items in the catalog, excluding padding.
+        :param num_negative_samples: Number of items in each negative pool.
+        :param group_size: Number of rows in one logical batch group.
+        :param groups_per_batch: Number of logical groups in a full physical batch.
+        :param batch_feature_name: Feature whose first dimension defines the physical batch size.
+        :param out_feature_name: Name of the generated grouped negative tensor.
+        :param sample_distribution: Optional sampling weights of length ``cardinality``.
+        :param generator: Optional random number generator.
+        """
+        if group_size <= 0:
+            msg = "The group_size parameter must be positive."
+            raise ValueError(msg)
+        if groups_per_batch <= 1:
+            msg = "The groups_per_batch parameter must be greater than one."
+            raise ValueError(msg)
+        super().__init__(
+            cardinality=cardinality,
+            num_negative_samples=num_negative_samples,
+            out_feature_name=out_feature_name,
+            sample_distribution=sample_distribution,
+            generator=generator,
+        )
+        self.group_size = group_size
+        self.groups_per_batch = groups_per_batch
+        self.batch_feature_name = batch_feature_name
+
+    def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        if self.batch_feature_name not in batch:
+            msg = f"The batch does not contain {self.batch_feature_name!r}."
+            raise ValueError(msg)
+        batch_feature = batch[self.batch_feature_name]
+        if batch_feature.dim() == 0 or batch_feature.size(0) == 0:
+            msg = f"The {self.batch_feature_name!r} feature must have a non-empty batch dimension."
+            raise ValueError(msg)
+
+        active_groups = (batch_feature.size(0) + self.group_size - 1) // self.group_size
+        if active_groups > self.groups_per_batch:
+            capacity = self.group_size * self.groups_per_batch
+            msg = f"Batch size {batch_feature.size(0)} exceeds grouped sampler capacity {capacity}."
+            raise ValueError(msg)
+
+        pools = torch.stack(
+            [
+                torch.multinomial(
+                    self.sample_distribution,
+                    num_samples=self.num_negative_samples,
+                    replacement=False,
+                    generator=self.generator,
+                )
+                for _ in range(active_groups)
+            ]
+        )
+        if active_groups < self.groups_per_batch:
+            pools = torch.cat(
+                (pools, pools[-1:].expand(self.groups_per_batch - active_groups, -1)),
+                dim=0,
+            )
+
+        output_batch = dict(batch.items())
+        output_batch[self.out_feature_name] = pools
+        return output_batch
+
+
 class MultiClassNegativeSamplingTransform(torch.nn.Module):
     """
     Transform for generating negatives using a fixed class-assignment matrix.

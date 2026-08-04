@@ -125,6 +125,16 @@ __________
 .. autoclass:: replay.nn.loss.CESampled
    :members: __init__, forward
 
+GroupedCESampled
+________________
+.. autoclass:: replay.nn.loss.GroupedCESampled
+   :members: __init__, forward
+
+CatalogCachedGroupedCESampled
+_____________________________
+.. autoclass:: replay.nn.loss.CatalogCachedGroupedCESampled
+   :members: __init__, forward
+
 .. _loss-login-ce:
 
 LogInCE
@@ -246,6 +256,11 @@ _______________
 .. autoclass:: replay.nn.lightning.LightningModule
    :members: __init__, forward, candidates_to_score
 
+CatalogCacheLightningModule
+___________________________
+.. autoclass:: replay.nn.lightning.CatalogCacheLightningModule
+   :members: __init__, forward, candidates_to_score
+
 TrainOutput
 ___________
 .. autoclass:: replay.nn.output.TrainOutput
@@ -343,6 +358,11 @@ ______________________
 UniformNegativeSamplingTransform
 _________________________________
 .. autoclass:: replay.nn.transform.UniformNegativeSamplingTransform
+    :members: __init__
+
+GroupedUniformNegativeSamplingTransform
+________________________________________
+.. autoclass:: replay.nn.transform.GroupedUniformNegativeSamplingTransform
     :members: __init__
 
 MultiClassNegativeSamplingTransform
