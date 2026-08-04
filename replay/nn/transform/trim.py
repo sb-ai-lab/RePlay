@@ -143,6 +143,12 @@ class TargetAwareAdaptiveTrimTransform(torch.nn.Module):
         if padding_mask.shape != target_padding_mask.shape:
             msg = "Input and target padding masks must have equal shapes."
             raise ValueError(msg)
+        if padding_mask.dtype != torch.bool or target_padding_mask.dtype != torch.bool:
+            msg = "Input and target padding masks must have boolean dtype."
+            raise TypeError(msg)
+        if padding_mask.device != target_padding_mask.device:
+            msg = "Input and target padding masks must be on the same device."
+            raise ValueError(msg)
         for name in self.feature_names:
             if batch[name].shape[:2] != padding_mask.shape:
                 msg = f"Feature '{name}' must start with shape {tuple(padding_mask.shape)}."
