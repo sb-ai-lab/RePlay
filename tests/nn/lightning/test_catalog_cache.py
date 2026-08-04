@@ -1,3 +1,4 @@
+from functools import partial
 from types import SimpleNamespace
 
 import lightning
@@ -41,6 +42,24 @@ class _Body(torch.nn.Module):
         pass
 
 
+def _catalog_rows(cardinality: int, embedding_dim: int) -> list[dict]:
+    return [
+        {
+            "feature_tensors": {"query": torch.randn(3, embedding_dim)},
+            "padding_mask": torch.ones(3, dtype=torch.bool),
+            "positive_labels": torch.randint(0, cardinality, (3, 1)),
+            "target_padding_mask": torch.ones(3, 1, dtype=torch.bool),
+        }
+        for _ in range(10)
+    ]
+
+
+def _catalog_collate(batch: list[dict], cardinality: int) -> dict:
+    result = torch.utils.data.default_collate(batch)
+    result["negative_labels"] = torch.stack([torch.randperm(cardinality)[:7] for _ in range(2)])
+    return result
+
+
 def test_accumulation_window_end_includes_short_final_window():
     module = CatalogCacheLightningModule(torch.nn.Linear(2, 2))
     module._trainer = SimpleNamespace(accumulate_grad_batches=3, num_training_batches=5)
@@ -69,21 +88,6 @@ def test_catalog_cache_runs_complete_lightning_accumulation_window():
         accumulation_steps=3,
     )
     model = TwoTower(_Body(cardinality, embedding_dim), loss)
-    rows = [
-        {
-            "feature_tensors": {"query": torch.randn(3, embedding_dim)},
-            "padding_mask": torch.ones(3, dtype=torch.bool),
-            "positive_labels": torch.randint(0, cardinality, (3, 1)),
-            "target_padding_mask": torch.ones(3, 1, dtype=torch.bool),
-        }
-        for _ in range(10)
-    ]
-
-    def collate(batch):
-        result = torch.utils.data.default_collate(batch)
-        result["negative_labels"] = torch.stack([torch.randperm(cardinality)[:7] for _ in range(2)])
-        return result
-
     module = CatalogCacheLightningModule(
         model,
         optimizer_factory=OptimizerFactory(optimizer="sgd", learning_rate=0.01),
@@ -97,7 +101,49 @@ def test_catalog_cache_runs_complete_lightning_accumulation_window():
         enable_progress_bar=False,
     )
 
-    trainer.fit(module, train_dataloaders=DataLoader(rows, batch_size=4, collate_fn=collate))
+    trainer.fit(
+        module,
+        train_dataloaders=DataLoader(
+            _catalog_rows(cardinality, embedding_dim),
+            batch_size=4,
+            collate_fn=partial(_catalog_collate, cardinality=cardinality),
+        ),
+    )
 
     model.loss.assert_accumulation_cache_idle()
     assert model.body.item_tower.forward_calls == 1
+
+
+def test_catalog_cache_runs_with_two_cpu_ddp_processes():
+    cardinality, embedding_dim = 20, 8
+    loss = CatalogCachedGroupedCESampled(
+        cardinality=cardinality,
+        logical_batch_size=2,
+        groups_per_batch=2,
+        expected_num_negatives=7,
+        accumulation_steps=3,
+    )
+    module = CatalogCacheLightningModule(
+        TwoTower(_Body(cardinality, embedding_dim), loss),
+        optimizer_factory=OptimizerFactory(optimizer="sgd", learning_rate=0.01),
+    )
+    trainer = lightning.Trainer(
+        accelerator="cpu",
+        devices=2,
+        strategy="ddp_spawn",
+        max_epochs=1,
+        accumulate_grad_batches=3,
+        logger=False,
+        enable_checkpointing=False,
+        enable_model_summary=False,
+        enable_progress_bar=False,
+    )
+
+    trainer.fit(
+        module,
+        train_dataloaders=DataLoader(
+            _catalog_rows(cardinality, embedding_dim),
+            batch_size=4,
+            collate_fn=partial(_catalog_collate, cardinality=cardinality),
+        ),
+    )
