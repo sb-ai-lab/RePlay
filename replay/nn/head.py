@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as functional
 
 
 class EmbeddingTyingHead(torch.nn.Module):
@@ -27,19 +28,15 @@ class EmbeddingTyingHead(torch.nn.Module):
             or ``(batch_size, sequence_length, num_items)``.
         """
         if item_embeddings.dim() == 2:
-            item_embeddings = item_embeddings.transpose(-1, -2).contiguous()
             # hidden_states shape [B, *, E]
             # item embeddings shape [I, E]
             # [B, *, E] x [E, I] -> [B, *, I]
-            return hidden_states.matmul(item_embeddings)
+            return functional.linear(hidden_states, item_embeddings)
         elif item_embeddings.dim() == 3 and hidden_states.dim() == 2:
-            item_embeddings = item_embeddings.transpose(-1, -2).contiguous()
             # out_embeddings shape [B, E]
             # item embeddings shape [B, I, E]
             # [B, E] x [B, E, I] -> [B, I]
-            hidden_states = hidden_states.unsqueeze(-2)
-            logits = hidden_states.matmul(item_embeddings)
-            return logits.squeeze(-2)
+            return torch.bmm(item_embeddings, hidden_states.unsqueeze(-1)).squeeze(-1)
         # out_embeddings shape: [B, *, E]
         # item embeddings shape [B, *, E]
         # [*, 1, E] x [*, E, 1] -> [B, *]
