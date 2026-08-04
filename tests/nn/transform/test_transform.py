@@ -13,6 +13,7 @@ from replay.nn.transform import (
     RenameTransform,
     SelectTransform,
     SequenceRollTransform,
+    TargetAwareAdaptiveTrimTransform,
     TokenMaskTransform,
     TrimTransform,
     UniformNegativeSamplingTransform,
@@ -279,6 +280,44 @@ def test_adaptive_trim_transform_wrong_name(random_batch):
     transform = AdaptiveTrimTransform("item_id", padding_mask_name="wrong_name")
     with pytest.raises(KeyError):
         transform(random_batch)
+
+
+def test_target_aware_trim_keeps_shifted_target_position():
+    batch = {
+        "item_id": torch.tensor([[0, 0, 3, 4, 5]]),
+        "padding_mask": torch.tensor([[False, False, True, True, True]]),
+        "target_padding_mask": torch.tensor([[False, True, True, True, True]]),
+    }
+    transform = TargetAwareAdaptiveTrimTransform("item_id", min_sequence_elements=0)
+
+    output = transform(batch)
+
+    assert output["item_id"].tolist() == [[0, 3, 4, 5]]
+    assert output["target_padding_mask"].tolist() == [[True, True, True, True]]
+    assert batch["item_id"].shape == (1, 5)
+
+
+def test_target_aware_trim_skips_small_batch():
+    batch = {
+        "item_id": torch.tensor([[0, 0, 3]]),
+        "padding_mask": torch.tensor([[False, False, True]]),
+        "target_padding_mask": torch.tensor([[False, True, True]]),
+    }
+    transform = TargetAwareAdaptiveTrimTransform("item_id", min_sequence_elements=4)
+
+    assert transform(batch) is batch
+
+
+def test_target_aware_trim_rejects_mismatched_masks():
+    batch = {
+        "item_id": torch.tensor([[0, 3, 4]]),
+        "padding_mask": torch.tensor([[False, True, True]]),
+        "target_padding_mask": torch.tensor([[True, True]]),
+    }
+    transform = TargetAwareAdaptiveTrimTransform("item_id", min_sequence_elements=0)
+
+    with pytest.raises(ValueError, match="equal shapes"):
+        transform(batch)
 
 
 def test_select_transform(random_batch):
