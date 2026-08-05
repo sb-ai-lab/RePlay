@@ -38,6 +38,7 @@ variables:
   - *install_pyspark_by_python
   - |
     poetry run pip install -q --upgrade \
+      "numpy<2.5" \
       onnx \
       onnxscript \
       openvino \
