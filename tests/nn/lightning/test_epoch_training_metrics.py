@@ -158,10 +158,7 @@ def test_epoch_mode_reduces_metrics_once_in_two_process_ddp():
             nprocs=2,
             join=True,
         )
-        results = {
-            rank: torch.load(Path(output_dir) / f"rank-{rank}.pt", weights_only=True)
-            for rank in range(2)
-        }
+        results = {rank: torch.load(Path(output_dir) / f"rank-{rank}.pt", weights_only=True) for rank in range(2)}
 
     assert results[0][0] == results[1][0] == 1
     assert results[0][1]["train_loss_epoch"] == pytest.approx(4.4)
