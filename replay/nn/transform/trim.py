@@ -83,7 +83,7 @@ class AdaptiveTrimTransform(torch.nn.Module):
         :param padding_mask_name: name of padding_mask in batch.
         """
         super().__init__()
-        self.feature_names = [feature_names] if isinstance(feature_names, str) else feature_names
+        self.feature_names = [feature_names] if isinstance(feature_names, str) else feature_names.copy()
         if padding_mask_name not in self.feature_names:
             self.feature_names.append(padding_mask_name)
 

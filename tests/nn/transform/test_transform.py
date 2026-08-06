@@ -261,6 +261,7 @@ def test_adaptive_trim_transform(random_batch_with_fixed_padding_len):
     transform = AdaptiveTrimTransform(features_to_trim, padding_mask_name="item_id_mask")
     transformed_batch = transform(random_batch_with_fixed_padding_len)
 
+    assert features_to_trim == ["item_id", "cat_feature"]
     for feature in features_to_trim:
         assert transformed_batch[feature].shape[1] <= random_batch_with_fixed_padding_len[feature].shape[1]
 
