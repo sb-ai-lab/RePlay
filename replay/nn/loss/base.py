@@ -40,6 +40,8 @@ class SampledLossOutput(TypedDict):
 class SampledLossBase(torch.nn.Module):
     """The base class for calculating sampled losses"""
 
+    negative_labels_ignore_index: int
+
     @property
     def logits_callback(
         self,
@@ -133,7 +135,11 @@ class SampledLossBase(torch.nn.Module):
         positive_logits = self.logits_callback(model_embeddings, positive_labels)
         assert positive_logits.size() == (masked_batch_size, 1)
 
-        negative_logits = self.logits_callback(model_embeddings, negative_labels)
+        negative_labels_for_lookup = negative_labels.masked_fill(
+            negative_labels == self.negative_labels_ignore_index,
+            0,
+        )
+        negative_logits = self.logits_callback(model_embeddings, negative_labels_for_lookup)
         assert negative_logits.size() == (masked_batch_size, num_negatives)
 
         if num_positives != 1:
@@ -181,8 +187,7 @@ def mask_negative_logits(
         where positive labels are equal to negative ones.
     """
 
-    if negative_labels_ignore_index >= 0:
-        negative_logits.masked_fill_(negative_labels == negative_labels_ignore_index, -1e9)
+    ignored_negatives = negative_labels == negative_labels_ignore_index
 
     if negative_labels.dim() > 1:
         # [masked_batch_size, num_negatives] -> [masked_batch_size, 1, num_negatives]
@@ -194,7 +199,7 @@ def mask_negative_logits(
 
     # [masked_batch_size, num_positives, num_negatives] -> [masked_batch_size, num_negatives]
     negative_mask = negative_mask.sum(-2).bool()
-    negative_logits.masked_fill_(negative_mask, -1e9)
+    negative_logits.masked_fill_(negative_mask | ignored_negatives, -torch.inf)
     return negative_logits
 
 
