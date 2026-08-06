@@ -8,8 +8,60 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from scripts.review_agent.common import run_cmd
+
 from scripts.review_agent.gitlab_client import GitlabMergeRequestClient
 from scripts.review_agent.schema import ReviewResult
+
+
+class GitDiffLineIndex:
+    """Resolve whether a file line exists on the new side of the current diff."""
+
+    _HUNK_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
+
+    def __init__(self, *, base_sha: str, head_sha: str) -> None:
+        self._base_sha = base_sha
+        self._head_sha = head_sha
+        self._cache: dict[str, set[int]] = {}
+
+    def includes(self, *, path: str, line: int) -> bool:
+        if line <= 0:
+            return False
+        changed_lines = self._cache.get(path)
+        if changed_lines is None:
+            changed_lines = self._load_changed_lines(path)
+            self._cache[path] = changed_lines
+        return line in changed_lines
+
+    @classmethod
+    def _parse_changed_lines(cls, diff_text: str) -> set[int]:
+        changed_lines: set[int] = set()
+        for raw_line in diff_text.splitlines():
+            match = cls._HUNK_PATTERN.match(raw_line)
+            if match is None:
+                continue
+            start = int(match.group(1))
+            count = int(match.group(2) or "1")
+            changed_lines.update(range(start, start + count))
+        return changed_lines
+
+    def _load_changed_lines(self, path: str) -> set[int]:
+        completed = run_cmd(
+            [
+                "git",
+                "--no-pager",
+                "diff",
+                "--unified=0",
+                "--no-color",
+                self._base_sha,
+                self._head_sha,
+                "--",
+                path,
+            ],
+            stream_stdout=False,
+            stream_stderr=False,
+        )
+        return self._parse_changed_lines(completed.stdout)
 
 
 class ReviewCommentsPublisher:
@@ -20,9 +72,11 @@ class ReviewCommentsPublisher:
         *,
         gitlab_client: GitlabMergeRequestClient,
         comments: list[dict[str, Any]],
+        diff_lines: GitDiffLineIndex | Any | None = None,
     ) -> None:
         self._gitlab_client = gitlab_client
         self._comments = comments
+        self._diff_lines = diff_lines
 
     @staticmethod
     def _sanitize_error_message(error: Exception) -> str:
@@ -69,6 +123,12 @@ class ReviewCommentsPublisher:
 
         for comment in self._comments:
             body, path, end_line = self._to_discussion_body(comment)
+
+            if self._diff_lines is not None and not self._diff_lines.includes(path=path, line=end_line):
+                fallback_body = f"{body}\n\n_Inline publish fallback was used._"
+                self._gitlab_client.post_note(fallback_body)
+                fallback_note_count += 1
+                continue
 
             try:
                 self._gitlab_client.post_inline_comment(
@@ -141,6 +201,10 @@ class MergeRequestPublishService:
 
         result = ReviewResult.model_validate_json(self._review_path.read_text(encoding="utf-8"))
         comments = [comment.model_dump() for comment in result.comments]
-        publisher = ReviewCommentsPublisher(gitlab_client=self._gitlab_client, comments=comments)
+        publisher = ReviewCommentsPublisher(
+            gitlab_client=self._gitlab_client,
+            comments=comments,
+            diff_lines=GitDiffLineIndex(base_sha=self._base_sha, head_sha=self._head_sha),
+        )
         stats = publisher.publish_all()
         return 1 if stats["errors"] else 0

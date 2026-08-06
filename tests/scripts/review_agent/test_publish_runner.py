@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from scripts.review_agent.publish_runner import MergeRequestPublishService, ReviewCommentsPublisher
+from scripts.review_agent.publish_runner import (
+    GitDiffLineIndex,
+    MergeRequestPublishService,
+    ReviewCommentsPublisher,
+)
 from scripts.review_agent.schema import CodeLocation, LineRange, ReviewComment, ReviewResult
 
 
@@ -72,6 +76,72 @@ def test_publish_all_posts_inline_discussions() -> None:
             "relative_file_path": "src/module.py",
             "line": 7,
         }
+    ]
+
+
+def test_git_diff_line_index_tracks_changed_new_lines(monkeypatch: pytest.MonkeyPatch) -> None:
+    diff_text = (
+        "diff --git a/src/module.py b/src/module.py\n"
+        "index 1111111..2222222 100644\n"
+        "--- a/src/module.py\n"
+        "+++ b/src/module.py\n"
+        "@@ -10,0 +11,2 @@\n"
+        "+first\n"
+        "+second\n"
+        "@@ -20,2 +23,0 @@\n"
+        "-removed\n"
+        "-removed-again\n"
+        "@@ -30 +31 @@\n"
+        "-old\n"
+        "+new\n"
+    )
+
+    def fake_run_cmd(command: list[str], **_: object) -> object:
+        assert command == [
+            "git",
+            "--no-pager",
+            "diff",
+            "--unified=0",
+            "--no-color",
+            "base",
+            "head",
+            "--",
+            "src/module.py",
+        ]
+        return type("Completed", (), {"stdout": diff_text})()
+
+    monkeypatch.setattr("scripts.review_agent.publish_runner.run_cmd", fake_run_cmd)
+    index = GitDiffLineIndex(base_sha="base", head_sha="head")
+
+    assert index.includes(path="src/module.py", line=11) is True
+    assert index.includes(path="src/module.py", line=12) is True
+    assert index.includes(path="src/module.py", line=31) is True
+    assert index.includes(path="src/module.py", line=23) is False
+    assert index.includes(path="src/module.py", line=99) is False
+
+
+def test_publish_all_falls_back_to_note_when_line_is_not_part_of_diff() -> None:
+    client = RecordingGitlabClient()
+    diff_lines = type(
+        "DiffLines",
+        (),
+        {"includes": staticmethod(lambda *, path, line: path == "src/module.py" and line == 7)},
+    )()
+    publisher = ReviewCommentsPublisher(
+        gitlab_client=client,
+        comments=[_comment(end=10).model_dump()],
+        diff_lines=diff_lines,
+    )
+
+    stats = publisher.publish_all()
+
+    assert stats == {"inline": 0, "fallback_notes": 1, "errors": 0}
+    assert client.inline_calls == []
+    assert client.note_calls == [
+        "### [P1][Confidence: 85%] Null check is missing\n\n"
+        "The new branch dereferences `payload` before validating it.\n\n"
+        "- Location: src/module.py:3-10\n\n"
+        "_Inline publish fallback was used._"
     ]
 
 
