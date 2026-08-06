@@ -14,7 +14,7 @@ variables:
   CODEX_VERSION: "rust-v0.118.0"
   CODEX_SHA256_X86_64: "e707ea65d7bbbc46a04afe731bf3c14a5b77522100cebf8bb93cffb95cf4610b"
   CODEX_SHA256_AARCH64: "29bc741268b6d17ddd148b8c2c2108e8b3a0eef914b07922491348144e667e09"
-  CODEX_REVIEW_OUTPUT_FILE: "codex-review-output.json"
+  REVIEW_AGENT_OUTPUT_FILE: "review-agent-output.json"
 
 .wrapper_install: &wrapper_install
   - ./poetry_wrapper.sh ${WRAPPER_ARGS} sync ${WRAPPER_EXTRAS}
@@ -110,7 +110,7 @@ variables:
     export PATH="$CI_PROJECT_DIR/.bin:$PATH"
     codex --version
 
-.install_codex_review_deps: &install_codex_review_deps
+.install_review_agent_deps: &install_review_agent_deps
   - pip install -q "pydantic>=2,<3"
 
 stages:
@@ -166,7 +166,7 @@ toml-sort:
   tags:
     - ${RUNNER}
 
-codex-review:
+review-agent:
   stage: code_quality
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
@@ -174,59 +174,59 @@ codex-review:
     - when: never
 
   # Required CI variables:
-  # - CODEX_AUTH_JSON_B64 (base64-encoded Codex auth.json)
+  # - ANTHROPIC_API_KEY
   # - OPENAI_HTTP_PROXY
   # - OPENAI_HTTPS_PROXY
   # - GITLAB_API_TOKEN
 
   variables:
-    OPENAI_MODEL: "gpt-5.3-codex"
-    CODEX_SANDBOX_MODE: "read-only"
-    CODEX_HOME: "$CI_PROJECT_DIR/.codex"
+    ANTHROPIC_MODEL: "claude-sonnet-4-20250514"
+    ANTHROPIC_API_VERSION: "2023-06-01"
+    REVIEW_AGENT_OUTPUT_FILE: "review-agent-output.json"
 
   before_script:
-    - *install_codex
-    - *install_codex_review_deps
+    - *install_review_agent_deps
     - |
       set -euo pipefail
 
-      if [ -z "${CODEX_AUTH_JSON_B64:-}" ]; then
-        echo "Missing CI variable: CODEX_AUTH_JSON_B64"
+      if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+        echo "Missing CI variable: ANTHROPIC_API_KEY"
         exit 1
       fi
 
-      mkdir -p "$CODEX_HOME"
-      printf '%s' "$CODEX_AUTH_JSON_B64" | base64 -d > "$CODEX_HOME/auth.json"
-      chmod 600 "$CODEX_HOME/auth.json"
-
-      codex login status
+      if [ -z "${GITLAB_API_TOKEN:-}" ]; then
+        echo "Missing CI variable: GITLAB_API_TOKEN"
+        exit 1
+      fi
   script:
-    - mkdir -p "$(dirname "$CODEX_REVIEW_OUTPUT_FILE")"
+    - mkdir -p "$(dirname "$REVIEW_AGENT_OUTPUT_FILE")"
     - BASE_SHA="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-${CI_COMMIT_BEFORE_SHA:-$CI_COMMIT_SHA}}"
-    - export CODEX_PROXY="${OPENAI_HTTPS_PROXY:-$OPENAI_HTTP_PROXY}"
     - |
-      if [ -z "$CODEX_PROXY" ]; then
+      export HTTPS_PROXY="${HTTPS_PROXY:-${OPENAI_HTTPS_PROXY:-${OPENAI_HTTP_PROXY:-}}}"
+      export HTTP_PROXY="${HTTP_PROXY:-${OPENAI_HTTP_PROXY:-${OPENAI_HTTPS_PROXY:-}}}"
+      export https_proxy="$HTTPS_PROXY"
+      export http_proxy="$HTTP_PROXY"
+
+      if [ -z "${HTTPS_PROXY:-}" ] && [ -z "${HTTP_PROXY:-}" ]; then
         echo "Missing proxy variable: set OPENAI_HTTPS_PROXY or OPENAI_HTTP_PROXY"
         exit 1
       fi
     - |
-      python -m scripts.codex_review.cli review \
+      python -m scripts.review_agent.cli review \
         --base-sha "$BASE_SHA" \
-        --codex-sandbox-mode "$CODEX_SANDBOX_MODE" \
-        --codex-proxy "$CODEX_PROXY" \
-        --output-path "$CODEX_REVIEW_OUTPUT_FILE"
+        --output-path "$REVIEW_AGENT_OUTPUT_FILE"
     - |
-      python -m scripts.codex_review.cli publish \
+      python -m scripts.review_agent.cli publish \
         --api-base "$CI_API_V4_URL" \
         --project-id "$CI_PROJECT_ID" \
         --merge-request-id "$CI_MERGE_REQUEST_IID" \
         --base-sha "$BASE_SHA" \
         --head-sha "$CI_COMMIT_SHA" \
-        --review-path "$CODEX_REVIEW_OUTPUT_FILE"
+        --review-path "$REVIEW_AGENT_OUTPUT_FILE"
   artifacts:
     when: always
     paths:
-      - $CODEX_REVIEW_OUTPUT_FILE
+      - $REVIEW_AGENT_OUTPUT_FILE
     expire_in: 1 day
   allow_failure: true
   tags:
