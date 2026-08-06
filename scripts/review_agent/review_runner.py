@@ -49,20 +49,21 @@ class MergeRequestReviewService:
         changed_files: list[ChangedFileRecord] = []
         index = 0
         while index < len(entries):
-            entry = entries[index]
-            status, _, path = entry.partition("\t")
-            if not status or not path:
+            status = entries[index]
+            if not status:
                 raise ValueError("Unable to parse git diff --name-status -z output")
             record: ChangedFileRecord = {"status": status}
             if status.startswith(("R", "C")):
-                if index + 1 >= len(entries):
+                if index + 2 >= len(entries):
                     raise ValueError("Incomplete rename/copy record in git diff output")
-                record["old_path"] = path
+                record["old_path"] = entries[index + 1]
+                record["path"] = entries[index + 2]
+                index += 3
+            else:
+                if index + 1 >= len(entries):
+                    raise ValueError("Incomplete file record in git diff output")
                 record["path"] = entries[index + 1]
                 index += 2
-            else:
-                record["path"] = path
-                index += 1
             changed_files.append(record)
         return changed_files
 

@@ -31,7 +31,7 @@ def test_run_writes_validated_json_and_includes_changed_file_context(
         return CompletedProcess(
             args=command,
             returncode=0,
-            stdout="M\tscripts/review_agent/common.py\0A\ttests/scripts/review_agent/test_review_runner.py\0",
+            stdout="M\0scripts/review_agent/common.py\0A\0tests/scripts/review_agent/test_review_runner.py\0",
             stderr="",
         )
 
@@ -90,7 +90,7 @@ def test_run_raises_json_decode_error_for_invalid_response(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     def fake_run_cmd(command: list[str], *, stream_stdout: bool = True, **_: object) -> CompletedProcess[str]:
-        return CompletedProcess(args=command, returncode=0, stdout="M\tfile.py\0", stderr="")
+        return CompletedProcess(args=command, returncode=0, stdout="M\0file.py\0", stderr="")
 
     monkeypatch.setattr("scripts.review_agent.review_runner.run_cmd", fake_run_cmd)
     service = MergeRequestReviewService(
@@ -114,7 +114,7 @@ def test_run_rejects_comment_for_untouched_file(
         return CompletedProcess(
             args=command,
             returncode=0,
-            stdout="M\tscripts/review_agent/review_runner.py\0",
+            stdout="M\0scripts/review_agent/review_runner.py\0",
             stderr="",
         )
 
@@ -159,7 +159,7 @@ def test_run_serializes_changed_files_as_structured_json(
         return CompletedProcess(
             args=command,
             returncode=0,
-            stdout=f"M\t{odd_path}\0",
+            stdout=f"M\0{odd_path}\0",
             stderr="",
         )
 
@@ -198,3 +198,19 @@ def test_run_serializes_changed_files_as_structured_json(
     assert '"changed_files": [' in client.prompts[0]
     assert '"status": "M"' in client.prompts[0]
     assert json.dumps(odd_path) in client.prompts[0]
+
+
+def test_parse_name_status_output_supports_rename_records() -> None:
+    service = MergeRequestReviewService(
+        base_sha="abc123",
+        output_path=Path("review.json"),
+        api_key="test-key",
+        model="claude-test",
+        base_url="https://llm.example",
+        api_version="2023-06-01",
+        client=RecordingClient('{"comments": []}'),
+    )
+
+    changed_files = service._parse_name_status_output("R100\0old_name.py\0new_name.py\0")
+
+    assert changed_files == [{"status": "R100", "old_path": "old_name.py", "path": "new_name.py"}]
