@@ -37,7 +37,6 @@ class MergeRequestReviewService:
             model=require_env("OPENAI_MODEL"),
             sandbox_mode=codex_sandbox_mode,
             proxy=codex_proxy,
-            api_key=require_env("OPENAI_API_KEY"),
         )
 
     def _load_changed_files(self) -> str:

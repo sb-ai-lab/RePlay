@@ -16,7 +16,6 @@ class CodexClient:
         model: str,
         sandbox_mode: str,
         proxy: str,
-        api_key: str,
         binary: str = "codex",
     ) -> None:
         """Initialize a Codex client instance.
@@ -25,32 +24,30 @@ class CodexClient:
             model: Model name used for Codex execution.
             sandbox_mode: Codex sandbox mode passed to CLI.
             proxy: Proxy URL used for HTTP and HTTPS requests.
-            api_key: OpenAI API key used by Codex.
             binary: Codex executable name or path.
         """
         self._model = model
         self._sandbox_mode = sandbox_mode
         self._proxy = proxy
-        self._api_key = api_key
         self._binary = binary
 
     def ensure_available(self) -> subprocess.CompletedProcess[str]:
-        """Check that the Codex binary is available in PATH."""
-        return run_cmd(
+        """Check that Codex is installed and authenticated."""
+        run_cmd(
             [self._binary, "--version"],
             stream_stdout=False,
         )
 
-    def run_review_prompt(self, prompt: str) -> subprocess.CompletedProcess[str]:
-        """Run a non-interactive Codex review command.
+        return run_cmd(
+            [self._binary, "login", "status"],
+            stream_stdout=False,
+        )
 
-        Args:
-            prompt: Prompt text passed to Codex via stdin.
-        """
+    def run_review_prompt(self, prompt: str) -> subprocess.CompletedProcess[str]:
+        """Run a non-interactive Codex review command."""
         self.ensure_available()
 
         env_overrides = {
-            "CODEX_API_KEY": self._api_key,
             "HTTP_PROXY": self._proxy,
             "HTTPS_PROXY": self._proxy,
         }

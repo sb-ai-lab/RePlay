@@ -172,17 +172,34 @@ codex-review:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
       when: manual
     - when: never
+
   # Required CI variables:
-  # - OPENAI_API_KEY (OpenAI key)
-  # - OPENAI_HTTP_PROXY (proxy URL for OpenAI HTTP requests; should match OPENAI_HTTPS_PROXY)
-  # - OPENAI_HTTPS_PROXY (proxy URL for OpenAI HTTPS requests)
-  # - GITLAB_API_TOKEN (token with `api` scope)
+  # - CODEX_AUTH_JSON_B64 (base64-encoded Codex auth.json)
+  # - OPENAI_HTTP_PROXY
+  # - OPENAI_HTTPS_PROXY
+  # - GITLAB_API_TOKEN
+
   variables:
     OPENAI_MODEL: "gpt-5.3-codex"
     CODEX_SANDBOX_MODE: "read-only"
+    CODEX_HOME: "$CI_PROJECT_DIR/.codex"
+
   before_script:
     - *install_codex
     - *install_codex_review_deps
+    - |
+      set -euo pipefail
+
+      if [ -z "${CODEX_AUTH_JSON_B64:-}" ]; then
+        echo "Missing CI variable: CODEX_AUTH_JSON_B64"
+        exit 1
+      fi
+
+      mkdir -p "$CODEX_HOME"
+      printf '%s' "$CODEX_AUTH_JSON_B64" | base64 -d > "$CODEX_HOME/auth.json"
+      chmod 600 "$CODEX_HOME/auth.json"
+
+      codex login status
   script:
     - mkdir -p "$(dirname "$CODEX_REVIEW_OUTPUT_FILE")"
     - BASE_SHA="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-${CI_COMMIT_BEFORE_SHA:-$CI_COMMIT_SHA}}"
