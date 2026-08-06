@@ -83,7 +83,11 @@ class LogInCEBase(SampledLossBase):
         positive_logits = self.logits_callback(model_embeddings, positive_labels)
         assert positive_logits.size() == (masked_batch_size, num_positives)
 
-        negative_logits = self.logits_callback(model_embeddings, negative_labels)
+        negative_labels_for_lookup = negative_labels.masked_fill(
+            negative_labels == self.negative_labels_ignore_index,
+            0,
+        )
+        negative_logits = self.logits_callback(model_embeddings, negative_labels_for_lookup)
         assert negative_logits.size() == (masked_batch_size, num_negatives)
 
         # [batch_size, seq_len, num_positives] -> [masked_batch_size, num_positives]
