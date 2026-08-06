@@ -12,6 +12,23 @@ from scripts.review_agent.common import require_env
 from scripts.review_agent.schema import CodeLocation, LineRange, ReviewComment, ReviewResult
 
 
+def _find_forbidden_name_references(root: Path, forbidden_substring: str) -> list[Path]:
+    lowered_substring = forbidden_substring.casefold()
+    offenders: list[Path] = []
+
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or path.suffix not in {".py", ".md"}:
+            continue
+
+        relative_path = path.relative_to(root).as_posix().casefold()
+        file_contents = path.read_text(encoding="utf-8").casefold()
+
+        if lowered_substring in relative_path or lowered_substring in file_contents:
+            offenders.append(path)
+
+    return offenders
+
+
 def test_review_parser_accepts_review_arguments() -> None:
     parser = cli._build_parser()
 
@@ -354,3 +371,34 @@ def test_review_result_rejects_coerced_numeric_payloads(payload: dict[str, objec
         ReviewResult.model_validate(payload)
 
     assert error_field in str(exc_info.value)
+
+
+def test_forbidden_name_guard_detects_codex_in_reviewer_files(tmp_path: Path) -> None:
+    package_root = tmp_path / "review_agent"
+    package_root.mkdir()
+    offender = package_root / "review_runner.py"
+    offender.write_text('"""Legacy codex reference."""\n', encoding="utf-8")
+    (package_root / "review_prompt.md").write_text("clean prompt\n", encoding="utf-8")
+
+    assert _find_forbidden_name_references(package_root, "codex") == [offender]
+
+
+def test_forbidden_name_guard_detects_codex_in_reviewer_paths(tmp_path: Path) -> None:
+    package_root = tmp_path / "review_agent"
+    package_root.mkdir()
+    direct_offender = package_root / "codex_adapter.py"
+    nested_offender = package_root / "codex" / "review_runner.py"
+    nested_offender.parent.mkdir()
+    direct_offender.write_text('"""Clean reviewer module."""\n', encoding="utf-8")
+    nested_offender.write_text('"""Another clean reviewer module."""\n', encoding="utf-8")
+    (package_root / "review_prompt.md").write_text("clean prompt\n", encoding="utf-8")
+
+    assert _find_forbidden_name_references(package_root, "codex") == sorted(
+        [direct_offender, nested_offender]
+    )
+
+
+def test_reviewer_package_files_do_not_contain_forbidden_codex_name() -> None:
+    reviewer_root = Path(__file__).resolve().parents[3] / "scripts" / "review_agent"
+
+    assert _find_forbidden_name_references(reviewer_root, "codex") == []
