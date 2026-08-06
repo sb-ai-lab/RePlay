@@ -6,7 +6,7 @@ Replace the current merge request reviewer implementation with a provider-neutra
 
 - preserves the existing two-phase CLI workflow: `review` then `publish`
 - preserves the published GitLab review comment format and behavior
-- removes all `Codex` naming and authentication assumptions from the codebase and CI job
+- removes all legacy reviewer naming and authentication assumptions from the codebase and CI job
 - uses an Anthropic-compatible API backend so direct Anthropic and `z.ai` both work through configuration only
 
 ## Non-Goals
@@ -20,10 +20,10 @@ Replace the current merge request reviewer implementation with a provider-neutra
 
 The repository currently contains a review flow built around:
 
-- a review CLI package under `scripts/codex_review`
-- a GitLab CI job named `codex-review`
-- CI authentication based on `CODEX_AUTH_JSON_B64`
-- a local CLI execution model that shells out to `codex exec`
+- a legacy review CLI package under the previous reviewer module path
+- a legacy GitLab CI reviewer job
+- CI authentication based on a serialized local-auth blob
+- a local CLI execution model that shells out to a local review CLI
 
 The publish phase already has the right shape and should be preserved as much as possible.
 
@@ -52,7 +52,7 @@ The flow remains two-phase:
 
 ## Naming Constraints
 
-No new code, job names, environment variables, prompts, logs, or user-facing messages should contain `Codex`.
+No new code, job names, environment variables, prompts, logs, or user-facing messages should contain legacy reviewer branding.
 
 The implementation should also avoid hardcoding `Claude` into the core package naming. The backend protocol is Anthropic-compatible, but the reviewer itself is a neutral `review_agent`.
 
@@ -67,7 +67,7 @@ The command shape remains stable:
 
 The argument model should remain as close as possible to the current one so CI migration is mostly a module-path and variable rename, not a behavioral rewrite.
 
-The module path will change from `scripts.codex_review.cli` to `scripts.review_agent.cli`. This is acceptable because the user explicitly wants all `Codex` references removed.
+The module path will change from the legacy reviewer package to `scripts.review_agent.cli`. This is acceptable because the user explicitly wants all legacy reviewer references removed.
 
 ## Review Phase
 
@@ -157,7 +157,7 @@ Default behavior:
 
 ## GitLab CI Design
 
-The GitLab job should be renamed from `codex-review` to `review-agent`.
+The GitLab job should be renamed from the legacy reviewer name to `review-agent`.
 
 The job should:
 
@@ -168,11 +168,10 @@ The job should:
 
 The job must stop depending on:
 
-- `CODEX_AUTH_JSON_B64`
-- `CODEX_HOME`
-- `CODEX_SANDBOX_MODE`
-- `OPENAI_MODEL`
-- the `codex` CLI installation and login check
+- the serialized local-auth blob previously used by the reviewer
+- reviewer-specific home and sandbox environment variables
+- the old model variable
+- the legacy local CLI installation and login check
 
 The job should instead:
 
@@ -181,11 +180,11 @@ The job should instead:
 - run `python -m scripts.review_agent.cli review`
 - run `python -m scripts.review_agent.cli publish`
 
-`REVIEW_AGENT_OUTPUT_FILE` should replace `CODEX_REVIEW_OUTPUT_FILE`.
+`REVIEW_AGENT_OUTPUT_FILE` should replace the legacy review output variable.
 
 ## Prompt Design
 
-The prompt should preserve the strict senior-review posture of the current implementation while removing all `Codex` references.
+The prompt should preserve the strict senior-review posture of the current implementation while removing all legacy reviewer references.
 
 The prompt must:
 
@@ -236,10 +235,10 @@ The migration should also include at least one targeted regression test that pro
 4. migrate prompt wording
 5. migrate tests
 6. update the GitLab CI job name, commands, and variables
-7. remove the old `scripts/codex_review` package
-8. remove any remaining `Codex` references from CI, docs, prompts, and logs
+7. remove the old legacy reviewer package
+8. remove any remaining legacy reviewer references from CI, docs, prompts, and logs
 
-Migration should be completed as one coherent change set rather than leaving both review systems active in parallel. The user explicitly wants no `Codex` references left afterward.
+Migration should be completed as one coherent change set rather than leaving both review systems active in parallel. The user explicitly wants no legacy reviewer references left afterward.
 
 ## Open Decisions Already Resolved
 
@@ -249,15 +248,15 @@ Migration should be completed as one coherent change set rather than leaving bot
 - Compatibility target: direct Anthropic and `z.ai` through configuration only
 - Reviewer package naming: neutral `review_agent`
 - Publish semantics: preserved
-- Old `Codex` naming: fully removed
+- Old reviewer naming: fully removed
 
 ## Success Criteria
 
 The migration is successful when:
 
-- no active reviewer code or CI path depends on `codex` CLI
-- no active reviewer code or CI path depends on `CODEX_AUTH_JSON_B64`
-- no reviewer-related code, prompt, job name, or env var contains `Codex`
+- no active reviewer code or CI path depends on the legacy local CLI
+- no active reviewer code or CI path depends on the old serialized local-auth blob
+- no reviewer-related code, prompt, job name, or env var contains legacy reviewer branding
 - the review phase runs against an Anthropic-compatible endpoint using `ANTHROPIC_API_KEY`
 - `z.ai` can be used by setting `ANTHROPIC_BASE_URL` without code changes
 - GitLab review comments are published in the same format as before

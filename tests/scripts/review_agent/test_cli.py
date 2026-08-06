@@ -373,32 +373,32 @@ def test_review_result_rejects_coerced_numeric_payloads(payload: dict[str, objec
     assert error_field in str(exc_info.value)
 
 
-def test_forbidden_name_guard_detects_codex_in_reviewer_files(tmp_path: Path) -> None:
+def test_forbidden_name_guard_detects_legacy_brand_in_reviewer_files(tmp_path: Path) -> None:
     package_root = tmp_path / "review_agent"
     package_root.mkdir()
     offender = package_root / "review_runner.py"
-    offender.write_text('"""Legacy codex reference."""\n', encoding="utf-8")
+    offender.write_text('"""Legacy brand reference."""\n', encoding="utf-8")
     (package_root / "review_prompt.md").write_text("clean prompt\n", encoding="utf-8")
 
-    assert _find_forbidden_name_references(package_root, "codex") == [offender]
+    assert _find_forbidden_name_references(package_root, "legacy brand") == [offender]
 
 
-def test_forbidden_name_guard_detects_codex_in_reviewer_paths(tmp_path: Path) -> None:
+def test_forbidden_name_guard_detects_legacy_brand_in_reviewer_paths(tmp_path: Path) -> None:
     package_root = tmp_path / "review_agent"
     package_root.mkdir()
-    direct_offender = package_root / "codex_adapter.py"
-    nested_offender = package_root / "codex" / "review_runner.py"
+    direct_offender = package_root / "legacy_brand_adapter.py"
+    nested_offender = package_root / "legacy_brand" / "review_runner.py"
     nested_offender.parent.mkdir()
     direct_offender.write_text('"""Clean reviewer module."""\n', encoding="utf-8")
     nested_offender.write_text('"""Another clean reviewer module."""\n', encoding="utf-8")
     (package_root / "review_prompt.md").write_text("clean prompt\n", encoding="utf-8")
 
-    assert _find_forbidden_name_references(package_root, "codex") == sorted(
+    assert _find_forbidden_name_references(package_root, "legacy_brand") == sorted(
         [direct_offender, nested_offender]
     )
 
 
-def test_reviewer_package_files_do_not_contain_forbidden_codex_name() -> None:
+def test_reviewer_package_files_do_not_contain_forbidden_legacy_brand_name() -> None:
     reviewer_root = Path(__file__).resolve().parents[3] / "scripts" / "review_agent"
 
-    assert _find_forbidden_name_references(reviewer_root, "codex") == []
+    assert _find_forbidden_name_references(reviewer_root, "legacy_brand") == []

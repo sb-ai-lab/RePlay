@@ -11,9 +11,6 @@ variables:
   VERSION: "0.0.14"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   RUNNER: amazme-1
-  CODEX_VERSION: "rust-v0.118.0"
-  CODEX_SHA256_X86_64: "e707ea65d7bbbc46a04afe731bf3c14a5b77522100cebf8bb93cffb95cf4610b"
-  CODEX_SHA256_AARCH64: "29bc741268b6d17ddd148b8c2c2108e8b3a0eef914b07922491348144e667e09"
   REVIEW_AGENT_OUTPUT_FILE: "review-agent-output.json"
 
 .wrapper_install: &wrapper_install
@@ -61,54 +58,6 @@ variables:
       "lightning<3.0.0" \
       "pytorch-optimizer<4" \
       "torch<3.0.0"
-
-.install_codex: &install_codex
-  - |
-    set -euo pipefail
-    apt-get update -qq
-    apt-get install -y -qq bubblewrap
-    arch="$(uname -m)"
-    case "$arch" in
-      x86_64|amd64)
-        codex_arch="x86_64"
-        expected_sha256="$CODEX_SHA256_X86_64"
-        ;;
-      aarch64|arm64)
-        codex_arch="aarch64"
-        expected_sha256="$CODEX_SHA256_AARCH64"
-        ;;
-      *)
-        echo "Unsupported architecture for Codex: $arch"
-        exit 1
-        ;;
-    esac
-    if [ -z "$expected_sha256" ]; then
-      echo "Codex SHA256 is empty for architecture: $codex_arch"
-      exit 1
-    fi
-    codex_asset="codex-${codex_arch}-unknown-linux-musl.tar.gz"
-    codex_url="https://github.com/openai/codex/releases/download/${CODEX_VERSION}/${codex_asset}"
-    mkdir -p "$CI_PROJECT_DIR/.bin"
-    codex_tar="$CI_PROJECT_DIR/.bin/codex.tar.gz"
-    python -c "import urllib.request; urllib.request.urlretrieve('$codex_url', '$codex_tar')"
-    if command -v sha256sum >/dev/null 2>&1; then
-      actual_sha256="$(sha256sum "$codex_tar" | awk '{print $1}')"
-    else
-      actual_sha256="$(shasum -a 256 "$codex_tar" | awk '{print $1}')"
-    fi
-    if [ "$actual_sha256" != "$expected_sha256" ]; then
-      echo "Codex checksum mismatch for $codex_asset"
-      echo "Expected: $expected_sha256"
-      echo "Actual:   $actual_sha256"
-      exit 1
-    fi
-    tar -xzf "$codex_tar" -C "$CI_PROJECT_DIR/.bin"
-    if [ -f "$CI_PROJECT_DIR/.bin/codex-${codex_arch}-unknown-linux-musl" ]; then
-      mv "$CI_PROJECT_DIR/.bin/codex-${codex_arch}-unknown-linux-musl" "$CI_PROJECT_DIR/.bin/codex"
-    fi
-    chmod +x "$CI_PROJECT_DIR/.bin/codex"
-    export PATH="$CI_PROJECT_DIR/.bin:$PATH"
-    codex --version
 
 .install_review_agent_deps: &install_review_agent_deps
   - pip install -q "pydantic>=2,<3"
