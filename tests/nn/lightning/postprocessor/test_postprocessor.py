@@ -29,11 +29,16 @@ def test_seen_items_filter_predict_with_candidates(batch, items_seen_mask, candi
     postprocessor = SeenItemsFilter(item_count=5)
     postprocessor.candidates = candidates
     processed_logits = postprocessor.on_prediction(batch=batch, logits=input_logits)
+    repeated_logits = postprocessor.on_prediction(batch=batch, logits=input_logits)
 
     items_seen_mask = items_seen_mask[:, candidates]
 
     assert input_logits.shape == processed_logits.shape
     assert (torch.isinf(processed_logits) == items_seen_mask).all()
+    assert (torch.isinf(repeated_logits) == items_seen_mask).all()
+
+    postprocessor.candidates = None
+    assert postprocessor.candidates is None
 
 
 def test_seen_items_filter_predict_not_contiguous_score(batch, items_seen_mask):
@@ -44,3 +49,54 @@ def test_seen_items_filter_predict_not_contiguous_score(batch, items_seen_mask):
 
     assert input_logits.shape == processed_logits.shape
     assert (torch.isinf(processed_logits) == items_seen_mask).all()
+
+
+@pytest.mark.parametrize("item_count", [0, -1])
+def test_seen_items_filter_rejects_non_positive_item_count(item_count):
+    with pytest.raises(ValueError, match="item_count must be positive"):
+        SeenItemsFilter(item_count=item_count)
+
+
+@pytest.mark.parametrize(
+    "candidates",
+    [
+        torch.ones(1, 1, 1, dtype=torch.long),
+        torch.tensor([1.0, 2.0]),
+        torch.tensor([], dtype=torch.long),
+        torch.tensor([1, 1]),
+        torch.tensor([-1, 1]),
+        torch.tensor([1, 5]),
+    ],
+)
+def test_seen_items_filter_rejects_invalid_candidates(candidates):
+    postprocessor = SeenItemsFilter(item_count=5)
+
+    with pytest.raises((TypeError, ValueError)):
+        postprocessor.candidates = candidates
+
+
+@pytest.mark.parametrize(
+    ("batch", "logits"),
+    [
+        ({"seen_ids": torch.tensor([[1]])}, torch.zeros(1)),
+        ({"seen_ids": torch.tensor([[1]])}, torch.zeros(1, 5, dtype=torch.long)),
+        ({"seen_ids": [[1]]}, torch.zeros(1, 5)),
+        ({"seen_ids": torch.tensor([[1.0]])}, torch.zeros(1, 5)),
+        ({"seen_ids": torch.tensor([1])}, torch.zeros(1, 5)),
+        ({"seen_ids": torch.tensor([[1], [2]])}, torch.zeros(1, 5)),
+        ({"seen_ids": torch.tensor([[1]])}, torch.zeros(1, 4)),
+    ],
+)
+def test_seen_items_filter_rejects_invalid_inputs(batch, logits):
+    postprocessor = SeenItemsFilter(item_count=5)
+
+    with pytest.raises((TypeError, ValueError)):
+        postprocessor.on_validation(batch, logits)
+
+
+def test_seen_items_filter_rejects_row_wise_candidate_batch_mismatch():
+    postprocessor = SeenItemsFilter(item_count=5)
+    postprocessor.candidates = torch.tensor([[0, 1], [2, 3]])
+
+    with pytest.raises(ValueError, match="same batch size"):
+        postprocessor.on_validation({"seen_ids": torch.tensor([[1]])}, torch.zeros(1, 2))
