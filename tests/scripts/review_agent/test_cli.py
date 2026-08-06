@@ -5,8 +5,11 @@ import types
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from scripts.review_agent import cli
+from scripts.review_agent.common import require_env
+from scripts.review_agent.schema import CodeLocation, LineRange, ReviewComment, ReviewResult
 
 
 def test_review_parser_accepts_review_arguments() -> None:
@@ -99,6 +102,52 @@ def test_main_dispatches_review_service(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert calls[1] == ("run", None)
 
 
+def test_main_review_preserves_empty_optional_env_values(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls: list[tuple[str, object]] = []
+
+    class DummyService:
+        def __init__(self, **kwargs: object) -> None:
+            calls.append(("init", kwargs))
+
+        def run(self) -> int:
+            calls.append(("run", None))
+            return 0
+
+    review_runner_module = types.ModuleType("scripts.review_agent.review_runner")
+    review_runner_module.MergeRequestReviewService = DummyService
+    monkeypatch.setitem(sys.modules, "scripts.review_agent.review_runner", review_runner_module)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-api-key")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "test-model")
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "")
+    monkeypatch.setenv("ANTHROPIC_API_VERSION", "")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "scripts.review_agent.cli",
+            "review",
+            "--base-sha",
+            "abc123",
+            "--output-path",
+            str(tmp_path / "review.json"),
+        ],
+    )
+
+    assert cli.main() == 0
+    assert calls[0][0] == "init"
+    assert calls[0][1] == {
+        "base_sha": "abc123",
+        "output_path": tmp_path / "review.json",
+        "api_key": "test-api-key",
+        "model": "test-model",
+        "base_url": "",
+        "api_version": "",
+    }
+    assert calls[1] == ("run", None)
+
+
 def test_main_dispatches_publish_service(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     calls: list[tuple[str, object]] = []
 
@@ -149,14 +198,159 @@ def test_main_dispatches_publish_service(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert calls[1] == ("run", None)
 
 
+def test_main_publish_preserves_empty_required_env_values(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls: list[tuple[str, object]] = []
+
+    class DummyService:
+        def __init__(self, **kwargs: object) -> None:
+            calls.append(("init", kwargs))
+
+        def run(self) -> int:
+            calls.append(("run", None))
+            return 0
+
+    publish_runner_module = types.ModuleType("scripts.review_agent.publish_runner")
+    publish_runner_module.MergeRequestPublishService = DummyService
+    monkeypatch.setitem(sys.modules, "scripts.review_agent.publish_runner", publish_runner_module)
+    monkeypatch.setenv("GITLAB_API_TOKEN", "")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "scripts.review_agent.cli",
+            "publish",
+            "--api-base",
+            "https://gitlab.example/api/v4",
+            "--project-id",
+            "group/project",
+            "--merge-request-id",
+            "42",
+            "--base-sha",
+            "base",
+            "--head-sha",
+            "head",
+            "--review-path",
+            str(tmp_path / "review.json"),
+        ],
+    )
+
+    assert cli.main() == 0
+    assert calls[0][0] == "init"
+    assert calls[0][1] == {
+        "api_base": "https://gitlab.example/api/v4",
+        "project_id": "group/project",
+        "merge_request_id": "42",
+        "base_sha": "base",
+        "head_sha": "head",
+        "review_path": tmp_path / "review.json",
+        "gitlab_api_token": "",
+    }
+    assert calls[1] == ("run", None)
+
+
 def test_require_env_returns_default_when_value_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("MISSING_ENV_VAR", raising=False)
 
-    assert cli.require_env("MISSING_ENV_VAR", default="fallback") == "fallback"
+    assert require_env("MISSING_ENV_VAR", default="fallback") == "fallback"
+
+
+def test_require_env_returns_existing_empty_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("EMPTY_ENV_VAR", "")
+
+    assert require_env("EMPTY_ENV_VAR", default="fallback") == ""
 
 
 def test_require_env_raises_when_value_missing_and_no_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("MISSING_ENV_VAR", raising=False)
 
     with pytest.raises(RuntimeError, match="MISSING_ENV_VAR"):
-        cli.require_env("MISSING_ENV_VAR")
+        require_env("MISSING_ENV_VAR")
+
+
+def test_line_range_rejects_end_before_start() -> None:
+    with pytest.raises(ValueError, match="line_range.end must be >= line_range.start"):
+        LineRange(start=3, end=2)
+
+
+def test_review_result_accepts_structured_comment() -> None:
+    result = ReviewResult(
+        comments=[
+            ReviewComment(
+                title="Missing guard",
+                body="The code path can raise on null input.",
+                confidence_score=0.8,
+                priority=2,
+                code_location=CodeLocation(
+                    relative_file_path="src/module.py",
+                    line_range=LineRange(start=10, end=12),
+                ),
+            )
+        ]
+    )
+
+    assert result.comments[0].code_location.relative_file_path == "src/module.py"
+
+
+@pytest.mark.parametrize(
+    ("payload", "error_field"),
+    [
+        (
+            {
+                "comments": [
+                    {
+                        "title": "Malformed line range",
+                        "body": "start was emitted as a string.",
+                        "confidence_score": 0.8,
+                        "priority": 2,
+                        "code_location": {
+                            "relative_file_path": "src/module.py",
+                            "line_range": {"start": "1", "end": 2},
+                        },
+                    }
+                ]
+            },
+            "start",
+        ),
+        (
+            {
+                "comments": [
+                    {
+                        "title": "Malformed priority",
+                        "body": "priority was emitted as a boolean.",
+                        "confidence_score": 0.8,
+                        "priority": True,
+                        "code_location": {
+                            "relative_file_path": "src/module.py",
+                            "line_range": {"start": 1, "end": 2},
+                        },
+                    }
+                ]
+            },
+            "priority",
+        ),
+        (
+            {
+                "comments": [
+                    {
+                        "title": "Malformed confidence",
+                        "body": "confidence was emitted as a string.",
+                        "confidence_score": "0.8",
+                        "priority": 2,
+                        "code_location": {
+                            "relative_file_path": "src/module.py",
+                            "line_range": {"start": 1, "end": 2},
+                        },
+                    }
+                ]
+            },
+            "confidence_score",
+        ),
+    ],
+)
+def test_review_result_rejects_coerced_numeric_payloads(payload: dict[str, object], error_field: str) -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        ReviewResult.model_validate(payload)
+
+    assert error_field in str(exc_info.value)

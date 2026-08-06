@@ -3,19 +3,9 @@
 from __future__ import annotations
 
 import argparse
-import os
 from pathlib import Path
 
-
-def require_env(name: str, default: str | None = None) -> str:
-    """Return an environment variable value or a provided default."""
-    value = os.environ.get(name)
-    if value:
-        return value
-    if default is not None:
-        return default
-    message = f"Missing required environment variable: {name}"
-    raise RuntimeError(message)
+from scripts.review_agent.common import require_env
 
 
 def _build_parser() -> argparse.ArgumentParser:
