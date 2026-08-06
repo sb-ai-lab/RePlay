@@ -402,3 +402,15 @@ def test_reviewer_package_files_do_not_contain_forbidden_legacy_brand_name() -> 
     reviewer_root = Path(__file__).resolve().parents[3] / "scripts" / "review_agent"
 
     assert _find_forbidden_name_references(reviewer_root, "legacy_brand") == []
+
+
+def test_review_agent_ci_job_uses_glm_model_and_minimal_proxy_env() -> None:
+    workflow_path = Path(__file__).resolve().parents[3] / ".gitlab" / "workflows" / "main.yml"
+    workflow = workflow_path.read_text(encoding="utf-8")
+
+    assert 'ANTHROPIC_MODEL: "glm-5.2"' in workflow
+    assert "ANTHROPIC_API_VERSION:" not in workflow
+    assert 'export HTTPS_PROXY="${OPENAI_HTTPS_PROXY:-${OPENAI_HTTP_PROXY:-}}"' in workflow
+    assert 'export HTTP_PROXY=' not in workflow
+    assert 'export https_proxy=' not in workflow
+    assert 'export http_proxy=' not in workflow

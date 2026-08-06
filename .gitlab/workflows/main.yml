@@ -124,13 +124,11 @@ review-agent:
 
   # Required CI variables:
   # - ANTHROPIC_API_KEY
-  # - OPENAI_HTTP_PROXY
-  # - OPENAI_HTTPS_PROXY
+  # - OPENAI_HTTPS_PROXY or OPENAI_HTTP_PROXY
   # - GITLAB_API_TOKEN
 
   variables:
-    ANTHROPIC_MODEL: "claude-sonnet-4-20250514"
-    ANTHROPIC_API_VERSION: "2023-06-01"
+    ANTHROPIC_MODEL: "glm-5.2"
     REVIEW_AGENT_OUTPUT_FILE: "review-agent-output.json"
 
   before_script:
@@ -151,12 +149,9 @@ review-agent:
     - mkdir -p "$(dirname "$REVIEW_AGENT_OUTPUT_FILE")"
     - BASE_SHA="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-${CI_COMMIT_BEFORE_SHA:-$CI_COMMIT_SHA}}"
     - |
-      export HTTPS_PROXY="${HTTPS_PROXY:-${OPENAI_HTTPS_PROXY:-${OPENAI_HTTP_PROXY:-}}}"
-      export HTTP_PROXY="${HTTP_PROXY:-${OPENAI_HTTP_PROXY:-${OPENAI_HTTPS_PROXY:-}}}"
-      export https_proxy="$HTTPS_PROXY"
-      export http_proxy="$HTTP_PROXY"
+      export HTTPS_PROXY="${OPENAI_HTTPS_PROXY:-${OPENAI_HTTP_PROXY:-}}"
 
-      if [ -z "${HTTPS_PROXY:-}" ] && [ -z "${HTTP_PROXY:-}" ]; then
+      if [ -z "${HTTPS_PROXY:-}" ]; then
         echo "Missing proxy variable: set OPENAI_HTTPS_PROXY or OPENAI_HTTP_PROXY"
         exit 1
       fi
