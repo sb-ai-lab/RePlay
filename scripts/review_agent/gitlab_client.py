@@ -51,7 +51,8 @@ def request_text(
                 continue
             message = f"Network error for {url}: {exc}"
             raise RuntimeError(message) from exc
-    raise RuntimeError(f"Request failed without response for {url}")
+    message = f"Request failed without response for {url}"
+    raise RuntimeError(message)
 
 
 def request_json(

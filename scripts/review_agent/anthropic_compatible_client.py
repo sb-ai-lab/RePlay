@@ -81,38 +81,39 @@ class AnthropicCompatibleClient:
                 if should_retry and attempt < MAX_RETRY_ATTEMPTS:
                     time.sleep(_retry_after_seconds(exc.headers, attempt=attempt))
                     continue
-                raise RuntimeError(
-                    f"Anthropic-compatible API HTTP {exc.code} for {self.messages_url}: {details}"
-                ) from exc
+                message = f"Anthropic-compatible API HTTP {exc.code} for {self.messages_url}: {details}"
+                raise RuntimeError(message) from exc
             except error.URLError as exc:
                 if attempt < MAX_RETRY_ATTEMPTS:
                     time.sleep(float(2 ** (attempt - 1)))
                     continue
-                raise RuntimeError(
-                    f"Anthropic-compatible API network error for {self.messages_url}: "
-                    f"{_sanitize_error_text(str(exc.reason))}"
-                ) from exc
+                message = (
+                    "Anthropic-compatible API network error for "
+                    f"{self.messages_url}: {_sanitize_error_text(str(exc.reason))}"
+                )
+                raise RuntimeError(message) from exc
             except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-                raise RuntimeError("Anthropic-compatible API returned malformed JSON") from exc
+                message = "Anthropic-compatible API returned malformed JSON"
+                raise RuntimeError(message) from exc
 
         if not isinstance(payload, dict):
-            raise RuntimeError("Anthropic-compatible API returned malformed JSON")
+            message = "Anthropic-compatible API returned malformed JSON"
+            raise RuntimeError(message)
 
         content = payload.get("content")
         if not isinstance(content, list):
-            raise RuntimeError("Anthropic-compatible response did not contain text content")
+            message = "Anthropic-compatible response did not contain text content"
+            raise RuntimeError(message)
 
-        text_chunks: list[str] = []
-        for item in content:
-            if (
-                isinstance(item, dict)
-                and item.get("type") == "text"
-                and isinstance(item.get("text"), str)
-            ):
-                text_chunks.append(item["text"])
+        text_chunks = [
+            item["text"]
+            for item in content
+            if (isinstance(item, dict) and item.get("type") == "text" and isinstance(item.get("text"), str))
+        ]
 
         combined_text = "".join(text_chunks)
         if combined_text.strip():
             return combined_text
 
-        raise RuntimeError("Anthropic-compatible response did not contain text content")
+        message = "Anthropic-compatible response did not contain text content"
+        raise RuntimeError(message)

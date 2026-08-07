@@ -53,17 +53,20 @@ class MergeRequestReviewService:
         while index < len(entries):
             status = entries[index]
             if not status:
-                raise ValueError("Unable to parse git diff --name-status -z output")
+                message = "Unable to parse git diff --name-status -z output"
+                raise ValueError(message)
             record: ChangedFileRecord = {"status": status}
             if status.startswith(("R", "C")):
                 if index + 2 >= len(entries):
-                    raise ValueError("Incomplete rename/copy record in git diff output")
+                    message = "Incomplete rename/copy record in git diff output"
+                    raise ValueError(message)
                 record["old_path"] = entries[index + 1]
                 record["path"] = entries[index + 2]
                 index += 3
             else:
                 if index + 1 >= len(entries):
-                    raise ValueError("Incomplete file record in git diff output")
+                    message = "Incomplete file record in git diff output"
+                    raise ValueError(message)
                 record["path"] = entries[index + 1]
                 index += 2
             changed_files.append(record)
@@ -84,14 +87,9 @@ class MergeRequestReviewService:
         )
         return f"{prompt_template}\n\n{review_context}"
 
-    def _validate_changed_file_paths(
-        self, result: ReviewResult, changed_files: list[ChangedFileRecord]
-    ) -> None:
+    def _validate_changed_file_paths(self, result: ReviewResult, changed_files: list[ChangedFileRecord]) -> None:
         allowed_paths = {
-            path
-            for record in changed_files
-            for path in (record.get("path"), record.get("old_path"))
-            if path
+            path for record in changed_files for path in (record.get("path"), record.get("old_path")) if path
         }
         untouched_paths = sorted(
             {
@@ -102,7 +100,8 @@ class MergeRequestReviewService:
         )
         if untouched_paths:
             joined_paths = ", ".join(untouched_paths)
-            raise ValueError(f"Review result references untouched file paths: {joined_paths}")
+            message = f"Review result references untouched file paths: {joined_paths}"
+            raise ValueError(message)
 
     @staticmethod
     def _response_preview(text: str, *, limit: int = 200) -> str:
@@ -117,7 +116,11 @@ class MergeRequestReviewService:
         stripped = raw_response.strip()
         candidates = [stripped]
 
-        fenced_blocks = re.findall(r"```(?:json)?\s*(.*?)```", raw_response, flags=re.DOTALL | re.IGNORECASE)
+        fenced_blocks = re.findall(
+            r"```(?:json)?\s*(.*?)```",
+            raw_response,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
         candidates.extend(block.strip() for block in fenced_blocks if block.strip())
 
         for candidate in candidates:
@@ -142,7 +145,8 @@ class MergeRequestReviewService:
                 return payload
 
         preview = cls._response_preview(raw_response)
-        raise RuntimeError(f"Review model returned non-JSON response: {preview}")
+        message = f"Review model returned non-JSON response: {preview}"
+        raise RuntimeError(message)
 
     def run(self) -> int:
         changed_files = self._load_changed_files()

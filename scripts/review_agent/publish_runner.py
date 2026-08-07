@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 from scripts.review_agent.common import run_cmd
-
 from scripts.review_agent.gitlab_client import GitlabMergeRequestClient
 from scripts.review_agent.schema import ReviewResult
 
