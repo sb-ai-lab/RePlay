@@ -122,8 +122,11 @@ poetry-check:
     - |
       echo "=== poetry-check diagnostics: tcp/http/tls ==="
       python - <<'PY'
+      import json
       import socket
       import ssl
+      import traceback
+      import urllib.request
 
       for hostname in ("pypi.org", "files.pythonhosted.org"):
           print(f"--- {hostname} ---")
@@ -142,6 +145,31 @@ poetry-check:
                       print("peer:", tls_sock.getpeername())
           except Exception as exc:
               print("tls_failed:", repr(exc))
+
+      print("=== urllib diagnostics ===")
+      for url in (
+          "https://pypi.org/simple/tomlkit/",
+          "https://pypi.org/pypi/tomlkit/0.14.0/json",
+      ):
+          print(f"--- {url} ---")
+          request = urllib.request.Request(
+              url,
+              headers={
+                  "User-Agent": "RePlay-CI-poetry-check/1.0",
+                  "Accept": "application/json, text/html;q=0.9, */*;q=0.8",
+              },
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=20) as response:
+                  body = response.read(512)
+                  print("status:", response.status)
+                  print("content_type:", response.headers.get("Content-Type"))
+                  print("content_length:", response.headers.get("Content-Length"))
+                  print("server:", response.headers.get("Server"))
+                  print("body_prefix:", json.dumps(body.decode("utf-8", errors="replace")))
+          except Exception as exc:
+              print("http_failed:", repr(exc))
+              print(traceback.format_exc())
       PY
       curl -Ivs --max-time 20 https://pypi.org/simple/tomlkit/ || true
       curl -Ivs --max-time 20 https://files.pythonhosted.org/ || true
