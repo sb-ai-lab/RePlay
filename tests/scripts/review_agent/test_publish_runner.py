@@ -108,6 +108,9 @@ def test_git_diff_line_index_tracks_changed_new_lines(monkeypatch: pytest.Monkey
             "--",
             "src/module.py",
         ]
+        assert _["stream_stdout"] is False
+        assert _["stream_stderr"] is False
+        assert _["tee_output"] is True
         return type("Completed", (), {"stdout": diff_text})()
 
     monkeypatch.setattr("scripts.review_agent.publish_runner.run_cmd", fake_run_cmd)

@@ -77,12 +77,17 @@ class AnthropicCompatibleClient:
         if not isinstance(content, list):
             raise RuntimeError("Anthropic-compatible response did not contain text content")
 
+        text_chunks: list[str] = []
         for item in content:
             if (
                 isinstance(item, dict)
                 and item.get("type") == "text"
                 and isinstance(item.get("text"), str)
             ):
-                return item["text"]
+                text_chunks.append(item["text"])
+
+        combined_text = "".join(text_chunks)
+        if combined_text.strip():
+            return combined_text
 
         raise RuntimeError("Anthropic-compatible response did not contain text content")

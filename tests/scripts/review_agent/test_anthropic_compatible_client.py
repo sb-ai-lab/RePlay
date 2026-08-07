@@ -108,6 +108,28 @@ def test_client_raises_on_missing_text_content() -> None:
         client.create_review(prompt="Return JSON")
 
 
+def test_client_joins_multiple_text_blocks_and_skips_empty_prefix() -> None:
+    opener = DummyOpener(
+        {
+            "content": [
+                {"type": "text", "text": ""},
+                {"type": "text", "text": '{"comments": []}'},
+            ]
+        }
+    )
+    client = AnthropicCompatibleClient(
+        api_key="secret",
+        model="claude-sonnet",
+        base_url="https://gateway.example/anthropic",
+        api_version="2023-06-01",
+        opener=opener,
+    )
+
+    result = client.create_review(prompt="Return JSON")
+
+    assert result == '{"comments": []}'
+
+
 @pytest.mark.parametrize(
     ("payload", "expected_message"),
     [

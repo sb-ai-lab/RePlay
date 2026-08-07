@@ -41,6 +41,7 @@ class MergeRequestReviewService:
         completed = run_cmd(
             ["git", "--no-pager", "diff", "--name-status", "-z", self._base_sha],
             stream_stdout=False,
+            tee_output=True,
         )
         return self._parse_name_status_output(completed.stdout)
 

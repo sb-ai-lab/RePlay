@@ -26,8 +26,14 @@ def test_run_writes_validated_json_and_includes_changed_file_context(
 ) -> None:
     calls: list[dict[str, object]] = []
 
-    def fake_run_cmd(command: list[str], *, stream_stdout: bool = True, **_: object) -> CompletedProcess[str]:
-        calls.append({"command": command, "stream_stdout": stream_stdout})
+    def fake_run_cmd(
+        command: list[str],
+        *,
+        stream_stdout: bool = True,
+        tee_output: bool = False,
+        **_: object,
+    ) -> CompletedProcess[str]:
+        calls.append({"command": command, "stream_stdout": stream_stdout, "tee_output": tee_output})
         return CompletedProcess(
             args=command,
             returncode=0,
@@ -72,6 +78,7 @@ def test_run_writes_validated_json_and_includes_changed_file_context(
         {
             "command": ["git", "--no-pager", "diff", "--name-status", "-z", "abc123"],
             "stream_stdout": False,
+            "tee_output": True,
         }
     ]
     assert len(client.prompts) == 1

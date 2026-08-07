@@ -60,6 +60,7 @@ class GitDiffLineIndex:
             ],
             stream_stdout=False,
             stream_stderr=False,
+            tee_output=True,
         )
         return self._parse_changed_lines(completed.stdout)
 

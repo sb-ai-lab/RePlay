@@ -28,6 +28,7 @@ def run_cmd(
     env_overrides: dict[str, str] | None = None,
     stream_stdout: bool = True,
     stream_stderr: bool = True,
+    tee_output: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """Run a command, optionally stream outputs, and return a completed process."""
     command_text = shlex.join(command)
@@ -65,12 +66,12 @@ def run_cmd(
 
     stdout_thread = threading.Thread(
         target=stream_output,
-        args=(process.stdout, sys.stdout, stdout_chunks, stream_stdout),
+        args=(process.stdout, sys.stdout, stdout_chunks, stream_stdout or tee_output),
         daemon=True,
     )
     stderr_thread = threading.Thread(
         target=stream_output,
-        args=(process.stderr, sys.stderr, stderr_chunks, stream_stderr),
+        args=(process.stderr, sys.stderr, stderr_chunks, stream_stderr or tee_output),
         daemon=True,
     )
     stdout_thread.start()
