@@ -95,6 +95,26 @@ poetry-check:
     WRAPPER_EXTRAS: --only style
   script:
     - |
+      echo "=== poetry-check diagnostics: prefer IPv4 ==="
+      if [ -w /etc/gai.conf ]; then
+        if ! grep -q '^precedence ::ffff:0:0/96  100$' /etc/gai.conf 2>/dev/null; then
+          echo 'precedence ::ffff:0:0/96  100' >> /etc/gai.conf
+        fi
+        echo "--- /etc/gai.conf tail ---"
+        tail -n 20 /etc/gai.conf || true
+      else
+        echo "/etc/gai.conf is not writable"
+      fi
+      python - <<'PY'
+      import socket
+
+      for hostname in ("pypi.org", "files.pythonhosted.org"):
+          print(f"--- getaddrinfo {hostname} ---")
+          for item in socket.getaddrinfo(hostname, 443, type=socket.SOCK_STREAM):
+              family = "AF_INET6" if item[0] == socket.AF_INET6 else "AF_INET" if item[0] == socket.AF_INET else str(item[0])
+              print(family, item[4][0])
+      PY
+    - |
       echo "=== poetry-check diagnostics: environment ==="
       python --version
       pip --version
