@@ -3,8 +3,24 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 from urllib import error, parse, request
+
+GITLAB_REQUEST_TIMEOUT_SECONDS = 30
+MAX_RETRY_ATTEMPTS = 3
+
+
+def _retry_after_seconds(headers: Any, *, attempt: int) -> float:
+    retry_after: str | None = None
+    if headers is not None:
+        retry_after = headers.get("Retry-After")
+    if retry_after is not None:
+        try:
+            return max(0.0, float(retry_after))
+        except ValueError:
+            pass
+    return float(2 ** (attempt - 1))
 
 
 def request_text(
@@ -17,16 +33,25 @@ def request_text(
     """Send an HTTP request and return the response body as text."""
     req = request.Request(url=url, data=data, method=method, headers=headers)
     open_method = opener.open if opener is not None else request.urlopen
-    try:
-        with open_method(req, timeout=180) as response:
-            return response.read().decode("utf-8")
-    except error.HTTPError as exc:
-        details = exc.read().decode("utf-8", errors="replace")
-        message = f"HTTP {exc.code} for {url}: {details}"
-        raise RuntimeError(message) from exc
-    except error.URLError as exc:
-        message = f"Network error for {url}: {exc}"
-        raise RuntimeError(message) from exc
+    for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
+        try:
+            with open_method(req, timeout=GITLAB_REQUEST_TIMEOUT_SECONDS) as response:
+                return response.read().decode("utf-8")
+        except error.HTTPError as exc:
+            details = exc.read().decode("utf-8", errors="replace")
+            should_retry = exc.code == 429 or 500 <= exc.code < 600
+            if should_retry and attempt < MAX_RETRY_ATTEMPTS:
+                time.sleep(_retry_after_seconds(exc.headers, attempt=attempt))
+                continue
+            message = f"HTTP {exc.code} for {url}: {details}"
+            raise RuntimeError(message) from exc
+        except error.URLError as exc:
+            if attempt < MAX_RETRY_ATTEMPTS:
+                time.sleep(float(2 ** (attempt - 1)))
+                continue
+            message = f"Network error for {url}: {exc}"
+            raise RuntimeError(message) from exc
+    raise RuntimeError(f"Request failed without response for {url}")
 
 
 def request_json(

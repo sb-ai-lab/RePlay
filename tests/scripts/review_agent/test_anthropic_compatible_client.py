@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from urllib import request
+from email.message import Message
+from urllib import error, request
 
 import pytest
 
@@ -26,15 +27,48 @@ class DummyResponse:
     def __exit__(self, exc_type, exc, tb) -> None:
         return None
 
+    def close(self) -> None:
+        return None
+
 
 class DummyOpener:
     def __init__(self, payload: object) -> None:
         self._payload = payload
         self.requests: list[request.Request] = []
+        self.timeouts: list[int] = []
 
     def open(self, req: request.Request, timeout: int = 180) -> DummyResponse:
         self.requests.append(req)
+        self.timeouts.append(timeout)
         return DummyResponse(self._payload)
+
+
+class SequencedOpener:
+    def __init__(self, events: list[object]) -> None:
+        self._events = events
+        self.requests: list[request.Request] = []
+        self.timeouts: list[int] = []
+
+    def open(self, req: request.Request, timeout: int = 180) -> DummyResponse:
+        self.requests.append(req)
+        self.timeouts.append(timeout)
+        event = self._events.pop(0)
+        if isinstance(event, Exception):
+            raise event
+        return DummyResponse(event)
+
+
+def _http_error(status: int, body: str, *, retry_after: str | None = None) -> error.HTTPError:
+    headers = Message()
+    if retry_after is not None:
+        headers["Retry-After"] = retry_after
+    return error.HTTPError(
+        url="https://gateway.example/anthropic/v1/messages",
+        code=status,
+        msg="error",
+        hdrs=headers,
+        fp=DummyResponse(body),
+    )
 
 
 def test_constructor_accepts_positional_or_keyword_parameters() -> None:
@@ -78,6 +112,7 @@ def test_messages_request_uses_base_url_headers_and_model() -> None:
 
     assert result == '{"comments": []}'
     assert client.messages_url == "https://gateway.example/anthropic/v1/messages"
+    assert opener.timeouts == [120]
     req = opener.requests[0]
     assert req.full_url == "https://gateway.example/anthropic/v1/messages"
     assert req.get_method() == "POST"
@@ -128,6 +163,47 @@ def test_client_joins_multiple_text_blocks_and_skips_empty_prefix() -> None:
     result = client.create_review(prompt="Return JSON")
 
     assert result == '{"comments": []}'
+
+
+def test_client_retries_on_rate_limit_and_honors_retry_after(monkeypatch: pytest.MonkeyPatch) -> None:
+    sleep_calls: list[float] = []
+    monkeypatch.setattr("scripts.review_agent.anthropic_compatible_client.time.sleep", sleep_calls.append)
+    opener = SequencedOpener(
+        [
+            _http_error(429, '{"error":"rate limited"}', retry_after="3"),
+            {"content": [{"type": "text", "text": '{"comments": []}'}]},
+        ]
+    )
+    client = AnthropicCompatibleClient(
+        api_key="secret",
+        model="claude-sonnet",
+        base_url="https://gateway.example/anthropic",
+        api_version="2023-06-01",
+        opener=opener,
+    )
+
+    result = client.create_review(prompt="Return JSON")
+
+    assert result == '{"comments": []}'
+    assert len(opener.requests) == 2
+    assert opener.timeouts == [120, 120]
+    assert sleep_calls == [3.0]
+
+
+def test_client_does_not_retry_non_retryable_http_errors() -> None:
+    opener = SequencedOpener([_http_error(401, '{"error":"unauthorized"}')])
+    client = AnthropicCompatibleClient(
+        api_key="secret",
+        model="claude-sonnet",
+        base_url="https://gateway.example/anthropic",
+        api_version="2023-06-01",
+        opener=opener,
+    )
+
+    with pytest.raises(RuntimeError, match="HTTP 401"):
+        client.create_review(prompt="Return JSON")
+
+    assert len(opener.requests) == 1
 
 
 @pytest.mark.parametrize(

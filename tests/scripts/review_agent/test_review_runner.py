@@ -243,3 +243,27 @@ def test_parse_name_status_output_supports_rename_records() -> None:
     changed_files = service._parse_name_status_output("R100\0old_name.py\0new_name.py\0")
 
     assert changed_files == [{"status": "R100", "old_path": "old_name.py", "path": "new_name.py"}]
+
+
+def test_parse_response_payload_round_trips_schema_fields() -> None:
+    raw_response = json.dumps(
+        {
+            "comments": [
+                {
+                    "title": "Null check is missing",
+                    "body": "The new code dereferences payload before validating it.",
+                    "confidence_score": 0.91,
+                    "priority": 1,
+                    "code_location": {
+                        "relative_file_path": "scripts/review_agent/common.py",
+                        "line_range": {"start": 12, "end": 12},
+                    },
+                }
+            ]
+        }
+    )
+
+    payload = MergeRequestReviewService._parse_response_payload(raw_response)
+    result = ReviewResult.model_validate(payload)
+
+    assert result.model_dump(mode="json") == json.loads(raw_response)

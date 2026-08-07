@@ -141,6 +141,30 @@ Required:
 - `ANTHROPIC_API_KEY`
 - `GITLAB_API_TOKEN`
 
+## GitLab Authentication
+
+`GITLAB_API_TOKEN` must be a token that can read merge request metadata and create merge request discussions/notes through the REST API.
+
+Supported token types:
+
+- personal access token
+- project access token
+- group access token
+
+Required scope:
+
+- `api`
+
+Recommended operational model:
+
+- prefer a project or group access token in CI to limit blast radius
+- use a personal access token only for local/manual runs when a scoped project token is not practical
+
+Environment variables:
+
+- `GITLAB_API_TOKEN`: required for the publish phase
+- `CI_API_V4_URL`, `CI_PROJECT_ID`, `CI_MERGE_REQUEST_IID`: expected GitLab CI context for the target merge request
+
 Recommended:
 
 - `ANTHROPIC_MODEL`

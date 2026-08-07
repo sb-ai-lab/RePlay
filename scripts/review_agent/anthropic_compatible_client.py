@@ -3,12 +3,28 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 from urllib import error, request
+
+LLM_REQUEST_TIMEOUT_SECONDS = 120
+MAX_RETRY_ATTEMPTS = 3
 
 
 def _sanitize_error_text(text: str) -> str:
     return " ".join(text.split())
+
+
+def _retry_after_seconds(headers: Any, *, attempt: int) -> float:
+    retry_after: str | None = None
+    if headers is not None:
+        retry_after = headers.get("Retry-After")
+    if retry_after is not None:
+        try:
+            return max(0.0, float(retry_after))
+        except ValueError:
+            pass
+    return float(2 ** (attempt - 1))
 
 
 class AnthropicCompatibleClient:
@@ -54,21 +70,30 @@ class AnthropicCompatibleClient:
             headers=self._headers(),
         )
         open_method = self._opener.open if self._opener is not None else request.urlopen
-        try:
-            with open_method(req, timeout=180) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except error.HTTPError as exc:
-            details = _sanitize_error_text(exc.read().decode("utf-8", errors="replace"))
-            raise RuntimeError(
-                f"Anthropic-compatible API HTTP {exc.code} for {self.messages_url}: {details}"
-            ) from exc
-        except error.URLError as exc:
-            raise RuntimeError(
-                f"Anthropic-compatible API network error for {self.messages_url}: "
-                f"{_sanitize_error_text(str(exc.reason))}"
-            ) from exc
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise RuntimeError("Anthropic-compatible API returned malformed JSON") from exc
+        for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
+            try:
+                with open_method(req, timeout=LLM_REQUEST_TIMEOUT_SECONDS) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+                break
+            except error.HTTPError as exc:
+                details = _sanitize_error_text(exc.read().decode("utf-8", errors="replace"))
+                should_retry = exc.code == 429 or 500 <= exc.code < 600
+                if should_retry and attempt < MAX_RETRY_ATTEMPTS:
+                    time.sleep(_retry_after_seconds(exc.headers, attempt=attempt))
+                    continue
+                raise RuntimeError(
+                    f"Anthropic-compatible API HTTP {exc.code} for {self.messages_url}: {details}"
+                ) from exc
+            except error.URLError as exc:
+                if attempt < MAX_RETRY_ATTEMPTS:
+                    time.sleep(float(2 ** (attempt - 1)))
+                    continue
+                raise RuntimeError(
+                    f"Anthropic-compatible API network error for {self.messages_url}: "
+                    f"{_sanitize_error_text(str(exc.reason))}"
+                ) from exc
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise RuntimeError("Anthropic-compatible API returned malformed JSON") from exc
 
         if not isinstance(payload, dict):
             raise RuntimeError("Anthropic-compatible API returned malformed JSON")
