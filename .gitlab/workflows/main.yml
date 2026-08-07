@@ -93,31 +93,34 @@ poetry-check:
   stage: code_quality
   variables:
     WRAPPER_EXTRAS: --only style
-  before_script:
-    - echo "=== poetry-check diagnostics: environment ==="
-    - python --version
-    - pip --version
-    - poetry --version
-    - env | sort | grep -E '^(CI_|HTTPS?_PROXY=|NO_PROXY=|PIP_|POETRY_|http_proxy=|https_proxy=|no_proxy=)' || true
-    - echo "=== poetry-check diagnostics: config files ==="
-    - test -f /etc/resolv.conf && cat /etc/resolv.conf || true
-    - test -f /etc/hosts && cat /etc/hosts || true
-    - echo "=== poetry-check diagnostics: poetry/pip config ==="
-    - poetry config --list || true
-    - pip config debug || true
-    - pip config list || true
-    - echo "=== poetry-check diagnostics: dns ==="
-    - getent hosts pypi.org || true
-    - getent hosts files.pythonhosted.org || true
-    - command -v nslookup >/dev/null 2>&1 && nslookup pypi.org || true
-    - command -v nslookup >/dev/null 2>&1 && nslookup files.pythonhosted.org || true
-    - command -v host >/dev/null 2>&1 && host pypi.org || true
-    - command -v host >/dev/null 2>&1 && host files.pythonhosted.org || true
-    - echo "=== poetry-check diagnostics: routing ==="
-    - command -v ip >/dev/null 2>&1 && ip route || true
-    - command -v route >/dev/null 2>&1 && route -n || true
-    - echo "=== poetry-check diagnostics: tcp/http/tls ==="
+  script:
     - |
+      echo "=== poetry-check diagnostics: environment ==="
+      python --version
+      pip --version
+      poetry --version
+      env | sort | grep -E '^(CI_|HTTPS?_PROXY=|NO_PROXY=|PIP_|POETRY_|http_proxy=|https_proxy=|no_proxy=)' || true
+    - |
+      echo "=== poetry-check diagnostics: config files ==="
+      test -f /etc/resolv.conf && cat /etc/resolv.conf || true
+      test -f /etc/hosts && cat /etc/hosts || true
+      echo "=== poetry-check diagnostics: poetry/pip config ==="
+      poetry config --list || true
+      pip config debug || true
+      pip config list || true
+    - |
+      echo "=== poetry-check diagnostics: dns ==="
+      getent hosts pypi.org || true
+      getent hosts files.pythonhosted.org || true
+      command -v nslookup >/dev/null 2>&1 && nslookup pypi.org || true
+      command -v nslookup >/dev/null 2>&1 && nslookup files.pythonhosted.org || true
+      command -v host >/dev/null 2>&1 && host pypi.org || true
+      command -v host >/dev/null 2>&1 && host files.pythonhosted.org || true
+      echo "=== poetry-check diagnostics: routing ==="
+      command -v ip >/dev/null 2>&1 && ip route || true
+      command -v route >/dev/null 2>&1 && route -n || true
+    - |
+      echo "=== poetry-check diagnostics: tcp/http/tls ==="
       python - <<'PY'
       import socket
       import ssl
@@ -140,9 +143,8 @@ poetry-check:
           except Exception as exc:
               print("tls_failed:", repr(exc))
       PY
-    - curl -Ivs --max-time 20 https://pypi.org/simple/tomlkit/ || true
-    - curl -Ivs --max-time 20 https://files.pythonhosted.org/ || true
-  script:
+      curl -Ivs --max-time 20 https://pypi.org/simple/tomlkit/ || true
+      curl -Ivs --max-time 20 https://files.pythonhosted.org/ || true
     - ./poetry_wrapper.sh ${WRAPPER_ARGS} -vvv sync ${WRAPPER_EXTRAS}
     - ./poetry_wrapper.sh ${WRAPPER_ARGS} check
     - ./poetry_wrapper.sh ${WRAPPER_ARGS} --experimental -vvv sync ${WRAPPER_EXTRAS}
