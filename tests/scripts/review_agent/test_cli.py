@@ -414,3 +414,13 @@ def test_review_agent_ci_job_uses_glm_model_and_minimal_proxy_env() -> None:
     assert 'export HTTP_PROXY=' not in workflow
     assert 'export https_proxy=' not in workflow
     assert 'export http_proxy=' not in workflow
+
+
+def test_review_prompt_requires_exactly_one_json_object_without_wrapping() -> None:
+    prompt_path = Path(__file__).resolve().parents[3] / "scripts" / "review_agent" / "prompts" / "review_prompt.md"
+    prompt = prompt_path.read_text(encoding="utf-8")
+
+    assert "Your response will be parsed by json.loads()." in prompt
+    assert "Return exactly one valid JSON object and nothing else." in prompt
+    assert "Do not use Markdown fences." in prompt
+    assert 'If you have no findings, return exactly: {"comments": []}' in prompt

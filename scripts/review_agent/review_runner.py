@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -103,11 +104,51 @@ class MergeRequestReviewService:
             joined_paths = ", ".join(untouched_paths)
             raise ValueError(f"Review result references untouched file paths: {joined_paths}")
 
+    @staticmethod
+    def _response_preview(text: str, *, limit: int = 200) -> str:
+        compact = " ".join(text.split())
+        if len(compact) <= limit:
+            return compact
+        return f"{compact[:limit]}..."
+
+    @classmethod
+    def _parse_response_payload(cls, raw_response: str) -> dict[str, Any]:
+        decoder = json.JSONDecoder()
+        stripped = raw_response.strip()
+        candidates = [stripped]
+
+        fenced_blocks = re.findall(r"```(?:json)?\s*(.*?)```", raw_response, flags=re.DOTALL | re.IGNORECASE)
+        candidates.extend(block.strip() for block in fenced_blocks if block.strip())
+
+        for candidate in candidates:
+            if not candidate:
+                continue
+            try:
+                payload, end_index = decoder.raw_decode(candidate)
+            except json.JSONDecodeError:
+                pass
+            else:
+                if candidate[end_index:].strip():
+                    continue
+                if isinstance(payload, dict):
+                    return payload
+
+        for match in re.finditer(r"{", raw_response):
+            try:
+                payload, _ = decoder.raw_decode(raw_response[match.start() :].strip())
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                return payload
+
+        preview = cls._response_preview(raw_response)
+        raise RuntimeError(f"Review model returned non-JSON response: {preview}")
+
     def run(self) -> int:
         changed_files = self._load_changed_files()
         prompt = self._build_prompt(changed_files)
         raw_response = self._client.create_review(prompt=prompt)
-        payload = json.loads(raw_response)
+        payload = self._parse_response_payload(raw_response)
         result = ReviewResult.model_validate(payload)
         self._validate_changed_file_paths(result, changed_files)
         self._output_path.parent.mkdir(parents=True, exist_ok=True)

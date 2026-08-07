@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from json import JSONDecodeError
 from pathlib import Path
 from subprocess import CompletedProcess
 
@@ -110,8 +109,31 @@ def test_run_raises_json_decode_error_for_invalid_response(
         client=RecordingClient("not json"),
     )
 
-    with pytest.raises(JSONDecodeError):
+    with pytest.raises(RuntimeError, match="non-JSON response"):
         service.run()
+
+
+def test_run_accepts_markdown_wrapped_json_response(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def fake_run_cmd(command: list[str], *, stream_stdout: bool = True, **_: object) -> CompletedProcess[str]:
+        return CompletedProcess(args=command, returncode=0, stdout="M\0file.py\0", stderr="")
+
+    monkeypatch.setattr("scripts.review_agent.review_runner.run_cmd", fake_run_cmd)
+    service = MergeRequestReviewService(
+        base_sha="abc123",
+        output_path=tmp_path / "review.json",
+        api_key="test-key",
+        model="claude-test",
+        base_url="https://llm.example",
+        api_version="2023-06-01",
+        client=RecordingClient('Here is the result:\n```json\n{"comments": []}\n```'),
+    )
+
+    exit_code = service.run()
+
+    assert exit_code == 0
+    assert json.loads((tmp_path / "review.json").read_text(encoding="utf-8")) == {"comments": []}
 
 
 def test_run_rejects_comment_for_untouched_file(
