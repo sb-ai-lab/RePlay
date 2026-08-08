@@ -1,4 +1,4 @@
-"""Publish mode implementation for codex review CLI."""
+"""Publish mode implementation for review-agent CLI."""
 
 from __future__ import annotations
 
@@ -8,8 +8,60 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from scripts.codex_review.gitlab_client import GitlabMergeRequestClient
-from scripts.codex_review.schema import ReviewResult
+from scripts.review_agent.common import run_cmd
+from scripts.review_agent.gitlab_client import GitlabMergeRequestClient
+from scripts.review_agent.schema import ReviewResult
+
+
+class GitDiffLineIndex:
+    """Resolve whether a file line exists on the new side of the current diff."""
+
+    _HUNK_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
+
+    def __init__(self, *, base_sha: str, head_sha: str) -> None:
+        self._base_sha = base_sha
+        self._head_sha = head_sha
+        self._cache: dict[str, set[int]] = {}
+
+    def includes(self, *, path: str, line: int) -> bool:
+        if line <= 0:
+            return False
+        changed_lines = self._cache.get(path)
+        if changed_lines is None:
+            changed_lines = self._load_changed_lines(path)
+            self._cache[path] = changed_lines
+        return line in changed_lines
+
+    @classmethod
+    def _parse_changed_lines(cls, diff_text: str) -> set[int]:
+        changed_lines: set[int] = set()
+        for raw_line in diff_text.splitlines():
+            match = cls._HUNK_PATTERN.match(raw_line)
+            if match is None:
+                continue
+            start = int(match.group(1))
+            count = int(match.group(2) or "1")
+            changed_lines.update(range(start, start + count))
+        return changed_lines
+
+    def _load_changed_lines(self, path: str) -> set[int]:
+        completed = run_cmd(
+            [
+                "git",
+                "--no-pager",
+                "diff",
+                "--unified=0",
+                "--no-color",
+                self._base_sha,
+                self._head_sha,
+                "--",
+                path,
+            ],
+            stream_stdout=False,
+            stream_stderr=False,
+            tee_output=True,
+        )
+        return self._parse_changed_lines(completed.stdout)
 
 
 class ReviewCommentsPublisher:
@@ -20,35 +72,23 @@ class ReviewCommentsPublisher:
         *,
         gitlab_client: GitlabMergeRequestClient,
         comments: list[dict[str, Any]],
+        diff_lines: GitDiffLineIndex | Any | None = None,
     ) -> None:
-        """Initialize comment publisher for one merge request.
-
-        Args:
-            gitlab_client: Configured GitLab MR client instance.
-            comments: Structured review comments to publish.
-        """
         self._gitlab_client = gitlab_client
         self._comments = comments
+        self._diff_lines = diff_lines
 
     @staticmethod
     def _sanitize_error_message(error: Exception) -> str:
-        """Return a scrubbed error message safe for CI logs.
-
-        Args:
-            error: Original exception raised during publish.
-        """
+        """Return a scrubbed error message safe for CI logs."""
         text = f"{type(error).__name__}: {error}"
-
-        # Hide all URLs to avoid exposing endpoints and query params.
         text = re.sub(r"https?://[^\s]+", "<redacted-url>", text)
 
-        # Hide common secret-looking key/value fragments.
         secret_pattern = (
             r"(?i)\b(authorization|private[-_ ]?token|token|api[-_ ]?key|password|secret)\b\s*[:=]\s*([^\s,;]+)"
         )
         text = re.sub(secret_pattern, r"\1=<redacted>", text)
 
-        # Best-effort redaction for known CI secret values if they appear verbatim.
         for env_name in ("GITLAB_API_TOKEN", "OPENAI_API_KEY", "CI_JOB_TOKEN"):
             value = os.getenv(env_name, "")
             if value:
@@ -84,6 +124,12 @@ class ReviewCommentsPublisher:
         for comment in self._comments:
             body, path, end_line = self._to_discussion_body(comment)
 
+            if self._diff_lines is not None and not self._diff_lines.includes(path=path, line=end_line):
+                fallback_body = f"{body}\n\n_Inline publish fallback was used._"
+                self._gitlab_client.post_note(fallback_body)
+                fallback_note_count += 1
+                continue
+
             try:
                 self._gitlab_client.post_inline_comment(
                     body=body,
@@ -95,7 +141,7 @@ class ReviewCommentsPublisher:
             except Exception as exc:
                 safe_error = self._sanitize_error_message(exc)
                 sys.stdout.write(
-                    "[codex-review][publish] inline discussion failed, "
+                    "[review-agent][publish] inline discussion failed, "
                     f"path={path}, line={end_line}, error={safe_error}"
                     "\n"
                 )
@@ -131,17 +177,6 @@ class MergeRequestPublishService:
         review_path: Path,
         gitlab_api_token: str,
     ) -> None:
-        """Initialize the merge request publish service.
-
-        Args:
-            api_base: GitLab API base URL.
-            project_id: GitLab project ID or path.
-            merge_request_id: Target merge request IID.
-            base_sha: Base commit SHA for inline positions.
-            head_sha: Head commit SHA for inline positions.
-            review_path: Path to structured review JSON file.
-            gitlab_api_token: GitLab API token used for publishing.
-        """
         self._api_base = api_base
         self._project_id = project_id
         self._merge_request_id = merge_request_id
@@ -166,6 +201,10 @@ class MergeRequestPublishService:
 
         result = ReviewResult.model_validate_json(self._review_path.read_text(encoding="utf-8"))
         comments = [comment.model_dump() for comment in result.comments]
-        publisher = ReviewCommentsPublisher(gitlab_client=self._gitlab_client, comments=comments)
+        publisher = ReviewCommentsPublisher(
+            gitlab_client=self._gitlab_client,
+            comments=comments,
+            diff_lines=GitDiffLineIndex(base_sha=self._base_sha, head_sha=self._head_sha),
+        )
         stats = publisher.publish_all()
         return 1 if stats["errors"] else 0

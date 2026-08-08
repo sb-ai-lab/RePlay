@@ -20,9 +20,14 @@ Focus on identifying:
 # Output format
 
 Return output as JSON only.
+- Your response will be parsed by json.loads().
+- Return exactly one valid JSON object and nothing else.
 - Do not add Markdown.
+- Do not use Markdown fences.
 - Do not add explanations outside JSON.
+- Do not prefix or suffix the JSON with any text.
 - Return exactly one JSON object with the top-level field `comments`.
+- Any response that is not a single valid JSON object is invalid.
 
 Schema:
 {
@@ -165,6 +170,7 @@ Check:
 - If priority is equal, sort by confidence_score (higher first)
 - If no important issues → return:
   {"comments": []}
+- If you have no findings, return exactly: {"comments": []}
 
 ---
 
