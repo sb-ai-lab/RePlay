@@ -1,15 +1,15 @@
-"""Pydantic schema for codex review structured output."""
+"""Pydantic schema for review-agent structured output."""
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, StrictFloat, StrictInt, model_validator
 
 
 class LineRange(BaseModel):
     """Line range for code location."""
 
-    start: int = Field(ge=1)
-    end: int = Field(ge=1)
+    start: StrictInt = Field(ge=1)
+    end: StrictInt = Field(ge=1)
 
     @model_validator(mode="after")
     def validate_bounds(self) -> "LineRange":
@@ -32,8 +32,8 @@ class ReviewComment(BaseModel):
 
     title: str = Field(min_length=1, max_length=80)
     body: str = Field(min_length=1)
-    confidence_score: float = Field(ge=0.0, le=1.0)
-    priority: int = Field(ge=0, le=3)
+    confidence_score: StrictFloat = Field(ge=0.0, le=1.0)
+    priority: StrictInt = Field(ge=0, le=3)
     code_location: CodeLocation
 
 

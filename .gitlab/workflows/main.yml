@@ -11,10 +11,7 @@ variables:
   VERSION: "0.0.14"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   RUNNER: amazme-1
-  CODEX_VERSION: "rust-v0.118.0"
-  CODEX_SHA256_X86_64: "e707ea65d7bbbc46a04afe731bf3c14a5b77522100cebf8bb93cffb95cf4610b"
-  CODEX_SHA256_AARCH64: "29bc741268b6d17ddd148b8c2c2108e8b3a0eef914b07922491348144e667e09"
-  CODEX_REVIEW_OUTPUT_FILE: "codex-review-output.json"
+  REVIEW_AGENT_OUTPUT_FILE: "review-agent-output.json"
 
 .wrapper_install: &wrapper_install
   - ./poetry_wrapper.sh ${WRAPPER_ARGS} sync ${WRAPPER_EXTRAS}
@@ -62,55 +59,7 @@ variables:
       "pytorch-optimizer<4" \
       "torch<3.0.0"
 
-.install_codex: &install_codex
-  - |
-    set -euo pipefail
-    apt-get update -qq
-    apt-get install -y -qq bubblewrap
-    arch="$(uname -m)"
-    case "$arch" in
-      x86_64|amd64)
-        codex_arch="x86_64"
-        expected_sha256="$CODEX_SHA256_X86_64"
-        ;;
-      aarch64|arm64)
-        codex_arch="aarch64"
-        expected_sha256="$CODEX_SHA256_AARCH64"
-        ;;
-      *)
-        echo "Unsupported architecture for Codex: $arch"
-        exit 1
-        ;;
-    esac
-    if [ -z "$expected_sha256" ]; then
-      echo "Codex SHA256 is empty for architecture: $codex_arch"
-      exit 1
-    fi
-    codex_asset="codex-${codex_arch}-unknown-linux-musl.tar.gz"
-    codex_url="https://github.com/openai/codex/releases/download/${CODEX_VERSION}/${codex_asset}"
-    mkdir -p "$CI_PROJECT_DIR/.bin"
-    codex_tar="$CI_PROJECT_DIR/.bin/codex.tar.gz"
-    python -c "import urllib.request; urllib.request.urlretrieve('$codex_url', '$codex_tar')"
-    if command -v sha256sum >/dev/null 2>&1; then
-      actual_sha256="$(sha256sum "$codex_tar" | awk '{print $1}')"
-    else
-      actual_sha256="$(shasum -a 256 "$codex_tar" | awk '{print $1}')"
-    fi
-    if [ "$actual_sha256" != "$expected_sha256" ]; then
-      echo "Codex checksum mismatch for $codex_asset"
-      echo "Expected: $expected_sha256"
-      echo "Actual:   $actual_sha256"
-      exit 1
-    fi
-    tar -xzf "$codex_tar" -C "$CI_PROJECT_DIR/.bin"
-    if [ -f "$CI_PROJECT_DIR/.bin/codex-${codex_arch}-unknown-linux-musl" ]; then
-      mv "$CI_PROJECT_DIR/.bin/codex-${codex_arch}-unknown-linux-musl" "$CI_PROJECT_DIR/.bin/codex"
-    fi
-    chmod +x "$CI_PROJECT_DIR/.bin/codex"
-    export PATH="$CI_PROJECT_DIR/.bin:$PATH"
-    codex --version
-
-.install_codex_review_deps: &install_codex_review_deps
+.install_review_agent_deps: &install_review_agent_deps
   - pip install -q "pydantic>=2,<3"
 
 stages:
@@ -144,11 +93,110 @@ poetry-check:
   stage: code_quality
   variables:
     WRAPPER_EXTRAS: --only style
-  before_script:
-    - *wrapper_install
   script:
-    - ./poetry_wrapper.sh check
-    - ./poetry_wrapper.sh --experimental check
+    - |
+      echo "=== poetry-check diagnostics: prefer IPv4 ==="
+      if [ -w /etc/gai.conf ]; then
+        if ! grep -q '^precedence ::ffff:0:0/96  100$' /etc/gai.conf 2>/dev/null; then
+          echo 'precedence ::ffff:0:0/96  100' >> /etc/gai.conf
+        fi
+        echo "--- /etc/gai.conf tail ---"
+        tail -n 20 /etc/gai.conf || true
+      else
+        echo "/etc/gai.conf is not writable"
+      fi
+      python - <<'PY'
+      import socket
+
+      for hostname in ("pypi.org", "files.pythonhosted.org"):
+          print(f"--- getaddrinfo {hostname} ---")
+          for item in socket.getaddrinfo(hostname, 443, type=socket.SOCK_STREAM):
+              family = "AF_INET6" if item[0] == socket.AF_INET6 else "AF_INET" if item[0] == socket.AF_INET else str(item[0])
+              print(family, item[4][0])
+      PY
+    - |
+      echo "=== poetry-check diagnostics: environment ==="
+      python --version
+      pip --version
+      poetry --version
+      env | sort | grep -E '^(CI_|HTTPS?_PROXY=|NO_PROXY=|PIP_|POETRY_|http_proxy=|https_proxy=|no_proxy=)' || true
+    - |
+      echo "=== poetry-check diagnostics: config files ==="
+      test -f /etc/resolv.conf && cat /etc/resolv.conf || true
+      test -f /etc/hosts && cat /etc/hosts || true
+      echo "=== poetry-check diagnostics: poetry/pip config ==="
+      poetry config --list || true
+      pip config debug || true
+      pip config list || true
+    - |
+      echo "=== poetry-check diagnostics: dns ==="
+      getent hosts pypi.org || true
+      getent hosts files.pythonhosted.org || true
+      command -v nslookup >/dev/null 2>&1 && nslookup pypi.org || true
+      command -v nslookup >/dev/null 2>&1 && nslookup files.pythonhosted.org || true
+      command -v host >/dev/null 2>&1 && host pypi.org || true
+      command -v host >/dev/null 2>&1 && host files.pythonhosted.org || true
+      echo "=== poetry-check diagnostics: routing ==="
+      command -v ip >/dev/null 2>&1 && ip route || true
+      command -v route >/dev/null 2>&1 && route -n || true
+    - |
+      echo "=== poetry-check diagnostics: tcp/http/tls ==="
+      python - <<'PY'
+      import json
+      import socket
+      import ssl
+      import traceback
+      import urllib.request
+
+      for hostname in ("pypi.org", "files.pythonhosted.org"):
+          print(f"--- {hostname} ---")
+          try:
+              addresses = socket.getaddrinfo(hostname, 443, type=socket.SOCK_STREAM)
+              unique = sorted({item[4][0] for item in addresses})
+              print("resolved:", ", ".join(unique))
+          except Exception as exc:
+              print("resolution_failed:", repr(exc))
+              continue
+
+          try:
+              with socket.create_connection((hostname, 443), timeout=10) as sock:
+                  with ssl.create_default_context().wrap_socket(sock, server_hostname=hostname) as tls_sock:
+                      print("tls_version:", tls_sock.version())
+                      print("peer:", tls_sock.getpeername())
+          except Exception as exc:
+              print("tls_failed:", repr(exc))
+
+      print("=== urllib diagnostics ===")
+      for url in (
+          "https://pypi.org/simple/tomlkit/",
+          "https://pypi.org/pypi/tomlkit/0.14.0/json",
+      ):
+          print(f"--- {url} ---")
+          request = urllib.request.Request(
+              url,
+              headers={
+                  "User-Agent": "RePlay-CI-poetry-check/1.0",
+                  "Accept": "application/json, text/html;q=0.9, */*;q=0.8",
+              },
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=20) as response:
+                  body = response.read(512)
+                  print("status:", response.status)
+                  print("content_type:", response.headers.get("Content-Type"))
+                  print("content_length:", response.headers.get("Content-Length"))
+                  print("server:", response.headers.get("Server"))
+                  print("body_prefix:", json.dumps(body.decode("utf-8", errors="replace")))
+          except Exception as exc:
+              print("http_failed:", repr(exc))
+              print(traceback.format_exc())
+      PY
+      curl -Ivs --max-time 20 https://pypi.org/simple/tomlkit/ || true
+      curl -Ivs --max-time 20 https://files.pythonhosted.org/ || true
+    - ./poetry_wrapper.sh ${WRAPPER_ARGS} -vvv sync ${WRAPPER_EXTRAS}
+    - ./poetry_wrapper.sh ${WRAPPER_ARGS} check
+    - ./poetry_wrapper.sh ${WRAPPER_ARGS} --experimental -vvv sync ${WRAPPER_EXTRAS}
+    - ./poetry_wrapper.sh ${WRAPPER_ARGS} --experimental check
   tags:
     - ${RUNNER}
 
@@ -166,50 +214,62 @@ toml-sort:
   tags:
     - ${RUNNER}
 
-codex-review:
+review-agent:
   stage: code_quality
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
       when: manual
     - when: never
+
   # Required CI variables:
-  # - OPENAI_API_KEY (OpenAI key)
-  # - OPENAI_HTTP_PROXY (proxy URL for OpenAI HTTP requests; should match OPENAI_HTTPS_PROXY)
-  # - OPENAI_HTTPS_PROXY (proxy URL for OpenAI HTTPS requests)
-  # - GITLAB_API_TOKEN (token with `api` scope)
+  # - ANTHROPIC_API_KEY
+  # - OPENAI_HTTPS_PROXY or OPENAI_HTTP_PROXY
+  # - GITLAB_API_TOKEN
+
   variables:
-    OPENAI_MODEL: "gpt-5.3-codex"
-    CODEX_SANDBOX_MODE: "read-only"
+    ANTHROPIC_MODEL: "glm-5.2"
+    REVIEW_AGENT_OUTPUT_FILE: "review-agent-output.json"
+
   before_script:
-    - *install_codex
-    - *install_codex_review_deps
-  script:
-    - mkdir -p "$(dirname "$CODEX_REVIEW_OUTPUT_FILE")"
-    - BASE_SHA="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-${CI_COMMIT_BEFORE_SHA:-$CI_COMMIT_SHA}}"
-    - export CODEX_PROXY="${OPENAI_HTTPS_PROXY:-$OPENAI_HTTP_PROXY}"
+    - *install_review_agent_deps
     - |
-      if [ -z "$CODEX_PROXY" ]; then
+      set -euo pipefail
+
+      if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+        echo "Missing CI variable: ANTHROPIC_API_KEY"
+        exit 1
+      fi
+
+      if [ -z "${GITLAB_API_TOKEN:-}" ]; then
+        echo "Missing CI variable: GITLAB_API_TOKEN"
+        exit 1
+      fi
+  script:
+    - mkdir -p "$(dirname "$REVIEW_AGENT_OUTPUT_FILE")"
+    - BASE_SHA="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-${CI_COMMIT_BEFORE_SHA:-$CI_COMMIT_SHA}}"
+    - |
+      export HTTPS_PROXY="${OPENAI_HTTPS_PROXY:-${OPENAI_HTTP_PROXY:-}}"
+
+      if [ -z "${HTTPS_PROXY:-}" ]; then
         echo "Missing proxy variable: set OPENAI_HTTPS_PROXY or OPENAI_HTTP_PROXY"
         exit 1
       fi
     - |
-      python -m scripts.codex_review.cli review \
+      python -m scripts.review_agent.cli review \
         --base-sha "$BASE_SHA" \
-        --codex-sandbox-mode "$CODEX_SANDBOX_MODE" \
-        --codex-proxy "$CODEX_PROXY" \
-        --output-path "$CODEX_REVIEW_OUTPUT_FILE"
+        --output-path "$REVIEW_AGENT_OUTPUT_FILE"
     - |
-      python -m scripts.codex_review.cli publish \
+      python -m scripts.review_agent.cli publish \
         --api-base "$CI_API_V4_URL" \
         --project-id "$CI_PROJECT_ID" \
         --merge-request-id "$CI_MERGE_REQUEST_IID" \
         --base-sha "$BASE_SHA" \
         --head-sha "$CI_COMMIT_SHA" \
-        --review-path "$CODEX_REVIEW_OUTPUT_FILE"
+        --review-path "$REVIEW_AGENT_OUTPUT_FILE"
   artifacts:
     when: always
     paths:
-      - $CODEX_REVIEW_OUTPUT_FILE
+      - $REVIEW_AGENT_OUTPUT_FILE
     expire_in: 1 day
   allow_failure: true
   tags:

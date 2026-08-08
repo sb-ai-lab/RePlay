@@ -3,8 +3,24 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 from urllib import error, parse, request
+
+GITLAB_REQUEST_TIMEOUT_SECONDS = 30
+MAX_RETRY_ATTEMPTS = 3
+
+
+def _retry_after_seconds(headers: Any, *, attempt: int) -> float:
+    retry_after: str | None = None
+    if headers is not None:
+        retry_after = headers.get("Retry-After")
+    if retry_after is not None:
+        try:
+            return max(0.0, float(retry_after))
+        except ValueError:
+            pass
+    return float(2 ** (attempt - 1))
 
 
 def request_text(
@@ -14,27 +30,29 @@ def request_text(
     data: bytes | None = None,
     opener: request.OpenerDirector | None = None,
 ) -> str:
-    """Send an HTTP request and return the response body as text.
-
-    Args:
-        method: HTTP method (for example, GET or POST).
-        url: Target request URL.
-        headers: HTTP headers for the request.
-        data: Optional raw request body.
-        opener: Optional custom urllib opener.
-    """
+    """Send an HTTP request and return the response body as text."""
     req = request.Request(url=url, data=data, method=method, headers=headers)
     open_method = opener.open if opener is not None else request.urlopen
-    try:
-        with open_method(req, timeout=180) as response:
-            return response.read().decode("utf-8")
-    except error.HTTPError as exc:
-        details = exc.read().decode("utf-8", errors="replace")
-        message = f"HTTP {exc.code} for {url}: {details}"
-        raise RuntimeError(message) from exc
-    except error.URLError as exc:
-        message = f"Network error for {url}: {exc}"
-        raise RuntimeError(message) from exc
+    for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
+        try:
+            with open_method(req, timeout=GITLAB_REQUEST_TIMEOUT_SECONDS) as response:
+                return response.read().decode("utf-8")
+        except error.HTTPError as exc:
+            details = exc.read().decode("utf-8", errors="replace")
+            should_retry = exc.code == 429 or 500 <= exc.code < 600
+            if should_retry and attempt < MAX_RETRY_ATTEMPTS:
+                time.sleep(_retry_after_seconds(exc.headers, attempt=attempt))
+                continue
+            message = f"HTTP {exc.code} for {url}: {details}"
+            raise RuntimeError(message) from exc
+        except error.URLError as exc:
+            if attempt < MAX_RETRY_ATTEMPTS:
+                time.sleep(float(2 ** (attempt - 1)))
+                continue
+            message = f"Network error for {url}: {exc}"
+            raise RuntimeError(message) from exc
+    message = f"Request failed without response for {url}"
+    raise RuntimeError(message)
 
 
 def request_json(
@@ -45,16 +63,7 @@ def request_json(
     data: bytes | None = None,
     opener: request.OpenerDirector | None = None,
 ) -> Any:
-    """Send an HTTP request and parse the response body as JSON.
-
-    Args:
-        method: HTTP method (for example, GET or POST).
-        url: Target request URL.
-        headers: HTTP headers for the request.
-        payload: Optional JSON-serializable payload.
-        data: Optional raw request body.
-        opener: Optional custom urllib opener.
-    """
+    """Send an HTTP request and parse the response body as JSON."""
     raw_data = data
     if payload is not None:
         raw_data = json.dumps(payload).encode("utf-8")
@@ -84,17 +93,6 @@ class GitlabMergeRequestClient:
         token: str,
         start_sha: str | None = None,
     ) -> None:
-        """Initialize a GitLab merge request API client.
-
-        Args:
-            api_base: GitLab API base URL.
-            project_id: GitLab project ID or path.
-            merge_request_id: Target merge request IID.
-            base_sha: Base commit SHA for inline positions.
-            head_sha: Head commit SHA for inline positions.
-            token: GitLab API token.
-            start_sha: Optional start SHA for diff positions.
-        """
         self._api_base = api_base
         self._project_id = project_id
         self._merge_request_id = merge_request_id
@@ -160,13 +158,7 @@ class GitlabMergeRequestClient:
         return url
 
     def post_inline_comment(self, *, body: str, relative_file_path: str, line: int) -> str:
-        """Publish an inline MR discussion at the given file and line.
-
-        Args:
-            body: Comment body text.
-            relative_file_path: Repository-relative file path for inline position.
-            line: Line number in the new file version.
-        """
+        """Publish an inline MR discussion at the given file and line."""
         payload = {
             "body": body,
             "position[position_type]": "text",
@@ -179,9 +171,5 @@ class GitlabMergeRequestClient:
         return self._post_form(endpoint="discussions", payload=payload)
 
     def post_note(self, body: str) -> str:
-        """Publish a regular merge request note.
-
-        Args:
-            body: Note body text.
-        """
+        """Publish a regular merge request note."""
         return self._post_form(endpoint="notes", payload={"body": body})

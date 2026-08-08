@@ -1,4 +1,4 @@
-"""Shared utilities for codex review CLI."""
+"""Shared utilities for review-agent workflows."""
 
 from __future__ import annotations
 
@@ -10,17 +10,15 @@ import threading
 from typing import TextIO
 
 
-def require_env(name: str) -> str:
-    """Return a required environment variable value or raise an error.
-
-    Args:
-        name: Environment variable name.
-    """
+def require_env(name: str, default: str | None = None) -> str:
+    """Return an environment variable value, default, or raise an error."""
     value = os.getenv(name)
-    if value is None:
-        message = f"Missing required environment variable: {name}"
-        raise RuntimeError(message)
-    return value
+    if value is not None:
+        return value
+    if default is not None:
+        return default
+    message = f"Missing required environment variable: {name}"
+    raise RuntimeError(message)
 
 
 def run_cmd(
@@ -30,16 +28,9 @@ def run_cmd(
     env_overrides: dict[str, str] | None = None,
     stream_stdout: bool = True,
     stream_stderr: bool = True,
+    tee_output: bool = False,
 ) -> subprocess.CompletedProcess[str]:
-    """Run a command, optionally stream outputs, and return a completed process.
-
-    Args:
-        command: Command and arguments to execute.
-        input_text: Optional stdin text passed to the process.
-        env_overrides: Optional environment variables to override.
-        stream_stdout: Whether to stream stdout to the console.
-        stream_stderr: Whether to stream stderr to the console.
-    """
+    """Run a command, optionally stream outputs, and return a completed process."""
     command_text = shlex.join(command)
     sys.stdout.write(f"\n[run_cmd] >>> {command_text}\n")
     sys.stdout.flush()
@@ -75,12 +66,12 @@ def run_cmd(
 
     stdout_thread = threading.Thread(
         target=stream_output,
-        args=(process.stdout, sys.stdout, stdout_chunks, stream_stdout),
+        args=(process.stdout, sys.stdout, stdout_chunks, stream_stdout or tee_output),
         daemon=True,
     )
     stderr_thread = threading.Thread(
         target=stream_output,
-        args=(process.stderr, sys.stderr, stderr_chunks, stream_stderr),
+        args=(process.stderr, sys.stderr, stderr_chunks, stream_stderr or tee_output),
         daemon=True,
     )
     stdout_thread.start()
