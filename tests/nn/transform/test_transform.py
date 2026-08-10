@@ -333,6 +333,65 @@ def test_target_aware_trim_rejects_non_boolean_masks():
         transform(batch)
 
 
+@pytest.mark.parametrize(
+    "batch, error, message",
+    [
+        (
+            {
+                "item_id": torch.tensor([0, 3, 4]),
+                "padding_mask": torch.tensor([False, True, True]),
+                "target_padding_mask": torch.tensor([False, True, True]),
+            },
+            ValueError,
+            "shape",
+        ),
+        (
+            {
+                "item_id": torch.tensor([[0, 3, 4]]),
+                "padding_mask": torch.tensor([[False, True, True]]),
+                "target_padding_mask": torch.ones((1, 3), dtype=torch.bool, device="meta"),
+            },
+            ValueError,
+            "same device",
+        ),
+        (
+            {
+                "item_id": torch.tensor([[0, 3]]),
+                "padding_mask": torch.tensor([[False, True, True]]),
+                "target_padding_mask": torch.tensor([[False, True, True]]),
+            },
+            ValueError,
+            "must start",
+        ),
+    ],
+)
+def test_target_aware_trim_validates_input_shapes(batch, error, message):
+    with pytest.raises(error, match=message):
+        TargetAwareAdaptiveTrimTransform("item_id", min_sequence_elements=0)(batch)
+
+
+@pytest.mark.parametrize(
+    "padding_mask, target_padding_mask",
+    [
+        (torch.tensor([[False, False, False]]), torch.tensor([[False, False, False]])),
+        (torch.tensor([[True, True, True]]), torch.tensor([[True, True, True]])),
+    ],
+)
+def test_target_aware_trim_keeps_batches_without_left_padding(padding_mask, target_padding_mask):
+    batch = {
+        "item_id": torch.tensor([[0, 3, 4]]),
+        "padding_mask": padding_mask,
+        "target_padding_mask": target_padding_mask,
+    }
+
+    assert TargetAwareAdaptiveTrimTransform("item_id", min_sequence_elements=0)(batch) is batch
+
+
+def test_target_aware_trim_rejects_negative_minimum_size():
+    with pytest.raises(ValueError, match="non-negative"):
+        TargetAwareAdaptiveTrimTransform("item_id", min_sequence_elements=-1)
+
+
 def test_select_transform(random_batch):
     features = ["item_id", ("cat_feature",)]
     transform = SelectTransform(features)
