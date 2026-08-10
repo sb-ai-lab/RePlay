@@ -29,6 +29,10 @@ class ComputeMetricsCallback(lightning.Callback):
     To calculate the ``coverage`` and ``novelty`` metrics, the batch must additionally contain the ``train_column`` key.
     The padding value of this tensor can be any, the main condition is that the padding value does not overlap
     with the existing item ID values. For example, these can be negative values.
+
+    When only selected candidates are scored, their global item IDs must be supplied through
+    ``LightningModule.candidates_to_score`` or the batch key ``candidates_to_score``. A one-dimensional
+    tensor is shared by the batch; a two-dimensional batch tensor provides candidates per row.
     """
 
     def __init__(
@@ -68,6 +72,8 @@ class ComputeMetricsCallback(lightning.Callback):
         self._verbose = verbose
         self._validation_metrics: dict[int, dict[str, float]] = {}
         self._test_metrics: dict[int, dict[str, float]] = {}
+        self._candidates: torch.LongTensor | None = None
+        self._device_candidates: torch.LongTensor | None = None
 
     def get_metrics(
         self,
@@ -102,16 +108,57 @@ class ComputeMetricsCallback(lightning.Callback):
     def on_validation_epoch_start(
         self,
         trainer: lightning.Trainer,
-        pl_module: LightningModule,  # noqa: ARG002
+        pl_module: LightningModule,
     ) -> None:
+        self._set_candidates(pl_module)
         self._epoch_start(dataloaders_size=trainer.num_val_batches)
 
     def on_test_epoch_start(
         self,
         trainer: lightning.Trainer,
-        pl_module: LightningModule,  # noqa: ARG002
+        pl_module: LightningModule,
     ) -> None:
+        self._set_candidates(pl_module)
         self._epoch_start(dataloaders_size=trainer.num_test_batches)
+
+    def _set_candidates(self, pl_module: LightningModule) -> None:
+        candidates = getattr(pl_module, "candidates_to_score", None)
+        if candidates is not None:
+            if not isinstance(candidates, torch.Tensor):
+                msg = "Candidates must be a tensor or None."
+                raise TypeError(msg)
+            self._validate_candidates(candidates, allow_row_wise=False)
+        self._candidates = candidates
+        self._device_candidates = None
+        self._set_postprocessor_candidates(candidates)
+
+    def _validate_candidates(self, candidates: torch.Tensor, *, allow_row_wise: bool) -> None:
+        valid_dimensions = (1, 2) if allow_row_wise else (1,)
+        if candidates.ndim not in valid_dimensions:
+            msg = "Candidates must be a one-dimensional tensor."
+            if allow_row_wise:
+                msg = "Batch candidates must be a one- or two-dimensional tensor."
+            raise ValueError(msg)
+        if candidates.dtype != torch.long:
+            msg = "Candidates must have torch.long dtype."
+            raise TypeError(msg)
+        if candidates.shape[-1] == 0:
+            msg = "Candidates must be non-empty."
+            raise ValueError(msg)
+        if candidates.ndim == 1:
+            has_duplicates = torch.unique(candidates).numel() != candidates.numel()
+        else:
+            sorted_candidates = torch.sort(candidates, dim=1).values
+            has_duplicates = (sorted_candidates[:, 1:] == sorted_candidates[:, :-1]).any()
+        if has_duplicates:
+            msg = "The tensor of candidates to score must be unique."
+            raise ValueError(msg)
+        if (candidates < 0).any():
+            msg = "Candidate IDs must be non-negative."
+            raise ValueError(msg)
+        if self._item_count is not None and (candidates >= self._item_count).any():
+            msg = "Candidate IDs must be less than item_count."
+            raise ValueError(msg)
 
     def _epoch_start(self, dataloaders_size):
         self._dataloaders_size = dataloaders_size
@@ -125,6 +172,48 @@ class ComputeMetricsCallback(lightning.Callback):
         for postprocessor in self._postprocessors:
             logits = postprocessor.on_validation(batch, logits)
         return logits
+
+    def _prepare_candidates(self, batch: dict, scores: torch.Tensor) -> torch.LongTensor | None:
+        if "candidates_to_score" in batch and batch["candidates_to_score"] is not self._candidates:
+            candidates = batch["candidates_to_score"]
+            if candidates is None:
+                self._set_postprocessor_candidates(None)
+                return None
+            if not isinstance(candidates, torch.Tensor):
+                msg = "Batch candidates must be a tensor or None."
+                raise TypeError(msg)
+            self._validate_candidates(candidates, allow_row_wise=True)
+            if candidates.ndim == 2 and candidates.shape[0] != scores.shape[0]:
+                msg = "Row-wise candidates and logits must have the same batch size."
+                raise ValueError(msg)
+            candidates = candidates.to(scores.device)
+        elif self._candidates is None:
+            self._set_postprocessor_candidates(None)
+            return None
+        elif self._candidates.device == scores.device:
+            candidates = self._candidates
+        else:
+            if self._device_candidates is None or self._device_candidates.device != scores.device:
+                self._device_candidates = self._candidates.to(scores.device)
+            candidates = self._device_candidates
+
+        if candidates.shape[-1] != scores.shape[1]:
+            msg = "The number of candidates must match the logits width."
+            raise ValueError(msg)
+        self._set_postprocessor_candidates(candidates)
+        return candidates
+
+    def _set_postprocessor_candidates(self, candidates: torch.LongTensor | None) -> None:
+        for postprocessor in self._postprocessors:
+            if (
+                candidates is not None
+                and candidates.ndim == 2
+                and not getattr(postprocessor, "_supports_row_wise_candidates", False)
+            ):
+                msg = "Row-wise candidates require a postprocessor that supports per-row candidate catalogs."
+                raise ValueError(msg)
+            if getattr(postprocessor, "candidates", None) is not candidates:
+                postprocessor.candidates = candidates
 
     def on_validation_batch_end(
         self,
@@ -171,8 +260,18 @@ class ComputeMetricsCallback(lightning.Callback):
         batch_idx: int,
         dataloader_idx: int,
     ) -> None:
+        candidates = self._prepare_candidates(batch, outputs["logits"])
         seen_scores = self._apply_postproccesors(batch, outputs["logits"])
-        sampled_items = torch.topk(seen_scores, k=self._metrics_builders[dataloader_idx].max_k, dim=1).indices
+        max_k = self._metrics_builders[dataloader_idx].max_k
+        if max_k > seen_scores.shape[1]:
+            msg = "The largest k must not exceed the number of score columns."
+            raise ValueError(msg)
+        sampled_items = torch.topk(seen_scores, k=max_k, dim=1).indices
+        if candidates is not None:
+            if candidates.ndim == 1:
+                sampled_items = candidates[sampled_items]
+            else:
+                sampled_items = torch.gather(candidates, 1, sampled_items)
         self._metrics_builders[dataloader_idx].add_prediction(
             sampled_items, batch[self._ground_truth_column], batch.get(self._train_column)
         )
