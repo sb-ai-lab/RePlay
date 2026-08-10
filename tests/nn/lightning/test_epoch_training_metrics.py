@@ -150,6 +150,51 @@ def test_epoch_mode_infers_batch_size_from_top_level_tensors():
     assert module._infer_training_batch_size({"item_id": torch.zeros(3, 4, dtype=torch.long)}) == 3
 
 
+@pytest.mark.parametrize(
+    "batch, feature_name, message",
+    [
+        ({"feature_tensors": {"item_id": torch.tensor(1)}}, "item_id", "non-scalar"),
+        ({"item_id": torch.zeros(2), "shared": torch.zeros(3)}, None, "common batch size"),
+        ({"item_id": torch.zeros(0)}, None, "must be positive"),
+    ],
+)
+def test_epoch_mode_rejects_ambiguous_batch_size(batch, feature_name, message):
+    module = LightningModule(
+        LossModel(1.0),
+        epoch_only_training_metrics=True,
+        training_batch_size_feature_name=feature_name,
+    )
+
+    with pytest.raises(ValueError, match=message):
+        module._infer_training_batch_size(batch)
+
+
+def test_epoch_mode_reduces_metrics_when_distributed_is_initialized():
+    module = LightningModule(LossModel(1.0), epoch_only_training_metrics=True)
+    module._trainer = SimpleNamespace(global_rank=0)
+    module._train_loss_sum.fill_(6)
+    module._learning_rate_sum.fill_(0.3)
+    module._training_row_count.fill_(3)
+
+    with (
+        patch.object(torch.distributed, "is_available", return_value=True),
+        patch.object(torch.distributed, "is_initialized", return_value=True),
+        patch.object(torch.distributed, "all_reduce") as all_reduce,
+        patch.object(module, "log"),
+    ):
+        module.on_train_epoch_end()
+
+    all_reduce.assert_called_once()
+
+
+def test_epoch_mode_rejects_empty_epoch():
+    module = LightningModule(LossModel(1.0), epoch_only_training_metrics=True)
+    module._trainer = SimpleNamespace(global_rank=0)
+
+    with pytest.raises(RuntimeError, match="without rows"):
+        module.on_train_epoch_end()
+
+
 def test_epoch_mode_reduces_metrics_once_in_two_process_ddp():
     with tempfile.TemporaryDirectory() as output_dir:
         torch.multiprocessing.spawn(
