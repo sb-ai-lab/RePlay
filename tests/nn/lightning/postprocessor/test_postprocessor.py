@@ -51,6 +51,37 @@ def test_seen_items_filter_predict_not_contiguous_score(batch, items_seen_mask):
     assert (torch.isinf(processed_logits) == items_seen_mask).all()
 
 
+def test_seen_items_filter_handles_empty_full_and_repeated_histories():
+    postprocessor = SeenItemsFilter(item_count=4)
+    processed_logits = postprocessor.on_validation(
+        {
+            "seen_ids": torch.tensor(
+                [
+                    [0, 1, 2, 3],
+                    [-1, -1, -1, -1],
+                    [1, 1, -1, -1],
+                    [1, 1, -1, -1],
+                ]
+            )
+        },
+        torch.rand(4, 4),
+    )
+
+    assert torch.isinf(processed_logits[0]).all()
+    assert not torch.isinf(processed_logits[1]).any()
+    assert torch.isinf(processed_logits[2:, 1]).all()
+    assert not torch.isinf(processed_logits[2:, [0, 2, 3]]).any()
+
+
+def test_seen_items_filter_moves_candidate_lookup_to_logits_device():
+    postprocessor = SeenItemsFilter(item_count=4)
+    postprocessor.candidates = torch.tensor([1, 3])
+
+    lookup = postprocessor._get_candidate_lookup(torch.device("meta"))
+
+    assert lookup.device.type == "meta"
+
+
 @pytest.mark.parametrize("item_count", [0, -1])
 def test_seen_items_filter_rejects_non_positive_item_count(item_count):
     with pytest.raises(ValueError, match="item_count must be positive"):

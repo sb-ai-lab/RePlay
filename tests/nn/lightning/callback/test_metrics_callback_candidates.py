@@ -67,6 +67,15 @@ def test_full_catalog_topk_keeps_score_column_ids():
     torch.testing.assert_close(builder.predictions[0], torch.tensor([[1, 0]]))
 
 
+def test_callbacks_keep_epoch_state_isolated():
+    first_callback = ComputeMetricsCallback(metrics=["recall"], ks=[1])
+    second_callback = ComputeMetricsCallback(metrics=["recall"], ks=[1])
+
+    first_callback._validation_metrics[0] = {"recall@1": 1.0}
+
+    assert second_callback.get_metrics() == {}
+
+
 def test_batch_candidates_override_module_candidates():
     callback, builder = _callback_with_builder(torch.tensor([0, 1, 2]))
 
