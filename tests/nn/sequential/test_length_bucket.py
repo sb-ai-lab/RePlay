@@ -124,6 +124,93 @@ def test_bucketed_encoder_rejects_unsupported_attention_mask_layout():
         )
 
 
+def test_bucketed_encoder_rejects_invalid_attention_mask_dimensions():
+    with pytest.raises(ValueError, match="sequence"):
+        LengthBucketedQueryEncoder._slice_attention_mask(
+            torch.zeros(3, 4),
+            torch.tensor([0]),
+            left_crop=0,
+            batch_size=1,
+            sequence_length=4,
+        )
+
+
+@pytest.mark.parametrize(
+    "kwargs, message",
+    [
+        ({"bucket_size": 0}, "bucket_size"),
+        ({"bucket_size": 1, "prediction_shift": -1}, "prediction_shift"),
+        ({"bucket_size": 1, "min_input_elements": -1}, "min_input_elements"),
+    ],
+)
+def test_bucketed_encoder_validates_parameters(kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        LengthBucketedQueryEncoder(ToyEncoder(2), **kwargs)
+
+
+def test_bucketed_encoder_resets_wrapped_encoder():
+    encoder = ToyEncoder(2)
+    reset_calls = []
+    encoder.reset_parameters = lambda: reset_calls.append(None)
+
+    LengthBucketedQueryEncoder(encoder, bucket_size=1).reset_parameters()
+
+    assert reset_calls == [None]
+
+
+def test_bucketed_encoder_slices_shared_features_and_attention_mask():
+    features = {
+        "sequence": torch.arange(12).reshape(3, 4),
+        "shared": torch.arange(4),
+        "scalar": torch.tensor(1),
+    }
+    row_indices = torch.tensor([2, 0])
+
+    actual_features = LengthBucketedQueryEncoder._slice_features(
+        features,
+        row_indices,
+        left_crop=2,
+        batch_size=3,
+        sequence_length=4,
+    )
+    actual_mask = LengthBucketedQueryEncoder._slice_attention_mask(
+        torch.ones(4, 4),
+        row_indices,
+        left_crop=1,
+        batch_size=3,
+        sequence_length=4,
+    )
+
+    torch.testing.assert_close(actual_features["sequence"], torch.tensor([[10, 11], [2, 3]]))
+    assert actual_features["shared"] is features["shared"]
+    assert actual_features["scalar"] is features["scalar"]
+    assert actual_mask.shape == (3, 3)
+
+
+def test_bucketed_encoder_rejects_invalid_input_shapes():
+    encoder = LengthBucketedQueryEncoder(ToyEncoder(1), bucket_size=1, min_input_elements=0)
+    attention_mask = torch.ones(3, 3)
+
+    with pytest.raises(ValueError, match="input_embeddings"):
+        encoder({}, torch.ones(2, 3), torch.ones(2, 3, dtype=torch.bool), attention_mask)
+    with pytest.raises(ValueError, match="padding_mask"):
+        encoder({}, torch.ones(2, 3, 1), torch.ones(2, 2, dtype=torch.bool), attention_mask)
+    with pytest.raises(ValueError, match="non-empty"):
+        encoder({}, torch.ones(0, 3, 1), torch.ones(0, 3, dtype=torch.bool), attention_mask)
+
+
+def test_bucketed_encoder_rejects_changed_encoder_shape():
+    class WrongShapeEncoder(ToyEncoder):
+        def forward(self, feature_tensors, input_embeddings, padding_mask, attention_mask):
+            return input_embeddings[:, :-1]
+
+    features, embeddings, padding_mask, attention_mask = make_batch([2], 3, 2)
+    encoder = LengthBucketedQueryEncoder(WrongShapeEncoder(2), bucket_size=1, min_input_elements=0)
+
+    with pytest.raises(ValueError, match="preserve"):
+        encoder(features, embeddings, padding_mask, attention_mask)
+
+
 def test_bucketed_sasrec_matches_full_batch_with_flattened_multihead_mask():
     torch.manual_seed(8)
     features, baseline_embeddings, padding_mask, attention_mask = make_batch([2, 6, 3, 5], 7, 4)
