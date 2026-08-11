@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Sequence
 from typing import Protocol
 
@@ -14,8 +13,6 @@ from replay.nn.output import InferenceOutput, TrainOutput
 from replay.nn.utils import warning_is_not_none
 
 from .reader import FeaturesReaderProtocol
-
-logger = logging.getLogger(__name__)
 
 
 class EmbedderProto(Protocol):
@@ -324,7 +321,6 @@ class ItemTower(torch.nn.Module):
         if cache_batch_size is None:  # pragma: no cover
             msg = "cache_batch_size must be set before building a chunked cache."
             raise RuntimeError(msg)
-        logger.info("Building the %s-item evaluation cache in chunks of %s", item_count, cache_batch_size)
         first_end = min(cache_batch_size, item_count)
         first_chunk = self._encode_item_rows(slice(0, first_end))
         cache = first_chunk.new_empty((item_count, *first_chunk.shape[1:]))
@@ -332,7 +328,6 @@ class ItemTower(torch.nn.Module):
         for start in range(first_end, item_count, cache_batch_size):
             end = min(start + cache_batch_size, item_count)
             cache[start:end].copy_(self._encode_item_rows(slice(start, end)))
-        self.cache = cache
         return cache
 
     def forward(
@@ -352,19 +347,21 @@ class ItemTower(torch.nn.Module):
             self.cache = None
 
         if not self.training and self.cache is not None:
-            if candidates_to_score is None:
-                return self.cache
-            return self.cache[candidates_to_score]
+            hidden_state = self.cache
+            if candidates_to_score is not None:
+                hidden_state = hidden_state[candidates_to_score]
+        else:
+            if not self.training and candidates_to_score is None and self.cache_batch_size is not None:
+                item_count = self._get_any_feature_buffer().shape[0]
+                if item_count > self.cache_batch_size:
+                    hidden_state = self._build_chunked_cache(item_count)
+                else:
+                    hidden_state = self._encode_item_rows()
+            else:
+                hidden_state = self._encode_item_rows(candidates_to_score)
 
-        if not self.training and candidates_to_score is None and self.cache_batch_size is not None:
-            item_count = self._get_any_feature_buffer().shape[0]
-            if item_count > self.cache_batch_size:
-                return self._build_chunked_cache(item_count)
-
-        hidden_state = self._encode_item_rows(candidates_to_score)
-
-        if not self.training and self.cache is None and candidates_to_score is None:
-            self.cache = hidden_state
+            if not self.training and candidates_to_score is None:
+                self.cache = hidden_state
         return hidden_state
 
 

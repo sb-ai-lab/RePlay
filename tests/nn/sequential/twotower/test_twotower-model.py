@@ -49,10 +49,14 @@ def test_item_tower_builds_equivalent_cache_in_chunks(create_twotower_model):
 
     with torch.no_grad():
         expected = standard()
+        built_cache = chunked._build_chunked_cache(expected.size(0))
+        assert chunked.cache is None
         actual = chunked()
 
+    torch.testing.assert_close(built_cache, expected)
     torch.testing.assert_close(actual, expected)
     assert max(chunk_sizes) <= 3
+    assert chunked.cache is actual
     assert chunked() is actual
 
 
