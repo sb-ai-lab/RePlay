@@ -303,9 +303,15 @@ class ItemTower(torch.nn.Module):
         feature_name = next(iter(self.feature_names))
         return self.get_feature_buffer(feature_name)
 
-    def _encode_item_rows(self, row_slice: slice) -> torch.Tensor:
+    def _encode_item_rows(
+        self,
+        row_selector: slice | torch.LongTensor | None = None,
+    ) -> torch.Tensor:
         feature_tensors = {
-            feature_name: self.get_feature_buffer(feature_name)[row_slice] for feature_name in self.feature_names
+            feature_name: self.get_feature_buffer(feature_name)
+            if row_selector is None
+            else self.get_feature_buffer(feature_name)[row_selector]
+            for feature_name in self.feature_names
         }
         embeddings = self.embedder(feature_tensors, self.feature_names)
         aggregated_embeddings = self.embedding_aggregator(embeddings)
@@ -355,24 +361,7 @@ class ItemTower(torch.nn.Module):
             if item_count > self.cache_batch_size:
                 return self._build_chunked_cache(item_count)
 
-        if candidates_to_score is None:
-            feature_tensors = {
-                feature_name: self.get_feature_buffer(feature_name) for feature_name in self.feature_names
-            }
-        else:
-            feature_tensors = {
-                feature_name: self.get_feature_buffer(feature_name)[candidates_to_score]
-                for feature_name in self.feature_names
-            }
-
-        embeddings: TensorMap = self.embedder(feature_tensors, self.feature_names)
-        agg_emb: torch.Tensor = self.embedding_aggregator(embeddings)
-
-        hidden_state: torch.Tensor = self.encoder(
-            feature_tensors=feature_tensors,
-            input_embeddings=agg_emb,
-        )
-        assert agg_emb.size() == hidden_state.size()
+        hidden_state = self._encode_item_rows(candidates_to_score)
 
         if not self.training and self.cache is None and candidates_to_score is None:
             self.cache = hidden_state
