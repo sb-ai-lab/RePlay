@@ -9,7 +9,7 @@ from replay.nn.ffn import SwiGLUEncoder
 from replay.nn.mask import DefaultAttentionMask
 from replay.nn.output import InferenceOutput, TrainOutput
 from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
-from replay.nn.sequential.twotower import ItemTower, TwoTowerBody
+from replay.nn.sequential.twotower import ItemTower, TwoTower, TwoTowerBody
 
 
 def test_query_tower_forward(twotower_model, sequential_sample):
@@ -29,6 +29,84 @@ def test_item_tower_forward(tensor_schema_with_equal_embedding_dims, twotower_mo
     else:
         num_items = tensor_schema_with_equal_embedding_dims["item_id"].cardinality
     assert output.shape == (num_items, tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim)
+
+
+def test_item_tower_builds_equivalent_cache_in_chunks(create_twotower_model):
+    standard = create_twotower_model().body.item_tower
+    chunked = create_twotower_model().body.item_tower
+    chunked.cache_batch_size = 3
+    chunk_sizes = []
+    original_encoder_forward = chunked.encoder.forward
+
+    def recording_encoder_forward(*args, **kwargs):
+        chunk_sizes.append(kwargs["input_embeddings"].shape[0])
+        return original_encoder_forward(*args, **kwargs)
+
+    chunked.encoder.forward = recording_encoder_forward
+    chunked.load_state_dict(standard.state_dict(), strict=True)
+    standard.eval()
+    chunked.eval()
+
+    with torch.no_grad():
+        expected = standard()
+        built_cache = chunked._build_chunked_cache(expected.size(0))
+        assert chunked.cache is None
+        actual = chunked()
+
+    torch.testing.assert_close(built_cache, expected)
+    torch.testing.assert_close(actual, expected)
+    assert max(chunk_sizes) <= 3
+    assert chunked.cache is actual
+    assert chunked() is actual
+
+
+def test_item_tower_chunking_does_not_change_training_or_candidate_scoring(create_twotower_model):
+    item_tower = create_twotower_model().body.item_tower
+    item_tower.cache_batch_size = 2
+    candidates = torch.tensor([0, 2, 4])
+
+    item_tower.eval()
+    candidate_embeddings = item_tower(candidates)
+    assert candidate_embeddings.requires_grad
+    assert item_tower.cache is None
+
+    item_tower.train()
+    training_embeddings = item_tower()
+    assert training_embeddings.requires_grad
+    assert item_tower.cache is None
+
+
+def test_twotower_from_params_exposes_item_cache_batch_size(
+    tensor_schema_with_equal_embedding_dims,
+    item_features_reader,
+):
+    model = TwoTower.from_params(
+        schema=tensor_schema_with_equal_embedding_dims,
+        item_features_reader=item_features_reader,
+        embedding_dim=tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim,
+        num_heads=1,
+        item_cache_batch_size=3,
+    )
+
+    assert model.body.item_tower.cache_batch_size == 3
+
+
+@pytest.mark.parametrize("cache_batch_size", [0, -1])
+def test_item_tower_rejects_nonpositive_cache_batch_size(
+    tensor_schema_with_equal_embedding_dims,
+    item_features_reader,
+    twotower_model,
+    cache_batch_size,
+):
+    with pytest.raises(ValueError, match="cache_batch_size must be positive"):
+        ItemTower(
+            schema=tensor_schema_with_equal_embedding_dims,
+            item_features_reader=item_features_reader,
+            embedder=twotower_model.body.embedder,
+            embedding_aggregator=twotower_model.body.item_tower.embedding_aggregator,
+            encoder=twotower_model.body.item_tower.encoder,
+            cache_batch_size=cache_batch_size,
+        )
 
 
 def test_item_tower_from_checkpoint(create_twotower_model, tmp_path):
