@@ -50,6 +50,8 @@ def test_bucketed_active_outputs_and_gradients_match_full_batch():
     bucketed_output = wrapper(features, bucketed_embeddings, padding_mask, attention_mask)
     active = padding_mask.unsqueeze(-1).expand_as(baseline_output)
     torch.testing.assert_close(bucketed_output[active], baseline_output[active])
+    for row, left_crop in enumerate((4, 0, 2, 0, 4, 2)):
+        assert torch.count_nonzero(bucketed_output[row, :left_crop]) == 0
 
     baseline_output[active].square().sum().backward()
     bucketed_output[active].square().sum().backward()

@@ -9,6 +9,8 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
     Cropped padding positions are restored as zeros. Downstream training code
     must ignore them through its target mask. RePlay attention masks may be
     shared, batch-aligned, or flattened as ``[batch * heads, sequence, sequence]``.
+    The wrapped encoder must process batch rows independently. Stochastic layers
+    may consume random values in a different order than an unbucketed encoder.
     """
 
     def __init__(
@@ -20,7 +22,8 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
         min_input_elements: int = 4_194_304,
     ) -> None:
         """
-        :param encoder: query encoder accepting feature tensors, embeddings, padding mask and attention mask.
+        :param encoder: row-independent query encoder accepting feature tensors,
+            embeddings, padding mask and attention mask.
         :param bucket_size: maximum number of rows evaluated together.
         :param prediction_shift: number of positions retained before the first valid input token.
         :param bucket_during_eval: whether to use bucketing outside training.
@@ -61,10 +64,9 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
             if value.ndim == 0 or value.size(0) != batch_size:
                 result[name] = value
                 continue
-            value = value.index_select(0, row_indices)
             if value.ndim >= 2 and value.size(1) == sequence_length:
                 value = value[:, left_crop:]
-            result[name] = value
+            result[name] = value.index_select(0, row_indices)
         return result
 
     @staticmethod
@@ -112,10 +114,11 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
         if (not self.training and not self.bucket_during_eval) or (input_embeddings.numel() < self.min_input_elements):
             return self.encoder(feature_tensors, input_embeddings, padding_mask, attention_mask)
 
-        lengths = padding_mask.sum(dim=1, dtype=torch.int32).detach().cpu().tolist()
+        # Synchronize lengths once instead of reading one device scalar per bucket.
+        lengths = padding_mask.sum(dim=1, dtype=torch.int32).cpu().tolist()
         order_list = sorted(range(batch_size), key=lengths.__getitem__)
         order = torch.tensor(order_list, dtype=torch.long, device=padding_mask.device)
-        outputs = []
+        output = input_embeddings.new_zeros(input_embeddings.shape)
         for start in range(0, batch_size, self.bucket_size):
             end = min(start + self.bucket_size, batch_size)
             row_indices = order[start:end]
@@ -123,7 +126,8 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
             left_crop = (
                 0 if max_valid_length == 0 else max(0, sequence_length - max_valid_length - self.prediction_shift)
             )
-            bucket_embeddings = input_embeddings.index_select(0, row_indices)[:, left_crop:]
+            bucket_embeddings = input_embeddings[:, left_crop:].index_select(0, row_indices)
+            bucket_padding_mask = padding_mask[:, left_crop:].index_select(0, row_indices)
             bucket_output = self.encoder(
                 self._slice_features(
                     feature_tensors,
@@ -133,7 +137,7 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
                     sequence_length,
                 ),
                 bucket_embeddings,
-                padding_mask.index_select(0, row_indices)[:, left_crop:],
+                bucket_padding_mask,
                 self._slice_attention_mask(
                     attention_mask,
                     row_indices,
@@ -145,10 +149,7 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
             if bucket_output.shape != bucket_embeddings.shape:
                 msg = "The wrapped encoder must preserve [batch, sequence, embedding] shape."
                 raise ValueError(msg)
-            if left_crop:
-                prefix = bucket_output.new_zeros(bucket_output.size(0), left_crop, bucket_output.size(2))
-                bucket_output = torch.cat((prefix, bucket_output), dim=1)
-            outputs.append(bucket_output)
+            # Write buckets directly in source order without retaining padded copies.
+            output[row_indices, left_crop:] = bucket_output
 
-        sorted_output = torch.cat(outputs, dim=0)
-        return sorted_output.index_select(0, torch.argsort(order))
+        return output
