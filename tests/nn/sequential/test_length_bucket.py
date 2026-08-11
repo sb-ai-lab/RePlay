@@ -44,7 +44,7 @@ def test_bucketed_active_outputs_and_gradients_match_full_batch():
     baseline_encoder = ToyEncoder(4)
     bucketed_encoder = ToyEncoder(4)
     bucketed_encoder.load_state_dict(baseline_encoder.state_dict())
-    wrapper = LengthBucketedQueryEncoder(bucketed_encoder, bucket_size=2, min_input_elements=0)
+    wrapper = LengthBucketedQueryEncoder(bucketed_encoder, bucket_size=2)
 
     baseline_output = baseline_encoder(features, baseline_embeddings, padding_mask, attention_mask)
     bucketed_output = wrapper(features, bucketed_embeddings, padding_mask, attention_mask)
@@ -71,7 +71,7 @@ def test_bucketed_encoder_keeps_shifted_target_boundary():
     baseline_encoder = ToyEncoder(3)
     bucketed_encoder = ToyEncoder(3)
     bucketed_encoder.load_state_dict(baseline_encoder.state_dict())
-    wrapper = LengthBucketedQueryEncoder(bucketed_encoder, bucket_size=1, prediction_shift=1, min_input_elements=0)
+    wrapper = LengthBucketedQueryEncoder(bucketed_encoder, bucket_size=1, sequence_shift=1)
     target_mask = torch.cat((padding_mask[:, 1:], padding_mask[:, -1:]), dim=1)
 
     expected = baseline_encoder(features, embeddings, padding_mask, attention_mask)
@@ -82,16 +82,15 @@ def test_bucketed_encoder_keeps_shifted_target_boundary():
     assert bucketed_encoder.input_shapes == [(1, 2, 3), (1, 4, 3), (1, 6, 3)]
 
 
-def test_bucketed_encoder_bypasses_small_and_evaluation_batches():
+def test_bucketed_encoder_bypasses_evaluation():
     features, embeddings, padding_mask, attention_mask = make_batch([1, 3], 4, 2)
     encoder = ToyEncoder(2)
-    wrapper = LengthBucketedQueryEncoder(encoder, bucket_size=1, min_input_elements=100).train()
+    wrapper = LengthBucketedQueryEncoder(encoder, bucket_size=1)
 
     wrapper(features, embeddings, padding_mask, attention_mask)
-    wrapper.min_input_elements = 0
     wrapper.eval()(features, embeddings, padding_mask, attention_mask)
 
-    assert encoder.input_shapes == [(2, 4, 2), (2, 4, 2)]
+    assert encoder.input_shapes == [(1, 2, 2), (1, 4, 2), (2, 4, 2)]
 
 
 def test_bucketed_encoder_slices_flattened_multihead_mask_by_row():
@@ -141,8 +140,7 @@ def test_bucketed_encoder_rejects_invalid_attention_mask_dimensions():
     "kwargs, message",
     [
         ({"bucket_size": 0}, "bucket_size"),
-        ({"bucket_size": 1, "prediction_shift": -1}, "prediction_shift"),
-        ({"bucket_size": 1, "min_input_elements": -1}, "min_input_elements"),
+        ({"bucket_size": 1, "sequence_shift": -1}, "sequence_shift"),
     ],
 )
 def test_bucketed_encoder_validates_parameters(kwargs, message):
@@ -190,7 +188,7 @@ def test_bucketed_encoder_slices_shared_features_and_attention_mask():
 
 
 def test_bucketed_encoder_rejects_invalid_input_shapes():
-    encoder = LengthBucketedQueryEncoder(ToyEncoder(1), bucket_size=1, min_input_elements=0)
+    encoder = LengthBucketedQueryEncoder(ToyEncoder(1), bucket_size=1)
     attention_mask = torch.ones(3, 3)
 
     with pytest.raises(ValueError, match="input_embeddings"):
@@ -207,7 +205,7 @@ def test_bucketed_encoder_rejects_changed_encoder_shape():
             return input_embeddings[:, :-1]
 
     features, embeddings, padding_mask, attention_mask = make_batch([2], 3, 2)
-    encoder = LengthBucketedQueryEncoder(WrongShapeEncoder(2), bucket_size=1, min_input_elements=0)
+    encoder = LengthBucketedQueryEncoder(WrongShapeEncoder(2), bucket_size=1)
 
     with pytest.raises(ValueError, match="preserve"):
         encoder(features, embeddings, padding_mask, attention_mask)
@@ -221,7 +219,7 @@ def test_bucketed_sasrec_matches_full_batch_with_flattened_multihead_mask():
     baseline_encoder = SasRecTransformerLayer(embedding_dim=4, num_heads=2, num_blocks=1, dropout=0.0)
     bucketed_encoder = SasRecTransformerLayer(embedding_dim=4, num_heads=2, num_blocks=1, dropout=0.0)
     bucketed_encoder.load_state_dict(baseline_encoder.state_dict())
-    wrapper = LengthBucketedQueryEncoder(bucketed_encoder, bucket_size=2, min_input_elements=0)
+    wrapper = LengthBucketedQueryEncoder(bucketed_encoder, bucket_size=2)
     multihead_mask = attention_mask[:, 0].repeat_interleave(2, dim=0)
 
     baseline_output = baseline_encoder(features, baseline_embeddings, padding_mask, multihead_mask)

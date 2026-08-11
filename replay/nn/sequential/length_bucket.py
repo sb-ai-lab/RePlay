@@ -17,34 +17,25 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
         self,
         encoder: torch.nn.Module,
         bucket_size: int,
-        prediction_shift: int = 1,
-        bucket_during_eval: bool = False,
-        min_input_elements: int = 4_194_304,
+        sequence_shift: int = 1,
     ) -> None:
         """
         :param encoder: row-independent query encoder accepting feature tensors,
             embeddings, padding mask and attention mask.
         :param bucket_size: maximum number of rows evaluated together.
-        :param prediction_shift: number of positions retained before the first valid input token.
-        :param bucket_during_eval: whether to use bucketing outside training.
-        :param min_input_elements: minimum number of embedding elements required to use bucketing.
-            Set to ``0`` to enable bucketing for every batch.
+        :param sequence_shift: number of positions retained before the first valid input token.
+            Must match the ``shift`` used by ``NextTokenTransform``.
         """
         super().__init__()
         if bucket_size <= 0:
             msg = "bucket_size must be positive"
             raise ValueError(msg)
-        if prediction_shift < 0:
-            msg = "prediction_shift must be non-negative"
-            raise ValueError(msg)
-        if min_input_elements < 0:
-            msg = "min_input_elements must be non-negative"
+        if sequence_shift < 0:
+            msg = "sequence_shift must be non-negative"
             raise ValueError(msg)
         self.encoder = encoder
         self.bucket_size = bucket_size
-        self.prediction_shift = prediction_shift
-        self.bucket_during_eval = bucket_during_eval
-        self.min_input_elements = min_input_elements
+        self.sequence_shift = sequence_shift
 
     def reset_parameters(self) -> None:
         reset_parameters = getattr(self.encoder, "reset_parameters", None)
@@ -111,20 +102,20 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
         if batch_size == 0:
             msg = "batch dimension must be non-empty"
             raise ValueError(msg)
-        if (not self.training and not self.bucket_during_eval) or (input_embeddings.numel() < self.min_input_elements):
+        if not self.training:
             return self.encoder(feature_tensors, input_embeddings, padding_mask, attention_mask)
 
         # Synchronize lengths once instead of reading one device scalar per bucket.
-        lengths = padding_mask.sum(dim=1, dtype=torch.int32).cpu().tolist()
-        order_list = sorted(range(batch_size), key=lengths.__getitem__)
-        order = torch.tensor(order_list, dtype=torch.long, device=padding_mask.device)
+        lengths = padding_mask.sum(dim=1, dtype=torch.int32)
+        order = torch.argsort(lengths)
+        sorted_lengths = lengths.index_select(0, order).cpu().tolist()
         output = input_embeddings.new_zeros(input_embeddings.shape)
         for start in range(0, batch_size, self.bucket_size):
             end = min(start + self.bucket_size, batch_size)
             row_indices = order[start:end]
-            max_valid_length = lengths[order_list[end - 1]]
+            max_valid_length = sorted_lengths[end - 1]
             left_crop = (
-                0 if max_valid_length == 0 else max(0, sequence_length - max_valid_length - self.prediction_shift)
+                0 if max_valid_length == 0 else max(0, sequence_length - max_valid_length - self.sequence_shift)
             )
             bucket_embeddings = input_embeddings[:, left_crop:].index_select(0, row_indices)
             bucket_padding_mask = padding_mask[:, left_crop:].index_select(0, row_indices)
