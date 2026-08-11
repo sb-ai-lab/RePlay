@@ -103,7 +103,9 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
             msg = "batch dimension must be non-empty"
             raise ValueError(msg)
         if not self.training:
-            return self.encoder(feature_tensors, input_embeddings, padding_mask, attention_mask)
+            return self.encoder(
+                feature_tensors, input_embeddings, padding_mask, attention_mask
+            )
 
         # Synchronize lengths once instead of reading one device scalar per bucket.
         lengths = padding_mask.sum(dim=1, dtype=torch.int32)
@@ -115,10 +117,16 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
             row_indices = order[start:end]
             max_valid_length = sorted_lengths[end - 1]
             left_crop = (
-                0 if max_valid_length == 0 else max(0, sequence_length - max_valid_length - self.sequence_shift)
+                0
+                if max_valid_length == 0
+                else max(0, sequence_length - max_valid_length - self.sequence_shift)
             )
-            bucket_embeddings = input_embeddings[:, left_crop:].index_select(0, row_indices)
-            bucket_padding_mask = padding_mask[:, left_crop:].index_select(0, row_indices)
+            bucket_embeddings = input_embeddings[:, left_crop:].index_select(
+                0, row_indices
+            )
+            bucket_padding_mask = padding_mask[:, left_crop:].index_select(
+                0, row_indices
+            )
             bucket_output = self.encoder(
                 self._slice_features(
                     feature_tensors,
