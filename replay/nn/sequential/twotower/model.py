@@ -347,21 +347,23 @@ class ItemTower(torch.nn.Module):
             self.cache = None
 
         if not self.training and self.cache is not None:
-            hidden_state = self.cache
-            if candidates_to_score is not None:
-                hidden_state = hidden_state[candidates_to_score]
-        else:
-            if not self.training and candidates_to_score is None and self.cache_batch_size is not None:
-                item_count = self._get_any_feature_buffer().shape[0]
-                if item_count > self.cache_batch_size:
-                    hidden_state = self._build_chunked_cache(item_count)
-                else:
-                    hidden_state = self._encode_item_rows()
-            else:
-                hidden_state = self._encode_item_rows(candidates_to_score)
+            if candidates_to_score is None:
+                return self.cache
+            return self.cache[candidates_to_score]
 
-            if not self.training and candidates_to_score is None:
-                self.cache = hidden_state
+        item_count = self._get_any_feature_buffer().shape[0]
+        if (
+            not self.training
+            and candidates_to_score is None
+            and self.cache_batch_size is not None
+            and item_count > self.cache_batch_size
+        ):
+            hidden_state = self._build_chunked_cache(item_count)
+        else:
+            hidden_state = self._encode_item_rows(candidates_to_score)
+
+        if not self.training and self.cache is None and candidates_to_score is None:
+            self.cache = hidden_state
         return hidden_state
 
 
