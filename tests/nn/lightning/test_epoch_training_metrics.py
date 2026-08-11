@@ -196,6 +196,15 @@ def test_epoch_mode_rejects_empty_epoch():
         module.on_train_epoch_end()
 
 
+def test_epoch_mode_rejects_zero_row_count():
+    module = LightningModule(LossModel(1.0), epoch_only_training_metrics=True)
+    module._trainer = SimpleNamespace(global_rank=0)
+    module._training_metric_totals = torch.zeros(3, dtype=torch.float64)
+
+    with pytest.raises(RuntimeError, match="without rows"):
+        module.on_train_epoch_end()
+
+
 def test_epoch_mode_reduces_metrics_once_in_two_process_ddp():
     with tempfile.TemporaryDirectory() as output_dir:
         torch.multiprocessing.spawn(
