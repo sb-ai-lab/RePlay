@@ -31,10 +31,13 @@ def test_head_forward(shape_hidden, shape_embeddings, expected_shape):
     ],
 )
 def test_head_matches_transposed_matmul(shape_hidden, shape_embeddings):
-    hidden_states = torch.randn(shape_hidden, requires_grad=True)
-    item_embeddings = torch.randn(shape_embeddings, requires_grad=True)
+    hidden_states = torch.randn(*shape_hidden[:-1], shape_hidden[-1] * 2)[..., ::2].requires_grad_()
+    item_embeddings = torch.randn(*shape_embeddings[:-1], shape_embeddings[-1] * 2)[..., ::2].requires_grad_()
     reference_hidden_states = hidden_states.detach().clone().requires_grad_()
     reference_item_embeddings = item_embeddings.detach().clone().requires_grad_()
+
+    assert not hidden_states.is_contiguous()
+    assert not item_embeddings.is_contiguous()
 
     actual = EmbeddingTyingHead()(hidden_states, item_embeddings)
     transposed_embeddings = reference_item_embeddings.transpose(-1, -2).contiguous()
