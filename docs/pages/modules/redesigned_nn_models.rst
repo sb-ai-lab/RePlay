@@ -72,6 +72,12 @@ QueryTower
 .. autoclass:: replay.nn.sequential.QueryTower
    :members: __init__, forward
 
+LengthBucketedQueryEncoder
+``````````````````````````````
+
+.. autoclass:: replay.nn.sequential.LengthBucketedQueryEncoder
+   :members: __init__, forward
+
 ItemTower
 ``````````````````````````````
 

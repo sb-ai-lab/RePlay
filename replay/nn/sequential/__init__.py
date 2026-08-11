@@ -1,3 +1,4 @@
+from .length_bucket import LengthBucketedQueryEncoder
 from .sasrec import (
     DiffTransformerBlock,
     DiffTransformerLayer,
