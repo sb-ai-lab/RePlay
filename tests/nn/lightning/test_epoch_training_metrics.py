@@ -56,9 +56,12 @@ def _distributed_epoch_metrics_worker(rank: int, port: int, output_dir: str) -> 
     )
     module = LightningModule(LossModel(1.0), epoch_only_training_metrics=True)
     module._trainer = SimpleNamespace(global_rank=rank)
-    module._train_loss_sum.fill_(10 + 2 * rank)
-    module._learning_rate_sum.fill_(0.2 + 0.4 * rank)
-    module._training_row_count.fill_(2 + rank)
+    module.on_train_epoch_start()
+    wrapped = torch.nn.parallel.DistributedDataParallel(module)
+    for _ in range(2):
+        wrapped(make_batch(1))
+        assert module._training_metric_totals is not None
+        module._training_metric_totals.add_(torch.tensor((rank + 1, 0.1 * (rank + 1), 1), dtype=torch.float64))
     reduction_count = 0
     original_all_reduce = torch.distributed.all_reduce
 
@@ -172,9 +175,7 @@ def test_epoch_mode_rejects_ambiguous_batch_size(batch, feature_name, message):
 def test_epoch_mode_reduces_metrics_when_distributed_is_initialized():
     module = LightningModule(LossModel(1.0), epoch_only_training_metrics=True)
     module._trainer = SimpleNamespace(global_rank=0)
-    module._train_loss_sum.fill_(6)
-    module._learning_rate_sum.fill_(0.3)
-    module._training_row_count.fill_(3)
+    module._training_metric_totals = torch.tensor((6, 0.3, 3), dtype=torch.float64)
 
     with (
         patch.object(torch.distributed, "is_available", return_value=True),
@@ -206,6 +207,6 @@ def test_epoch_mode_reduces_metrics_once_in_two_process_ddp():
         results = {rank: torch.load(Path(output_dir) / f"rank-{rank}.pt", weights_only=True) for rank in range(2)}
 
     assert results[0][0] == results[1][0] == 1
-    assert results[0][1]["train_loss_epoch"] == pytest.approx(4.4)
-    assert results[0][1]["learning_rate_epoch"] == pytest.approx(0.16)
-    assert results[1][1] == {}
+    for _, logged in results.values():
+        assert logged["train_loss_epoch"] == pytest.approx(1.5)
+        assert logged["learning_rate_epoch"] == pytest.approx(0.15)

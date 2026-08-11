@@ -49,9 +49,8 @@ class LightningModule(lightning.LightningModule):
         self.candidates_to_score = None
         self.epoch_only_training_metrics = epoch_only_training_metrics
         self.training_batch_size_feature_name = training_batch_size_feature_name
-        self.register_buffer("_train_loss_sum", torch.zeros((), dtype=torch.float64), persistent=False)
-        self.register_buffer("_learning_rate_sum", torch.zeros((), dtype=torch.float64), persistent=False)
-        self.register_buffer("_training_row_count", torch.zeros((), dtype=torch.float64), persistent=False)
+        # Keep this outside registered buffers: DDP broadcasts buffers before each forward pass.
+        self._training_metric_totals: torch.Tensor | None = None
 
     def forward(self, batch: dict) -> TrainOutput | InferenceOutput:
         """
@@ -122,15 +121,18 @@ class LightningModule(lightning.LightningModule):
         loss = model_output["loss"]
         learning_rate = self.optimizers().param_groups[0]["lr"]
         batch_size = self._infer_training_batch_size(batch)
-        detached_loss = loss.detach().to(device=self._train_loss_sum.device, dtype=self._train_loss_sum.dtype)
+        if self._training_metric_totals is None:
+            self._training_metric_totals = torch.zeros(3, dtype=torch.float64, device=loss.device)
+        totals = self._training_metric_totals
+        detached_loss = loss.detach().to(device=totals.device, dtype=totals.dtype)
         detached_learning_rate = torch.as_tensor(
             learning_rate,
-            device=self._learning_rate_sum.device,
-            dtype=self._learning_rate_sum.dtype,
+            device=totals.device,
+            dtype=totals.dtype,
         )
-        self._train_loss_sum.add_(detached_loss * batch_size)
-        self._learning_rate_sum.add_(detached_learning_rate * batch_size)
-        self._training_row_count.add_(batch_size)
+        totals[0].add_(detached_loss * batch_size)
+        totals[1].add_(detached_learning_rate * batch_size)
+        totals[2].add_(batch_size)
 
         if self.global_rank == 0:
             self.log(
@@ -158,37 +160,31 @@ class LightningModule(lightning.LightningModule):
 
     def on_train_epoch_start(self) -> None:
         if self.epoch_only_training_metrics:
-            self._train_loss_sum.zero_()
-            self._learning_rate_sum.zero_()
-            self._training_row_count.zero_()
+            self._training_metric_totals = torch.zeros(3, dtype=torch.float64, device=self.device)
         super().on_train_epoch_start()
 
     def on_train_epoch_end(self) -> None:
         if self.epoch_only_training_metrics:
-            totals = torch.stack((self._train_loss_sum, self._learning_rate_sum, self._training_row_count))
+            totals = self._training_metric_totals
+            if totals is None:
+                msg = "Cannot aggregate training metrics without rows."
+                raise RuntimeError(msg)
             if torch.distributed.is_available() and torch.distributed.is_initialized():
                 torch.distributed.all_reduce(totals, op=torch.distributed.ReduceOp.SUM)
             if totals[2].item() <= 0:
                 msg = "Cannot aggregate training metrics without rows."
                 raise RuntimeError(msg)
-            if self.global_rank == 0:
+            for name, value in (
+                ("train_loss_epoch", totals[0] / totals[2]),
+                ("learning_rate_epoch", totals[1] / totals[2]),
+            ):
                 self.log(
-                    "train_loss_epoch",
-                    totals[0] / totals[2],
+                    name,
+                    value,
                     on_step=False,
                     on_epoch=True,
                     prog_bar=True,
                     sync_dist=False,
-                    rank_zero_only=True,
-                )
-                self.log(
-                    "learning_rate_epoch",
-                    totals[1] / totals[2],
-                    on_step=False,
-                    on_epoch=True,
-                    prog_bar=True,
-                    sync_dist=False,
-                    rank_zero_only=True,
                 )
         super().on_train_epoch_end()
 
