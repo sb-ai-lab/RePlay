@@ -105,3 +105,54 @@ class AdaptiveTrimTransform(torch.nn.Module):
         for name in self.feature_names:
             output_batch[name] = output_batch[name][:, -max_non_padded_seqlen:, ...].contiguous()
         return output_batch
+
+
+class TargetAwareAdaptiveTrimTransform(torch.nn.Module):
+    """Trim left padding unused by both model inputs and next-token targets."""
+
+    def __init__(
+        self,
+        feature_names: list[str] | str,
+        padding_mask_name: str = "padding_mask",
+        target_padding_mask_name: str = "target_padding_mask",
+    ) -> None:
+        """
+        :param feature_names: names of sequence features to trim.
+        :param padding_mask_name: name of the input padding mask.
+        :param target_padding_mask_name: name of the next-token target mask.
+        """
+        super().__init__()
+        names = [feature_names] if isinstance(feature_names, str) else list(feature_names)
+        self.feature_names = list(dict.fromkeys((*names, padding_mask_name, target_padding_mask_name)))
+        self.padding_mask_name = padding_mask_name
+        self.target_padding_mask_name = target_padding_mask_name
+
+    def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        padding_mask = batch[self.padding_mask_name]
+        target_padding_mask = batch[self.target_padding_mask_name]
+        if padding_mask.ndim != 2 or target_padding_mask.ndim != 2:
+            msg = "Input and target padding masks must have shape [batch, sequence]."
+            raise ValueError(msg)
+        if padding_mask.shape != target_padding_mask.shape:
+            msg = "Input and target padding masks must have equal shapes."
+            raise ValueError(msg)
+        if padding_mask.dtype != torch.bool or target_padding_mask.dtype != torch.bool:
+            msg = "Input and target padding masks must have boolean dtype."
+            raise TypeError(msg)
+        if padding_mask.device != target_padding_mask.device:
+            msg = "Input and target padding masks must be on the same device."
+            raise ValueError(msg)
+        for name in self.feature_names:
+            if batch[name].shape[:2] != padding_mask.shape:
+                msg = f"Feature '{name}' must start with shape {tuple(padding_mask.shape)}."
+                raise ValueError(msg)
+
+        active_columns = (padding_mask | target_padding_mask).any(dim=0)
+        trim_start = int(active_columns.long().argmax().item())
+        if trim_start == 0:
+            return batch
+
+        output_batch = dict(batch.items())
+        for name in self.feature_names:
+            output_batch[name] = output_batch[name][:, trim_start:, ...].contiguous()
+        return output_batch
