@@ -9,6 +9,10 @@ class UniformNegativeSamplingTransform(torch.nn.Module):
     consisting of random indices sampled from a range of ``cardinality``. Unless a custom sample
     distribution is provided, the indices are weighted equally.
 
+    A one-dimensional distribution containing zero weights stores and samples only positive-weight
+    items, then maps the result back to the original item IDs. Dense and multidimensional
+    distributions retain their original representation.
+
     Example:
 
     .. code-block:: python
@@ -63,6 +67,27 @@ class UniformNegativeSamplingTransform(torch.nn.Module):
 
         if sample_distribution is None:
             sample_distribution = torch.ones(cardinality)
+        candidate_ids = None
+        if sample_distribution.dim() == 1:
+            if not sample_distribution.is_floating_point():
+                msg = "sample_distribution must have a floating-point dtype."
+                raise TypeError(msg)
+            if not torch.isfinite(sample_distribution).all() or (sample_distribution < 0).any():
+                msg = "sample_distribution must contain finite non-negative weights."
+                raise ValueError(msg)
+            positive_weight_mask = sample_distribution > 0
+            positive_weight_count = torch.count_nonzero(positive_weight_mask).item()
+            if positive_weight_count < num_negative_samples:
+                msg = (
+                    "sample_distribution must contain at least "
+                    f"{num_negative_samples} positive-weight candidates, got {positive_weight_count}"
+                )
+                raise ValueError(msg)
+            if positive_weight_count < cardinality:
+                candidate_ids = torch.nonzero(positive_weight_mask, as_tuple=True)[0]
+                sample_distribution = sample_distribution[candidate_ids].detach()
+
+        self.register_buffer("_candidate_ids", candidate_ids)
         self.register_buffer("sample_distribution", sample_distribution)
 
     def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
@@ -74,6 +99,8 @@ class UniformNegativeSamplingTransform(torch.nn.Module):
             replacement=False,
             generator=self.generator,
         )
+        if self._candidate_ids is not None:
+            negatives = self._candidate_ids[negatives]
 
         output_batch[self.out_feature_name] = negatives
         return output_batch
