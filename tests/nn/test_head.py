@@ -21,3 +21,33 @@ def test_head_forward(shape_hidden, shape_embeddings, expected_shape):
     scores = head(hidden_states, item_embeddings)
 
     assert scores.shape == expected_shape
+
+
+@pytest.mark.parametrize(
+    "shape_hidden, shape_embeddings",
+    [
+        ((4, 3, 8), (100, 8)),
+        ((4, 8), (4, 100, 8)),
+    ],
+)
+def test_head_matches_transposed_matmul(shape_hidden, shape_embeddings):
+    hidden_states = torch.randn(*shape_hidden[:-1], shape_hidden[-1] * 2)[..., ::2].requires_grad_()
+    item_embeddings = torch.randn(*shape_embeddings[:-1], shape_embeddings[-1] * 2)[..., ::2].requires_grad_()
+    reference_hidden_states = hidden_states.detach().clone().requires_grad_()
+    reference_item_embeddings = item_embeddings.detach().clone().requires_grad_()
+
+    assert not hidden_states.is_contiguous()
+    assert not item_embeddings.is_contiguous()
+
+    actual = EmbeddingTyingHead()(hidden_states, item_embeddings)
+    transposed_embeddings = reference_item_embeddings.transpose(-1, -2).contiguous()
+    if reference_item_embeddings.dim() == 3:
+        reference = reference_hidden_states.unsqueeze(-2).matmul(transposed_embeddings).squeeze(-2)
+    else:
+        reference = reference_hidden_states.matmul(transposed_embeddings)
+    actual.sum().backward()
+    reference.sum().backward()
+
+    torch.testing.assert_close(actual, reference)
+    torch.testing.assert_close(hidden_states.grad, reference_hidden_states.grad)
+    torch.testing.assert_close(item_embeddings.grad, reference_item_embeddings.grad)
