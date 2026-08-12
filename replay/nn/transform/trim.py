@@ -115,24 +115,17 @@ class TargetAwareAdaptiveTrimTransform(torch.nn.Module):
         feature_names: list[str] | str,
         padding_mask_name: str = "padding_mask",
         target_padding_mask_name: str = "target_padding_mask",
-        min_sequence_elements: int = 32_768,
     ) -> None:
         """
         :param feature_names: names of sequence features to trim.
         :param padding_mask_name: name of the input padding mask.
         :param target_padding_mask_name: name of the next-token target mask.
-        :param min_sequence_elements: minimum input-mask size required to run trimming.
-            Set to ``0`` to trim every batch.
         """
         super().__init__()
-        if min_sequence_elements < 0:
-            msg = "min_sequence_elements must be non-negative"
-            raise ValueError(msg)
         names = [feature_names] if isinstance(feature_names, str) else list(feature_names)
         self.feature_names = list(dict.fromkeys((*names, padding_mask_name, target_padding_mask_name)))
         self.padding_mask_name = padding_mask_name
         self.target_padding_mask_name = target_padding_mask_name
-        self.min_sequence_elements = min_sequence_elements
 
     def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         padding_mask = batch[self.padding_mask_name]
@@ -154,13 +147,8 @@ class TargetAwareAdaptiveTrimTransform(torch.nn.Module):
                 msg = f"Feature '{name}' must start with shape {tuple(padding_mask.shape)}."
                 raise ValueError(msg)
 
-        if padding_mask.numel() < self.min_sequence_elements:
-            return batch
         active_columns = (padding_mask | target_padding_mask).any(dim=0)
-        active_indices = active_columns.nonzero(as_tuple=False)
-        if active_indices.numel() == 0:
-            return batch
-        trim_start = int(active_indices[0].item())
+        trim_start = int(active_columns.long().argmax().item())
         if trim_start == 0:
             return batch
 

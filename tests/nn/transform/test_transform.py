@@ -289,7 +289,7 @@ def test_target_aware_trim_keeps_shifted_target_position():
         "padding_mask": torch.tensor([[False, False, True, True, True]]),
         "target_padding_mask": torch.tensor([[False, True, True, True, True]]),
     }
-    transform = TargetAwareAdaptiveTrimTransform("item_id", min_sequence_elements=0)
+    transform = TargetAwareAdaptiveTrimTransform("item_id")
 
     output = transform(batch)
 
@@ -298,24 +298,13 @@ def test_target_aware_trim_keeps_shifted_target_position():
     assert batch["item_id"].shape == (1, 5)
 
 
-def test_target_aware_trim_skips_small_batch():
-    batch = {
-        "item_id": torch.tensor([[0, 0, 3]]),
-        "padding_mask": torch.tensor([[False, False, True]]),
-        "target_padding_mask": torch.tensor([[False, True, True]]),
-    }
-    transform = TargetAwareAdaptiveTrimTransform("item_id", min_sequence_elements=4)
-
-    assert transform(batch) is batch
-
-
 def test_target_aware_trim_rejects_mismatched_masks():
     batch = {
         "item_id": torch.tensor([[0, 3, 4]]),
         "padding_mask": torch.tensor([[False, True, True]]),
         "target_padding_mask": torch.tensor([[True, True]]),
     }
-    transform = TargetAwareAdaptiveTrimTransform("item_id", min_sequence_elements=0)
+    transform = TargetAwareAdaptiveTrimTransform("item_id")
 
     with pytest.raises(ValueError, match="equal shapes"):
         transform(batch)
@@ -327,7 +316,7 @@ def test_target_aware_trim_rejects_non_boolean_masks():
         "padding_mask": torch.tensor([[0, 1, 1]]),
         "target_padding_mask": torch.tensor([[False, True, True]]),
     }
-    transform = TargetAwareAdaptiveTrimTransform("item_id", min_sequence_elements=0)
+    transform = TargetAwareAdaptiveTrimTransform("item_id")
 
     with pytest.raises(TypeError, match="boolean dtype"):
         transform(batch)
@@ -367,7 +356,7 @@ def test_target_aware_trim_rejects_non_boolean_masks():
 )
 def test_target_aware_trim_validates_input_shapes(batch, error, message):
     with pytest.raises(error, match=message):
-        TargetAwareAdaptiveTrimTransform("item_id", min_sequence_elements=0)(batch)
+        TargetAwareAdaptiveTrimTransform("item_id")(batch)
 
 
 @pytest.mark.parametrize(
@@ -384,12 +373,7 @@ def test_target_aware_trim_keeps_batches_without_left_padding(padding_mask, targ
         "target_padding_mask": target_padding_mask,
     }
 
-    assert TargetAwareAdaptiveTrimTransform("item_id", min_sequence_elements=0)(batch) is batch
-
-
-def test_target_aware_trim_rejects_negative_minimum_size():
-    with pytest.raises(ValueError, match="non-negative"):
-        TargetAwareAdaptiveTrimTransform("item_id", min_sequence_elements=-1)
+    assert TargetAwareAdaptiveTrimTransform("item_id")(batch) is batch
 
 
 def test_select_transform(random_batch):
