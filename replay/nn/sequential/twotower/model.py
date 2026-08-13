@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Protocol
+from typing import Any, Protocol
 
 import torch
 
@@ -48,6 +48,120 @@ class ItemEncoderProto(Protocol):
     ) -> torch.Tensor: ...
 
     def reset_parameters(self) -> None: ...
+
+
+class _TrainingCatalogCache:
+    """Keep one differentiable item catalog through an accumulation window."""
+
+    def __init__(self) -> None:
+        self.catalog_embeddings: torch.Tensor | None = None
+        self.pending_gradient: torch.Tensor | None = None
+        self.microbatch_embeddings: torch.Tensor | None = None
+        self.prepared_window_end: bool | None = None
+        self.retain_graph: bool | None = None
+
+    def prepare(self, is_window_end: bool) -> None:
+        if self.prepared_window_end is not None:
+            msg = "The previous training-cache microbatch was not consumed."
+            raise RuntimeError(msg)
+        self.prepared_window_end = is_window_end
+
+    def wrap(self, catalog_embeddings: torch.Tensor) -> torch.Tensor:
+        if self.microbatch_embeddings is None:
+            if self.prepared_window_end is None:
+                msg = "Call prepare_training_cache before using the cached item catalog."
+                raise RuntimeError(msg)
+            is_window_end = self.prepared_window_end
+            self.prepared_window_end = None
+            self.retain_graph = not is_window_end
+            self.microbatch_embeddings = _DeferredCatalogGradient.apply(
+                catalog_embeddings,
+                self,
+                is_window_end,
+            )
+        return self.microbatch_embeddings
+
+    def accumulate_gradient(
+        self,
+        gradient: torch.Tensor,
+        is_window_end: bool,
+    ) -> torch.Tensor | None:
+        gradient = gradient.detach()
+        self.retain_graph = None
+        self.microbatch_embeddings = None
+        if self.pending_gradient is None:
+            accumulated = gradient.clone()
+        else:
+            if self.pending_gradient.shape != gradient.shape:
+                msg = "Item catalog gradients changed shape inside an accumulation window."
+                raise RuntimeError(msg)
+            self.pending_gradient.add_(gradient)
+            accumulated = self.pending_gradient
+        if not is_window_end:
+            self.pending_gradient = accumulated
+            return None
+
+        self.catalog_embeddings = None
+        self.pending_gradient = None
+        return accumulated
+
+    def should_retain_graph(self) -> bool:
+        if self.retain_graph is None:
+            msg = "The training-cache forward pass did not prepare backward."
+            raise RuntimeError(msg)
+        return self.retain_graph
+
+    def assert_backward_completed(self) -> None:
+        if any(
+            value is not None
+            for value in (
+                self.prepared_window_end,
+                self.retain_graph,
+                self.microbatch_embeddings,
+            )
+        ):
+            msg = "The training-cache forward pass did not complete exactly one backward pass."
+            raise RuntimeError(msg)
+
+    def assert_idle(self) -> None:
+        if any(
+            value is not None
+            for value in (
+                self.catalog_embeddings,
+                self.pending_gradient,
+                self.microbatch_embeddings,
+                self.prepared_window_end,
+                self.retain_graph,
+            )
+        ):
+            msg = "The training-cache accumulation state is not idle."
+            raise RuntimeError(msg)
+
+
+class _DeferredCatalogGradient(torch.autograd.Function):
+    """Backpropagate the accumulated catalog gradient once per window."""
+
+    @staticmethod
+    def forward(
+        ctx: Any,
+        catalog_embeddings: torch.Tensor,
+        cache: _TrainingCatalogCache,
+        is_window_end: bool,
+    ) -> torch.Tensor:
+        ctx.cache = cache
+        ctx.is_window_end = is_window_end
+        return catalog_embeddings.view_as(catalog_embeddings)
+
+    @staticmethod
+    def backward(
+        ctx: Any,
+        gradient: torch.Tensor,
+    ) -> tuple[torch.Tensor | None, None, None]:
+        return (
+            ctx.cache.accumulate_gradient(gradient, ctx.is_window_end),
+            None,
+            None,
+        )
 
 
 class QueryTower(torch.nn.Module):
@@ -141,6 +255,7 @@ class ItemTower(torch.nn.Module):
         embedding_aggregator: AggregatorProto,
         encoder: ItemEncoderProto,
         cache_batch_size: int | None = None,
+        training_cache: bool = False,
     ):
         """
         :param schema: a tensor schema object with meta information on features.
@@ -159,6 +274,9 @@ class ItemTower(torch.nn.Module):
             the features got from ``item_features_reader``.
         :param cache_batch_size: maximum number of item rows encoded at once when the full
             evaluation cache is first built. ``None`` encodes the complete catalog at once.
+        :param training_cache: whether to reuse a differentiable full catalog during one
+            gradient-accumulation window. The encoder must be deterministic and process
+            catalog rows independently. Requires ``ItemTowerCacheLightningModule``.
         """
         if cache_batch_size is not None and cache_batch_size <= 0:
             msg = f"cache_batch_size must be positive, got {cache_batch_size}."
@@ -169,6 +287,8 @@ class ItemTower(torch.nn.Module):
         self.embedding_aggregator = embedding_aggregator
         self.encoder = encoder
         self.cache_batch_size = cache_batch_size
+        self.training_cache = training_cache
+        self._training_catalog_cache = _TrainingCatalogCache()
 
         for feature_name in schema:
             if feature_name not in self.feature_names:
@@ -206,6 +326,7 @@ class ItemTower(torch.nn.Module):
         embedder: EmbedderProto,
         embedding_aggregator: AggregatorProto,
         encoder: ItemEncoderProto,
+        training_cache: bool = False,
     ) -> "ItemTower":
         """
         Build :class:`ItemTower` from preloaded item feature tensors.
@@ -222,6 +343,8 @@ class ItemTower(torch.nn.Module):
         :param encoder: An object of a class that performs the logic of generating
             an item hidden embedding representation based for
             the features got from ``item_features_reader``.
+        :param training_cache: whether to reuse a differentiable full catalog during one
+            gradient-accumulation window.
         :returns: Initialized :class:`ItemTower` instance with item reference buffers and empty cache.
         """
         model = cls.__new__(cls)
@@ -232,6 +355,8 @@ class ItemTower(torch.nn.Module):
         model.embedding_aggregator = embedding_aggregator
         model.encoder = encoder
         model.cache_batch_size = None
+        model.training_cache = training_cache
+        model._training_catalog_cache = _TrainingCatalogCache()
 
         for feature_name, feature_tensor in item_features.items():
             model.register_buffer(f"{cls.FEATURE_BUFFER_PREFIX}{feature_name}", feature_tensor, persistent=True)
@@ -246,6 +371,7 @@ class ItemTower(torch.nn.Module):
         embedder: EmbedderProto,
         embedding_aggregator: AggregatorProto,
         encoder: ItemEncoderProto,
+        training_cache: bool = False,
         **kwargs,
     ) -> "ItemTower":
         """
@@ -266,6 +392,8 @@ class ItemTower(torch.nn.Module):
             Must match to the ``state_dict`` embedding_aggregator.
         :param encoder: An object of a class used to encode aggregated item embeddings.
             Must match to the ``state_dict`` encoder.
+        :param training_cache: whether to reuse a differentiable full catalog during one
+            gradient-accumulation window.
         :param kwargs: Additional keyword arguments forwarded to
             :meth:`torch.nn.Module.load_state_dict` (for example, ``strict``).
         :returns: Restored :class:`ItemTower` instance.
@@ -284,6 +412,7 @@ class ItemTower(torch.nn.Module):
             embedder=embedder,
             embedding_aggregator=embedding_aggregator,
             encoder=encoder,
+            training_cache=training_cache,
         )
         model.load_state_dict(state_dict, **kwargs)
         return model
@@ -330,6 +459,58 @@ class ItemTower(torch.nn.Module):
             cache[start:end].copy_(self._encode_item_rows(slice(start, end)))
         return cache
 
+    def prepare_training_cache(self, is_window_end: bool) -> None:
+        """Prepare the item catalog cache for one training microbatch."""
+        if not self.training_cache:
+            msg = "Set training_cache=True to use ItemTowerCacheLightningModule."
+            raise RuntimeError(msg)
+        if not self.training:
+            msg = "The item training cache can be prepared only in training mode."
+            raise RuntimeError(msg)
+        self._training_catalog_cache.prepare(is_window_end)
+
+    def should_retain_training_cache_graph(self) -> bool:
+        """Return whether the current backward pass must retain the catalog graph."""
+        return self._training_catalog_cache.should_retain_graph()
+
+    def assert_training_cache_backward_completed(self) -> None:
+        """Check that the current cached microbatch completed backward once."""
+        self._training_catalog_cache.assert_backward_completed()
+
+    def assert_training_cache_idle(self) -> None:
+        """Check that no catalog graph crosses a lifecycle boundary."""
+        self._training_catalog_cache.assert_idle()
+
+    def _cached_training_catalog(self, item_count: int) -> torch.Tensor:
+        catalog = self._training_catalog_cache.catalog_embeddings
+        if catalog is None:
+            stochastic_modules = (
+                torch.nn.AlphaDropout,
+                torch.nn.BatchNorm1d,
+                torch.nn.BatchNorm2d,
+                torch.nn.BatchNorm3d,
+                torch.nn.Dropout,
+                torch.nn.Dropout1d,
+                torch.nn.Dropout2d,
+                torch.nn.Dropout3d,
+                torch.nn.FeatureAlphaDropout,
+                torch.nn.SyncBatchNorm,
+            )
+            unsupported = tuple(
+                module.__class__.__name__
+                for module in self.modules()
+                if isinstance(module, stochastic_modules)
+            )
+            if unsupported:
+                msg = f"The cached item tower must be deterministic; found {unsupported}."
+                raise TypeError(msg)
+            catalog = self._encode_item_rows()
+            if catalog.dim() != 2 or catalog.size(0) != item_count:
+                msg = f"The item tower must return a two-dimensional full catalog with {item_count} rows."
+                raise RuntimeError(msg)
+            self._training_catalog_cache.catalog_embeddings = catalog
+        return self._training_catalog_cache.wrap(catalog)
+
     def forward(
         self,
         candidates_to_score: torch.LongTensor | None = None,
@@ -345,6 +526,9 @@ class ItemTower(torch.nn.Module):
         """
         if self.training:
             self.cache = None
+            if self.training_cache:
+                catalog = self._cached_training_catalog(self._get_any_feature_buffer().shape[0])
+                return catalog if candidates_to_score is None else catalog[candidates_to_score]
 
         if not self.training and self.cache is not None:
             if candidates_to_score is None:
@@ -388,6 +572,7 @@ class TwoTowerBody(torch.nn.Module):
         item_encoder: ItemEncoderProto,
         item_features_reader: FeaturesReaderProtocol,
         item_cache_batch_size: int | None = None,
+        item_training_cache: bool = False,
     ):
         """
         :param schema: tensor schema object with metainformation about features.
@@ -419,6 +604,8 @@ class TwoTowerBody(torch.nn.Module):
             just follow the :class:`replay.nn.sequential.twotower.FeaturesReaderProtocol` protocol.
         :param item_cache_batch_size: maximum number of item rows encoded at once when the full
             evaluation cache is first built. ``None`` encodes the complete catalog at once.
+        :param item_training_cache: whether the item tower caches a differentiable full catalog
+            during a gradient-accumulation window.
 
         """
         super().__init__()
@@ -444,6 +631,7 @@ class TwoTowerBody(torch.nn.Module):
             item_embedding_aggregator,
             item_encoder,
             cache_batch_size=item_cache_batch_size,
+            training_cache=item_training_cache,
         )
 
     def reset_parameters(self) -> None:
@@ -580,6 +768,7 @@ class TwoTower(torch.nn.Module):
         categorical_list_feature_aggregation_method: str = "sum",
         hidden_dim: int | None = None,
         item_cache_batch_size: int | None = None,
+        item_training_cache: bool = False,
     ) -> "TwoTower":
         """
         A class method for fast creation of the TwoTower instance.\n
@@ -612,6 +801,8 @@ class TwoTower(torch.nn.Module):
             Defaults to ``None``.
         :param item_cache_batch_size: maximum number of item rows encoded at once when the full
             evaluation cache is first built. ``None`` encodes the complete catalog at once.
+        :param item_training_cache: whether the item tower caches a differentiable full catalog
+            during a gradient-accumulation window.
         :return: an instance of TwoTower class.
         """
         from replay.nn.agg import SumAggregator
@@ -662,6 +853,7 @@ class TwoTower(torch.nn.Module):
                 item_encoder=SwiGLUEncoder(embedding_dim=embedding_dim, hidden_dim=2 * embedding_dim),
                 item_features_reader=item_features_reader,
                 item_cache_batch_size=item_cache_batch_size,
+                item_training_cache=item_training_cache,
             ),
             loss=CE(ignore_index=schema.item_id_features.item().padding_value),
             context_merger=None,
@@ -669,6 +861,10 @@ class TwoTower(torch.nn.Module):
 
     def reset_parameters(self) -> None:
         self.body.reset_parameters()
+
+    def get_training_cache(self) -> ItemTower:
+        """Return the tower that owns the optional training catalog cache."""
+        return self.body.item_tower
 
     def get_logits(
         self,

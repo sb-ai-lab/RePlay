@@ -56,7 +56,7 @@ TwoTower
 TwoTower
 _________
 .. autoclass:: replay.nn.sequential.TwoTower
-   :members: __init__, forward, from_params
+   :members: __init__, forward, from_params, get_training_cache
 
 TwoTower Building Blocks
 _________________________
@@ -250,6 +250,15 @@ Universal Lighting module
 LightningModule
 _______________
 .. autoclass:: replay.nn.lightning.LightningModule
+   :members: __init__, forward, candidates_to_score
+
+ItemTowerCacheLightningModule
+_____________________________
+Use this module instead of ``LightningModule`` when ``model.get_training_cache()``
+returns a component configured to cache its training output. The cache belongs to
+that component, so the model can keep any compatible loss.
+
+.. autoclass:: replay.nn.lightning.ItemTowerCacheLightningModule
    :members: __init__, forward, candidates_to_score
 
 TrainOutput

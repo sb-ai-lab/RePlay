@@ -91,6 +91,22 @@ def test_twotower_from_params_exposes_item_cache_batch_size(
     assert model.body.item_tower.cache_batch_size == 3
 
 
+def test_twotower_from_params_exposes_item_training_cache(
+    tensor_schema_with_equal_embedding_dims,
+    item_features_reader,
+):
+    model = TwoTower.from_params(
+        schema=tensor_schema_with_equal_embedding_dims,
+        item_features_reader=item_features_reader,
+        embedding_dim=tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim,
+        num_heads=1,
+        item_training_cache=True,
+    )
+
+    assert model.get_training_cache() is model.body.item_tower
+    assert model.get_training_cache().training_cache
+
+
 @pytest.mark.parametrize("cache_batch_size", [0, -1])
 def test_item_tower_rejects_nonpositive_cache_batch_size(
     tensor_schema_with_equal_embedding_dims,
