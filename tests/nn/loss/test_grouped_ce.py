@@ -103,13 +103,24 @@ def test_grouped_loss_ignores_padded_negatives_before_item_lookup():
 
 
 def test_grouped_loss_fast_collision_mask_matches_generic_path():
-    generic_model = _make_model(GroupedCESampled(logical_batch_size=2, groups_per_batch=2))
-    fast_model = _make_model(GroupedCESampled(logical_batch_size=2, groups_per_batch=2, cardinality=20))
+    generic_model = _make_model(
+        GroupedCESampled(logical_batch_size=2, groups_per_batch=2, negative_labels_ignore_index=-100)
+    )
+    fast_model = _make_model(
+        GroupedCESampled(
+            logical_batch_size=2,
+            groups_per_batch=2,
+            cardinality=20,
+            negative_labels_ignore_index=-100,
+        )
+    )
     fast_model.load_state_dict(copy.deepcopy(generic_model.state_dict()))
-    batch = _batch(3)
+    batch = list(_batch(3))
+    batch[1][0, 0, 0] = batch[2][0, 0]
+    batch[2][:, -1] = -100
 
-    generic_loss = _loss(generic_model, batch)
-    fast_loss = _loss(fast_model, batch)
+    generic_loss = _loss(generic_model, tuple(batch))
+    fast_loss = _loss(fast_model, tuple(batch))
 
     torch.testing.assert_close(fast_loss, generic_loss)
 

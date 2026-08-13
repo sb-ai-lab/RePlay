@@ -1,7 +1,7 @@
 import torch
 
 from replay.data.nn import TensorMap
-from replay.nn.loss.base import mask_negative_logits
+from replay.nn.loss.base import mask_negative_logits, mask_shared_negative_logits
 from replay.nn.loss.ce import CESampled
 
 
@@ -97,47 +97,28 @@ class GroupedCESampled(CESampled):
         positive_labels: torch.LongTensor,
         negative_labels: torch.LongTensor,
     ) -> torch.Tensor:
-        negative_logits = self._mask_negative_logits(negative_logits, negative_labels, positive_labels)
-        logits = torch.cat((positive_logits, negative_logits), dim=-1)
-        target = torch.zeros(positive_logits.size(0), dtype=torch.long, device=logits.device)
-        return self._loss(logits, target)
-
-    def _mask_negative_logits(
-        self,
-        negative_logits: torch.Tensor,
-        negative_labels: torch.LongTensor,
-        positive_labels: torch.LongTensor,
-    ) -> torch.Tensor:
         if self.cardinality is None:
-            return mask_negative_logits(
+            negative_logits = mask_negative_logits(
                 negative_logits,
                 negative_labels,
                 positive_labels.unsqueeze(-1),
                 self.negative_labels_ignore_index,
             )
-
-        lookup = self._negative_column_lookup
-        if lookup is None or lookup.device != negative_labels.device:
-            lookup = torch.empty(self.cardinality, dtype=torch.int32, device=negative_labels.device)
-            self._negative_column_lookup = lookup
-        lookup.fill_(-1)
-
-        valid_negatives = negative_labels.ge(0) & negative_labels.lt(self.cardinality)
-        negative_columns = torch.arange(negative_labels.numel(), dtype=lookup.dtype, device=negative_labels.device)
-        lookup[negative_labels[valid_negatives]] = negative_columns[valid_negatives]
-
-        valid_positives = positive_labels.ge(0) & positive_labels.lt(self.cardinality)
-        safe_positives = positive_labels.clamp(min=0, max=self.cardinality - 1)
-        collision_columns = lookup[safe_positives].long()
-        collision_rows = torch.arange(positive_labels.numel(), device=positive_labels.device)
-        collisions = valid_positives & collision_columns.ge(0)
-        masked_value = max(-1e9, torch.finfo(negative_logits.dtype).min)
-        negative_logits.masked_fill_(
-            negative_labels.eq(self.negative_labels_ignore_index).unsqueeze(0),
-            masked_value,
-        )
-        negative_logits[collision_rows[collisions], collision_columns[collisions]] = masked_value
-        return negative_logits
+        else:
+            lookup = self._negative_column_lookup
+            if lookup is None or lookup.device != negative_labels.device:
+                lookup = torch.empty(self.cardinality, dtype=torch.int32, device=negative_labels.device)
+                self._negative_column_lookup = lookup
+            negative_logits = mask_shared_negative_logits(
+                negative_logits,
+                negative_labels,
+                positive_labels,
+                self.negative_labels_ignore_index,
+                lookup,
+            )
+        logits = torch.cat((positive_logits, negative_logits), dim=-1)
+        target = torch.zeros(positive_logits.size(0), dtype=torch.long, device=logits.device)
+        return self._loss(logits, target)
 
     def _score_group(
         self,
