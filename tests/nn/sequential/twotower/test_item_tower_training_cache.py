@@ -90,6 +90,42 @@ def test_item_training_cache_matches_uncached_sampled_loss_and_gradients(
     assert cached.state_dict().keys() == uncached.state_dict().keys()
 
 
+def test_item_training_cache_matches_full_model_gradients(create_twotower_model, simple_batch):
+    uncached = create_twotower_model()
+    cached = create_twotower_model()
+    cached.load_state_dict(copy.deepcopy(uncached.state_dict()))
+    cached.body.item_tower.training_cache = True
+    for model in (uncached, cached):
+        model.train()
+        # Remove query dropout so only the item-cache path can affect gradients.
+        model.body.query_tower.eval()
+
+    item_ids = simple_batch["feature_tensors"]["item_id"]
+    batch = {
+        "feature_tensors": simple_batch["feature_tensors"],
+        "padding_mask": simple_batch["padding_mask"],
+        "positive_labels": item_ids.unsqueeze(-1),
+        "negative_labels": torch.zeros(1, dtype=torch.long),
+        "target_padding_mask": simple_batch["padding_mask"].unsqueeze(-1),
+    }
+    for _ in range(3):
+        uncached(**batch)["loss"].backward()
+
+    training_cache = cached.get_training_cache()
+    for index in range(3):
+        training_cache.prepare_training_cache(is_window_end=index == 2)
+        cached(**batch)["loss"].backward(retain_graph=training_cache.should_retain_training_cache_graph())
+        training_cache.assert_training_cache_backward_completed()
+
+    training_cache.assert_training_cache_idle()
+    for (_, cached_parameter), (_, uncached_parameter) in zip(
+        cached.named_parameters(),
+        uncached.named_parameters(),
+        strict=True,
+    ):
+        torch.testing.assert_close(cached_parameter.grad, uncached_parameter.grad)
+
+
 def test_item_training_cache_requires_a_prepared_microbatch(create_twotower_model):
     model = create_twotower_model()
     _set_sampled_loss(model)
@@ -109,4 +145,16 @@ def test_item_training_cache_rejects_stochastic_modules(create_twotower_model):
     model.get_training_cache().prepare_training_cache(is_window_end=True)
 
     with pytest.raises(TypeError, match="deterministic"):
+        _loss(model, _sampled_batch(0))
+
+
+def test_item_training_cache_rejects_randomized_activation(create_twotower_model):
+    model = create_twotower_model()
+    _set_sampled_loss(model)
+    model.body.item_tower.training_cache = True
+    model.body.item_tower.randomized_activation = torch.nn.RReLU()
+    model.train()
+    model.get_training_cache().prepare_training_cache(is_window_end=True)
+
+    with pytest.raises(TypeError, match="RReLU"):
         _loss(model, _sampled_batch(0))

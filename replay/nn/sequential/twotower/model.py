@@ -494,6 +494,7 @@ class ItemTower(torch.nn.Module):
                 torch.nn.Dropout2d,
                 torch.nn.Dropout3d,
                 torch.nn.FeatureAlphaDropout,
+                torch.nn.RReLU,
                 torch.nn.SyncBatchNorm,
             )
             unsupported = tuple(

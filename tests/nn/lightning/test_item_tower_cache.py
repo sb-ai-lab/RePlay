@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import lightning
 import pytest
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, IterableDataset
 
 from replay.nn.lightning import ItemTowerCacheLightningModule
 from replay.nn.lightning.optimizer import OptimizerFactory
@@ -50,6 +50,16 @@ class _FixedBatchDataset(Dataset):
         return self.batch
 
 
+class _FixedBatchIterableDataset(IterableDataset):
+    def __init__(self, batch: dict, num_batches: int) -> None:
+        self.batch = batch
+        self.num_batches = num_batches
+
+    def __iter__(self):
+        for _ in range(self.num_batches):
+            yield self.batch
+
+
 def _make_model(schema, item_features_reader) -> TwoTower:
     return TwoTower.from_params(
         schema=schema,
@@ -63,7 +73,7 @@ def _make_model(schema, item_features_reader) -> TwoTower:
     )
 
 
-def _training_dataloader(simple_batch: dict) -> DataLoader:
+def _training_dataloader(simple_batch: dict, iterable: bool = False, num_batches: int = 10) -> DataLoader:
     item_ids = simple_batch["feature_tensors"]["item_id"]
     padding_mask = simple_batch["padding_mask"]
     batch = {
@@ -73,18 +83,17 @@ def _training_dataloader(simple_batch: dict) -> DataLoader:
         "negative_labels": torch.zeros(1, dtype=torch.long),
         "target_padding_mask": padding_mask.unsqueeze(-1),
     }
-    return DataLoader(_FixedBatchDataset(batch, num_batches=10), batch_size=None)
+    dataset_class = _FixedBatchIterableDataset if iterable else _FixedBatchDataset
+    return DataLoader(dataset_class(batch, num_batches=num_batches), batch_size=None)
 
 
-def test_accumulation_window_end_includes_short_final_window():
+def test_accumulation_window_end_uses_lightning_decision():
     module = ItemTowerCacheLightningModule(torch.nn.Linear(2, 2))
-    module._trainer = SimpleNamespace(accumulate_grad_batches=3, num_training_batches=5)
+    module._trainer = SimpleNamespace(fit_loop=SimpleNamespace(_should_accumulate=lambda: True))
 
-    assert not module._is_accumulation_window_end(0)
-    assert not module._is_accumulation_window_end(1)
-    assert module._is_accumulation_window_end(2)
-    assert not module._is_accumulation_window_end(3)
-    assert module._is_accumulation_window_end(4)
+    assert not module._is_accumulation_window_end()
+    module.trainer.fit_loop._should_accumulate = lambda: False
+    assert module._is_accumulation_window_end()
 
 
 def test_item_tower_cache_module_rejects_model_without_cache_interface():
@@ -140,6 +149,27 @@ def test_item_tower_cache_runs_with_standard_loss(
     )
 
     trainer.fit(module, train_dataloaders=_training_dataloader(simple_batch))
+
+    model.get_training_cache().assert_training_cache_idle()
+
+
+def test_item_tower_cache_handles_short_iterable_accumulation_window(
+    tensor_schema_with_equal_embedding_dims,
+    item_features_reader,
+    simple_batch,
+):
+    model = _make_model(tensor_schema_with_equal_embedding_dims, item_features_reader)
+    module = ItemTowerCacheLightningModule(model)
+    trainer = lightning.Trainer(
+        max_epochs=1,
+        accumulate_grad_batches=3,
+        logger=False,
+        enable_checkpointing=False,
+        enable_model_summary=False,
+        enable_progress_bar=False,
+    )
+
+    trainer.fit(module, train_dataloaders=_training_dataloader(simple_batch, iterable=True, num_batches=5))
 
     model.get_training_cache().assert_training_cache_idle()
 
