@@ -33,9 +33,7 @@ def _batch(seed: int, batch_size: int = 4) -> tuple[torch.Tensor, ...]:
     generator = torch.Generator().manual_seed(seed)
     embeddings = torch.randn(batch_size, 3, 8, generator=generator, requires_grad=True)
     positives = torch.randint(0, 20, (batch_size, 3, 1), generator=generator)
-    negatives = torch.stack(
-        [torch.randperm(20, generator=generator)[:7] for _ in range(2)]
-    )
+    negatives = torch.stack([torch.randperm(20, generator=generator)[:7] for _ in range(2)])
     target_mask = torch.ones_like(positives, dtype=torch.bool)
     padding_mask = torch.ones(batch_size, 3, dtype=torch.bool)
     return embeddings, positives, negatives, padding_mask, target_mask
@@ -54,18 +52,14 @@ def _loss(model: TwoTower, batch: tuple[torch.Tensor, ...]) -> torch.Tensor:
 
 
 def test_grouped_loss_preserves_short_final_batch_weighting():
-    grouped_model = _make_model(
-        GroupedCESampled(logical_batch_size=2, groups_per_batch=2)
-    )
+    grouped_model = _make_model(GroupedCESampled(logical_batch_size=2, groups_per_batch=2))
     short_batch = _batch(1, batch_size=1)
     actual = _loss(grouped_model, short_batch)
 
     embeddings, positives, negatives, _, target_mask = short_batch
     active_embeddings = embeddings[target_mask.squeeze(-1)]
     active_positives = positives.squeeze(-1)[target_mask.squeeze(-1)]
-    positive_logits = grouped_model.get_logits(
-        active_embeddings, active_positives.unsqueeze(-1)
-    )
+    positive_logits = grouped_model.get_logits(active_embeddings, active_positives.unsqueeze(-1))
     negative_logits = grouped_model.get_logits(active_embeddings, negatives[0])
     negative_logits[active_positives.unsqueeze(-1) == negatives[0]] = -1e9
     reference = (
@@ -109,12 +103,8 @@ def test_grouped_loss_ignores_padded_negatives_before_item_lookup():
 
 
 def test_grouped_loss_fast_collision_mask_matches_generic_path():
-    generic_model = _make_model(
-        GroupedCESampled(logical_batch_size=2, groups_per_batch=2)
-    )
-    fast_model = _make_model(
-        GroupedCESampled(logical_batch_size=2, groups_per_batch=2, cardinality=20)
-    )
+    generic_model = _make_model(GroupedCESampled(logical_batch_size=2, groups_per_batch=2))
+    fast_model = _make_model(GroupedCESampled(logical_batch_size=2, groups_per_batch=2, cardinality=20))
     fast_model.load_state_dict(copy.deepcopy(generic_model.state_dict()))
     batch = _batch(3)
 
@@ -206,9 +196,7 @@ def test_grouped_loss_validates_constructor_arguments(kwargs, message):
         ),
     ],
 )
-def test_grouped_loss_validates_input_shapes(
-    model_embeddings, positive_labels, negative_labels, target_mask, message
-):
+def test_grouped_loss_validates_input_shapes(model_embeddings, positive_labels, negative_labels, target_mask, message):
     with pytest.raises(ValueError, match=message):
         GroupedCESampled(logical_batch_size=2, groups_per_batch=2)._validate_inputs(
             model_embeddings,

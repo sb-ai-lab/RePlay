@@ -20,16 +20,9 @@ def test_grouped_sampler_preserves_independent_random_pools():
     grouped = _make_transform(torch.Generator().manual_seed(7))
     reference = _make_transform(torch.Generator().manual_seed(7))
 
-    actual = grouped({"positive_labels": torch.zeros(8, 1, 1, dtype=torch.long)})[
-        "negative_labels"
-    ]
+    actual = grouped({"positive_labels": torch.zeros(8, 1, 1, dtype=torch.long)})["negative_labels"]
     expected = torch.stack(
-        [
-            reference({"positive_labels": torch.zeros(2, 1, 1, dtype=torch.long)})[
-                "negative_labels"
-            ][0]
-            for _ in range(4)
-        ]
+        [reference({"positive_labels": torch.zeros(2, 1, 1, dtype=torch.long)})["negative_labels"][0] for _ in range(4)]
     )
 
     torch.testing.assert_close(actual, expected)
@@ -39,18 +32,10 @@ def test_grouped_sampler_does_not_advance_rng_for_missing_final_groups():
     grouped = _make_transform(torch.Generator().manual_seed(11))
     reference = _make_transform(torch.Generator().manual_seed(11))
 
-    actual = grouped({"positive_labels": torch.zeros(3, 1, 1, dtype=torch.long)})[
-        "negative_labels"
-    ]
-    first_reference = reference(
-        {"positive_labels": torch.zeros(4, 1, 1, dtype=torch.long)}
-    )["negative_labels"]
-    next_actual = grouped({"positive_labels": torch.zeros(2, 1, 1, dtype=torch.long)})[
-        "negative_labels"
-    ][0]
-    next_reference = reference(
-        {"positive_labels": torch.zeros(2, 1, 1, dtype=torch.long)}
-    )["negative_labels"][0]
+    actual = grouped({"positive_labels": torch.zeros(3, 1, 1, dtype=torch.long)})["negative_labels"]
+    first_reference = reference({"positive_labels": torch.zeros(4, 1, 1, dtype=torch.long)})["negative_labels"]
+    next_actual = grouped({"positive_labels": torch.zeros(2, 1, 1, dtype=torch.long)})["negative_labels"][0]
+    next_reference = reference({"positive_labels": torch.zeros(2, 1, 1, dtype=torch.long)})["negative_labels"][0]
 
     torch.testing.assert_close(actual[:2], first_reference[:2])
     torch.testing.assert_close(actual[2], actual[1])
@@ -68,9 +53,7 @@ def test_grouped_sampler_restores_sparse_distribution_item_ids():
         generator=torch.Generator().manual_seed(17),
     )
 
-    pools = transform({"positive_labels": torch.zeros(4, 1, 1, dtype=torch.long)})[
-        "negative_labels"
-    ]
+    pools = transform({"positive_labels": torch.zeros(4, 1, 1, dtype=torch.long)})["negative_labels"]
 
     assert set(pools.flatten().tolist()).issubset({4, 5, 6, 7})
 
@@ -92,9 +75,7 @@ def test_grouped_sampler_restores_sparse_distribution_item_ids():
 )
 def test_grouped_sampler_validates_configuration(kwargs, message):
     with pytest.raises(ValueError, match=message):
-        GroupedUniformNegativeSamplingTransform(
-            cardinality=10, num_negative_samples=2, **kwargs
-        )
+        GroupedUniformNegativeSamplingTransform(cardinality=10, num_negative_samples=2, **kwargs)
 
 
 @pytest.mark.parametrize(
