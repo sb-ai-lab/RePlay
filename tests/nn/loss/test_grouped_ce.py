@@ -4,6 +4,7 @@ import pytest
 import torch
 
 from replay.nn.loss import GroupedCESampled
+from replay.nn.loss.base import mask_negative_logits
 from replay.nn.sequential.twotower import TwoTower
 
 
@@ -33,7 +34,8 @@ def _batch(seed: int, batch_size: int = 4) -> tuple[torch.Tensor, ...]:
     generator = torch.Generator().manual_seed(seed)
     embeddings = torch.randn(batch_size, 3, 8, generator=generator, requires_grad=True)
     positives = torch.randint(0, 20, (batch_size, 3, 1), generator=generator)
-    negatives = torch.stack([torch.randperm(20, generator=generator)[:7] for _ in range(2)])
+    num_groups = (batch_size + 1) // 2
+    negatives = torch.stack([torch.randperm(20, generator=generator)[:7] for _ in range(num_groups)])
     target_mask = torch.ones_like(positives, dtype=torch.bool)
     padding_mask = torch.ones(batch_size, 3, dtype=torch.bool)
     return embeddings, positives, negatives, padding_mask, target_mask
@@ -51,8 +53,8 @@ def _loss(model: TwoTower, batch: tuple[torch.Tensor, ...]) -> torch.Tensor:
     )
 
 
-def test_grouped_loss_preserves_short_final_batch_weighting():
-    grouped_model = _make_model(GroupedCESampled(logical_batch_size=2, groups_per_batch=2))
+def test_grouped_loss_averages_active_logical_groups():
+    grouped_model = _make_model(GroupedCESampled(logical_batch_size=2))
     short_batch = _batch(1, batch_size=1)
     actual = _loss(grouped_model, short_batch)
 
@@ -62,35 +64,18 @@ def test_grouped_loss_preserves_short_final_batch_weighting():
     positive_logits = grouped_model.get_logits(active_embeddings, active_positives.unsqueeze(-1))
     negative_logits = grouped_model.get_logits(active_embeddings, negatives[0])
     negative_logits[active_positives.unsqueeze(-1) == negatives[0]] = -1e9
-    reference = (
-        torch.nn.functional.cross_entropy(
-            torch.cat((positive_logits, negative_logits), dim=-1),
-            torch.zeros(active_embeddings.size(0), dtype=torch.long),
-        )
-        / 2
+    reference = torch.nn.functional.cross_entropy(
+        torch.cat((positive_logits, negative_logits), dim=-1),
+        torch.zeros(active_embeddings.size(0), dtype=torch.long),
     )
 
     torch.testing.assert_close(actual, reference)
-
-
-def test_grouped_loss_validates_negative_pool_size():
-    model = _make_model(
-        GroupedCESampled(
-            logical_batch_size=2,
-            groups_per_batch=2,
-            expected_num_negatives=8,
-        )
-    )
-
-    with pytest.raises(ValueError, match="must contain 8"):
-        _loss(model, _batch(0))
 
 
 def test_grouped_loss_ignores_padded_negatives_before_item_lookup():
     model = _make_model(
         GroupedCESampled(
             logical_batch_size=2,
-            groups_per_batch=2,
             negative_labels_ignore_index=-100,
         )
     )
@@ -103,13 +88,10 @@ def test_grouped_loss_ignores_padded_negatives_before_item_lookup():
 
 
 def test_grouped_loss_fast_collision_mask_matches_generic_path():
-    generic_model = _make_model(
-        GroupedCESampled(logical_batch_size=2, groups_per_batch=2, negative_labels_ignore_index=-100)
-    )
+    generic_model = _make_model(GroupedCESampled(logical_batch_size=2, negative_labels_ignore_index=-100))
     fast_model = _make_model(
         GroupedCESampled(
             logical_batch_size=2,
-            groups_per_batch=2,
             cardinality=20,
             negative_labels_ignore_index=-100,
         )
@@ -125,27 +107,23 @@ def test_grouped_loss_fast_collision_mask_matches_generic_path():
     torch.testing.assert_close(fast_loss, generic_loss)
 
 
+def test_shared_negative_lookup_requires_one_shared_pool():
+    with pytest.raises(ValueError, match="one shared pool"):
+        mask_negative_logits(
+            torch.zeros(2, 3),
+            torch.zeros(2, 3, dtype=torch.long),
+            torch.zeros(2, 1, dtype=torch.long),
+            -100,
+            negative_column_lookup=torch.empty(20, dtype=torch.int32),
+        )
+
+
 @pytest.mark.parametrize(
     "kwargs, message",
     [
-        ({"logical_batch_size": 0, "groups_per_batch": 2}, "logical_batch_size"),
-        ({"logical_batch_size": 2, "groups_per_batch": 1}, "groups_per_batch"),
-        (
-            {
-                "logical_batch_size": 2,
-                "groups_per_batch": 2,
-                "expected_num_negatives": 0,
-            },
-            "expected_num_negatives",
-        ),
-        (
-            {"logical_batch_size": 2, "groups_per_batch": 2, "cardinality": 0},
-            "cardinality",
-        ),
-        (
-            {"logical_batch_size": 2, "groups_per_batch": 2, "reduction": "sum"},
-            "mean reduction",
-        ),
+        ({"logical_batch_size": 0}, "logical_batch_size"),
+        ({"logical_batch_size": 2, "cardinality": 0}, "cardinality"),
+        ({"logical_batch_size": 2, "reduction": "sum"}, "mean reduction"),
     ],
 )
 def test_grouped_loss_validates_constructor_arguments(kwargs, message):
@@ -203,13 +181,13 @@ def test_grouped_loss_validates_constructor_arguments(kwargs, message):
             torch.zeros(5, 3, 1, dtype=torch.long),
             torch.ones(2, 4, dtype=torch.long),
             torch.ones(5, 3, 1, dtype=torch.bool),
-            "exceeds",
+            "must contain 3 pools",
         ),
     ],
 )
 def test_grouped_loss_validates_input_shapes(model_embeddings, positive_labels, negative_labels, target_mask, message):
     with pytest.raises(ValueError, match=message):
-        GroupedCESampled(logical_batch_size=2, groups_per_batch=2)._validate_inputs(
+        GroupedCESampled(logical_batch_size=2)._validate_inputs(
             model_embeddings,
             positive_labels,
             negative_labels,
@@ -218,7 +196,7 @@ def test_grouped_loss_validates_input_shapes(model_embeddings, positive_labels, 
 
 
 def test_grouped_loss_rejects_empty_logical_group():
-    model = _make_model(GroupedCESampled(logical_batch_size=2, groups_per_batch=2))
+    model = _make_model(GroupedCESampled(logical_batch_size=2))
     batch = list(_batch(0))
     batch[-1][:2] = False
 

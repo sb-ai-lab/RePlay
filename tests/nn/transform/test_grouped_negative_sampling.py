@@ -11,7 +11,6 @@ def _make_transform(
         cardinality=100,
         num_negative_samples=10,
         group_size=2,
-        groups_per_batch=4,
         generator=generator,
     )
 
@@ -28,7 +27,7 @@ def test_grouped_sampler_preserves_independent_random_pools():
     torch.testing.assert_close(actual, expected)
 
 
-def test_grouped_sampler_does_not_advance_rng_for_missing_final_groups():
+def test_grouped_sampler_draws_only_active_groups():
     grouped = _make_transform(torch.Generator().manual_seed(11))
     reference = _make_transform(torch.Generator().manual_seed(11))
 
@@ -38,8 +37,7 @@ def test_grouped_sampler_does_not_advance_rng_for_missing_final_groups():
     next_reference = reference({"positive_labels": torch.zeros(2, 1, 1, dtype=torch.long)})["negative_labels"][0]
 
     torch.testing.assert_close(actual[:2], first_reference[:2])
-    torch.testing.assert_close(actual[2], actual[1])
-    torch.testing.assert_close(actual[3], actual[1])
+    assert actual.size(0) == 2
     torch.testing.assert_close(next_actual, next_reference)
 
 
@@ -48,7 +46,6 @@ def test_grouped_sampler_restores_sparse_distribution_item_ids():
         cardinality=8,
         num_negative_samples=2,
         group_size=2,
-        groups_per_batch=2,
         sample_distribution=torch.tensor([0.0, 0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0]),
         generator=torch.Generator().manual_seed(17),
     )
@@ -61,12 +58,10 @@ def test_grouped_sampler_restores_sparse_distribution_item_ids():
 @pytest.mark.parametrize(
     "kwargs, message",
     [
-        ({"group_size": 0, "groups_per_batch": 2}, "group_size"),
-        ({"group_size": 2, "groups_per_batch": 1}, "groups_per_batch"),
+        ({"group_size": 0}, "group_size"),
         (
             {
                 "group_size": 2,
-                "groups_per_batch": 2,
                 "sample_distribution": torch.ones(2, 10),
             },
             "one-dimensional",
@@ -87,7 +82,6 @@ def test_grouped_sampler_validates_configuration(kwargs, message):
             {"positive_labels": torch.empty(0, 1, 1, dtype=torch.long)},
             "non-empty batch",
         ),
-        ({"positive_labels": torch.zeros(9, 1, 1, dtype=torch.long)}, "exceeds"),
     ],
 )
 def test_grouped_sampler_validates_batch(batch, message):

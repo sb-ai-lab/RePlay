@@ -1,32 +1,25 @@
 import torch
 
 from replay.data.nn import TensorMap
-from replay.nn.loss.base import mask_negative_logits, mask_shared_negative_logits
+from replay.nn.loss.base import mask_negative_logits
 from replay.nn.loss.ce import CESampled
 
 
 class GroupedCESampled(CESampled):
     """Sampled CE with one independent negative pool per logical batch group.
 
-    Negative pools must contain unique item IDs. Group losses are divided by
-    ``groups_per_batch`` even for the final short batch. This preserves the
-    weighting of the original smaller batches when the physical batch size is
-    increased together with gradient accumulation.
+    Negative pools must contain unique item IDs.
     """
 
     def __init__(
         self,
         logical_batch_size: int,
-        groups_per_batch: int,
-        expected_num_negatives: int | None = None,
         cardinality: int | None = None,
         negative_labels_ignore_index: int = -100,
         **kwargs,
     ) -> None:
         """
         :param logical_batch_size: Number of rows that share one negative pool.
-        :param groups_per_batch: Number of logical groups in a full physical batch.
-        :param expected_num_negatives: Optional required size of every negative pool.
         :param cardinality: Optional catalog size enabling collision masking without a
             target-by-negative comparison matrix.
         :param negative_labels_ignore_index: Value ignored in negative labels.
@@ -34,12 +27,6 @@ class GroupedCESampled(CESampled):
         """
         if logical_batch_size <= 0:
             msg = "The logical_batch_size parameter must be positive."
-            raise ValueError(msg)
-        if groups_per_batch <= 1:
-            msg = "The groups_per_batch parameter must be greater than one."
-            raise ValueError(msg)
-        if expected_num_negatives is not None and expected_num_negatives <= 0:
-            msg = "The expected_num_negatives parameter must be positive."
             raise ValueError(msg)
         if cardinality is not None and cardinality <= 0:
             msg = "The cardinality parameter must be positive."
@@ -49,8 +36,6 @@ class GroupedCESampled(CESampled):
             msg = "GroupedCESampled supports only mean reduction."
             raise ValueError(msg)
         self.logical_batch_size = logical_batch_size
-        self.groups_per_batch = groups_per_batch
-        self.expected_num_negatives = expected_num_negatives
         self.cardinality = cardinality
         self.register_buffer("_negative_column_lookup", None, persistent=False)
 
@@ -73,20 +58,16 @@ class GroupedCESampled(CESampled):
         if target_padding_mask.shape != positive_labels.shape:
             msg = "target_padding_mask must have the same shape as positive_labels."
             raise ValueError(msg)
-        if negative_labels.dim() != 2 or negative_labels.size(0) != self.groups_per_batch:
-            msg = f"negative_labels must have shape [{self.groups_per_batch}, num_negatives]."
-            raise ValueError(msg)
-        if self.expected_num_negatives is not None and negative_labels.size(1) != self.expected_num_negatives:
-            msg = f"Each negative pool must contain {self.expected_num_negatives} items, got {negative_labels.size(1)}."
+        if negative_labels.dim() != 2:
+            msg = "negative_labels must have shape [num_groups, num_negatives]."
             raise ValueError(msg)
         if model_embeddings.size(0) == 0:
             msg = "GroupedCESampled does not support empty batches."
             raise ValueError(msg)
 
         active_groups = (model_embeddings.size(0) + self.logical_batch_size - 1) // self.logical_batch_size
-        if active_groups > self.groups_per_batch:
-            capacity = self.logical_batch_size * self.groups_per_batch
-            msg = f"Batch size {model_embeddings.size(0)} exceeds grouped loss capacity {capacity}."
+        if negative_labels.size(0) != active_groups:
+            msg = f"negative_labels must contain {active_groups} pools, got {negative_labels.size(0)}."
             raise ValueError(msg)
         return active_groups
 
@@ -97,25 +78,19 @@ class GroupedCESampled(CESampled):
         positive_labels: torch.LongTensor,
         negative_labels: torch.LongTensor,
     ) -> torch.Tensor:
-        if self.cardinality is None:
-            negative_logits = mask_negative_logits(
-                negative_logits,
-                negative_labels,
-                positive_labels.unsqueeze(-1),
-                self.negative_labels_ignore_index,
-            )
-        else:
+        lookup = None
+        if self.cardinality is not None:
             lookup = self._negative_column_lookup
             if lookup is None or lookup.device != negative_labels.device:
                 lookup = torch.empty(self.cardinality, dtype=torch.int32, device=negative_labels.device)
                 self._negative_column_lookup = lookup
-            negative_logits = mask_shared_negative_logits(
-                negative_logits,
-                negative_labels,
-                positive_labels,
-                self.negative_labels_ignore_index,
-                lookup,
-            )
+        negative_logits = mask_negative_logits(
+            negative_logits,
+            negative_labels,
+            positive_labels.unsqueeze(-1),
+            self.negative_labels_ignore_index,
+            negative_column_lookup=lookup,
+        )
         logits = torch.cat((positive_logits, negative_logits), dim=-1)
         target = torch.zeros(positive_logits.size(0), dtype=torch.long, device=logits.device)
         return self._loss(logits, target)
@@ -169,4 +144,4 @@ class GroupedCESampled(CESampled):
                 group_positive_labels,
                 negative_labels[group_index],
             )
-        return loss / self.groups_per_batch
+        return loss / active_groups

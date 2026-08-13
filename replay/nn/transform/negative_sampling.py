@@ -118,7 +118,6 @@ class GroupedUniformNegativeSamplingTransform(UniformNegativeSamplingTransform):
         cardinality: int,
         num_negative_samples: int,
         group_size: int,
-        groups_per_batch: int,
         *,
         batch_feature_name: str = "positive_labels",
         out_feature_name: str = "negative_labels",
@@ -129,7 +128,6 @@ class GroupedUniformNegativeSamplingTransform(UniformNegativeSamplingTransform):
         :param cardinality: Number of items in the catalog, excluding padding.
         :param num_negative_samples: Number of items in each negative pool.
         :param group_size: Number of rows in one logical batch group.
-        :param groups_per_batch: Number of logical groups in a full physical batch.
         :param batch_feature_name: Feature whose first dimension defines the physical batch size.
         :param out_feature_name: Name of the generated grouped negative tensor.
         :param sample_distribution: Optional sampling weights of length ``cardinality``.
@@ -137,9 +135,6 @@ class GroupedUniformNegativeSamplingTransform(UniformNegativeSamplingTransform):
         """
         if group_size <= 0:
             msg = "The group_size parameter must be positive."
-            raise ValueError(msg)
-        if groups_per_batch <= 1:
-            msg = "The groups_per_batch parameter must be greater than one."
             raise ValueError(msg)
         if sample_distribution is not None and sample_distribution.dim() != 1:
             msg = "Grouped sampling requires a one-dimensional sample_distribution."
@@ -152,7 +147,6 @@ class GroupedUniformNegativeSamplingTransform(UniformNegativeSamplingTransform):
             generator=generator,
         )
         self.group_size = group_size
-        self.groups_per_batch = groups_per_batch
         self.batch_feature_name = batch_feature_name
 
     def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
@@ -165,11 +159,6 @@ class GroupedUniformNegativeSamplingTransform(UniformNegativeSamplingTransform):
             raise ValueError(msg)
 
         active_groups = (batch_feature.size(0) + self.group_size - 1) // self.group_size
-        if active_groups > self.groups_per_batch:
-            capacity = self.group_size * self.groups_per_batch
-            msg = f"Batch size {batch_feature.size(0)} exceeds grouped sampler capacity {capacity}."
-            raise ValueError(msg)
-
         pools = torch.stack(
             [
                 torch.multinomial(
@@ -183,12 +172,6 @@ class GroupedUniformNegativeSamplingTransform(UniformNegativeSamplingTransform):
         )
         if self._candidate_ids is not None:
             pools = self._candidate_ids[pools]
-        if active_groups < self.groups_per_batch:
-            # Keep a fixed output shape without advancing the RNG for groups the loss will ignore.
-            pools = torch.cat(
-                (pools, pools[-1:].expand(self.groups_per_batch - active_groups, -1)),
-                dim=0,
-            )
 
         output_batch = dict(batch.items())
         output_batch[self.out_feature_name] = pools
