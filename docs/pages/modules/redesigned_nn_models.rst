@@ -131,6 +131,11 @@ __________
 .. autoclass:: replay.nn.loss.CESampled
    :members: __init__, forward
 
+GroupedCESampled
+________________
+.. autoclass:: replay.nn.loss.GroupedCESampled
+   :members: __init__, forward
+
 .. _loss-login-ce:
 
 LogInCE
@@ -354,6 +359,11 @@ ______________________
 UniformNegativeSamplingTransform
 _________________________________
 .. autoclass:: replay.nn.transform.UniformNegativeSamplingTransform
+    :members: __init__
+
+GroupedUniformNegativeSamplingTransform
+________________________________________
+.. autoclass:: replay.nn.transform.GroupedUniformNegativeSamplingTransform
     :members: __init__
 
 MultiClassNegativeSamplingTransform
