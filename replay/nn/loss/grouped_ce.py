@@ -156,9 +156,9 @@ class GroupedCESampled(CESampled):
             negative_labels.eq(self.negative_labels_ignore_index).unsqueeze(0),
             masked_value,
         )
-        negative_logits[collision_rows[collisions], collision_columns[collisions]] = (
-            masked_value
-        )
+        negative_logits[
+            collision_rows[collisions], collision_columns[collisions]
+        ] = masked_value
         return negative_logits
 
     def _score_group(
@@ -187,10 +187,10 @@ class GroupedCESampled(CESampled):
     def forward(
         self,
         model_embeddings: torch.Tensor,
-        feature_tensors: TensorMap,
+        feature_tensors: TensorMap,  # noqa: ARG002
         positive_labels: torch.LongTensor,
         negative_labels: torch.LongTensor,
-        padding_mask: torch.BoolTensor,
+        padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
         active_groups = self._validate_inputs(
