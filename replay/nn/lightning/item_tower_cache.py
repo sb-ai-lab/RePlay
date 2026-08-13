@@ -27,12 +27,11 @@ class ItemTowerCacheLightningModule(LightningModule):
             raise TypeError(msg)
         return training_cache
 
-    def _is_accumulation_window_end(self) -> bool:
-        # Match Lightning for unknown-length loaders and short final windows.
-        return not self.trainer.fit_loop._should_accumulate()
+    def _is_accumulation_window_end(self, batch_idx: int) -> bool:
+        return self.trainer.is_last_batch or (batch_idx + 1) % self.trainer.accumulate_grad_batches == 0
 
-    def training_step(self, batch: dict) -> torch.Tensor:
-        self._training_cache().prepare_training_cache(self._is_accumulation_window_end())
+    def training_step(self, batch: dict, batch_idx: int) -> torch.Tensor:
+        self._training_cache().prepare_training_cache(self._is_accumulation_window_end(batch_idx))
         return super().training_step(batch)
 
     def backward(self, loss: torch.Tensor, *args: Any, **kwargs: Any) -> None:

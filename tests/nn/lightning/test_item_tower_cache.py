@@ -87,13 +87,14 @@ def _training_dataloader(simple_batch: dict, iterable: bool = False, num_batches
     return DataLoader(dataset_class(batch, num_batches=num_batches), batch_size=None)
 
 
-def test_accumulation_window_end_uses_lightning_decision():
+def test_accumulation_window_end_matches_lightning_boundaries():
     module = ItemTowerCacheLightningModule(torch.nn.Linear(2, 2))
-    module._trainer = SimpleNamespace(fit_loop=SimpleNamespace(_should_accumulate=lambda: True))
+    module._trainer = SimpleNamespace(is_last_batch=False, accumulate_grad_batches=3)
 
-    assert not module._is_accumulation_window_end()
-    module.trainer.fit_loop._should_accumulate = lambda: False
-    assert module._is_accumulation_window_end()
+    assert not module._is_accumulation_window_end(batch_idx=0)
+    assert module._is_accumulation_window_end(batch_idx=2)
+    module.trainer.is_last_batch = True
+    assert module._is_accumulation_window_end(batch_idx=4)
 
 
 def test_item_tower_cache_module_rejects_model_without_cache_interface():
