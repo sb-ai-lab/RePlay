@@ -21,11 +21,7 @@ class ItemTowerCacheLightningModule(LightningModule):
             msg = "ItemTowerCacheLightningModule requires a model with get_training_cache()."
             raise TypeError(msg)
         training_cache = cache_getter()
-        missing = tuple(
-            name
-            for name in self._CACHE_METHODS
-            if not callable(getattr(training_cache, name, None))
-        )
+        missing = tuple(name for name in self._CACHE_METHODS if not callable(getattr(training_cache, name, None)))
         if missing:
             msg = f"The training cache returned by the model is missing methods: {missing}."
             raise TypeError(msg)
@@ -37,9 +33,7 @@ class ItemTowerCacheLightningModule(LightningModule):
         return (batch_idx + 1) % accumulation_steps == 0 or is_last_batch
 
     def training_step(self, batch: dict, batch_idx: int = 0) -> torch.Tensor:
-        self._training_cache().prepare_training_cache(
-            self._is_accumulation_window_end(batch_idx)
-        )
+        self._training_cache().prepare_training_cache(self._is_accumulation_window_end(batch_idx))
         return super().training_step(batch)
 
     def backward(self, loss: torch.Tensor, *args: Any, **kwargs: Any) -> None:

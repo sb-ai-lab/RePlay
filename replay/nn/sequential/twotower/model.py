@@ -497,9 +497,7 @@ class ItemTower(torch.nn.Module):
                 torch.nn.SyncBatchNorm,
             )
             unsupported = tuple(
-                module.__class__.__name__
-                for module in self.modules()
-                if isinstance(module, stochastic_modules)
+                module.__class__.__name__ for module in self.modules() if isinstance(module, stochastic_modules)
             )
             if unsupported:
                 msg = f"The cached item tower must be deterministic; found {unsupported}."

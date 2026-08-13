@@ -17,9 +17,7 @@ def _sampled_batch(
     return embeddings, positives, negatives, target_mask
 
 
-def _loss(
-    model, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
-) -> torch.Tensor:
+def _loss(model, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> torch.Tensor:
     embeddings, positives, negatives, target_mask = batch
     return model.loss(
         model_embeddings=embeddings,
@@ -50,10 +48,7 @@ def test_item_training_cache_matches_uncached_sampled_loss_and_gradients(
 
     uncached_batches = [_sampled_batch(seed) for seed in range(3)]
     cached_batches = [
-        tuple(
-            value.detach().clone().requires_grad_(value.requires_grad)
-            for value in batch
-        )
+        tuple(value.detach().clone().requires_grad_(value.requires_grad) for value in batch)
         for batch in uncached_batches
     ]
     cached_calls = 0
@@ -75,9 +70,7 @@ def test_item_training_cache_matches_uncached_sampled_loss_and_gradients(
 
     cached_losses = []
     for index, batch in enumerate(cached_batches):
-        training_cache.prepare_training_cache(
-            is_window_end=index == len(cached_batches) - 1
-        )
+        training_cache.prepare_training_cache(is_window_end=index == len(cached_batches) - 1)
         loss = _loss(cached, batch)
         cached_losses.append(loss.detach())
         loss.backward(retain_graph=training_cache.should_retain_training_cache_graph())
@@ -91,9 +84,7 @@ def test_item_training_cache_matches_uncached_sampled_loss_and_gradients(
         strict=True,
     ):
         torch.testing.assert_close(cached_parameter.grad, uncached_parameter.grad)
-    for cached_batch, uncached_batch in zip(
-        cached_batches, uncached_batches, strict=True
-    ):
+    for cached_batch, uncached_batch in zip(cached_batches, uncached_batches, strict=True):
         torch.testing.assert_close(cached_batch[0].grad, uncached_batch[0].grad)
     assert cached_calls == 1
     assert cached.state_dict().keys() == uncached.state_dict().keys()
