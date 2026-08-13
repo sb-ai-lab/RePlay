@@ -140,6 +140,7 @@ def test_item_tower_from_checkpoint(create_twotower_model, tmp_path):
         embedder=target_model.body.embedder,
         embedding_aggregator=target_model.body.item_tower.embedding_aggregator,
         encoder=target_model.body.item_tower.encoder,
+        training_cache=True,
     )
     loaded_item_tower.eval()
 
@@ -147,6 +148,7 @@ def test_item_tower_from_checkpoint(create_twotower_model, tmp_path):
     actual_state_dict = loaded_item_tower.state_dict()
 
     assert "cache" in actual_state_dict.keys()
+    assert loaded_item_tower.training_cache
     assert expected_state_dict.keys() == actual_state_dict.keys()
     for key in expected_state_dict:
         torch.testing.assert_close(actual_state_dict[key], expected_state_dict[key])
