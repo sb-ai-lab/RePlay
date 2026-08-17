@@ -165,6 +165,7 @@ def mask_negative_logits(
     negative_labels: torch.LongTensor,
     positive_labels: torch.LongTensor,
     negative_labels_ignore_index: int,
+    negative_column_lookup: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """
     Assign very small values in negative logits
@@ -182,10 +183,22 @@ def mask_negative_logits(
         This may be the case when negative labels
         are formed at the preprocessing level, rather than the negative sampler.
         The index is ignored and does not contribute to the loss.
+    :param negative_column_lookup: Optional reusable item-ID-to-logit-column lookup.
+        Enables efficient masking for one shared negative pool and one positive
+        label per row.
 
     :returns: Negative logits with modified elements in those positions
         where positive labels are equal to negative ones.
     """
+
+    if negative_column_lookup is not None:
+        return _mask_shared_negative_logits(
+            negative_logits,
+            negative_labels,
+            positive_labels,
+            negative_labels_ignore_index,
+            negative_column_lookup,
+        )
 
     ignored_negatives = negative_labels == negative_labels_ignore_index
 
@@ -200,6 +213,56 @@ def mask_negative_logits(
     # [masked_batch_size, num_positives, num_negatives] -> [masked_batch_size, num_negatives]
     negative_mask = negative_mask.sum(-2).bool()
     negative_logits.masked_fill_(negative_mask | ignored_negatives, -torch.inf)
+    return negative_logits
+
+
+def _mask_shared_negative_logits(
+    negative_logits: torch.Tensor,
+    negative_labels: torch.LongTensor,
+    positive_labels: torch.LongTensor,
+    negative_labels_ignore_index: int,
+    negative_column_lookup: torch.Tensor,
+) -> torch.Tensor:
+    """Mask positive collisions in logits for one shared negative pool.
+
+    ``negative_labels`` must be one-dimensional and contain unique non-ignored
+    item IDs. ``positive_labels`` must have shape ``(num_targets, 1)``.
+    ``negative_column_lookup`` is a reusable one-dimensional integer scratch
+    tensor whose length defines the valid item ID range. The function modifies
+    both ``negative_logits`` and ``negative_column_lookup`` in place.
+
+    :param negative_logits: Logits with shape ``(num_targets, num_negatives)``.
+    :param negative_labels: Unique shared negative item IDs with shape ``(num_negatives,)``.
+    :param positive_labels: Positive item IDs with shape ``(num_targets, 1)``.
+    :param negative_labels_ignore_index: Value ignored in negative labels.
+    :param negative_column_lookup: Reusable item-ID-to-logit-column lookup tensor.
+    :returns: ``negative_logits`` with ignored negatives and positive collisions masked.
+    """
+    if negative_labels.dim() != 1 or positive_labels.dim() != 2 or positive_labels.size(1) != 1:
+        msg = "The negative column lookup requires one shared pool and one positive label per row."
+        raise ValueError(msg)
+
+    positive_labels = positive_labels.squeeze(-1)
+    negative_column_lookup.fill_(-1)
+    cardinality = negative_column_lookup.numel()
+    valid_negatives = negative_labels.ge(0) & negative_labels.lt(cardinality)
+    negative_columns = torch.arange(
+        negative_labels.numel(),
+        dtype=negative_column_lookup.dtype,
+        device=negative_labels.device,
+    )
+    negative_column_lookup[negative_labels[valid_negatives]] = negative_columns[valid_negatives]
+
+    valid_positives = positive_labels.ge(0) & positive_labels.lt(cardinality)
+    safe_positives = positive_labels.clamp(min=0, max=cardinality - 1)
+    collision_columns = negative_column_lookup[safe_positives].long()
+    collision_rows = torch.arange(positive_labels.numel(), device=positive_labels.device)
+    collisions = valid_positives & collision_columns.ge(0)
+    negative_logits.masked_fill_(
+        negative_labels.eq(negative_labels_ignore_index).unsqueeze(0),
+        -torch.inf,
+    )
+    negative_logits[collision_rows[collisions], collision_columns[collisions]] = -torch.inf
     return negative_logits
 
 
