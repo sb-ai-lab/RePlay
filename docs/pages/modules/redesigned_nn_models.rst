@@ -150,6 +150,16 @@ ______________
 .. autoclass:: replay.nn.loss.LogInCESampled
    :members: __init__, forward
 
+GroupedLogInCESampled
+_____________________
+.. autoclass:: replay.nn.loss.GroupedLogInCESampled
+   :members: __init__, forward
+
+Use this loss together with packed training batches when every logical batch
+must keep its own sampled-negative pool. It preserves the multi-positive
+``LogInCESampled`` objective while allowing the model body to process several
+logical batches in one forward and backward pass.
+
 .. _loss-logout-ce:
 
 LogOutCE
