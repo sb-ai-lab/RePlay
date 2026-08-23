@@ -160,6 +160,22 @@ must keep its own sampled-negative pool. It preserves the multi-positive
 ``LogInCESampled`` objective while allowing the model body to process several
 logical batches in one forward and backward pass.
 
+.. code-block:: python
+
+   from replay.nn.loss import GroupedLogInCESampled
+   from replay.nn.transform import GroupedUniformNegativeSamplingTransform
+
+   logical_batch_size = 128
+
+   negative_sampler = GroupedUniformNegativeSamplingTransform(
+       cardinality=num_items,
+       num_negative_samples=20_000,
+       group_size=logical_batch_size,
+   )
+   loss = GroupedLogInCESampled(
+       logical_batch_size=logical_batch_size,
+   )
+
 .. _loss-logout-ce:
 
 LogOutCE
