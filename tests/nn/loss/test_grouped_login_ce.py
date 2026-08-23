@@ -2,6 +2,32 @@ import pytest
 import torch
 
 from replay.nn.loss import GroupedLogInCESampled, LogInCESampled
+from replay.nn.sequential.twotower import TwoTower
+from replay.nn.transform import GroupedUniformNegativeSamplingTransform
+
+
+class _ItemTower(torch.nn.Module):
+    def __init__(self, cardinality: int, embedding_dim: int) -> None:
+        super().__init__()
+        self.weight = torch.nn.Parameter(torch.randn(cardinality, embedding_dim))
+
+    def forward(self, candidates: torch.LongTensor | None = None) -> torch.Tensor:
+        return self.weight if candidates is None else self.weight[candidates]
+
+
+class _QueryTower(torch.nn.Module):
+    def forward(self, feature_tensors: dict[str, torch.Tensor], padding_mask: torch.BoolTensor) -> torch.Tensor:
+        return feature_tensors["query_embeddings"] * padding_mask.unsqueeze(-1)
+
+
+class _Body(torch.nn.Module):
+    def __init__(self, cardinality: int, embedding_dim: int) -> None:
+        super().__init__()
+        self.query_tower = _QueryTower()
+        self.item_tower = _ItemTower(cardinality, embedding_dim)
+
+    def reset_parameters(self) -> None:
+        pass
 
 
 def _logits_callback(query: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
@@ -69,6 +95,42 @@ def test_grouped_login_ce_forwards_loss_parameters():
     assert loss.log_epsilon == 1e-4
     assert loss.clamp_border == 17.0
     assert loss.negative_labels_ignore_index == -7
+
+
+def test_grouped_login_ce_end_to_end_with_sampler_and_twotower():
+    logical_batch_size = 2
+    sampler = GroupedUniformNegativeSamplingTransform(
+        cardinality=12,
+        num_negative_samples=5,
+        group_size=logical_batch_size,
+        generator=torch.Generator().manual_seed(7),
+    )
+    loss = GroupedLogInCESampled.from_negative_sampler(sampler)
+    model = TwoTower(body=_Body(cardinality=12, embedding_dim=4), loss=loss)
+    embeddings, positives, _, padding_mask, target_mask = _batch(batch_size=5)
+    embeddings.requires_grad_(True)
+    sampled_batch = sampler({"positive_labels": positives})
+
+    output = model.forward_train(
+        feature_tensors={"query_embeddings": embeddings},
+        positive_labels=positives,
+        negative_labels=sampled_batch["negative_labels"],
+        padding_mask=padding_mask,
+        target_padding_mask=target_mask,
+    )
+
+    assert loss.logical_batch_size == sampler.group_size
+    assert torch.isfinite(output["loss"])
+    output["loss"].backward()
+    assert embeddings.grad is not None
+    assert torch.isfinite(embeddings.grad).all()
+    assert model.body.item_tower.weight.grad is not None
+    assert torch.isfinite(model.body.item_tower.weight.grad).all()
+
+
+def test_grouped_login_ce_rejects_non_grouped_sampler():
+    with pytest.raises(TypeError, match="GroupedUniformNegativeSamplingTransform"):
+        GroupedLogInCESampled.from_negative_sampler(torch.nn.Identity())
 
 
 def test_grouped_login_ce_ignores_padded_negatives_before_item_lookup():

@@ -1,8 +1,13 @@
+from typing import TYPE_CHECKING
+
 import torch
 
 from replay.data.nn import TensorMap
 
 from .login_ce import LogInCESampled
+
+if TYPE_CHECKING:
+    from replay.nn.transform import GroupedUniformNegativeSamplingTransform
 
 
 class GroupedLogInCESampled(LogInCESampled):
@@ -11,7 +16,10 @@ class GroupedLogInCESampled(LogInCESampled):
     The loss keeps the multi-positive objective of :class:`LogInCESampled`.
     It is useful when several former microbatches are packed into one physical
     batch while every logical microbatch must retain an independent negative
-    sample pool.
+    sample pool. Prefer :meth:`from_negative_sampler` when using
+    :class:`~replay.nn.transform.GroupedUniformNegativeSamplingTransform`; it
+    derives the logical group size from the sampler and prevents configuration
+    drift between the two components.
     """
 
     def __init__(
@@ -23,6 +31,9 @@ class GroupedLogInCESampled(LogInCESampled):
     ) -> None:
         """
         :param logical_batch_size: Number of rows that share one negative pool.
+            It must exactly match the ``group_size`` of the grouped negative
+            sampler. Prefer :meth:`from_negative_sampler` instead of specifying
+            the same value twice.
         :param log_epsilon: Correction to avoid zero in the logarithm.
         :param clamp_border: Absolute bound used to clamp the loss tensor.
         :param negative_labels_ignore_index: Value ignored in negative labels.
@@ -36,6 +47,38 @@ class GroupedLogInCESampled(LogInCESampled):
             negative_labels_ignore_index=negative_labels_ignore_index,
         )
         self.logical_batch_size = logical_batch_size
+
+    @classmethod
+    def from_negative_sampler(
+        cls,
+        negative_sampler: "GroupedUniformNegativeSamplingTransform",
+        *,
+        log_epsilon: float = 1e-6,
+        clamp_border: float = 100.0,
+        negative_labels_ignore_index: int = -100,
+    ) -> "GroupedLogInCESampled":
+        """Create a loss whose logical group size is derived from its sampler.
+
+        This is the recommended construction path because it makes the sampler
+        the single source of truth for logical batch boundaries.
+
+        :param negative_sampler: Grouped sampler used in the training transform pipeline.
+        :param log_epsilon: Correction to avoid zero in the logarithm.
+        :param clamp_border: Absolute bound used to clamp the loss tensor.
+        :param negative_labels_ignore_index: Value ignored in negative labels.
+        :return: Configured grouped sampled LogInCE loss.
+        """
+        from replay.nn.transform import GroupedUniformNegativeSamplingTransform
+
+        if not isinstance(negative_sampler, GroupedUniformNegativeSamplingTransform):
+            msg = "negative_sampler must be a GroupedUniformNegativeSamplingTransform instance."
+            raise TypeError(msg)
+        return cls(
+            logical_batch_size=negative_sampler.group_size,
+            log_epsilon=log_epsilon,
+            clamp_border=clamp_border,
+            negative_labels_ignore_index=negative_labels_ignore_index,
+        )
 
     def _validate_inputs(
         self,

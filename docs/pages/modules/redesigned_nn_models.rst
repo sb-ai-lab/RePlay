@@ -153,28 +153,47 @@ ______________
 GroupedLogInCESampled
 _____________________
 .. autoclass:: replay.nn.loss.GroupedLogInCESampled
-   :members: __init__, forward
+   :members: __init__, from_negative_sampler, forward
 
 Use this loss together with packed training batches when every logical batch
 must keep its own sampled-negative pool. It preserves the multi-positive
 ``LogInCESampled`` objective while allowing the model body to process several
-logical batches in one forward and backward pass.
+logical batches in one forward and backward pass. Build the loss with
+``from_negative_sampler`` so the sampler is the single source of truth for
+logical group boundaries.
 
 .. code-block:: python
 
+   from replay.data.nn import ParquetModule
    from replay.nn.loss import GroupedLogInCESampled
+   from replay.nn.sequential import SasRec
    from replay.nn.transform import GroupedUniformNegativeSamplingTransform
+   from replay.nn.transform.template import make_default_sasrec_transforms
 
    logical_batch_size = 128
+   packed_batch_size = 5 * logical_batch_size
 
    negative_sampler = GroupedUniformNegativeSamplingTransform(
        cardinality=num_items,
        num_negative_samples=20_000,
        group_size=logical_batch_size,
    )
-   loss = GroupedLogInCESampled(
-       logical_batch_size=logical_batch_size,
+   loss = GroupedLogInCESampled.from_negative_sampler(negative_sampler)
+
+   transforms = make_default_sasrec_transforms(tensor_schema)
+   transforms["train"].append(negative_sampler)
+   datamodule = ParquetModule(
+       metadata=metadata,
+       transforms=transforms,
+       batch_size=packed_batch_size,
+       train_path=train_path,
+       validate_path=validate_path,
    )
+   model = SasRec(body=sasrec_body, loss=loss)
+
+The physical batch may end with a partial logical group. Do not pair the
+low-level ``GroupedLogInCESampled(logical_batch_size=...)`` constructor with a
+separately configured sampler unless both sizes are guaranteed to be identical.
 
 .. _loss-logout-ce:
 
