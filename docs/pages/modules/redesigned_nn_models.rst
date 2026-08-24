@@ -150,6 +150,11 @@ ______________
 .. autoclass:: replay.nn.loss.LogInCESampled
    :members: __init__, forward
 
+GroupedLogInCESampled
+_____________________
+.. autoclass:: replay.nn.loss.GroupedLogInCESampled
+   :members: __init__, forward
+
 .. _loss-logout-ce:
 
 LogOutCE
