@@ -20,6 +20,44 @@ class GroupedLogInCESampled(LogInCESampled):
     :class:`~replay.nn.transform.GroupedUniformNegativeSamplingTransform`; it
     derives the logical group size from the sampler and prevents configuration
     drift between the two components.
+
+    Use this loss together with packed training batches when every logical batch
+    must keep its own sampled-negative pool. The physical batch may end with a
+    partial logical group. Do not pair the low-level
+    ``GroupedLogInCESampled(logical_batch_size=...)`` constructor with a
+    separately configured sampler unless both sizes are guaranteed to be
+    identical.
+
+    Example:
+
+    .. code-block:: python
+
+        from replay.data.nn import ParquetModule
+        from replay.nn.loss import GroupedLogInCESampled
+        from replay.nn.sequential import SasRec
+        from replay.nn.transform import GroupedUniformNegativeSamplingTransform
+        from replay.nn.transform.template import make_default_sasrec_transforms
+
+        logical_batch_size = 128
+        packed_batch_size = 5 * logical_batch_size
+
+        negative_sampler = GroupedUniformNegativeSamplingTransform(
+            cardinality=num_items,
+            num_negative_samples=20_000,
+            group_size=logical_batch_size,
+        )
+        loss = GroupedLogInCESampled.from_negative_sampler(negative_sampler)
+
+        transforms = make_default_sasrec_transforms(tensor_schema)
+        transforms["train"].append(negative_sampler)
+        datamodule = ParquetModule(
+            metadata=metadata,
+            transforms=transforms,
+            batch_size=packed_batch_size,
+            train_path=train_path,
+            validate_path=validate_path,
+        )
+        model = SasRec(body=sasrec_body, loss=loss)
     """
 
     def __init__(
