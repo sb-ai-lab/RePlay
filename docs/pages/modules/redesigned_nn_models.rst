@@ -153,7 +153,7 @@ ______________
 GroupedLogInCESampled
 _____________________
 .. autoclass:: replay.nn.loss.GroupedLogInCESampled
-   :members: __init__, from_negative_sampler, forward
+   :members: __init__, forward
 
 .. _loss-logout-ce:
 

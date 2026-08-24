@@ -105,7 +105,7 @@ def test_grouped_login_ce_end_to_end_with_sampler_and_twotower():
         group_size=logical_batch_size,
         generator=torch.Generator().manual_seed(7),
     )
-    loss = GroupedLogInCESampled.from_negative_sampler(sampler)
+    loss = GroupedLogInCESampled(logical_batch_size=logical_batch_size)
     model = TwoTower(body=_Body(cardinality=12, embedding_dim=4), loss=loss)
     embeddings, positives, _, padding_mask, target_mask = _batch(batch_size=5)
     embeddings.requires_grad_(True)
@@ -126,11 +126,6 @@ def test_grouped_login_ce_end_to_end_with_sampler_and_twotower():
     assert torch.isfinite(embeddings.grad).all()
     assert model.body.item_tower.weight.grad is not None
     assert torch.isfinite(model.body.item_tower.weight.grad).all()
-
-
-def test_grouped_login_ce_rejects_non_grouped_sampler():
-    with pytest.raises(TypeError, match="GroupedUniformNegativeSamplingTransform"):
-        GroupedLogInCESampled.from_negative_sampler(torch.nn.Identity())
 
 
 def test_grouped_login_ce_ignores_padded_negatives_before_item_lookup():

@@ -1,13 +1,8 @@
-from typing import TYPE_CHECKING
-
 import torch
 
 from replay.data.nn import TensorMap
 
 from .login_ce import LogInCESampled
-
-if TYPE_CHECKING:
-    from replay.nn.transform import GroupedUniformNegativeSamplingTransform
 
 
 class GroupedLogInCESampled(LogInCESampled):
@@ -16,17 +11,12 @@ class GroupedLogInCESampled(LogInCESampled):
     The loss keeps the multi-positive objective of :class:`LogInCESampled`.
     It is useful when several former microbatches are packed into one physical
     batch while every logical microbatch must retain an independent negative
-    sample pool. Prefer :meth:`from_negative_sampler` when using
-    :class:`~replay.nn.transform.GroupedUniformNegativeSamplingTransform`; it
-    derives the logical group size from the sampler and prevents configuration
-    drift between the two components.
+    sample pool. Use it with
+    :class:`~replay.nn.transform.GroupedUniformNegativeSamplingTransform` and
+    set ``logical_batch_size`` to the sampler's ``group_size``.
 
-    Use this loss together with packed training batches when every logical batch
-    must keep its own sampled-negative pool. The physical batch may end with a
-    partial logical group. Do not pair the low-level
-    ``GroupedLogInCESampled(logical_batch_size=...)`` constructor with a
-    separately configured sampler unless both sizes are guaranteed to be
-    identical.
+    The physical batch may end with a partial logical group. The
+    ``logical_batch_size`` must match the grouped sampler's ``group_size``.
 
     Example:
 
@@ -46,7 +36,7 @@ class GroupedLogInCESampled(LogInCESampled):
             num_negative_samples=20_000,
             group_size=logical_batch_size,
         )
-        loss = GroupedLogInCESampled.from_negative_sampler(negative_sampler)
+        loss = GroupedLogInCESampled(logical_batch_size=logical_batch_size)
 
         transforms = make_default_sasrec_transforms(tensor_schema)
         transforms["train"].append(negative_sampler)
@@ -70,8 +60,7 @@ class GroupedLogInCESampled(LogInCESampled):
         """
         :param logical_batch_size: Number of rows that share one negative pool.
             It must exactly match the ``group_size`` of the grouped negative
-            sampler. Prefer :meth:`from_negative_sampler` instead of specifying
-            the same value twice.
+            sampler.
         :param log_epsilon: Correction to avoid zero in the logarithm.
         :param clamp_border: Absolute bound used to clamp the loss tensor.
         :param negative_labels_ignore_index: Value ignored in negative labels.
@@ -85,38 +74,6 @@ class GroupedLogInCESampled(LogInCESampled):
             negative_labels_ignore_index=negative_labels_ignore_index,
         )
         self.logical_batch_size = logical_batch_size
-
-    @classmethod
-    def from_negative_sampler(
-        cls,
-        negative_sampler: "GroupedUniformNegativeSamplingTransform",
-        *,
-        log_epsilon: float = 1e-6,
-        clamp_border: float = 100.0,
-        negative_labels_ignore_index: int = -100,
-    ) -> "GroupedLogInCESampled":
-        """Create a loss whose logical group size is derived from its sampler.
-
-        This is the recommended construction path because it makes the sampler
-        the single source of truth for logical batch boundaries.
-
-        :param negative_sampler: Grouped sampler used in the training transform pipeline.
-        :param log_epsilon: Correction to avoid zero in the logarithm.
-        :param clamp_border: Absolute bound used to clamp the loss tensor.
-        :param negative_labels_ignore_index: Value ignored in negative labels.
-        :return: Configured grouped sampled LogInCE loss.
-        """
-        from replay.nn.transform import GroupedUniformNegativeSamplingTransform
-
-        if not isinstance(negative_sampler, GroupedUniformNegativeSamplingTransform):
-            msg = "negative_sampler must be a GroupedUniformNegativeSamplingTransform instance."
-            raise TypeError(msg)
-        return cls(
-            logical_batch_size=negative_sampler.group_size,
-            log_epsilon=log_epsilon,
-            clamp_border=clamp_border,
-            negative_labels_ignore_index=negative_labels_ignore_index,
-        )
 
     def _validate_inputs(
         self,
