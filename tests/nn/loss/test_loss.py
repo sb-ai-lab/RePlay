@@ -14,7 +14,49 @@ from replay.nn.loss import (
     LogOutCE,
     LogOutCEWeighted,
 )
-from replay.nn.loss.base import weighted_mean
+from replay.nn.loss.base import mask_negative_logits, weighted_mean
+
+
+def test_mask_negative_logits_ignores_inactive_positive_labels():
+    negative_logits = torch.zeros(1, 3)
+
+    actual = mask_negative_logits(
+        negative_logits,
+        negative_labels=torch.tensor([2, 5, 7]),
+        positive_labels=torch.tensor([[2, 5]]),
+        negative_labels_ignore_index=-100,
+        positive_labels_mask=torch.tensor([[True, False]]),
+    )
+
+    assert torch.isneginf(actual[0, 0])
+    assert torch.isfinite(actual[0, 1:]).all()
+
+
+def test_shared_negative_lookup_ignores_inactive_positive_labels():
+    actual = mask_negative_logits(
+        negative_logits=torch.zeros(2, 3),
+        negative_labels=torch.tensor([2, 5, 7]),
+        positive_labels=torch.tensor([[2], [5]]),
+        negative_labels_ignore_index=-100,
+        negative_column_lookup=torch.empty(8, dtype=torch.int32),
+        positive_labels_mask=torch.tensor([[True], [False]]),
+    )
+
+    assert torch.isneginf(actual[0, 0])
+    assert torch.isfinite(actual[1]).all()
+
+
+@pytest.mark.parametrize("negative_column_lookup", [None, torch.empty(8, dtype=torch.int32)])
+def test_mask_negative_logits_validates_positive_labels_mask(negative_column_lookup):
+    with pytest.raises(ValueError, match="positive_labels_mask"):
+        mask_negative_logits(
+            negative_logits=torch.zeros(1, 3),
+            negative_labels=torch.tensor([2, 5, 7]),
+            positive_labels=torch.tensor([[2]]),
+            negative_labels_ignore_index=-100,
+            negative_column_lookup=negative_column_lookup,
+            positive_labels_mask=torch.ones(1, 2, dtype=torch.bool),
+        )
 
 
 @pytest.mark.parametrize(

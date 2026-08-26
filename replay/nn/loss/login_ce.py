@@ -215,6 +215,7 @@ class LogInCE(LogInCEBase):
             all_negative_labels,
             positive_labels,
             self.negative_labels_ignore_index,
+            positive_labels_mask=target_padding_mask,
         )
 
         max_values = torch.max(
@@ -350,6 +351,7 @@ class LogInCESampled(LogInCEBase):
             negative_labels,
             positive_labels,
             self.negative_labels_ignore_index,
+            positive_labels_mask=target_padding_mask,
         )
 
         max_values = torch.max(

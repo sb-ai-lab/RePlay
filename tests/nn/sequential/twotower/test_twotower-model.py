@@ -6,6 +6,7 @@ import torch
 from replay.nn.agg import SumAggregator
 from replay.nn.embedding import SequenceEmbedding
 from replay.nn.ffn import SwiGLUEncoder
+from replay.nn.loss import GroupedCESampled
 from replay.nn.mask import DefaultAttentionMask
 from replay.nn.output import InferenceOutput, TrainOutput
 from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
@@ -188,6 +189,55 @@ def test_twotower_model_train_forward(
         *sequential_sample["feature_tensors"]["item_id"].shape,
         tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim,
     )
+
+
+def _set_grouped_loss(model, logical_batch_size):
+    loss = GroupedCESampled(logical_batch_size=logical_batch_size)
+    model.loss = loss
+    loss.logits_callback = model.get_logits
+
+
+def test_twotower_validates_matching_negative_group_size(twotower_model, sequential_sample):
+    _set_grouped_loss(twotower_model, logical_batch_size=4)
+    twotower_model.train()
+
+    output = twotower_model(
+        feature_tensors=sequential_sample["feature_tensors"],
+        padding_mask=sequential_sample["padding_mask"],
+        positive_labels=sequential_sample["positive_labels"],
+        negative_labels=torch.arange(7).unsqueeze(0),
+        target_padding_mask=sequential_sample["target_padding_mask"],
+        negative_group_size=4,
+    )
+
+    assert torch.isfinite(output["loss"])
+
+
+def test_twotower_rejects_mismatched_negative_group_size(twotower_model, sequential_sample):
+    _set_grouped_loss(twotower_model, logical_batch_size=3)
+    twotower_model.train()
+
+    with pytest.raises(ValueError, match="same group size"):
+        twotower_model(
+            feature_tensors=sequential_sample["feature_tensors"],
+            padding_mask=sequential_sample["padding_mask"],
+            positive_labels=sequential_sample["positive_labels"],
+            target_padding_mask=sequential_sample["target_padding_mask"],
+            negative_group_size=4,
+        )
+
+
+def test_twotower_rejects_grouped_sampler_with_regular_loss(twotower_model, sequential_sample):
+    twotower_model.train()
+
+    with pytest.raises(ValueError, match="requires a loss with logical_batch_size"):
+        twotower_model(
+            feature_tensors=sequential_sample["feature_tensors"],
+            padding_mask=sequential_sample["padding_mask"],
+            positive_labels=sequential_sample["positive_labels"],
+            target_padding_mask=sequential_sample["target_padding_mask"],
+            negative_group_size=4,
+        )
 
 
 @pytest.mark.parametrize("model_fixture", ["twotower_model", "twotower_model_with_context_merger"])

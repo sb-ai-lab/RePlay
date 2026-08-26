@@ -166,6 +166,7 @@ def mask_negative_logits(
     positive_labels: torch.LongTensor,
     negative_labels_ignore_index: int,
     negative_column_lookup: torch.Tensor | None = None,
+    positive_labels_mask: torch.BoolTensor | None = None,
 ) -> torch.Tensor:
     """
     Assign very small values in negative logits
@@ -186,6 +187,8 @@ def mask_negative_logits(
     :param negative_column_lookup: Optional reusable item-ID-to-logit-column lookup.
         Enables efficient masking for one shared negative pool and one positive
         label per row.
+    :param positive_labels_mask: Optional mask with the same shape as
+        ``positive_labels``. Inactive positive IDs do not mask negatives.
 
     :returns: Negative logits with modified elements in those positions
         where positive labels are equal to negative ones.
@@ -198,6 +201,7 @@ def mask_negative_logits(
             positive_labels,
             negative_labels_ignore_index,
             negative_column_lookup,
+            positive_labels_mask,
         )
 
     ignored_negatives = negative_labels == negative_labels_ignore_index
@@ -209,6 +213,11 @@ def mask_negative_logits(
     # [masked_batch_size, num_positives] -> [masked_batch_size, num_positives, 1]
     positive_labels = positive_labels.unsqueeze(-1)
     negative_mask = positive_labels == negative_labels  # [masked_batch_size, num_positives, num_negatives]
+    if positive_labels_mask is not None:
+        if positive_labels_mask.shape != positive_labels.shape[:-1]:
+            msg = "positive_labels_mask must have the same shape as positive_labels."
+            raise ValueError(msg)
+        negative_mask &= positive_labels_mask.unsqueeze(-1)
 
     # [masked_batch_size, num_positives, num_negatives] -> [masked_batch_size, num_negatives]
     negative_mask = negative_mask.sum(-2).bool()
@@ -222,6 +231,7 @@ def _mask_shared_negative_logits(
     positive_labels: torch.LongTensor,
     negative_labels_ignore_index: int,
     negative_column_lookup: torch.Tensor,
+    positive_labels_mask: torch.BoolTensor | None,
 ) -> torch.Tensor:
     """Mask positive collisions in logits for one shared negative pool.
 
@@ -242,10 +252,14 @@ def _mask_shared_negative_logits(
         msg = "The negative column lookup requires one shared pool and one positive label per row."
         raise ValueError(msg)
 
-    positive_labels = positive_labels.squeeze(-1)
+    if positive_labels_mask is not None and positive_labels_mask.shape != positive_labels.shape:
+        msg = "positive_labels_mask must have the same shape as positive_labels."
+        raise ValueError(msg)
     negative_column_lookup.fill_(-1)
     cardinality = negative_column_lookup.numel()
-    valid_negatives = negative_labels.ge(0) & negative_labels.lt(cardinality)
+    valid_negatives = (
+        negative_labels.ge(0) & negative_labels.lt(cardinality) & negative_labels.ne(negative_labels_ignore_index)
+    )
     negative_columns = torch.arange(
         negative_labels.numel(),
         dtype=negative_column_lookup.dtype,
@@ -253,11 +267,14 @@ def _mask_shared_negative_logits(
     )
     negative_column_lookup[negative_labels[valid_negatives]] = negative_columns[valid_negatives]
 
+    positive_labels = positive_labels.squeeze(-1)
     valid_positives = positive_labels.ge(0) & positive_labels.lt(cardinality)
+    if positive_labels_mask is not None:
+        valid_positives &= positive_labels_mask.squeeze(-1)
     safe_positives = positive_labels.clamp(min=0, max=cardinality - 1)
     collision_columns = negative_column_lookup[safe_positives].long()
-    collision_rows = torch.arange(positive_labels.numel(), device=positive_labels.device)
     collisions = valid_positives & collision_columns.ge(0)
+    collision_rows = torch.arange(positive_labels.size(0), device=positive_labels.device)
     negative_logits.masked_fill_(
         negative_labels.eq(negative_labels_ignore_index).unsqueeze(0),
         -torch.inf,

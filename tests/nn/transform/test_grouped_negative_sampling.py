@@ -41,6 +41,22 @@ def test_grouped_sampler_draws_only_active_groups():
     torch.testing.assert_close(next_actual, next_reference)
 
 
+def test_grouped_sampler_adds_explicit_group_size_to_batch():
+    transform = _make_transform(torch.Generator().manual_seed(0))
+    existing_feature = torch.ones(3, 1)
+
+    output = transform(
+        {
+            "positive_labels": torch.zeros(3, 1, 1, dtype=torch.long),
+            "feature_tensors": {"existing": existing_feature},
+        }
+    )
+
+    assert output["feature_tensors"]["existing"] is existing_feature
+    assert output["negative_group_size"] == transform.group_size
+    assert set(output["feature_tensors"]) == {"existing"}
+
+
 def test_grouped_sampler_restores_sparse_distribution_item_ids():
     transform = GroupedUniformNegativeSamplingTransform(
         cardinality=8,

@@ -2,6 +2,15 @@ import torch
 
 from replay.data.nn import TensorMap
 
+from ._grouped import (
+    evaluate_group_losses,
+    find_negative_collision_columns,
+    has_duplicate_negative_labels,
+    mask_group_candidates,
+    pack_grouped_batch,
+    score_sampled_candidates,
+    validate_grouped_inputs,
+)
 from .login_ce import LogInCESampled
 
 
@@ -13,10 +22,24 @@ class GroupedLogInCESampled(LogInCESampled):
     batch while every logical microbatch must retain an independent negative
     sample pool. Use it with
     :class:`~replay.nn.transform.GroupedUniformNegativeSamplingTransform` and
-    set ``logical_batch_size`` to the sampler's ``group_size``.
+    set ``logical_batch_size`` to the sampler's ``group_size``. The sampler
+    adds that value to the training batch, and compatible models validate it
+    against the loss so mismatched boundaries are rejected before logits are
+    calculated.
 
-    The physical batch may end with a partial logical group. The
-    ``logical_batch_size`` must match the grouped sampler's ``group_size``.
+    All active groups are evaluated together with :func:`torch.vmap` when it
+    is available; older supported PyTorch versions use a sequential
+    compatibility fallback. A partial final physical batch may contain one
+    logical group, which is evaluated directly and is equivalent to
+    :class:`LogInCESampled`.
+
+    The grouped sampler draws pools without replacement. For manually supplied
+    pools with repeated non-ignored IDs, the loss preserves the exact sampled
+    objective with a slower, memory-intensive collision-masking fallback.
+
+    On the vectorized path, the logits callback must be compatible with
+    :func:`torch.vmap`. In particular, training-time modules that update buffers,
+    such as :class:`torch.nn.BatchNorm1d`, are unsupported.
 
     Example:
 
@@ -75,69 +98,105 @@ class GroupedLogInCESampled(LogInCESampled):
         )
         self.logical_batch_size = logical_batch_size
 
-    def _validate_inputs(
-        self,
-        model_embeddings: torch.Tensor,
-        positive_labels: torch.LongTensor,
-        negative_labels: torch.LongTensor,
-        target_padding_mask: torch.BoolTensor,
-    ) -> int:
-        if model_embeddings.dim() != 3:
-            msg = "model_embeddings must have shape [batch, sequence, embedding]."
-            raise ValueError(msg)
-        if positive_labels.dim() != 3:
-            msg = "positive_labels must have shape [batch, sequence, positives]."
-            raise ValueError(msg)
-        if positive_labels.shape[:2] != model_embeddings.shape[:2]:
-            msg = "positive_labels and model_embeddings must have equal batch and sequence dimensions."
-            raise ValueError(msg)
-        if target_padding_mask.shape != positive_labels.shape:
-            msg = "target_padding_mask must have the same shape as positive_labels."
-            raise ValueError(msg)
-        if negative_labels.dim() != 2:
-            msg = "negative_labels must have shape [num_groups, num_negatives]."
-            raise ValueError(msg)
-        if model_embeddings.size(0) == 0:
-            msg = "GroupedLogInCESampled does not support empty batches."
-            raise ValueError(msg)
-
-        active_groups = (model_embeddings.size(0) + self.logical_batch_size - 1) // self.logical_batch_size
-        if negative_labels.size(0) != active_groups:
-            msg = f"negative_labels must contain {active_groups} pools, got {negative_labels.size(0)}."
-            raise ValueError(msg)
-        return active_groups
-
     def forward(
         self,
         model_embeddings: torch.Tensor,
-        feature_tensors: TensorMap,
+        feature_tensors: TensorMap,  # noqa: ARG002
         positive_labels: torch.LongTensor,
         negative_labels: torch.LongTensor,
-        padding_mask: torch.BoolTensor,
+        padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
-        active_groups = self._validate_inputs(
+        active_groups = validate_grouped_inputs(
+            loss_name=self.__class__.__name__,
+            model_embeddings=model_embeddings,
+            positive_labels=positive_labels,
+            negative_labels=negative_labels,
+            target_padding_mask=target_padding_mask,
+            logical_batch_size=self.logical_batch_size,
+        )
+        packed = pack_grouped_batch(
+            model_embeddings=model_embeddings,
+            positive_labels=positive_labels,
+            target_padding_mask=target_padding_mask,
+            logical_batch_size=self.logical_batch_size,
+            active_groups=active_groups,
+        )
+        if negative_labels.size(-1) == 0:
+            # Keep both towers in the autograd graph for distributed training.
+            positive_logits = self.logits_callback(
+                packed.model_embeddings[0],
+                packed.positive_labels[0],
+            )
+            return (packed.model_embeddings.sum() + positive_logits.sum()) * 0
+
+        sorted_negative_labels, sorted_negative_columns = torch.sort(negative_labels, dim=-1)
+        if has_duplicate_negative_labels(sorted_negative_labels, self.negative_labels_ignore_index):
+            group_losses = evaluate_group_losses(
+                self._group_loss,
+                packed.model_embeddings,
+                packed.positive_labels,
+                negative_labels,
+                packed.target_padding_mask,
+                packed.position_mask,
+            )
+            return group_losses.mean()
+        collision_columns, collisions = find_negative_collision_columns(
+            packed.positive_labels,
+            sorted_negative_labels,
+            sorted_negative_columns,
+            packed.target_padding_mask,
+        )
+        group_losses = evaluate_group_losses(
+            self._group_loss,
+            packed.model_embeddings,
+            packed.positive_labels,
+            negative_labels,
+            packed.target_padding_mask,
+            packed.position_mask,
+            collision_columns,
+            collisions,
+        )
+        return group_losses.mean()
+
+    def _group_loss(
+        self,
+        model_embeddings: torch.Tensor,
+        positive_labels: torch.LongTensor,
+        negative_labels: torch.LongTensor,
+        target_padding_mask: torch.BoolTensor,
+        position_mask: torch.BoolTensor,
+        collision_columns: torch.LongTensor | None = None,
+        collisions: torch.BoolTensor | None = None,
+    ) -> torch.Tensor:
+        positive_logits, negative_logits = score_sampled_candidates(
+            self.logits_callback,
             model_embeddings,
             positive_labels,
             negative_labels,
-            target_padding_mask,
+            self.negative_labels_ignore_index,
         )
-        group_losses = []
-        for group_index in range(active_groups):
-            start = group_index * self.logical_batch_size
-            end = min(start + self.logical_batch_size, model_embeddings.size(0))
-            group_target_mask = target_padding_mask[start:end]
-            if not group_target_mask.any():
-                msg = "Each active logical group must contain at least one target."
-                raise ValueError(msg)
-            group_losses.append(
-                super().forward(
-                    model_embeddings[start:end],
-                    feature_tensors,
-                    positive_labels[start:end],
-                    negative_labels[group_index],
-                    padding_mask[start:end],
-                    group_target_mask,
-                )
-            )
-        return torch.stack(group_losses).mean()
+        negative_logits = mask_group_candidates(
+            negative_logits,
+            positive_labels,
+            target_padding_mask,
+            negative_labels,
+            self.negative_labels_ignore_index,
+            None if collision_columns is None else (collision_columns, collisions),
+        )
+
+        max_values = torch.maximum(
+            positive_logits.max(-1, keepdim=True).values,
+            negative_logits.max(-1, keepdim=True).values,
+        )
+        positive_values = (torch.exp(positive_logits - max_values) * target_padding_mask).sum(-1)
+        negative_values = torch.exp(negative_logits - max_values).sum(-1)
+        positive_values = positive_values.masked_fill(~position_mask, 1)
+        negative_values = negative_values.masked_fill(~position_mask, 0)
+        probabilities = positive_values / (positive_values + negative_values)
+        losses = -torch.clamp(
+            torch.log(probabilities + self.log_epsilon),
+            -self.clamp_border,
+            self.clamp_border,
+        )
+        return losses.masked_fill(~position_mask, 0).sum() / position_mask.sum()

@@ -3,7 +3,8 @@ import copy
 import pytest
 import torch
 
-from replay.nn.loss import GroupedCESampled
+from replay.nn.loss import CESampled, GroupedCESampled
+from replay.nn.loss._grouped import evaluate_group_losses
 from replay.nn.loss.base import mask_negative_logits
 from replay.nn.sequential.twotower import TwoTower
 
@@ -53,6 +54,51 @@ def _loss(model: TwoTower, batch: tuple[torch.Tensor, ...]) -> torch.Tensor:
     )
 
 
+def _assert_matches_logical_batches(
+    batch: tuple[torch.Tensor, ...],
+    reference_loss: CESampled,
+    grouped_loss: GroupedCESampled,
+) -> None:
+    embeddings, positives, negatives, padding_mask, target_mask = batch
+    expected_embeddings = embeddings.detach().clone().requires_grad_(True)
+    actual_embeddings = embeddings.detach().clone().requires_grad_(True)
+    reference_model = _make_model(reference_loss)
+    grouped_model = _make_model(grouped_loss)
+    grouped_model.load_state_dict(copy.deepcopy(reference_model.state_dict()))
+
+    logical_batch_size = grouped_loss.logical_batch_size
+    expected = torch.stack(
+        [
+            reference_model.loss(
+                model_embeddings=expected_embeddings[start : start + logical_batch_size],
+                feature_tensors={},
+                positive_labels=positives[start : start + logical_batch_size],
+                negative_labels=negatives[group],
+                padding_mask=padding_mask[start : start + logical_batch_size],
+                target_padding_mask=target_mask[start : start + logical_batch_size],
+            )
+            for group, start in enumerate(range(0, expected_embeddings.size(0), logical_batch_size))
+        ]
+    ).mean()
+    actual = grouped_model.loss(
+        model_embeddings=actual_embeddings,
+        feature_tensors={},
+        positive_labels=positives,
+        negative_labels=negatives,
+        padding_mask=padding_mask,
+        target_padding_mask=target_mask,
+    )
+
+    torch.testing.assert_close(actual, expected)
+    expected.backward()
+    actual.backward()
+    torch.testing.assert_close(actual_embeddings.grad, expected_embeddings.grad)
+    torch.testing.assert_close(
+        grouped_model.body.item_tower.weight.grad,
+        reference_model.body.item_tower.weight.grad,
+    )
+
+
 def test_grouped_loss_averages_active_logical_groups():
     grouped_model = _make_model(GroupedCESampled(logical_batch_size=2))
     short_batch = _batch(1, batch_size=1)
@@ -72,6 +118,38 @@ def test_grouped_loss_averages_active_logical_groups():
     torch.testing.assert_close(actual, reference)
 
 
+@pytest.mark.parametrize("cardinality", [None, 20])
+def test_grouped_loss_matches_logical_batches_and_gradients(cardinality):
+    batch = list(_batch(17, batch_size=5))
+    batch[2][:, -1] = -100
+    batch[-1][0, 0] = False
+    batch[-1][1, 1:] = False
+    batch[-1][2, :2] = False
+    batch[-1][4, 0] = False
+    _assert_matches_logical_batches(
+        tuple(batch),
+        reference_loss=CESampled(negative_labels_ignore_index=-100, label_smoothing=0.1),
+        grouped_loss=GroupedCESampled(
+            logical_batch_size=2,
+            cardinality=cardinality,
+            negative_labels_ignore_index=-100,
+            label_smoothing=0.1,
+        ),
+    )
+
+
+@pytest.mark.parametrize("cardinality", [None, 20])
+def test_grouped_loss_matches_duplicate_negative_pools(cardinality):
+    batch = list(_batch(19, batch_size=4))
+    batch[2][0, 1] = batch[2][0, 0]
+    batch[2][1, 2] = batch[2][1, 0]
+    _assert_matches_logical_batches(
+        tuple(batch),
+        reference_loss=CESampled(),
+        grouped_loss=GroupedCESampled(logical_batch_size=2, cardinality=cardinality),
+    )
+
+
 def test_grouped_loss_ignores_padded_negatives_before_item_lookup():
     model = _make_model(
         GroupedCESampled(
@@ -85,6 +163,16 @@ def test_grouped_loss_ignores_padded_negatives_before_item_lookup():
     loss = _loss(model, tuple(batch))
 
     assert torch.isfinite(loss)
+
+
+def test_grouped_loss_supports_empty_negative_pools():
+    model = _make_model(GroupedCESampled(logical_batch_size=2, cardinality=20))
+    batch = list(_batch(0))
+    batch[2] = torch.empty((2, 0), dtype=torch.long)
+
+    loss = _loss(model, tuple(batch))
+
+    torch.testing.assert_close(loss, torch.zeros_like(loss))
 
 
 def test_grouped_loss_fast_collision_mask_matches_generic_path():
@@ -105,6 +193,45 @@ def test_grouped_loss_fast_collision_mask_matches_generic_path():
     fast_loss = _loss(fast_model, tuple(batch))
 
     torch.testing.assert_close(fast_loss, generic_loss)
+
+
+def test_grouped_loss_uses_dense_collision_lookup_only_for_single_group():
+    single_group_model = _make_model(GroupedCESampled(logical_batch_size=2, cardinality=20))
+    packed_model = _make_model(GroupedCESampled(logical_batch_size=2, cardinality=20))
+
+    _loss(single_group_model, _batch(1, batch_size=1))
+    _loss(packed_model, _batch(2, batch_size=4))
+
+    assert single_group_model.loss._negative_column_lookup is not None
+    assert packed_model.loss._negative_column_lookup is None
+
+
+@pytest.mark.parametrize("cardinality", [None, 20])
+def test_single_group_duplicate_pool_keeps_exact_fallback(cardinality):
+    batch = list(_batch(8, batch_size=1))
+    batch[2][0, 1] = batch[2][0, 0]
+    _assert_matches_logical_batches(
+        tuple(batch),
+        reference_loss=CESampled(),
+        grouped_loss=GroupedCESampled(logical_batch_size=2, cardinality=cardinality),
+    )
+
+
+def test_grouped_loss_falls_back_when_vmap_is_unavailable(monkeypatch):
+    expected_input = torch.randn(3, 4, requires_grad=True)
+    actual_input = expected_input.detach().clone().requires_grad_(True)
+
+    def group_loss(values: torch.Tensor) -> torch.Tensor:
+        return values.square().mean()
+
+    expected = torch.stack([group_loss(values) for values in expected_input])
+    monkeypatch.setattr(torch, "vmap", None, raising=False)
+    actual = evaluate_group_losses(group_loss, actual_input)
+
+    torch.testing.assert_close(actual, expected)
+    expected.sum().backward()
+    actual.sum().backward()
+    torch.testing.assert_close(actual_input.grad, expected_input.grad)
 
 
 def test_shared_negative_lookup_requires_one_shared_pool():
@@ -186,18 +313,24 @@ def test_grouped_loss_validates_constructor_arguments(kwargs, message):
     ],
 )
 def test_grouped_loss_validates_input_shapes(model_embeddings, positive_labels, negative_labels, target_mask, message):
+    model = _make_model(GroupedCESampled(logical_batch_size=2))
     with pytest.raises(ValueError, match=message):
-        GroupedCESampled(logical_batch_size=2)._validate_inputs(
-            model_embeddings,
-            positive_labels,
-            negative_labels,
-            target_mask,
+        _loss(
+            model,
+            (
+                model_embeddings,
+                positive_labels,
+                negative_labels,
+                torch.empty(0, dtype=torch.bool),
+                target_mask,
+            ),
         )
 
 
-def test_grouped_loss_rejects_empty_logical_group():
+@pytest.mark.parametrize("batch_size", [1, 4])
+def test_grouped_loss_rejects_empty_logical_group(batch_size):
     model = _make_model(GroupedCESampled(logical_batch_size=2))
-    batch = list(_batch(0))
+    batch = list(_batch(0, batch_size=batch_size))
     batch[-1][:2] = False
 
     with pytest.raises(ValueError, match="at least one target"):

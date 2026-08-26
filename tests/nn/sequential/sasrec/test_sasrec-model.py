@@ -4,6 +4,21 @@ import torch
 from replay.nn.output import InferenceOutput, TrainOutput
 
 
+class _RecordingGroupedLoss(torch.nn.Module):
+    def __init__(self, logical_batch_size: int) -> None:
+        super().__init__()
+        self.logical_batch_size = logical_batch_size
+        self.called = False
+
+    def forward(
+        self,
+        model_embeddings: torch.Tensor,
+        **_kwargs: object,
+    ) -> torch.Tensor:
+        self.called = True
+        return model_embeddings.sum() * 0
+
+
 def test_body_forward(sasrec_model, sequential_sample):
     output = sasrec_model.body(sequential_sample["feature_tensors"], sequential_sample["padding_mask"])
     assert output.shape == (4, 7, 14)
@@ -37,6 +52,53 @@ def test_sasrec_model_train_forward(tensor_schema_with_equal_embedding_dims, sas
         *sequential_sample["feature_tensors"]["item_id"].shape,
         tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim,
     )
+
+
+def test_sasrec_validates_matching_negative_group_size(sasrec_model, sequential_sample):
+    loss = _RecordingGroupedLoss(logical_batch_size=4)
+    sasrec_model.loss = loss
+    sasrec_model.train()
+
+    output = sasrec_model(
+        feature_tensors=sequential_sample["feature_tensors"],
+        padding_mask=sequential_sample["padding_mask"],
+        positive_labels=sequential_sample["positive_labels"],
+        target_padding_mask=sequential_sample["target_padding_mask"],
+        negative_group_size=4,
+    )
+
+    assert loss.called
+    assert torch.isfinite(output["loss"])
+
+
+def test_sasrec_rejects_mismatched_negative_group_size(sasrec_model, sequential_sample):
+    loss = _RecordingGroupedLoss(logical_batch_size=3)
+    sasrec_model.loss = loss
+    sasrec_model.train()
+
+    with pytest.raises(ValueError, match="same group size"):
+        sasrec_model(
+            feature_tensors=sequential_sample["feature_tensors"],
+            padding_mask=sequential_sample["padding_mask"],
+            positive_labels=sequential_sample["positive_labels"],
+            target_padding_mask=sequential_sample["target_padding_mask"],
+            negative_group_size=4,
+        )
+
+    assert not loss.called
+
+
+def test_sasrec_rejects_grouped_sampler_with_regular_loss(sasrec_model, sequential_sample):
+    sasrec_model.train()
+
+    with pytest.raises(ValueError, match="requires a loss with logical_batch_size"):
+        sasrec_model(
+            feature_tensors=sequential_sample["feature_tensors"],
+            padding_mask=sequential_sample["padding_mask"],
+            positive_labels=sequential_sample["positive_labels"],
+            target_padding_mask=sequential_sample["target_padding_mask"],
+            negative_group_size=4,
+        )
 
 
 @pytest.mark.parametrize("candidates_to_score", [torch.LongTensor([1]), torch.LongTensor([0, 1, 2]), None])

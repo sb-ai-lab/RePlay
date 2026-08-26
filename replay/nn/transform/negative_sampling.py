@@ -110,7 +110,9 @@ class GroupedUniformNegativeSamplingTransform(UniformNegativeSamplingTransform):
     """Draw an independent negative pool for each logical batch group.
 
     This transform allows several logical batches to be packed into one larger
-    physical batch without changing how often negatives are sampled.
+    physical batch without changing how often negatives are sampled. The
+    transform adds ``negative_group_size`` to the training batch so compatible
+    models can verify that sampler and loss use identical group boundaries.
     """
 
     def __init__(
@@ -149,7 +151,7 @@ class GroupedUniformNegativeSamplingTransform(UniformNegativeSamplingTransform):
         self.group_size = group_size
         self.batch_feature_name = batch_feature_name
 
-    def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    def forward(self, batch: dict) -> dict:
         if self.batch_feature_name not in batch:
             msg = f"The batch does not contain {self.batch_feature_name!r}."
             raise ValueError(msg)
@@ -175,6 +177,7 @@ class GroupedUniformNegativeSamplingTransform(UniformNegativeSamplingTransform):
 
         output_batch = dict(batch.items())
         output_batch[self.out_feature_name] = pools
+        output_batch["negative_group_size"] = self.group_size
         return output_batch
 
 

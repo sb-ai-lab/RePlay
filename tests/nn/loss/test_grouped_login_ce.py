@@ -2,6 +2,10 @@ import pytest
 import torch
 
 from replay.nn.loss import GroupedLogInCESampled, LogInCESampled
+from replay.nn.loss._grouped import (
+    find_negative_collision_columns,
+    mask_group_negative_logits,
+)
 from replay.nn.sequential.twotower import TwoTower
 from replay.nn.transform import GroupedUniformNegativeSamplingTransform
 
@@ -52,36 +56,132 @@ def _loss(loss, batch: tuple[torch.Tensor, ...]) -> torch.Tensor:
     return loss(embeddings, {}, positives, negatives, padding_mask, target_mask)
 
 
-def test_grouped_login_ce_matches_logical_multipositive_batches():
-    batch = _batch()
-    expected_embeddings = batch[0].detach().clone().requires_grad_(True)
-    actual_embeddings = batch[0].detach().clone().requires_grad_(True)
-    _, positives, negatives, padding_mask, target_mask = batch
+def _assert_matches_logical_batches(
+    batch: tuple[torch.Tensor, ...],
+    reference_loss: LogInCESampled,
+    grouped_loss: GroupedLogInCESampled,
+) -> None:
+    embeddings, positives, negatives, padding_mask, target_mask = batch
+    expected_embeddings = embeddings.detach().clone().requires_grad_(True)
+    actual_embeddings = embeddings.detach().clone().requires_grad_(True)
+    reference_loss.logits_callback = _logits_callback
+    grouped_loss.logits_callback = _logits_callback
 
-    reference = LogInCESampled()
-    reference.logits_callback = _logits_callback
+    logical_batch_size = grouped_loss.logical_batch_size
     expected = torch.stack(
         [
-            reference(
-                expected_embeddings[start : start + 2],
+            reference_loss(
+                expected_embeddings[start : start + logical_batch_size],
                 {},
-                positives[start : start + 2],
+                positives[start : start + logical_batch_size],
                 negatives[group],
-                padding_mask[start : start + 2],
-                target_mask[start : start + 2],
+                padding_mask[start : start + logical_batch_size],
+                target_mask[start : start + logical_batch_size],
             )
-            for group, start in enumerate(range(0, expected_embeddings.size(0), 2))
+            for group, start in enumerate(range(0, expected_embeddings.size(0), logical_batch_size))
         ]
     ).mean()
-
-    grouped = GroupedLogInCESampled(logical_batch_size=2)
-    grouped.logits_callback = _logits_callback
-    actual = _loss(grouped, (actual_embeddings, positives, negatives, padding_mask, target_mask))
+    actual = _loss(
+        grouped_loss,
+        (actual_embeddings, positives, negatives, padding_mask, target_mask),
+    )
 
     torch.testing.assert_close(actual, expected)
     expected.backward()
     actual.backward()
+    assert torch.isfinite(actual_embeddings.grad).all()
     torch.testing.assert_close(actual_embeddings.grad, expected_embeddings.grad)
+
+
+def test_grouped_login_ce_matches_logical_multipositive_batches():
+    batch = list(_batch())
+    batch[1][0, 0] = torch.tensor([3, 2])
+    batch[2][0] = torch.tensor([1, 3, 5, 7, 9])
+    _assert_matches_logical_batches(
+        tuple(batch),
+        reference_loss=LogInCESampled(),
+        grouped_loss=GroupedLogInCESampled(logical_batch_size=2),
+    )
+
+
+def test_grouped_login_ce_matches_single_logical_batch():
+    _assert_matches_logical_batches(
+        _batch(batch_size=1),
+        reference_loss=LogInCESampled(),
+        grouped_loss=GroupedLogInCESampled(logical_batch_size=2),
+    )
+
+
+def test_grouped_login_ce_masks_a_collision_when_another_positive_is_not_sampled():
+    batch = list(_batch(batch_size=1))
+    batch[1][0, 0] = torch.tensor([9, 11])
+    batch[2][0] = torch.tensor([1, 3, 5, 7, 9])
+    _assert_matches_logical_batches(
+        tuple(batch),
+        reference_loss=LogInCESampled(),
+        grouped_loss=GroupedLogInCESampled(logical_batch_size=2),
+    )
+
+
+def test_grouped_login_ce_does_not_mask_collision_from_inactive_positive():
+    positive_labels = torch.tensor([[4, 7]])
+    positive_labels_mask = torch.tensor([[True, False]])
+    negative_labels = torch.tensor([[7, 8]])
+    negative_logits = torch.zeros(1, 2)
+
+    fallback_logits = mask_group_negative_logits(
+        negative_logits,
+        positive_labels,
+        positive_labels_mask,
+        negative_labels[0],
+        -100,
+    )
+    sorted_labels, sorted_columns = torch.sort(negative_labels, dim=-1)
+    collision_columns, collisions = find_negative_collision_columns(
+        positive_labels.unsqueeze(0),
+        sorted_labels,
+        sorted_columns,
+        positive_labels_mask.unsqueeze(0),
+    )
+
+    assert torch.isfinite(fallback_logits[0, 0])
+    assert collision_columns.shape == collisions.shape == (1, 1, 2)
+    assert not collisions.any()
+
+
+def test_grouped_login_ce_matches_duplicate_negative_pools():
+    batch = list(_batch(batch_size=4))
+    batch[2][0, 1] = batch[2][0, 0]
+    batch[2][1, 2] = batch[2][1, 0]
+    _assert_matches_logical_batches(
+        tuple(batch),
+        reference_loss=LogInCESampled(),
+        grouped_loss=GroupedLogInCESampled(logical_batch_size=2),
+    )
+
+
+def test_grouped_login_ce_matches_sparse_logical_batches():
+    batch = list(_batch())
+    batch[-1][0, :2] = False
+    batch[1][0, 0, 0] = batch[2][0, 0]
+    batch[-1][1, 1, 1] = False
+    batch[-1][2, 0] = False
+    batch[-1][3, 2] = False
+    _assert_matches_logical_batches(
+        tuple(batch),
+        reference_loss=LogInCESampled(),
+        grouped_loss=GroupedLogInCESampled(logical_batch_size=2),
+    )
+
+
+def test_grouped_login_ce_masks_padded_positions_before_logarithm():
+    batch = list(_batch())
+    batch[2].fill_(-100)
+    _assert_matches_logical_batches(
+        tuple(batch),
+        reference_loss=LogInCESampled(negative_labels_ignore_index=-100),
+        grouped_loss=GroupedLogInCESampled(logical_batch_size=2, negative_labels_ignore_index=-100),
+    )
 
 
 def test_grouped_login_ce_forwards_loss_parameters():
@@ -109,15 +209,16 @@ def test_grouped_login_ce_end_to_end_with_sampler_and_twotower():
     model = TwoTower(body=_Body(cardinality=12, embedding_dim=4), loss=loss)
     embeddings, positives, _, padding_mask, target_mask = _batch(batch_size=5)
     embeddings.requires_grad_(True)
-    sampled_batch = sampler({"positive_labels": positives})
-
-    output = model.forward_train(
-        feature_tensors={"query_embeddings": embeddings},
-        positive_labels=positives,
-        negative_labels=sampled_batch["negative_labels"],
-        padding_mask=padding_mask,
-        target_padding_mask=target_mask,
+    sampled_batch = sampler(
+        {
+            "positive_labels": positives,
+            "feature_tensors": {"query_embeddings": embeddings},
+            "padding_mask": padding_mask,
+            "target_padding_mask": target_mask,
+        }
     )
+
+    output = model(**sampled_batch)
 
     assert loss.logical_batch_size == sampler.group_size
     assert torch.isfinite(output["loss"])
@@ -128,6 +229,29 @@ def test_grouped_login_ce_end_to_end_with_sampler_and_twotower():
     assert torch.isfinite(model.body.item_tower.weight.grad).all()
 
 
+def test_grouped_login_ce_rejects_mismatched_sampler_group_size():
+    sampler = GroupedUniformNegativeSamplingTransform(
+        cardinality=12,
+        num_negative_samples=5,
+        group_size=4,
+        generator=torch.Generator().manual_seed(3),
+    )
+    embeddings, positives, _, padding_mask, target_mask = _batch(batch_size=16)
+    sampled_batch = sampler(
+        {
+            "positive_labels": positives,
+            "feature_tensors": {"query_embeddings": embeddings},
+            "padding_mask": padding_mask,
+            "target_padding_mask": target_mask,
+        }
+    )
+    loss = GroupedLogInCESampled(logical_batch_size=5)
+    model = TwoTower(body=_Body(cardinality=12, embedding_dim=4), loss=loss)
+
+    with pytest.raises(ValueError, match="same group size"):
+        model(**sampled_batch)
+
+
 def test_grouped_login_ce_ignores_padded_negatives_before_item_lookup():
     loss = GroupedLogInCESampled(logical_batch_size=2, negative_labels_ignore_index=-100)
     loss.logits_callback = _logits_callback
@@ -135,6 +259,32 @@ def test_grouped_login_ce_ignores_padded_negatives_before_item_lookup():
     batch[2][:, -1] = -100
 
     assert torch.isfinite(_loss(loss, tuple(batch)))
+
+
+def test_grouped_login_ce_supports_empty_negative_pools():
+    embeddings, positives, _, padding_mask, target_mask = _batch()
+    embeddings.requires_grad_(True)
+    loss = GroupedLogInCESampled(logical_batch_size=2)
+    model = TwoTower(body=_Body(cardinality=12, embedding_dim=4), loss=loss)
+
+    actual = model(
+        feature_tensors={"query_embeddings": embeddings},
+        padding_mask=padding_mask,
+        positive_labels=positives,
+        negative_labels=torch.empty((3, 0), dtype=torch.long),
+        target_padding_mask=target_mask,
+        negative_group_size=2,
+    )["loss"]
+
+    torch.testing.assert_close(actual, torch.zeros_like(actual))
+    actual.backward()
+    assert embeddings.grad is not None
+    torch.testing.assert_close(embeddings.grad, torch.zeros_like(embeddings.grad))
+    assert model.body.item_tower.weight.grad is not None
+    torch.testing.assert_close(
+        model.body.item_tower.weight.grad,
+        torch.zeros_like(model.body.item_tower.weight.grad),
+    )
 
 
 def test_grouped_login_ce_validates_constructor_arguments():
@@ -203,12 +353,18 @@ def test_grouped_login_ce_validates_input_shapes(
     target_mask,
     message,
 ):
+    loss = GroupedLogInCESampled(logical_batch_size=2)
+    loss.logits_callback = _logits_callback
     with pytest.raises(ValueError, match=message):
-        GroupedLogInCESampled(logical_batch_size=2)._validate_inputs(
-            model_embeddings,
-            positive_labels,
-            negative_labels,
-            target_mask,
+        _loss(
+            loss,
+            (
+                model_embeddings,
+                positive_labels,
+                negative_labels,
+                torch.empty(0, dtype=torch.bool),
+                target_mask,
+            ),
         )
 
 

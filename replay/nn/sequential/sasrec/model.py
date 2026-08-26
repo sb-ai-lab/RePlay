@@ -7,6 +7,7 @@ from replay.data.nn import TensorMap, TensorSchema
 from replay.nn.agg import AggregatorProto
 from replay.nn.head import EmbeddingTyingHead
 from replay.nn.loss import LossProto
+from replay.nn.loss._grouped import validate_grouped_loss
 from replay.nn.mask import AttentionMaskProto
 from replay.nn.normalization import NormalizerProto
 from replay.nn.output import InferenceOutput, TrainOutput
@@ -298,7 +299,9 @@ class SasRec(torch.nn.Module):
         positive_labels: torch.LongTensor,
         negative_labels: torch.LongTensor,
         target_padding_mask: torch.BoolTensor,
+        negative_group_size: int | None = None,
     ) -> TrainOutput:
+        validate_grouped_loss(self.loss, negative_group_size)
         hidden_states: torch.Tensor = self.body(feature_tensors, padding_mask)
         assert hidden_states.dim() == 3
 
@@ -341,6 +344,7 @@ class SasRec(torch.nn.Module):
         positive_labels: torch.LongTensor | None = None,
         negative_labels: torch.LongTensor | None = None,
         target_padding_mask: torch.BoolTensor | None = None,
+        negative_group_size: int | None = None,
     ) -> TrainOutput | InferenceOutput:
         """
         :param feature_tensors: a dictionary of tensors to generate embeddings.
@@ -369,6 +373,8 @@ class SasRec(torch.nn.Module):
             You don't have to submit an argument at inference stage,
             but if it is submitted, then no effect will be provided.\n
             Default: ``None``.
+        :param negative_group_size: Logical group size emitted by grouped negative sampling.
+            It is validated against grouped losses during training. Default: ``None``.
         :returns: During training, the model will return an object
             of the ``TrainOutput`` container class.
             At the inference stage, the ``InferenceOutput`` class will be returned.
@@ -386,6 +392,7 @@ class SasRec(torch.nn.Module):
                 positive_labels=positive_labels,
                 negative_labels=negative_labels,
                 target_padding_mask=target_padding_mask,
+                negative_group_size=negative_group_size,
             )
 
         all(
@@ -395,6 +402,7 @@ class SasRec(torch.nn.Module):
                     (positive_labels, "positive_labels"),
                     (negative_labels, "negative_labels"),
                     (target_padding_mask, "target_padding_mask"),
+                    (negative_group_size, "negative_group_size"),
                 ],
             )
         )
