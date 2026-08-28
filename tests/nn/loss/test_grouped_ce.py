@@ -89,10 +89,16 @@ def _assert_matches_logical_batches(
         target_padding_mask=target_mask,
     )
 
+    assert torch.isfinite(expected)
+    assert torch.isfinite(actual)
     torch.testing.assert_close(actual, expected)
     expected.backward()
     actual.backward()
+    assert torch.isfinite(expected_embeddings.grad).all()
+    assert torch.isfinite(actual_embeddings.grad).all()
     torch.testing.assert_close(actual_embeddings.grad, expected_embeddings.grad)
+    assert torch.isfinite(reference_model.body.item_tower.weight.grad).all()
+    assert torch.isfinite(grouped_model.body.item_tower.weight.grad).all()
     torch.testing.assert_close(
         grouped_model.body.item_tower.weight.grad,
         reference_model.body.item_tower.weight.grad,
@@ -126,13 +132,42 @@ def test_grouped_loss_matches_logical_batches_and_gradients(cardinality):
     batch[-1][1, 1:] = False
     batch[-1][2, :2] = False
     batch[-1][4, 0] = False
+    class_weights = torch.linspace(0.5, 1.5, batch[2].size(-1) + 1)
     _assert_matches_logical_batches(
         tuple(batch),
-        reference_loss=CESampled(negative_labels_ignore_index=-100, label_smoothing=0.1),
+        reference_loss=CESampled(
+            negative_labels_ignore_index=-100,
+            weight=class_weights,
+            label_smoothing=0.1,
+        ),
         grouped_loss=GroupedCESampled(
             logical_batch_size=2,
             cardinality=cardinality,
             negative_labels_ignore_index=-100,
+            weight=class_weights.clone(),
+            label_smoothing=0.1,
+        ),
+    )
+
+
+def test_single_group_dense_loss_supports_weighted_label_smoothing():
+    batch = list(_batch(23, batch_size=1))
+    batch[1][0, 0, 0] = batch[2][0, 0]
+    batch[2][0, -1] = -100
+    class_weights = torch.linspace(0.5, 1.5, batch[2].size(-1) + 1)
+
+    _assert_matches_logical_batches(
+        tuple(batch),
+        reference_loss=CESampled(
+            negative_labels_ignore_index=-100,
+            weight=class_weights,
+            label_smoothing=0.1,
+        ),
+        grouped_loss=GroupedCESampled(
+            logical_batch_size=2,
+            cardinality=20,
+            negative_labels_ignore_index=-100,
+            weight=class_weights.clone(),
             label_smoothing=0.1,
         ),
     )
@@ -143,10 +178,16 @@ def test_grouped_loss_matches_duplicate_negative_pools(cardinality):
     batch = list(_batch(19, batch_size=4))
     batch[2][0, 1] = batch[2][0, 0]
     batch[2][1, 2] = batch[2][1, 0]
+    class_weights = torch.linspace(0.5, 1.5, batch[2].size(-1) + 1)
     _assert_matches_logical_batches(
         tuple(batch),
-        reference_loss=CESampled(),
-        grouped_loss=GroupedCESampled(logical_batch_size=2, cardinality=cardinality),
+        reference_loss=CESampled(weight=class_weights, label_smoothing=0.1),
+        grouped_loss=GroupedCESampled(
+            logical_batch_size=2,
+            cardinality=cardinality,
+            weight=class_weights.clone(),
+            label_smoothing=0.1,
+        ),
     )
 
 

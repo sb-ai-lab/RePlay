@@ -34,6 +34,9 @@ class GroupedCESampled(CESampled):
     pools with repeated non-ignored IDs, the loss preserves the exact sampled-CE
     semantics with a slower, memory-intensive collision-masking fallback.
 
+    With label smoothing, ignored negatives and sampled negatives that match a
+    positive label are excluded from both the softmax and smoothing distribution.
+
     On the vectorized path, the logits callback must be compatible with
     :func:`torch.vmap`. In particular, training-time modules that update buffers,
     such as :class:`torch.nn.BatchNorm1d`, are unsupported.
@@ -105,7 +108,7 @@ class GroupedCESampled(CESampled):
         )
         logits = torch.cat((positive_logits, negative_logits), dim=-1)
         target = torch.zeros_like(positive_labels)
-        return self._loss(logits, target)
+        return self._compute_loss(logits, target)
 
     def _forward_single_group(
         self,
@@ -183,7 +186,7 @@ class GroupedCESampled(CESampled):
         )
         logits = torch.cat((positive_logits, negative_logits), dim=-1)
         target = torch.zeros_like(positive_labels).masked_fill(~position_mask, self._loss.ignore_index)
-        return self._loss(logits, target)
+        return self._compute_loss(logits, target)
 
     def forward(
         self,

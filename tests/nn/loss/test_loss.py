@@ -15,6 +15,62 @@ from replay.nn.loss import (
     LogOutCEWeighted,
 )
 from replay.nn.loss.base import mask_negative_logits, weighted_mean
+from replay.nn.loss.ce import _masked_cross_entropy
+
+
+@pytest.mark.parametrize("reduction", ["none", "sum", "mean"])
+@pytest.mark.parametrize("weight", [None, torch.tensor([0.5, 1.5, 2.0, 0.75], dtype=torch.float64)])
+def test_masked_cross_entropy_smooths_over_valid_classes(weight, reduction):
+    logits = torch.tensor(
+        [
+            [2.0, 0.5, -torch.inf, -1.0],
+            [0.3, -torch.inf, 1.2, -0.4],
+            [1.0, -torch.inf, 3.0, -torch.inf],
+        ],
+        dtype=torch.float64,
+    )
+    target = torch.tensor([0, 2, -100])
+    expected_logits = logits.clone().requires_grad_(True)
+    actual_logits = logits.clone().requires_grad_(True)
+    loss = torch.nn.CrossEntropyLoss(
+        weight=weight,
+        ignore_index=-100,
+        reduction=reduction,
+        label_smoothing=0.2,
+    )
+
+    expected_losses = []
+    for row, label in enumerate(target):
+        if label == loss.ignore_index:
+            expected_losses.append(expected_logits[row].masked_fill(torch.isneginf(expected_logits[row]), 0).sum() * 0)
+            continue
+        valid_classes = ~torch.isneginf(expected_logits[row])
+        reduced_target = valid_classes[:label].sum().unsqueeze(0)
+        reduced_weight = None if weight is None else weight[valid_classes]
+        expected_losses.append(
+            torch.nn.functional.cross_entropy(
+                expected_logits[row][valid_classes].unsqueeze(0),
+                reduced_target,
+                weight=reduced_weight,
+                reduction="none",
+                label_smoothing=loss.label_smoothing,
+            ).squeeze(0)
+        )
+    expected = torch.stack(expected_losses)
+    if reduction == "sum":
+        expected = expected.sum()
+    elif reduction == "mean":
+        denominator = 2 if weight is None else weight[target[:2]].sum()
+        expected = expected.sum() / denominator
+
+    actual = _masked_cross_entropy(actual_logits, target, loss)
+
+    assert torch.isfinite(actual).all()
+    torch.testing.assert_close(actual, expected)
+    expected.sum().backward()
+    actual.sum().backward()
+    assert torch.isfinite(actual_logits.grad).all()
+    torch.testing.assert_close(actual_logits.grad, expected_logits.grad)
 
 
 def test_mask_negative_logits_ignores_inactive_positive_labels():

@@ -7,6 +7,59 @@ from replay.data.nn import TensorMap
 from .base import SampledLossBase, mask_negative_logits, weighted_mean
 
 
+def _masked_cross_entropy(
+    logits: torch.Tensor,
+    target: torch.LongTensor,
+    loss: torch.nn.CrossEntropyLoss,
+) -> torch.Tensor:
+    """Apply label smoothing over unmasked candidate classes only."""
+    label_smoothing = getattr(loss, "label_smoothing", 0.0)
+    if label_smoothing <= 0:
+        return loss(logits, target)
+    if label_smoothing > 1:
+        msg = f"label_smoothing must be between 0.0 and 1.0. Got: {label_smoothing}"
+        raise RuntimeError(msg)
+
+    ignored_targets = target.eq(loss.ignore_index)
+    safe_target = target.masked_fill(ignored_targets, 0)
+    valid_classes = ~torch.isneginf(logits)
+    valid_classes = valid_classes.scatter(-1, safe_target.unsqueeze(-1), True)
+    safe_logits = logits.masked_fill(ignored_targets.unsqueeze(-1), 0)
+    log_normalizer = torch.logsumexp(
+        safe_logits.masked_fill(~valid_classes, -torch.inf),
+        dim=-1,
+        keepdim=True,
+    )
+    log_probabilities = (safe_logits - log_normalizer).masked_fill(~valid_classes, 0)
+
+    negative_log_likelihood = -log_probabilities.gather(-1, safe_target.unsqueeze(-1)).squeeze(-1)
+    smooth_terms = -log_probabilities
+    target_weights = None
+    if loss.weight is not None:
+        if loss.weight.requires_grad:
+            msg = "The class weight is not differentiable."
+            raise RuntimeError(msg)
+        target_weights = loss.weight[safe_target]
+        negative_log_likelihood = negative_log_likelihood * target_weights
+        smooth_terms = smooth_terms * loss.weight
+    smooth_loss = smooth_terms.sum(-1) / valid_classes.sum(-1)
+
+    output = ((1 - label_smoothing) * negative_log_likelihood + label_smoothing * smooth_loss).masked_fill(
+        ignored_targets,
+        0,
+    )
+    if loss.reduction == "none":
+        return output
+    if loss.reduction == "sum":
+        return output.sum()
+    if loss.reduction == "mean":
+        active_targets = ~ignored_targets
+        denominator = active_targets.sum() if target_weights is None else (target_weights * active_targets).sum()
+        return output.sum() / denominator
+    msg = f"{loss.reduction} is not a valid value for reduction"
+    raise ValueError(msg)
+
+
 class CE(torch.nn.Module):
     """
     Full Cross-Entropy loss
@@ -151,6 +204,9 @@ class CESampled(SampledLossBase):
 
     The loss supports the calculation of logits for the case of multi-positive labels
     (there are several labels for each position in the sequence).
+
+    With label smoothing, ignored negatives and sampled negatives that match a
+    positive label are excluded from both the softmax and smoothing distribution.
     """
 
     def __init__(
@@ -196,6 +252,9 @@ class CESampled(SampledLossBase):
     @logits_callback.setter
     def logits_callback(self, func: Callable | None) -> None:
         self._logits_callback = func
+
+    def _compute_loss(self, logits: torch.Tensor, target: torch.LongTensor) -> torch.Tensor:
+        return _masked_cross_entropy(logits, target, self._loss)
 
     def forward(
         self,
@@ -246,7 +305,7 @@ class CESampled(SampledLossBase):
         # [masked_batch_size] - positives are always at 0 position for all recommendation points
         target = torch.zeros(positive_logits.size(0), dtype=torch.long, device=logits.device)
         # [masked_batch_size] - loss for all recommendation points
-        loss = self._loss(logits, target)
+        loss = self._compute_loss(logits, target)
         return loss
 
 
