@@ -143,7 +143,7 @@ optional = true
 
 [tool.poetry-dynamic-versioning]
 enable = true
-format-jinja = """0.22.0{{ env['PACKAGE_SUFFIX'] }}"""
+format-jinja = """0.22.1{{ env['PACKAGE_SUFFIX'] }}"""
 vcs = "git"
 
 [tool.pytest]
