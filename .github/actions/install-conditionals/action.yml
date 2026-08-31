@@ -11,6 +11,7 @@ runs:
         eval "$(poetry env activate)"
 
         pip install -q --upgrade \
+          "numpy<2.5" \
           onnx \
           onnxscript \
           openvino \
