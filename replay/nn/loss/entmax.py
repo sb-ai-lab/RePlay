@@ -100,18 +100,20 @@ class PREntmax(torch.nn.Module):
     Calculates loss over all items catalog.
     """
 
-    def __init__(self, feature_name: str, gamma: float, eps: float = 1e-6, **kwargs):
+    def __init__(self, feature_name: str, gamma: float = 0.1, temperature: float = 10, eps: float = 1e-6, **kwargs):
         """
         To calculate the loss, ``Entmax15Loss`` is used.
         You can pass all parameters for initializing the object via kwargs.
 
         :param feature_name: Name of the feature containing item popularity.
         :param gamma: Weight of the popularity correction.
+        :param temperature: Temperature applied to adjusted logits. Default: ``10``.
         :param eps: Small value added before logarithm to avoid log of zero.
         """
         super().__init__()
         self.feature_name = feature_name
         self.gamma = gamma
+        self.temperature = temperature
         self.eps = eps
         self._loss = Entmax15Loss(**kwargs)
         self._logits_callback = None
@@ -166,7 +168,7 @@ class PREntmax(torch.nn.Module):
             raise NotImplementedError(msg)
         logits: torch.Tensor = self.logits_callback(model_embeddings)  # [batch_size, seq_len, vocab_size]
         popularity = feature_tensors[self.feature_name].unsqueeze(-2)
-        logits = logits + self.gamma * torch.log(popularity + self.eps)
+        logits = (logits + self.gamma * torch.log(popularity + self.eps)) / self.temperature
         labels = positive_labels.masked_fill(
             mask=(~target_padding_mask),
             value=self._loss.ignore_index,
@@ -193,6 +195,7 @@ class PREntmaxSampled(SampledLossBase):
         self,
         feature_name: str,
         gamma: float,
+        temperature: float = 10,
         eps: float = 1e-6,
         negative_labels_ignore_index: int = -100,
         **kwargs,
@@ -203,6 +206,7 @@ class PREntmaxSampled(SampledLossBase):
 
         :param feature_name: Name of the feature containing item popularity.
         :param gamma: Weight of the popularity correction.
+        :param temperature: Temperature applied to adjusted logits. Default: ``10``.
         :param eps: Small value added before logarithm to avoid log of zero.
         :param negative_labels_ignore_index: a padding value for negative labels.
             This may be the case when negative labels
@@ -213,6 +217,7 @@ class PREntmaxSampled(SampledLossBase):
         super().__init__()
         self.feature_name = feature_name
         self.gamma = gamma
+        self.temperature = temperature
         self.eps = eps
         self.negative_labels_ignore_index = negative_labels_ignore_index
         self._loss = Entmax15Loss(**kwargs)
@@ -296,8 +301,8 @@ class PREntmaxSampled(SampledLossBase):
             safe_negative_labels,
         ]
 
-        positive_logits = positive_logits + self.gamma * torch.log(positive_popularity + self.eps)
-        negative_logits = negative_logits + self.gamma * torch.log(negative_popularity + self.eps)
+        positive_logits = (positive_logits + self.gamma * torch.log(positive_popularity + self.eps)) / self.temperature
+        negative_logits = (negative_logits + self.gamma * torch.log(negative_popularity + self.eps)) / self.temperature
 
         # [masked_batch_size, num_negatives] - assign low values to some negative logits
         negative_logits = mask_negative_logits(
