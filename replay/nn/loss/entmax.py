@@ -10,24 +10,36 @@ from .base import SampledLossBase, mask_negative_logits
 
 class PREntmax(torch.nn.Module):
     """
-    Full PR-Entmax loss
-    Calculates loss over all items catalog.
+    Full PR-Entmax loss over all items in the catalog.
+    Without item frequencies, computes Entmax-1.5 on temperature-scaled logits.
     """
 
     def __init__(
-        self, item_frequency: torch.Tensor, gamma: float = 0.1, temperature: float = 10, eps: float = 1e-6, **kwargs
+        self,
+        item_frequency: torch.Tensor | None = None,
+        gamma: float = 0.1,
+        temperature: float = 10,
+        eps: float = 1e-11,
+        **kwargs,
     ):
         """
         To calculate the loss, an internal Entmax-1.5 implementation is used.
         You can pass all its initialization parameters via kwargs.
 
         :param item_frequency: One-dimensional tensor containing item frequencies.
-            Expected shape: ``(vocabulary_size)``.
+            Expected shape: ``(vocabulary_size,)``. If ``None``, item frequency correction is disabled.
+            Default: ``None``.
         :param gamma: Weight of the item frequency correction.
-        :param temperature: Temperature applied to adjusted logits. Default: ``10``.
+            Ignored when ``item_frequency`` is ``None``. Default: ``0.1``.
+        :param temperature: Temperature applied to logits with or without item frequency correction.
+            Default: ``10``. Use ``temperature=1`` with ``item_frequency=None``
+            for Entmax-1.5 on unscaled logits.
         :param eps: Small value added before logarithm to avoid log of zero.
         """
         super().__init__()
+        if item_frequency is not None and item_frequency.ndim != 1:
+            msg = "item_frequency must be a one-dimensional tensor"
+            raise ValueError(msg)
         self.register_buffer("item_frequency", item_frequency)
         self.gamma = gamma
         self.temperature = temperature
@@ -81,7 +93,9 @@ class PREntmax(torch.nn.Module):
             msg = "The case of multi-positive labels is not supported in the PR-Entmax loss"
             raise NotImplementedError(msg)
         logits: torch.Tensor = self.logits_callback(model_embeddings)  # [batch_size, seq_len, vocab_size]
-        logits = (logits + self.gamma * torch.log(self.item_frequency + self.eps)) / self.temperature
+        if self.item_frequency is not None:
+            logits = logits + self.gamma * torch.log(self.item_frequency + self.eps)
+        logits = logits / self.temperature
         labels = positive_labels.masked_fill(
             mask=(~target_padding_mask),
             value=self._loss.ignore_index,
@@ -99,6 +113,7 @@ class PREntmaxSampled(SampledLossBase):
     """
     Sampled PR-Entmax loss with negative sampling.
     Calculates loss between one positive item and K negatively sampled items.
+    Without item frequencies, computes sampled Entmax-1.5 on temperature-scaled logits.
 
     The loss supports the calculation of logits for the case of multi-positive labels
     (there are several labels for each position in the sequence).
@@ -106,10 +121,10 @@ class PREntmaxSampled(SampledLossBase):
 
     def __init__(
         self,
-        item_frequency: torch.Tensor,
-        gamma: float,
+        item_frequency: torch.Tensor | None = None,
+        gamma: float = 0.1,
         temperature: float = 10,
-        eps: float = 1e-6,
+        eps: float = 1e-11,
         negative_labels_ignore_index: int = -100,
         **kwargs,
     ):
@@ -118,9 +133,13 @@ class PREntmaxSampled(SampledLossBase):
         You can pass all its initialization parameters via kwargs.
 
         :param item_frequency: One-dimensional tensor containing item frequencies.
-            Expected shape: ``(vocabulary_size)``.
+            Expected shape: ``(vocabulary_size,)``. If ``None``, item frequency correction is disabled.
+            Default: ``None``.
         :param gamma: Weight of the item frequency correction.
-        :param temperature: Temperature applied to adjusted logits. Default: ``10``.
+            Ignored when ``item_frequency`` is ``None``. Default: ``0.1``.
+        :param temperature: Temperature applied to logits with or without item frequency correction.
+            Default: ``10``. Use ``temperature=1`` with ``item_frequency=None``
+            for sampled Entmax-1.5 on unscaled logits.
         :param eps: Small value added before logarithm to avoid log of zero.
         :param negative_labels_ignore_index: a padding value for negative labels.
             This may be the case when negative labels
@@ -129,6 +148,9 @@ class PREntmaxSampled(SampledLossBase):
             Default: ``-100``.
         """
         super().__init__()
+        if item_frequency is not None and item_frequency.ndim != 1:
+            msg = "item_frequency must be a one-dimensional tensor"
+            raise ValueError(msg)
         self.register_buffer("item_frequency", item_frequency)
         self.gamma = gamma
         self.temperature = temperature
@@ -200,19 +222,18 @@ class PREntmaxSampled(SampledLossBase):
         positive_labels = sampled["positive_labels"]  # [masked_batch_size, num_positives]
         negative_labels = sampled["negative_labels"]  # [masked_batch_size, num_negatives] or [num_negatives]
 
-        positive_item_frequency = self.item_frequency[target_labels].unsqueeze(-1)
-        safe_negative_labels = negative_labels.masked_fill(
-            negative_labels == self.negative_labels_ignore_index,
-            0,
-        )
-        negative_item_frequency = self.item_frequency[safe_negative_labels]
+        if self.item_frequency is not None:
+            positive_item_frequency = self.item_frequency[target_labels].unsqueeze(-1)
+            safe_negative_labels = negative_labels.masked_fill(
+                negative_labels == self.negative_labels_ignore_index,
+                0,
+            )
+            negative_item_frequency = self.item_frequency[safe_negative_labels]
 
-        positive_logits = (
-            positive_logits + self.gamma * torch.log(positive_item_frequency + self.eps)
-        ) / self.temperature
-        negative_logits = (
-            negative_logits + self.gamma * torch.log(negative_item_frequency + self.eps)
-        ) / self.temperature
+            positive_logits = positive_logits + self.gamma * torch.log(positive_item_frequency + self.eps)
+            negative_logits = negative_logits + self.gamma * torch.log(negative_item_frequency + self.eps)
+        positive_logits = positive_logits / self.temperature
+        negative_logits = negative_logits / self.temperature
 
         # [masked_batch_size, num_negatives] - assign low values to some negative logits
         negative_logits = mask_negative_logits(
