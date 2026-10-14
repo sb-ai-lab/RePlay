@@ -108,7 +108,14 @@ class AdaptiveTrimTransform(torch.nn.Module):
 
 
 class TargetAwareAdaptiveTrimTransform(torch.nn.Module):
-    """Trim left padding unused by both model inputs and next-token targets."""
+    """Trim left padding unused by both model inputs and next-token targets.
+
+    Use this transform together with
+    :class:`~replay.nn.sequential.LengthBucketedQueryEncoder` to reduce the
+    sequence length first for the physical batch and then for each length
+    bucket. See ``examples/17_twotower_advanced_example.ipynb`` for a complete
+    runnable configuration.
+    """
 
     def __init__(
         self,

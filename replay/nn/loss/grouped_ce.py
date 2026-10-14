@@ -8,7 +8,11 @@ from replay.nn.loss.ce import CESampled
 class GroupedCESampled(CESampled):
     """Sampled CE with one independent negative pool per logical batch group.
 
-    Negative pools must contain unique item IDs.
+    Negative pools must contain unique item IDs. Use this loss together with
+    :class:`~replay.nn.transform.GroupedUniformNegativeSamplingTransform`; its
+    ``logical_batch_size`` must match the transform's ``group_size``. See
+    ``examples/17_twotower_advanced_example.ipynb`` for a complete runnable
+    configuration.
     """
 
     def __init__(

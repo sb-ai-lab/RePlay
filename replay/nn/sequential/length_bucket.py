@@ -6,6 +6,12 @@ from replay.data.nn import TensorMap
 class LengthBucketedQueryEncoder(torch.nn.Module):
     """Evaluate similarly sized left-padded sequences together during training.
 
+    Use this encoder together with
+    :class:`~replay.nn.transform.TargetAwareAdaptiveTrimTransform` so that both
+    the physical batch and each length bucket discard unused left padding. See
+    ``examples/17_twotower_advanced_example.ipynb`` for a complete runnable
+    configuration.
+
     Cropped padding positions are restored as zeros. Downstream training code
     must ignore them through its target mask. RePlay attention masks may be
     shared, batch-aligned, or flattened as ``[batch * heads, sequence, sequence]``.
