@@ -11,7 +11,7 @@ from .rename import RenameTransform
 from .reshape import UnsqueezeTransform
 from .select import SelectTransform
 from .sequence_roll import SequenceRollTransform
-from .token_mask import TokenMaskTransform
+from .token_mask import TargetMLMTransform, TokenMaskTransform
 from .trim import AdaptiveTrimTransform, TargetAwareAdaptiveTrimTransform, TrimTransform
 
 __all__ = [
@@ -25,6 +25,7 @@ __all__ = [
     "RenameTransform",
     "SelectTransform",
     "SequenceRollTransform",
+    "TargetMLMTransform",
     "TargetAwareAdaptiveTrimTransform",
     "TokenMaskTransform",
     "TrimTransform",

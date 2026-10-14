@@ -48,9 +48,7 @@ class TokenMaskTransform(torch.nn.Module):
 
         assert paddings.dtype == torch.bool, "Source tensor for token mask should be boolean."
 
-        mask_prob = torch.rand(paddings.size(-1), dtype=torch.float32, generator=self.generator).to(
-            device=paddings.device
-        )
+        mask_prob = torch.rand(paddings.shape, dtype=torch.float32, device=paddings.device, generator=self.generator)
 
         # mask[i], 0 ~ mask_prob, 1 ~ (1 - mask_prob)
         mask = (mask_prob * paddings) >= self.mask_prob
@@ -64,4 +62,22 @@ class TokenMaskTransform(torch.nn.Module):
             mask[-2] = 1
 
         output_batch[self.out_feature_name] = mask
+        return output_batch
+
+
+class TargetMLMTransform(torch.nn.Module):
+
+    def __init__(self, token_mask_col: str = "token_mask", 
+                 padding_mask_col: str = "padding_mask", 
+                 out_feature_name: str = "target_padding_mask"
+    ) -> None:
+        super().__init__()
+        self.token_mask_col = token_mask_col
+        self.padding_mask_col = padding_mask_col
+        self.out_feature_name = out_feature_name
+
+    def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        output_batch = dict(batch.items())
+
+        output_batch[self.out_feature_name] = torch.logical_xor(output_batch[self.padding_mask_col], output_batch[self.token_mask_col])
         return output_batch

@@ -1,4 +1,16 @@
+from typing import Protocol
+import contextlib
 import torch
+
+
+class HeadProto(Protocol):
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        item_embeddings: torch.Tensor,
+    ) -> torch.Tensor: ...
+    
+    def reset_parameters(self) -> None: ...
 
 
 class EmbeddingTyingHead(torch.nn.Module):
@@ -42,3 +54,31 @@ class EmbeddingTyingHead(torch.nn.Module):
             hidden_states.view(-1, 1, hidden_states.size(-1)),
             item_embeddings.view(-1, item_embeddings.size(-1), 1),
         ).view(hidden_states.size(0), *item_embeddings.shape[1:-1])
+
+    def reset_parameters(self) -> None:
+        pass
+
+class ClassificationHead(torch.nn.Module):
+    """
+    Classification head of n classes.
+    """
+
+    def __init__(self, hidden_size: int, n_classes: int) -> None:
+        """
+        :param hidden_size: Hidden size of transformer.
+        :param n_classes: Number of classes.
+        """
+        super().__init__()
+        self.linear = torch.nn.Linear(hidden_size, n_classes, bias=True)
+
+    def reset_parameters(self):
+        for _, param in self.linear.named_parameters():
+            with contextlib.suppress(ValueError):
+                torch.nn.init.xavier_normal_(param.data)
+    
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        item_embeddings: torch.Tensor,
+    ) -> torch.Tensor:
+        return self.linear(hidden_states)

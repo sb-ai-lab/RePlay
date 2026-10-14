@@ -240,6 +240,35 @@ def test_token_mask_transform_corner_cases(mask_prob, batch):
     assert torch.any(not_padded_token_mask == 0)
 
 
+@pytest.mark.parametrize("mask_prob", [0.0, 1.0])
+def test_token_mask_transform_corner_cases_per_sequence(mask_prob):
+    batch = {
+        "padding_mask": torch.tensor(
+            [
+                [1, 1, 1, 0],
+                [1, 1, 1, 1],
+                [0, 0, 0, 0],
+            ],
+            dtype=torch.bool,
+        )
+    }
+    transform = TokenMaskTransform(mask_prob=mask_prob, token_field="padding_mask")
+    transformed_batch = transform(batch)
+
+    token_mask = transformed_batch["token_mask"]
+    padding_mask = batch["padding_mask"]
+
+    assert not token_mask[~padding_mask].any()
+    for seq_mask, seq_padding in zip(token_mask, padding_mask):
+        valid_mask = seq_mask[seq_padding]
+        if valid_mask.numel() == 0:
+            continue
+
+        assert torch.any(valid_mask == 0)
+        if valid_mask.numel() > 1:
+            assert torch.any(valid_mask == 1)
+
+
 @pytest.mark.parametrize("max_len", [1, 10])
 def test_trim_transform(random_batch, max_len):
     features_to_trim = ["item_id", "cat_feature"]
