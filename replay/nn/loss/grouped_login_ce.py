@@ -6,48 +6,27 @@ from .login_ce import LogInCESampled
 
 
 class GroupedLogInCESampled(LogInCESampled):
-    """Sampled LogInCE with one negative pool per logical batch group.
+    """Compute sampled LogInCE with a negative pool per logical batch group.
 
-    The loss keeps the multi-positive objective of :class:`LogInCESampled`.
-    It is useful when several former microbatches are packed into one physical
-    batch while every logical microbatch must retain an independent negative
-    sample pool. Use it with
-    :class:`~replay.nn.transform.GroupedUniformNegativeSamplingTransform` and
-    set ``logical_batch_size`` to the sampler's ``group_size``.
+    The physical batch is divided into consecutive groups of at most
+    ``logical_batch_size`` rows. Group ``i`` uses ``negative_labels[i]``; the
+    final group may contain fewer rows. This is useful when several smaller
+    batches are packed together but each must keep an independent negative
+    sampling scope.
 
-    The physical batch may end with a partial logical group. The
-    ``logical_batch_size`` must match the grouped sampler's ``group_size``.
+    This loss retains the multi-positive objective of
+    :class:`~replay.nn.loss.LogInCESampled`.
+    ``positive_labels`` and ``target_padding_mask`` therefore have shape
+    ``[batch, sequence, num_positives]``. Masked positives do not contribute,
+    positive items that occur among the negatives are excluded, and every
+    logical group must contain at least one valid target. The result is the mean
+    of the group losses, so every active group has equal weight.
 
-    Example:
-
-    .. code-block:: python
-
-        from replay.data.nn import ParquetModule
-        from replay.nn.loss import GroupedLogInCESampled
-        from replay.nn.sequential import SasRec
-        from replay.nn.transform import GroupedUniformNegativeSamplingTransform
-        from replay.nn.transform.template import make_default_sasrec_transforms
-
-        logical_batch_size = 128
-        packed_batch_size = 5 * logical_batch_size
-
-        negative_sampler = GroupedUniformNegativeSamplingTransform(
-            cardinality=num_items,
-            num_negative_samples=20_000,
-            group_size=logical_batch_size,
-        )
-        loss = GroupedLogInCESampled(logical_batch_size=logical_batch_size)
-
-        transforms = make_default_sasrec_transforms(tensor_schema)
-        transforms["train"].append(negative_sampler)
-        datamodule = ParquetModule(
-            metadata=metadata,
-            transforms=transforms,
-            batch_size=packed_batch_size,
-            train_path=train_path,
-            validate_path=validate_path,
-        )
-        model = SasRec(body=sasrec_body, loss=loss)
+    ``negative_labels`` must have shape ``[ceil(B / G), K]``, where ``B`` is the
+    physical batch size, ``G`` is ``logical_batch_size``, and ``K`` is the
+    number of negatives. Item IDs in each pool must be unique. Use
+    :class:`~replay.nn.transform.GroupedUniformNegativeSamplingTransform`
+    to satisfy this contract; its ``group_size`` must equal ``logical_batch_size``.
     """
 
     def __init__(
@@ -116,6 +95,21 @@ class GroupedLogInCESampled(LogInCESampled):
         padding_mask: torch.BoolTensor,
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
+        """Calculate the mean LogInCE loss over active logical groups.
+
+        :param model_embeddings: Model output of shape
+            ``[batch, sequence, embedding]``.
+        :param feature_tensors: Feature mapping accepted for the common RePlay
+            loss interface.
+        :param positive_labels: Positive item IDs of shape
+            ``[batch, sequence, num_positives]``.
+        :param negative_labels: One shared negative pool per group, with shape
+            ``[ceil(batch / logical_batch_size), num_negatives]``.
+        :param padding_mask: Input mask of shape ``[batch, sequence]``.
+        :param target_padding_mask: Boolean mask with the same shape as
+            ``positive_labels``.
+        :return: Scalar mean of the per-group LogInCE losses.
+        """
         active_groups = self._validate_inputs(
             model_embeddings,
             positive_labels,

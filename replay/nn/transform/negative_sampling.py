@@ -107,10 +107,43 @@ class UniformNegativeSamplingTransform(torch.nn.Module):
 
 
 class GroupedUniformNegativeSamplingTransform(UniformNegativeSamplingTransform):
-    """Draw an independent negative pool for each logical batch group.
+    """Sample a separate set of negatives for every logical group in a batch.
 
-    This transform allows several logical batches to be packed into one larger
-    physical batch without changing how often negatives are sampled.
+    A large physical batch can be splitted into consecutive logical groups without
+    changing the negative-sampling scope. For a physical batch of size ``B`` and
+    ``group_size=G``, the transform creates
+    ``ceil(B / G)`` pools of shape ``[num_negative_samples]``. The final group
+    may contain fewer than ``G`` rows. All rows in a group use the same pool,
+    while different groups are sampled independently.
+
+    Sampling is performed without replacement, so item IDs are unique within
+    each pool. By default, items in ``[0, cardinality)`` are sampled uniformly.
+    ``sample_distribution`` can provide non-negative weights; it must be
+    one-dimensional and contain at least ``num_negative_samples`` positive
+    weights. The catalog cardinality does not include a padding item.
+
+    ``batch_feature_name`` is used only to obtain the physical batch size.
+    The sampled tensor is written under ``out_feature_name`` with shape
+    ``[ceil(B / G), num_negative_samples]``.
+
+    Use this transform with :class:`~replay.nn.loss.GroupedCESampled` or
+    :class:`~replay.nn.loss.GroupedLogInCESampled`. ``group_size`` must equal the
+    loss's ``logical_batch_size`` so that each pool is assigned to the rows for
+    which it was sampled.
+
+    Example:
+
+    .. code-block:: python
+
+        >>> input_batch = {"positive_labels": torch.zeros(70, 10, 1, dtype=torch.long)}
+        >>> transform = GroupedUniformNegativeSamplingTransform(
+        ...     cardinality=100,
+        ...     num_negative_samples=20,
+        ...     group_size=32,
+        ... )
+        >>> output_batch = transform(input_batch)
+        >>> output_batch["negative_labels"].shape
+        torch.Size([3, 20])
     """
 
     def __init__(
@@ -125,13 +158,19 @@ class GroupedUniformNegativeSamplingTransform(UniformNegativeSamplingTransform):
         generator: torch.Generator | None = None,
     ) -> None:
         """
-        :param cardinality: Number of items in the catalog, excluding padding.
-        :param num_negative_samples: Number of items in each negative pool.
-        :param group_size: Number of rows in one logical batch group.
-        :param batch_feature_name: Feature whose first dimension defines the physical batch size.
-        :param out_feature_name: Name of the generated grouped negative tensor.
-        :param sample_distribution: Optional sampling weights of length ``cardinality``.
-        :param generator: Optional random number generator.
+        :param cardinality: Number of item IDs in the catalog, excluding padding.
+        :param num_negative_samples: Number of unique item IDs in each negative pool.
+            Must be less than ``cardinality``.
+        :param group_size: Maximum number of consecutive batch rows sharing one
+            negative pool. Must be positive.
+        :param batch_feature_name: Name of a tensor whose first dimension is the
+            physical batch size. Its remaining dimensions and values are ignored.
+        :param out_feature_name: Name under which to store the tensor of grouped
+            negative item IDs.
+        :param sample_distribution: Optional one-dimensional sampling weights of
+            length ``cardinality``. Zero-weight items are never sampled.
+        :param generator: Optional random number generator used by
+            :func:`torch.multinomial`.
         """
         if group_size <= 0:
             msg = "The group_size parameter must be positive."
