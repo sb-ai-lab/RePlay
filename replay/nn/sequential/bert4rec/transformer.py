@@ -7,11 +7,9 @@ from replay.data.nn import TensorMap
 from replay.nn.ffn import PositionwiseFeedForward
 
 
-
 class BERT4RecTransformerBlock(torch.nn.Module):
     """
-    Bidirectional Encoder = Transformer (self-attention)
-    Transformer = MultiHead_Attention + Feed_Forward with sublayer connection
+    BERT4Rec transformer block with bidirectional self-attention and a feed-forward network.
     """
 
     def __init__(
@@ -23,10 +21,11 @@ class BERT4RecTransformerBlock(torch.nn.Module):
         activation: Literal["relu", "gelu"] = "gelu",
     ) -> None:
         """
-        :param hidden_size: Hidden size of transformer.
-        :param attn_heads: Head sizes of multi-head attention.
-        :param feed_forward_hidden: Feed_forward_hidden, usually 4*hidden_size.
-        :param dropout: Dropout rate.
+        :param embedding_dim: Hidden size of transformer.
+        :param num_heads: Number of attention heads.
+        :param feed_forward_hidden: Hidden size of the feed-forward network, usually ``4 * embedding_dim``.
+        :param dropout: Dropout probability.
+        :param activation: Activation function used in the feed-forward network.
         """
         super().__init__()
         self.attention = torch.nn.MultiheadAttention(embedding_dim, num_heads, dropout=dropout, batch_first=True)
@@ -51,21 +50,21 @@ class BERT4RecTransformerBlock(torch.nn.Module):
         for _, param in self.attention.named_parameters():
             with contextlib.suppress(ValueError):
                 torch.nn.init.xavier_normal_(param.data)
-                
+
     def forward(
         self,
         input_embeddings: torch.Tensor,
         padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
         """
-        :param x: Input bert embedding.
-        :param mask: Mask where 0 - <MASK>, 1 - otherwise.
+        :param input_embeddings: Input sequence embeddings.
+        :param padding_mask: Padding mask where ``False`` marks padding positions.
 
-        :returns: Embedding after Transformer block applied.
+        :returns: Embeddings after transformer block is applied.
         """
         # Attention + skip-connection
         x_norm = self.attention_norm(input_embeddings)
-        attent_emb, _ = self.attention(x_norm, x_norm, x_norm, 
+        attent_emb, _ = self.attention(x_norm, x_norm, x_norm,
                                        key_padding_mask=padding_mask.logical_not(), need_weights=False)
         y = input_embeddings + self.attention_dropout(attent_emb)
 
@@ -78,8 +77,7 @@ class BERT4RecTransformerBlock(torch.nn.Module):
 
 class Bert4RecTransformerLayer(torch.nn.Module):
     """
-    Bidirectional Encoder = Transformer (self-attention)
-    Transformer = MultiHead_Attention + Feed_Forward with sublayer connection
+    Stack of BERT4Rec transformer blocks.
     """
 
     def __init__(
@@ -92,10 +90,12 @@ class Bert4RecTransformerLayer(torch.nn.Module):
         activation: Literal["relu", "gelu"] = "gelu",
     ) -> None:
         """
-        :param hidden_size: Hidden size of transformer.
-        :param attn_heads: Head sizes of multi-head attention.
-        :param feed_forward_hidden: Feed_forward_hidden, usually 4*hidden_size.
-        :param dropout: Dropout rate.
+        :param embedding_dim: Hidden size of transformer.
+        :param num_heads: Number of attention heads.
+        :param num_blocks: Number of transformer blocks.
+        :param feed_forward_hidden: Hidden size of the feed-forward network, usually ``4 * embedding_dim``.
+        :param dropout: Dropout probability.
+        :param activation: Activation function used in the feed-forward network.
         """
         super().__init__()
         self.num_blocks = num_blocks
@@ -112,10 +112,10 @@ class Bert4RecTransformerLayer(torch.nn.Module):
             ]
         )
 
-    def reset_parameters(self):
+    def reset_parameters(self) -> None:
         for i in range(self.num_blocks):
             self.transformer_blocks[i].reset_parameters()
-                
+
     def forward(
         self,
         feature_tensors: TensorMap,  # noqa: ARG002
@@ -123,14 +123,15 @@ class Bert4RecTransformerLayer(torch.nn.Module):
         padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
         """
-        :param x: Input bert embedding.
-        :param mask: Mask where 0 - <MASK>, 1 - otherwise.
+        :param feature_tensors: Input feature tensors. Reserved for encoders that use feature-aware logic.
+        :param input_embeddings: Input sequence embeddings.
+        :param padding_mask: Padding mask where ``False`` marks padding positions.
 
-        :returns: Embedding after Transformer block applied.
+        :returns: Embeddings after all transformer blocks are applied.
         """
         seqs = input_embeddings
         for transformer in self.transformer_blocks:
             seqs = transformer(seqs, padding_mask)
-        
+
         return seqs
-    
+

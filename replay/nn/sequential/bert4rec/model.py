@@ -5,7 +5,7 @@ import torch
 
 from replay.data.nn import TensorMap, TensorSchema
 from replay.nn.agg import AggregatorProto
-from replay.nn.head import HeadProto, EmbeddingTyingHead
+from replay.nn.head import EmbeddingTyingHead, HeadProto
 from replay.nn.loss import LossProto
 from replay.nn.output import InferenceOutput, TrainOutput
 from replay.nn.utils import warning_is_not_none
@@ -40,9 +40,9 @@ class EncoderProto(Protocol):
 
 class Bert4RecBody(torch.nn.Module):
     """
-    Implementation of the architecture of the SasRec model.\n
+    Implementation of the body of the BERT4Rec model.\n
     It can include various self-written blocks for modifying the model,
-    but the sequence of applying layers is fixed in accordance with the original architecture.
+    but the sequence of applying layers is fixed in accordance with the BERT4Rec architecture.
     """
 
     def __init__(
@@ -55,15 +55,11 @@ class Bert4RecBody(torch.nn.Module):
         :param embedder: An object of a class that performs the logic of
             generating embeddings from an input set of tensors.
         :param embedding_aggregator: An object of a class that performs the logic of aggregating multiple embeddings.\n
-            For example, it can be a ``sum``, a ``mean``, or a ``concatenation``.
-        :param attn_mask_builder: An object of a class that performs the logic of
-            generating an attention mask based on the features and padding mask given to the model.
+            For example, it can be a ``sum`` or a ``concatenation``. For BERT4Rec, the aggregator is also expected
+            to apply token masking based on the ``token_mask`` tensor from ``feature_tensors``.
         :param encoder: An object of a class that performs the logic of generating
             a hidden embedding representation based on
-            features, padding masks, attention mask, and aggregated embedding.
-        :param output_normalization: An object of a class that performs the logic of
-            normalization of the hidden state obtained from the encoder.\n
-            For example, it may be a ``torch.nn.LayerNorm`` or ``torch.nn.RMSNorm``.
+            features, padding masks, and aggregated embeddings.
         """
         super().__init__()
         self.embedder = embedder
@@ -82,6 +78,7 @@ class Bert4RecBody(torch.nn.Module):
     ) -> torch.Tensor:
         """
         :param feature_tensors: a dictionary of tensors to generate embeddings.
+            It must contain a ``token_mask`` key where ``False`` marks masked tokens.
         :param padding_mask: A mask of shape ``(batch_size, sequence_length)``
             indicating which elements within ``key`` to ignore for the purpose of attention (i.e. treat as "padding").
             ``False`` value indicates that the corresponding ``key`` value will be ignored.
@@ -104,11 +101,11 @@ class Bert4RecBody(torch.nn.Module):
 
 class Bert4Rec(torch.nn.Module):
     """
-    A model using the SasRec architecture as a hidden state generator.
+    A model using the BERT4Rec architecture as a hidden state generator.
     The hidden states are multiplied by the item embeddings,
     resulting in logits for each of the items.
 
-    Source paper: https://arxiv.org/pdf/1808.09781.
+    Source paper: https://arxiv.org/pdf/1904.06690.
 
     Example:
 
@@ -116,11 +113,7 @@ class Bert4Rec(torch.nn.Module):
 
         from replay.data import FeatureHint, FeatureSource, FeatureType
         from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
-        from replay.nn.agg import SumAggregator
-        from replay.nn.embedding import SequenceEmbedding
-        from replay.nn.mask import DefaultAttentionMask
-        from replay.nn.loss import CESampled
-        from replay.nn.sequential import PositionAwareAggregator, SasRecTransformerLayer
+        from replay.nn.sequential.bert4rec import Bert4Rec
 
         tensor_schema = TensorSchema(
             [
@@ -137,31 +130,13 @@ class Bert4Rec(torch.nn.Module):
             ]
         )
 
-        body = SasRecBody(
-            embedder=SequenceEmbedding(
-                schema=tensor_schema,
-            ),
-            embedding_aggregator=PositionAwareAggregator(
-                embedding_aggregator=SumAggregator(embedding_dim=256),
-                max_sequence_length=100,
-                dropout=0.2,
-            ),
-            attn_mask_builder=DefaultAttentionMask(
-                reference_feature_name=tensor_schema.item_id_feature_name,
-                num_heads=2,
-            ),
-            encoder=SasRecTransformerLayer(
-                embedding_dim=256,
-                num_heads=2,
-                num_blocks=2,
-                dropout=0.3,
-                activation="relu",
-            ),
-            output_normalization=torch.nn.LayerNorm(256),
-        )
-        sasrec = SasRec(
-            body=body,
-            loss=CESampled(padding_idx=tensor_schema.item_id_features.item().padding_value)
+        bert4rec = Bert4Rec.from_params(
+            schema=tensor_schema,
+            embedding_dim=256,
+            num_heads=2,
+            num_blocks=2,
+            max_sequence_length=100,
+            dropout=0.2,
         )
 
     """
@@ -173,9 +148,11 @@ class Bert4Rec(torch.nn.Module):
         head: HeadProto | None = None,
     ):
         """
-        :param body: An instance of SasRecBody.
+        :param body: An instance of Bert4RecBody.
         :param loss: An object of a class that performs loss calculation
             based on hidden states from the model, positive and optionally negative labels.
+        :param head: An object of a class that performs logits calculation from hidden states and item embeddings.
+            If ``None``, ``EmbeddingTyingHead`` is used.
         """
         super().__init__()
         self.body = body
@@ -200,6 +177,24 @@ class Bert4Rec(torch.nn.Module):
         categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
         head: HeadProto | None = None,
     ) -> "Bert4Rec":
+        """
+        Build a BERT4Rec model from common hyperparameters.
+
+        :param schema: Tensor schema of input sequence features.
+        :param embedding_dim: Common hidden size used by embeddings, aggregation, and transformer blocks.
+        :param num_heads: Number of attention heads.
+        :param num_blocks: Number of transformer blocks.
+        :param max_sequence_length: Maximum sequence length for learned positional embeddings.
+        :param dropout: Dropout probability.
+        :param feed_forward_hidden: Hidden size of the transformer feed-forward network.
+            If ``None``, it is set to ``4 * embedding_dim``.
+        :param activation: Activation function used in the feed-forward network.
+        :param excluded_features: Additional schema feature names to exclude from embedding generation.
+            Query id and timestamp features are always excluded.
+        :param categorical_list_feature_aggregation_method: Method to aggregate categorical-list feature values.
+        :param head: Optional logits head. If ``None``, ``EmbeddingTyingHead`` is used.
+        :returns: Initialized BERT4Rec model with CE loss.
+        """
         from replay.nn.agg import SumAggregator
         from replay.nn.embedding import SequenceEmbedding
         from replay.nn.loss import CE
@@ -306,6 +301,7 @@ class Bert4Rec(torch.nn.Module):
     ) -> Union[TrainOutput, InferenceOutput]:
         """
         :param feature_tensors: a dictionary of tensors to generate embeddings.
+            It must contain a ``token_mask`` key where ``False`` marks masked tokens.
         :param padding_mask: A mask of shape ``(batch_size, sequence_length)``
             indicating which elements within ``key`` to ignore for the purpose of attention (i.e. treat as "padding").
             ``False`` value indicates that the corresponding ``key`` value will be ignored.

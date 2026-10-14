@@ -68,12 +68,13 @@ class PositionwiseFeedForward(torch.nn.Module):
     Implements FFN equation for BERT4Rec.
     """
 
-    def __init__(self,
+    def __init__(
+        self,
         embedding_dim: int,
         ffn_embedding_dim: int,
         dropout: float,
         activation: Literal["relu", "gelu"] = "gelu",
-        ) -> None:
+    ) -> None:
         """
         :param embedding_dim: Dimension of the input features.
         :param ffn_embedding_dim: Feed forward dimension, usually 4*d_model.
@@ -92,7 +93,7 @@ class PositionwiseFeedForward(torch.nn.Module):
         for _, param in self.named_parameters():
             with contextlib.suppress(ValueError):
                 torch.nn.init.xavier_normal_(param.data)
-                
+
     def forward(self, input_embeddings: torch.Tensor) -> torch.Tensor:
         """
         :param input_embeddings: Input tensor.
@@ -100,6 +101,7 @@ class PositionwiseFeedForward(torch.nn.Module):
         :returns: Output tensors.
         """
         return self.w2(self.dropout(self.activation(self.w1(input_embeddings))))
+
 
 class SwiGLU(torch.nn.Module):
     """

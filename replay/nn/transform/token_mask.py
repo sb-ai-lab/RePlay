@@ -66,10 +66,11 @@ class TokenMaskTransform(torch.nn.Module):
 
 
 class TargetMLMTransform(torch.nn.Module):
-
-    def __init__(self, token_mask_col: str = "token_mask", 
-                 padding_mask_col: str = "padding_mask", 
-                 out_feature_name: str = "target_padding_mask"
+    def __init__(
+        self,
+        token_mask_col: str = "token_mask",
+        padding_mask_col: str = "padding_mask",
+        out_feature_name: str = "target_padding_mask",
     ) -> None:
         super().__init__()
         self.token_mask_col = token_mask_col
@@ -79,5 +80,7 @@ class TargetMLMTransform(torch.nn.Module):
     def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         output_batch = dict(batch.items())
 
-        output_batch[self.out_feature_name] = torch.logical_xor(output_batch[self.padding_mask_col], output_batch[self.token_mask_col])
+        output_batch[self.out_feature_name] = torch.logical_xor(
+            output_batch[self.padding_mask_col], output_batch[self.token_mask_col]
+        )
         return output_batch

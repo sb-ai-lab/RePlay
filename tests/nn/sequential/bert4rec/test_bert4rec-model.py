@@ -9,7 +9,7 @@ def test_body_forward(bert4rec_model, bert4rec_sequential_sample):
         bert4rec_sequential_sample["feature_tensors"],
         bert4rec_sequential_sample["padding_mask"],
     )
-    assert output.shape == (4, 7, 14)
+    assert output.shape == (4, 5, 14)
 
 
 @pytest.mark.parametrize(
