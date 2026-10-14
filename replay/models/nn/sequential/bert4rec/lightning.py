@@ -4,6 +4,7 @@ from typing import Any, Literal, cast
 
 import lightning
 import torch
+from typing_extensions import deprecated
 
 from replay.data.nn import TensorMap, TensorSchema
 from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
@@ -12,6 +13,10 @@ from .dataset import Bert4RecPredictionBatch, Bert4RecTrainingBatch, Bert4RecVal
 from .model import Bert4RecModel, CatFeatureEmbedding
 
 
+@deprecated(
+    "`Bert4Rec` class is deprecated. Use `replay.nn.sequential.Bert4Rec` and "
+    "`replay.nn.lightning.LightningModule` instead."
+)
 class Bert4Rec(lightning.LightningModule):
     """
     Implements the BERT training-validation loop

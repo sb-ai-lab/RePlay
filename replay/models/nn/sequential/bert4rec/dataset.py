@@ -3,6 +3,7 @@ from typing import NamedTuple, cast
 
 import torch
 from torch.utils.data import Dataset as TorchDataset
+from typing_extensions import deprecated
 
 from replay.data.nn import (
     MutableTensorMap,
@@ -14,6 +15,10 @@ from replay.data.nn import (
 )
 
 
+@deprecated(
+    "`Bert4RecTrainingBatch` class is deprecated.",
+    stacklevel=2,
+)
 class Bert4RecTrainingBatch(NamedTuple):
     """
     Batch of data for training.
@@ -92,6 +97,7 @@ class Bert4RecUniformMasker(Bert4RecMasker):
         return cast(torch.BoolTensor, mask)
 
 
+@deprecated("`Bert4RecTrainingDataset` class is deprecated. Use `replay.data.nn.ParquetModule` instead.")
 class Bert4RecTrainingDataset(TorchDataset):
     """
     Dataset that generates samples to train Bert4Rec model.
@@ -173,6 +179,10 @@ class Bert4RecTrainingDataset(TorchDataset):
         }
 
 
+@deprecated(
+    "`Bert4RecPredictionBatch` class is deprecated.",
+    stacklevel=2,
+)
 class Bert4RecPredictionBatch(NamedTuple):
     """
     Batch of data for model inference.
@@ -193,6 +203,7 @@ class Bert4RecPredictionBatch(NamedTuple):
         }
 
 
+@deprecated("`Bert4RecPredictionDataset` class is deprecated. Use `replay.data.nn.ParquetModule` instead.")
 class Bert4RecPredictionDataset(TorchDataset):
     """
     Dataset that generates samples to inference Bert4Rec model
@@ -237,6 +248,10 @@ class Bert4RecPredictionDataset(TorchDataset):
         }
 
 
+@deprecated(
+    "`Bert4RecValidationBatch` class is deprecated.",
+    stacklevel=2,
+)
 class Bert4RecValidationBatch(NamedTuple):
     """
     Batch of data for validation.
@@ -261,6 +276,7 @@ class Bert4RecValidationBatch(NamedTuple):
         }
 
 
+@deprecated("`Bert4RecValidationDataset` class is deprecated. Use `replay.data.nn.ParquetModule` instead.")
 class Bert4RecValidationDataset(TorchDataset):
     """
     Dataset that generates samples to infer and validate BERT-like model

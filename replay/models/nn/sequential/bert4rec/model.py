@@ -3,10 +3,15 @@ from abc import ABC, abstractmethod
 
 import torch
 import torch.nn as nn
+from typing_extensions import deprecated
 
 from replay.data.nn import TensorFeatureInfo, TensorMap, TensorSchema
 
 
+@deprecated(
+    "`Bert4RecModel` class is deprecated. Use `replay.nn.sequential.Bert4Rec` instead.",
+    stacklevel=2,
+)
 class Bert4RecModel(torch.nn.Module):
     """
     BERT model
