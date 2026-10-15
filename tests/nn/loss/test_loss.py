@@ -275,6 +275,13 @@ def test_weighted_losses_use_weighted_mean(
 
 
 @pytest.mark.parametrize("loss_class", [PREntmax, PREntmaxSampled])
-def test_entmax_validates_item_frequency_shape(loss_class):
-    with pytest.raises(ValueError, match="one-dimensional"):
-        loss_class(item_frequency=torch.zeros(2, 3))
+@pytest.mark.parametrize(
+    "kwargs, message",
+    [
+        ({"item_frequency": torch.zeros(2, 3)}, "one-dimensional"),
+        ({"temperature": 0}, "temperature must be greater than zero"),
+    ],
+)
+def test_entmax_validates_constructor_arguments(loss_class, kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        loss_class(**kwargs)

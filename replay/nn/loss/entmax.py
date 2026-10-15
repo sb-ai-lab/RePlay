@@ -12,6 +12,8 @@ class PREntmax(torch.nn.Module):
     """
     Full PR-Entmax loss over all items in the catalog.
     Without item frequencies, computes Entmax-1.5 on temperature-scaled logits.
+
+    Source paper: https://arxiv.org/pdf/2610.17823
     """
 
     def __init__(
@@ -31,12 +33,16 @@ class PREntmax(torch.nn.Module):
             Default: ``None``.
         :param gamma: Weight of the item frequency correction.
             Ignored when ``item_frequency`` is ``None``. Default: ``0.1``.
-        :param temperature: Temperature applied to logits with or without item frequency correction.
+        :param temperature: Positive temperature applied to logits with or without item frequency correction.
             Default: ``10``. Use ``temperature=1`` with ``item_frequency=None``
             for Entmax-1.5 on unscaled logits.
         :param eps: Small value added before logarithm to avoid log of zero.
         """
         super().__init__()
+        if temperature <= 0:
+            msg = "temperature must be greater than zero"
+            raise ValueError(msg)
+
         if item_frequency is not None and item_frequency.ndim != 1:
             msg = "item_frequency must be a one-dimensional tensor"
             raise ValueError(msg)
@@ -117,6 +123,8 @@ class PREntmaxSampled(SampledLossBase):
 
     The loss supports the calculation of logits for the case of multi-positive labels
     (there are several labels for each position in the sequence).
+
+    Source paper: https://arxiv.org/pdf/2610.17823
     """
 
     def __init__(
@@ -137,7 +145,7 @@ class PREntmaxSampled(SampledLossBase):
             Default: ``None``.
         :param gamma: Weight of the item frequency correction.
             Ignored when ``item_frequency`` is ``None``. Default: ``0.1``.
-        :param temperature: Temperature applied to logits with or without item frequency correction.
+        :param temperature: Positive temperature applied to logits with or without item frequency correction.
             Default: ``10``. Use ``temperature=1`` with ``item_frequency=None``
             for sampled Entmax-1.5 on unscaled logits.
         :param eps: Small value added before logarithm to avoid log of zero.
@@ -148,6 +156,10 @@ class PREntmaxSampled(SampledLossBase):
             Default: ``-100``.
         """
         super().__init__()
+        if temperature <= 0:
+            msg = "temperature must be greater than zero"
+            raise ValueError(msg)
+
         if item_frequency is not None and item_frequency.ndim != 1:
             msg = "item_frequency must be a one-dimensional tensor"
             raise ValueError(msg)
