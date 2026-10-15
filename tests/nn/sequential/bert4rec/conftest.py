@@ -151,7 +151,6 @@ def parquet_module_with_default_bert4rec_transform(
 ):
     transforms = make_default_bert4rec_transforms(
         tensor_schema=tensor_schema_with_equal_embedding_dims,
-        query_column="user_id",
     )
 
     tensor_schema = tensor_schema_with_equal_embedding_dims
