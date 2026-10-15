@@ -28,7 +28,7 @@ def make_default_bert4rec_transforms(tensor_schema: TensorSchema) -> dict[str, l
 
     train_transforms = [
         RenameTransform({padding_mask_name: "padding_mask"}),
-        TokenMaskTransform(token_field="padding_mask"),
+        TokenMaskTransform(token_name="padding_mask"),
         CopyTransform({item_id_name: "positive_labels"}),
         TargetMLMTransform(),
         UnsqueezeTransform("target_padding_mask", -1),

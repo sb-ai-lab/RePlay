@@ -56,6 +56,6 @@ class BertPositionAwareAggregator(torch.nn.Module):
         expanded_embedding = self.mask_embedding.weight.expand(batch_size, seq_len, -1)
         seqs = seqs.where(expanded_mask, expanded_embedding)
 
-        seqs += self.pe.weight[:seq_len].unsqueeze(0).repeat(batch_size, 1, 1)
+        seqs += self.pe.weight[-seq_len:].unsqueeze(0).repeat(batch_size, 1, 1)
         seqs = self.dropout(seqs)
         return seqs
