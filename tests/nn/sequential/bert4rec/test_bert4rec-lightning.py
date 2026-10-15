@@ -113,9 +113,7 @@ def test_predictions_bert4rec_equal_with_permuted_candidates(
     trainer = L.Trainer(inference_mode=True, accelerator="cpu")
     bert4rec.eval()
     bert4rec.candidates_to_score = sorted_candidates
-    predictions_sorted_candidates = trainer.predict(
-        bert4rec, datamodule=parquet_module_with_default_bert4rec_transform
-    )
+    predictions_sorted_candidates = trainer.predict(bert4rec, datamodule=parquet_module_with_default_bert4rec_transform)
 
     bert4rec.candidates_to_score = permuted_candidates
     predictions_permuted_candidates = trainer.predict(

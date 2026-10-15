@@ -81,6 +81,6 @@ class ClassificationHead(torch.nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
-        item_embeddings: torch.Tensor, # noqa: ARG002
+        item_embeddings: torch.Tensor,  # noqa: ARG002
     ) -> torch.Tensor:
         return self.linear(hidden_states)

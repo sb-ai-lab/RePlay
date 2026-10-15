@@ -64,15 +64,15 @@ class BERT4RecTransformerBlock(torch.nn.Module):
         """
         # Attention + skip-connection
         x_norm = self.attention_norm(input_embeddings)
-        attent_emb, _ = self.attention(x_norm, x_norm, x_norm,
-                                       key_padding_mask=padding_mask.logical_not(), need_weights=False)
+        attent_emb, _ = self.attention(
+            x_norm, x_norm, x_norm, key_padding_mask=padding_mask.logical_not(), need_weights=False
+        )
         y = input_embeddings + self.attention_dropout(attent_emb)
 
         # PFF + skip-connection
         z = y + self.pff_dropout(self.pff(self.pff_norm(y)))
 
         return self.dropout(z)
-
 
 
 class Bert4RecTransformerLayer(torch.nn.Module):
@@ -134,4 +134,3 @@ class Bert4RecTransformerLayer(torch.nn.Module):
             seqs = transformer(seqs, padding_mask)
 
         return seqs
-
