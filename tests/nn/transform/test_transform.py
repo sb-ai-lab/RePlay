@@ -252,7 +252,7 @@ def test_token_mask_transform_corner_cases_per_sequence(mask_prob):
             dtype=torch.bool,
         )
     }
-    transform = TokenMaskTransform(mask_prob=mask_prob, token_field="padding_mask")
+    transform = TokenMaskTransform(mask_prob=mask_prob, token_name="padding_mask")
     transformed_batch = transform(batch)
 
     token_mask = transformed_batch["token_mask"]
