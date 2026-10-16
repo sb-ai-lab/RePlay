@@ -11,7 +11,7 @@ class GroupedCESampled(CESampled):
     Negative pools must contain unique item IDs. Use this loss together with
     :class:`~replay.nn.transform.GroupedUniformNegativeSamplingTransform`; its
     ``logical_batch_size`` must match the transform's ``group_size``. See
-    ``examples/17_twotower_advanced_example.ipynb`` for a complete runnable
+    ``examples/15_twotower_example/advanced_example.ipynb`` for a complete runnable
     configuration.
     """
 

@@ -9,7 +9,7 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
     Use this encoder together with
     :class:`~replay.nn.transform.TargetAwareAdaptiveTrimTransform` so that both
     the physical batch and each length bucket discard unused left padding. See
-    ``examples/17_twotower_advanced_example.ipynb`` for a complete runnable
+    ``examples/15_twotower_example/advanced_example.ipynb`` for a complete runnable
     configuration.
 
     Cropped padding positions are restored as zeros. Downstream training code

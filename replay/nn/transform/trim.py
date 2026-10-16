@@ -113,7 +113,7 @@ class TargetAwareAdaptiveTrimTransform(torch.nn.Module):
     Use this transform together with
     :class:`~replay.nn.sequential.LengthBucketedQueryEncoder` to reduce the
     sequence length first for the physical batch and then for each length
-    bucket. See ``examples/17_twotower_advanced_example.ipynb`` for a complete
+    bucket. See ``examples/15_twotower_example/advanced_example.ipynb`` for a complete
     runnable configuration.
     """
 

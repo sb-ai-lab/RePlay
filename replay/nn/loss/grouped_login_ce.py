@@ -17,37 +17,8 @@ class GroupedLogInCESampled(LogInCESampled):
 
     The physical batch may end with a partial logical group. The
     ``logical_batch_size`` must match the grouped sampler's ``group_size``.
-
-    Example:
-
-    .. code-block:: python
-
-        from replay.data.nn import ParquetModule
-        from replay.nn.loss import GroupedLogInCESampled
-        from replay.nn.sequential import SasRec
-        from replay.nn.transform import GroupedUniformNegativeSamplingTransform
-        from replay.nn.transform.template import make_default_sasrec_transforms
-
-        logical_batch_size = 128
-        packed_batch_size = 5 * logical_batch_size
-
-        negative_sampler = GroupedUniformNegativeSamplingTransform(
-            cardinality=num_items,
-            num_negative_samples=20_000,
-            group_size=logical_batch_size,
-        )
-        loss = GroupedLogInCESampled(logical_batch_size=logical_batch_size)
-
-        transforms = make_default_sasrec_transforms(tensor_schema)
-        transforms["train"].append(negative_sampler)
-        datamodule = ParquetModule(
-            metadata=metadata,
-            transforms=transforms,
-            batch_size=packed_batch_size,
-            train_path=train_path,
-            validate_path=validate_path,
-        )
-        model = SasRec(body=sasrec_body, loss=loss)
+    See ``examples/15_twotower_example/advanced_example.ipynb`` for a complete runnable
+    configuration.
     """
 
     def __init__(
