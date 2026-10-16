@@ -136,6 +136,16 @@ ________________
 .. autoclass:: replay.nn.loss.GroupedCESampled
    :members: __init__, forward
 
+PREntmax
+________
+.. autoclass:: replay.nn.loss.PREntmax
+   :members: __init__, forward
+
+PREntmaxSampled
+_______________
+.. autoclass:: replay.nn.loss.PREntmaxSampled
+   :members: __init__, forward
+
 .. _loss-login-ce:
 
 LogInCE

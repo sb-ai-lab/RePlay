@@ -1,6 +1,7 @@
 from .base import LossProto
 from .bce import BCE, BCESampled
 from .ce import CE, CESampled, CESampledWeighted, CEWeighted
+from .entmax import PREntmax, PREntmaxSampled
 from .grouped_ce import GroupedCESampled
 from .grouped_login_ce import GroupedLogInCESampled
 from .login_ce import LogInCE, LogInCESampled
@@ -23,4 +24,6 @@ __all__ = [
     "LogOutCESampled",
     "LogOutCEWeighted",
     "LossProto",
+    "PREntmax",
+    "PREntmaxSampled",
 ]
