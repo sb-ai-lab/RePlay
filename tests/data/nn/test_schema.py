@@ -94,6 +94,23 @@ def test_tensor_feature_setters(some_num_tensor_feature, some_cat_tensor_feature
 
 
 @pytest.mark.torch
+def test_tensor_schema_serialization_preserves_padding_value():
+    schema = TensorSchema(
+        TensorFeatureInfo(
+            name="item_id",
+            feature_type=FeatureType.CATEGORICAL,
+            cardinality=10,
+            padding_value=-1,
+        )
+    )
+
+    serialized_schema = schema._get_object_args()
+    restored_schema = TensorSchema._create_object_by_args(serialized_schema)
+
+    assert restored_schema["item_id"].padding_value == -1
+
+
+@pytest.mark.torch
 def test_tensor_feature_invalid_init():
     with pytest.raises(ValueError) as exc1:
         TensorFeatureInfo(name="fake", feature_type="unavailable type")

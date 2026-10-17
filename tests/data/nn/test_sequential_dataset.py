@@ -189,5 +189,10 @@ def test_save_and_load_sequential_dataset(dataset, request, tmp_path):
         sequential_dataset._tensor_schema._get_object_args()
         == loaded_sequential_dataset._tensor_schema._get_object_args()
     )
+    for feature_name in sequential_dataset._tensor_schema:
+        assert (
+            sequential_dataset._tensor_schema[feature_name].padding_value
+            == loaded_sequential_dataset._tensor_schema[feature_name].padding_value
+        )
     assert all(sequential_dataset._sequences.columns == loaded_sequential_dataset._sequences.columns)
     assert sequential_dataset._sequences.equals(loaded_sequential_dataset._sequences)

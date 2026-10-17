@@ -447,6 +447,7 @@ class TensorSchema(Mapping[str, TensorFeatureInfo]):
                 "cardinality": feature.cardinality if feature.is_cat else None,
                 "embedding_dim": feature.embedding_dim if feature.is_cat else None,
                 "tensor_dim": feature.tensor_dim if feature.is_num else None,
+                "padding_value": feature.padding_value,
             }
             for feature in self.all_features
         ]
