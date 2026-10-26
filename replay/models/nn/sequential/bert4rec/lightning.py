@@ -9,15 +9,15 @@ from typing_extensions import deprecated
 from replay.data.nn import TensorMap, TensorSchema
 from replay.models.nn.optimizer_utils import FatOptimizerFactory, LRSchedulerFactory, OptimizerFactory
 
-from .dataset import Bert4RecPredictionBatch, Bert4RecTrainingBatch, Bert4RecValidationBatch, _shift_features
-from .model import Bert4RecModel, CatFeatureEmbedding
+from .dataset import BERT4RecPredictionBatch, BERT4RecTrainingBatch, BERT4RecValidationBatch, _shift_features
+from .model import BERT4RecModel, CatFeatureEmbedding
 
 
 @deprecated(
-    "`Bert4Rec` class is deprecated. Use `replay.nn.sequential.Bert4Rec` and "
+    "`BERT4Rec` class is deprecated. Use `replay.nn.sequential.BERT4Rec` and "
     "`replay.nn.lightning.LightningModule` instead."
 )
-class Bert4Rec(lightning.LightningModule):
+class BERT4Rec(lightning.LightningModule):
     """
     Implements the BERT training-validation loop
     """
@@ -76,7 +76,7 @@ class Bert4Rec(lightning.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters()
-        self._model = Bert4RecModel(
+        self._model = BERT4RecModel(
             schema=tensor_schema,
             max_len=max_seq_len,
             hidden_size=hidden_size,
@@ -102,7 +102,7 @@ class Bert4Rec(lightning.LightningModule):
         self._vocab_size = item_count
         self.candidates_to_score = None
 
-    def training_step(self, batch: Bert4RecTrainingBatch | dict, batch_idx: int) -> torch.Tensor:  # noqa: ARG002
+    def training_step(self, batch: BERT4RecTrainingBatch | dict, batch_idx: int) -> torch.Tensor:  # noqa: ARG002
         """
         :param batch: Batch of training data.
         :param batch_idx: Batch index.
@@ -115,20 +115,20 @@ class Bert4Rec(lightning.LightningModule):
 
     def predict_step(
         self,
-        batch: Bert4RecPredictionBatch | dict,
+        batch: BERT4RecPredictionBatch | dict,
         batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> torch.Tensor:
         """
-        :param batch (Bert4RecPredictionBatch): Batch of prediction data.
+        :param batch (BERT4RecPredictionBatch): Batch of prediction data.
         :param batch_idx (int): Batch index.
         :param dataloader_idx (int): Dataloader index.
 
         :returns: Calculated scores on prediction batch.
         """
-        if isinstance(batch, Bert4RecPredictionBatch):
+        if isinstance(batch, BERT4RecPredictionBatch):
             warnings.warn(
-                "`Bert4RecPredictionBatch` class will be removed in future versions. "
+                "`BERT4RecPredictionBatch` class will be removed in future versions. "
                 "Instead, you should use simple dictionary",
                 DeprecationWarning,
                 stacklevel=2,
@@ -143,7 +143,7 @@ class Bert4Rec(lightning.LightningModule):
 
     def predict(
         self,
-        batch: Bert4RecPredictionBatch | dict,
+        batch: BERT4RecPredictionBatch | dict,
         candidates_to_score: torch.LongTensor | None = None,
     ) -> torch.Tensor:
         """
@@ -153,9 +153,9 @@ class Bert4Rec(lightning.LightningModule):
 
         :returns: Calculated scores in the prediction batch.
         """
-        if isinstance(batch, Bert4RecPredictionBatch):
+        if isinstance(batch, BERT4RecPredictionBatch):
             warnings.warn(
-                "`Bert4RecPredictionBatch` class will be removed in future versions. "
+                "`BERT4RecPredictionBatch` class will be removed in future versions. "
                 "Instead, you should use simple dictionary",
                 DeprecationWarning,
                 stacklevel=2,
@@ -195,7 +195,7 @@ class Bert4Rec(lightning.LightningModule):
 
     def validation_step(
         self,
-        batch: Bert4RecValidationBatch | dict,
+        batch: BERT4RecValidationBatch | dict,
         batch_idx: int,  # noqa: ARG002
         dataloader_idx: int = 0,  # noqa: ARG002
     ) -> torch.Tensor:
@@ -205,9 +205,9 @@ class Bert4Rec(lightning.LightningModule):
 
         :returns: Calculated scores on validation batch.
         """
-        if isinstance(batch, Bert4RecValidationBatch):
+        if isinstance(batch, BERT4RecValidationBatch):
             warnings.warn(
-                "`Bert4RecValidationBatch` class will be removed in future versions. "
+                "`BERT4RecValidationBatch` class will be removed in future versions. "
                 "Instead, you should use simple dictionary",
                 DeprecationWarning,
                 stacklevel=2,
@@ -239,9 +239,9 @@ class Bert4Rec(lightning.LightningModule):
         tokens_mask: torch.BoolTensor,
         candidates_to_score: torch.LongTensor = None,
     ) -> torch.Tensor:
-        model: Bert4RecModel
+        model: BERT4RecModel
         model = (
-            cast(Bert4RecModel, self._model.module) if isinstance(self._model, torch.nn.DataParallel) else self._model
+            cast(BERT4RecModel, self._model.module) if isinstance(self._model, torch.nn.DataParallel) else self._model
         )
         candidates_to_score = self.candidates_to_score if candidates_to_score is None else candidates_to_score
         scores = model.predict(
@@ -252,7 +252,7 @@ class Bert4Rec(lightning.LightningModule):
         )
         return scores
 
-    def _compute_loss(self, batch: Bert4RecTrainingBatch | dict) -> torch.Tensor:
+    def _compute_loss(self, batch: BERT4RecTrainingBatch | dict) -> torch.Tensor:
         if self._loss_type == "BCE":
             loss_func = self._compute_loss_bce if self._loss_sample_count is None else self._compute_loss_bce_sampled
         elif self._loss_type == "CE":
@@ -263,9 +263,9 @@ class Bert4Rec(lightning.LightningModule):
             msg = f"Not supported loss type: {self._loss_type}"
             raise ValueError(msg)
 
-        if isinstance(batch, Bert4RecTrainingBatch):
+        if isinstance(batch, BERT4RecTrainingBatch):
             warnings.warn(
-                "`Bert4RecTrainingBatch` class will be removed in future versions. "
+                "`BERT4RecTrainingBatch` class will be removed in future versions. "
                 "Instead, you should use simple dictionary",
                 DeprecationWarning,
                 stacklevel=2,

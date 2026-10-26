@@ -1,3 +1,40 @@
+BERT4Rec
+========
+
+BERT4Rec
+________
+.. autoclass:: replay.nn.sequential.bert4rec.BERT4Rec
+   :members: __init__, forward, from_params
+
+BERT4Rec Building Blocks
+________________________
+
+BERT4RecBody
+````````````
+.. autoclass:: replay.nn.sequential.bert4rec.BERT4RecBody
+   :members: __init__, forward
+
+BERTPositionAwareAggregator
+```````````````````````````
+.. autoclass:: replay.nn.sequential.bert4rec.BERTPositionAwareAggregator
+   :members: __init__, forward
+
+BERT4RecTransformerBlock
+`````````````````````````
+.. autoclass:: replay.nn.sequential.bert4rec.transformer.BERT4RecTransformerBlock
+   :members: __init__, forward
+
+BERT4RecTransformerLayer
+`````````````````````````
+.. autoclass:: replay.nn.sequential.bert4rec.BERT4RecTransformerLayer
+   :members: __init__, forward
+
+
+BERT4Rec Transforms
+___________________
+.. autofunction:: replay.nn.transform.template.make_default_bert4rec_transforms
+
+
 SasRec
 ======
 
@@ -226,6 +263,11 @@ PointWiseFeedForward
 .. autoclass:: replay.nn.ffn.PointWiseFeedForward
    :members: __init__, forward
 
+PositionwiseFeedForward
+```````````````````````
+.. autoclass:: replay.nn.ffn.PositionwiseFeedForward
+   :members: __init__, forward
+
 SwiGLU
 `````````````
 .. autoclass:: replay.nn.ffn.SwiGLU
@@ -249,10 +291,20 @@ DefaultAttentionMask
 Transformer Heads
 _________________
 
+HeadProto
+`````````
+.. autoclass:: replay.nn.head.HeadProto
+   :members:
+
 EmbeddingTyingHead
 ``````````````````
 .. autoclass:: replay.nn.head.EmbeddingTyingHead
    :members: forward
+
+ClassificationHead
+``````````````````
+.. autoclass:: replay.nn.head.ClassificationHead
+   :members: __init__, forward
 
 Universal Lighting module
 =========================
@@ -336,6 +388,11 @@ __________________
 .. autoclass:: replay.nn.transform.TokenMaskTransform
     :members: __init__
 
+TargetMLMTransform
+__________________
+.. autoclass:: replay.nn.transform.TargetMLMTransform
+    :members: __init__
+
 TrimTransform
 __________________
 .. autoclass:: replay.nn.transform.TrimTransform
@@ -390,6 +447,11 @@ SasRec Transforms
 TwoTower Transforms
 ````````````````````
 .. autofunction:: replay.nn.transform.template.make_default_twotower_transforms
+    :noindex:
+
+BERT4Rec Transforms
+```````````````````
+.. autofunction:: replay.nn.transform.template.make_default_bert4rec_transforms
     :noindex:
 
 Easy training, validation and inference with Lightning

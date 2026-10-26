@@ -1,4 +1,3 @@
-import contextlib
 from typing import Protocol
 
 import torch
@@ -74,9 +73,7 @@ class ClassificationHead(torch.nn.Module):
         self.linear = torch.nn.Linear(hidden_size, n_classes, bias=True)
 
     def reset_parameters(self):
-        for _, param in self.linear.named_parameters():
-            with contextlib.suppress(ValueError):
-                torch.nn.init.xavier_normal_(param.data)
+        self.linear.reset_parameters()
 
     def forward(
         self,

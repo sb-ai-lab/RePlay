@@ -2,13 +2,13 @@ from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
     from .dataset import (
-        Bert4RecPredictionBatch,
-        Bert4RecPredictionDataset,
-        Bert4RecTrainingBatch,
-        Bert4RecTrainingDataset,
-        Bert4RecUniformMasker,
-        Bert4RecValidationBatch,
-        Bert4RecValidationDataset,
+        BERT4RecPredictionBatch,
+        BERT4RecPredictionDataset,
+        BERT4RecTrainingBatch,
+        BERT4RecTrainingDataset,
+        BERT4RecUniformMasker,
+        BERT4RecValidationBatch,
+        BERT4RecValidationDataset,
     )
-    from .lightning import Bert4Rec
-    from .model import Bert4RecModel
+    from .lightning import BERT4Rec
+    from .model import BERT4RecModel

@@ -9,7 +9,7 @@ from replay.utils import (
 from replay.utils.session_handler import get_spark_session
 
 if TORCH_AVAILABLE:
-    from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionBatch, Bert4RecPredictionDataset
+    from replay.models.nn.sequential.bert4rec import BERT4Rec, BERT4RecPredictionBatch, BERT4RecPredictionDataset
     from replay.models.nn.sequential.callbacks import (
         PandasPredictionCallback,
         PolarsPredictionCallback,
@@ -21,10 +21,10 @@ if TORCH_AVAILABLE:
     from replay.models.nn.sequential.postprocessors import RemoveSeenItems
     from replay.models.nn.sequential.sasrec import SasRec, SasRecPredictionBatch, SasRecPredictionDataset
 
-    class DeprecatedBert4RecPredictionDataset(Bert4RecPredictionDataset):
+    class DeprecatedBERT4RecPredictionDataset(BERT4RecPredictionDataset):
         def __getitem__(self, index: int) -> dict:
             res = super().__getitem__(index)
-            return Bert4RecPredictionBatch(
+            return BERT4RecPredictionBatch(
                 query_id=res["query_id"],
                 padding_mask=res["pad_mask"],
                 features=res["inputs"],
@@ -67,7 +67,7 @@ L = pytest.importorskip("lightning")
 @pytest.mark.parametrize(
     "model, dataset, train_dataloader",
     [
-        (Bert4Rec, Bert4RecPredictionDataset, "train_bert_loader"),
+        (BERT4Rec, BERT4RecPredictionDataset, "train_bert_loader"),
         (SasRec, SasRecPredictionDataset, "train_sasrec_loader"),
     ],
 )
@@ -145,7 +145,7 @@ def test_prediction_callbacks_fast_forward(
 @pytest.mark.parametrize(
     "model, dataset, train_dataloader, val_dataloader",
     [
-        (Bert4Rec, Bert4RecPredictionDataset, "train_bert_loader", "val_bert_loader"),
+        (BERT4Rec, BERT4RecPredictionDataset, "train_bert_loader", "val_bert_loader"),
         (SasRec, SasRecPredictionDataset, "train_sasrec_loader", "val_sasrec_loader"),
     ],
 )
@@ -206,7 +206,7 @@ def test_validation_callbacks(
 @pytest.mark.parametrize(
     "model, dataset, train_dataloader, val_dataloader",
     [
-        (Bert4Rec, Bert4RecPredictionDataset, "train_bert_loader", "val_bert_loader"),
+        (BERT4Rec, BERT4RecPredictionDataset, "train_bert_loader", "val_bert_loader"),
         (SasRec, SasRecPredictionDataset, "train_sasrec_loader", "val_sasrec_loader"),
     ],
 )
@@ -257,7 +257,7 @@ def test_validation_callbacks_multiple_dataloaders(
 @pytest.mark.parametrize(
     "model, dataset",
     [
-        (Bert4Rec, Bert4RecPredictionDataset),
+        (BERT4Rec, BERT4RecPredictionDataset),
         (SasRec, SasRecPredictionDataset),
     ],
 )
@@ -290,7 +290,7 @@ def test_query_embeddings_callback(item_user_sequential_dataset, candidates, mod
 @pytest.mark.parametrize(
     "model, dataset",
     [
-        (Bert4Rec, DeprecatedBert4RecPredictionDataset),
+        (BERT4Rec, DeprecatedBERT4RecPredictionDataset),
         (SasRec, DeprecatedSasRecPredictionDataset),
     ],
 )

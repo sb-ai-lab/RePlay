@@ -3,15 +3,15 @@ import pytest
 from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
-    from replay.models.nn.sequential.bert4rec import Bert4RecModel
-    from replay.models.nn.sequential.bert4rec.model import BertEmbedding, ClassificationHead, PositionalEmbedding
+    from replay.models.nn.sequential.bert4rec import BERT4RecModel
+    from replay.models.nn.sequential.bert4rec.model import BERTEmbedding, ClassificationHead, PositionalEmbedding
 
 torch = pytest.importorskip("torch")
 
 
 @pytest.mark.torch
 def test_bert_predictions(tensor_schema, simple_masks):
-    model = Bert4RecModel(
+    model = BERT4RecModel(
         tensor_schema.subset(["item_id"]),
         max_len=5,
         hidden_size=64,
@@ -30,7 +30,7 @@ def test_bert_predictions(tensor_schema, simple_masks):
 
 
 def test_predictions_equal_with_permuted_candidates(tensor_schema, simple_masks):
-    model = Bert4RecModel(
+    model = BERT4RecModel(
         tensor_schema.subset(["item_id"]),
         max_len=5,
         hidden_size=64,
@@ -51,13 +51,13 @@ def test_predictions_equal_with_permuted_candidates(tensor_schema, simple_masks)
 @pytest.mark.torch
 def test_bert_embedding_dim_mismatch(tensor_schema):
     with pytest.raises(ValueError):
-        Bert4RecModel(schema=tensor_schema.subset(["item_id", "some_item_feature"]))
+        BERT4RecModel(schema=tensor_schema.subset(["item_id", "some_item_feature"]))
 
 
 @pytest.mark.torch
 def test_not_sequential_feature(tensor_schema):
     with pytest.raises(NotImplementedError) as exc:
-        Bert4RecModel(tensor_schema.subset(["item_id", "some_user_feature"]))
+        BERT4RecModel(tensor_schema.subset(["item_id", "some_user_feature"]))
 
     assert str(exc.value) == "Non-sequential features is not yet supported"
 
@@ -65,12 +65,12 @@ def test_not_sequential_feature(tensor_schema):
 @pytest.mark.torch
 def test_bert_embedding_not_sum_aggregation_method(tensor_schema):
     with pytest.raises(NotImplementedError):
-        BertEmbedding(tensor_schema.subset(["item_id"]), aggregation_method="", max_len=100)
+        BERTEmbedding(tensor_schema.subset(["item_id"]), aggregation_method="", max_len=100)
 
 
 @pytest.mark.torch
 def test_bert_embedding_cont_feature_initialize(tensor_schema):
-    BertEmbedding(tensor_schema.subset(["item_id", "some_num_feature"]), max_len=100)
+    BERTEmbedding(tensor_schema.subset(["item_id", "some_num_feature"]), max_len=100)
 
 
 @pytest.mark.torch
@@ -79,7 +79,7 @@ def test_bert_embedding_shape(tensor_schema, simple_masks):
 
     item_sequences, _, tokens_mask, _ = simple_masks
 
-    embedder = BertEmbedding(tensor_schema.subset(["item_id", "some_cat_feature"]), max_len=5)
+    embedder = BERTEmbedding(tensor_schema.subset(["item_id", "some_cat_feature"]), max_len=5)
     inputs = {
         "item_id": item_sequences,
         "some_cat_feature": item_sequences.detach().clone(),
@@ -94,7 +94,7 @@ def test_bert_embedding_cont_features(tensor_schema, simple_masks):
 
     item_sequences, _, tokens_mask, _ = simple_masks
 
-    embedder = BertEmbedding(tensor_schema.subset(["item_id", "some_num_feature"]), max_len=5)
+    embedder = BERTEmbedding(tensor_schema.subset(["item_id", "some_num_feature"]), max_len=5)
     inputs = {
         "item_id": item_sequences,
         "some_num_feature": torch.rand(64),
@@ -106,7 +106,7 @@ def test_bert_embedding_cont_features(tensor_schema, simple_masks):
 @pytest.mark.torch
 def test_bert_embedding_not_sum_aggregation_forward(tensor_schema):
     with pytest.raises(NotImplementedError):
-        embedder = BertEmbedding(tensor_schema.subset(["item_id", "some_cat_feature"]), max_len=5)
+        embedder = BERTEmbedding(tensor_schema.subset(["item_id", "some_cat_feature"]), max_len=5)
         embedder.aggregation_method = ""
         embedder({}, torch.tensor([], dtype=torch.bool))
 
@@ -131,7 +131,7 @@ def test_get_logits_head(tensor_schema, simple_masks, item_ids, result_shape):
     item_sequences, _, tokens_mask, _ = simple_masks
 
     head = ClassificationHead(64, 4)
-    embedder = BertEmbedding(tensor_schema.subset(["item_id"]), max_len=5)
+    embedder = BERTEmbedding(tensor_schema.subset(["item_id"]), max_len=5)
     inputs = {"item_id": item_sequences}
 
     assert head(embedder(inputs, tokens_mask), item_ids=item_ids).size() == result_shape
@@ -157,7 +157,7 @@ def test_dummy_bert_converges(tensor_schema, simple_masks, enable_positional_emb
 
     item_sequences, padding_mask, tokens_mask, _ = simple_masks
 
-    bert = Bert4RecModel(
+    bert = BERT4RecModel(
         tensor_schema.subset(["item_id"]),
         max_len=5,
         hidden_size=64,

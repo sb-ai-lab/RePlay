@@ -6,7 +6,7 @@ import lightning
 import torch
 from typing_extensions import deprecated
 
-from replay.models.nn.sequential import Bert4Rec
+from replay.models.nn.sequential import BERT4Rec
 from replay.models.nn.sequential.postprocessors import BasePostProcessor
 from replay.utils import PYSPARK_AVAILABLE, MissingImport, PandasDataFrame, PolarsDataFrame, SparkDataFrame
 
@@ -313,7 +313,7 @@ class QueryEmbeddingsPredictionCallback(lightning.Callback):
                 batch.features,
                 batch.padding_mask,
             ]
-            if isinstance(pl_module, Bert4Rec):
+            if isinstance(pl_module, BERT4Rec):
                 args.append(batch.tokens_mask)
             query_embeddings = pl_module._model.get_query_embeddings(*args)
 

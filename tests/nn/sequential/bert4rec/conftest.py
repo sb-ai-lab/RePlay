@@ -6,7 +6,7 @@ import torch
 from replay.data.nn import ParquetModule
 from replay.data.nn.schema import TensorSchema
 from replay.nn.loss import BCE, CE, BCESampled, CESampled, LogInCE, LogInCESampled, LogOutCE
-from replay.nn.sequential.bert4rec import Bert4Rec
+from replay.nn.sequential.bert4rec import BERT4Rec
 from replay.nn.transform import UniformNegativeSamplingTransform
 from replay.nn.transform.template import make_default_bert4rec_transforms
 
@@ -41,7 +41,7 @@ def bert4rec_parametrized(request, tensor_schema_with_equal_embedding_dims):
     loss_cls, kwargs = request.param
     loss = loss_cls(**kwargs)
 
-    model = Bert4Rec.from_params(
+    model = BERT4Rec.from_params(
         schema=tensor_schema_with_equal_embedding_dims,
         embedding_dim=tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim,
         num_heads=1,
@@ -56,7 +56,7 @@ def bert4rec_parametrized(request, tensor_schema_with_equal_embedding_dims):
 
 @pytest.fixture
 def bert4rec_model(tensor_schema_with_equal_embedding_dims):
-    model = Bert4Rec.from_params(
+    model = BERT4Rec.from_params(
         schema=tensor_schema_with_equal_embedding_dims,
         embedding_dim=tensor_schema_with_equal_embedding_dims["item_id"].embedding_dim,
         num_heads=1,
@@ -70,7 +70,7 @@ def bert4rec_model(tensor_schema_with_equal_embedding_dims):
 @pytest.fixture
 def bert4rec_model_only_items(tensor_schema_with_equal_embedding_dims):
     schema = tensor_schema_with_equal_embedding_dims.filter(name="item_id")
-    model = Bert4Rec.from_params(
+    model = BERT4Rec.from_params(
         schema=schema,
         embedding_dim=schema["item_id"].embedding_dim,
         num_heads=1,

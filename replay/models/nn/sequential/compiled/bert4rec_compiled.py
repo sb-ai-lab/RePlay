@@ -7,8 +7,8 @@ import torch
 
 from replay.data.nn import TensorSchema
 from replay.models.nn.sequential.bert4rec import (
-    Bert4Rec,
-    Bert4RecPredictionBatch,
+    BERT4Rec,
+    BERT4RecPredictionBatch,
 )
 from replay.models.nn.sequential.bert4rec.lightning import _prepare_prediction_batch
 from replay.models.nn.sequential.compiled.base_compiled_model import (
@@ -17,10 +17,10 @@ from replay.models.nn.sequential.compiled.base_compiled_model import (
 )
 
 
-class Bert4RecCompiled(BaseCompiledModel):
+class BERT4RecCompiled(BaseCompiledModel):
     """
-    Bert4Rec CPU-optimized model for inference via OpenVINO.
-    It is recommended to compile model with ``compile`` method and pass ``Bert4Rec`` checkpoint
+    BERT4Rec CPU-optimized model for inference via OpenVINO.
+    It is recommended to compile model with ``compile`` method and pass ``BERT4Rec`` checkpoint
     or the model object itself into it.
     It is also possible to compile model by yourself and pass it to the ``__init__`` with ``TensorSchema``.
 
@@ -34,13 +34,13 @@ class Bert4RecCompiled(BaseCompiledModel):
     ) -> None:
         """
         :param compiled_model: Compiled model.
-        :param schema: Tensor schema of Bert4Rec model.
+        :param schema: Tensor schema of BERT4Rec model.
         """
         super().__init__(compiled_model, schema)
 
     def predict(
         self,
-        batch: Bert4RecPredictionBatch | dict,
+        batch: BERT4RecPredictionBatch | dict,
         candidates_to_score: torch.LongTensor | None = None,
     ) -> torch.Tensor:
         """
@@ -54,9 +54,9 @@ class Bert4RecCompiled(BaseCompiledModel):
         """
         self._validate_predict_input(batch, candidates_to_score, "pad_mask")
 
-        if isinstance(batch, Bert4RecPredictionBatch):
+        if isinstance(batch, BERT4RecPredictionBatch):
             warnings.warn(
-                "`Bert4RecPredictionBatch` class will be removed in future versions. "
+                "`BERT4RecPredictionBatch` class will be removed in future versions. "
                 "Instead, you should use simple dictionary",
                 DeprecationWarning,
                 stacklevel=2,
@@ -77,17 +77,17 @@ class Bert4RecCompiled(BaseCompiledModel):
     @classmethod
     def compile(
         cls,
-        model: Bert4Rec | str | pathlib.Path,
+        model: BERT4Rec | str | pathlib.Path,
         mode: OptimizedModeType = "one_query",
         batch_size: int | None = None,
         num_candidates_to_score: int | None = None,
         num_threads: int | None = None,
         onnx_path: str | None = None,
-    ) -> "Bert4RecCompiled":
+    ) -> "BERT4RecCompiled":
         """
         Model compilation.
 
-        :param model: Path to lightning Bert4Rec model saved in .ckpt format or the Bert4Rec object itself.
+        :param model: Path to lightning BERT4Rec model saved in .ckpt format or the BERT4Rec object itself.
         :param mode: Inference mode, defines shape of inputs.
             Could be one of [``one_query``, ``batch``, ``dynamic_batch_size``].\n
             ``one_query`` - sets input shape to [1, max_seq_len]\n
@@ -112,11 +112,11 @@ class Bert4RecCompiled(BaseCompiledModel):
         if mode not in get_args(OptimizedModeType):
             msg = f"Parameter ``mode`` could be one of {get_args(OptimizedModeType)}."
             raise ValueError(msg)
-        num_candidates_to_score = Bert4RecCompiled._validate_num_candidates_to_score(num_candidates_to_score)
-        if isinstance(model, Bert4Rec):
+        num_candidates_to_score = BERT4RecCompiled._validate_num_candidates_to_score(num_candidates_to_score)
+        if isinstance(model, BERT4Rec):
             lightning_model = model.cpu()
         elif isinstance(model, (str, pathlib.Path)):
-            lightning_model = Bert4Rec.load_from_checkpoint(
+            lightning_model = BERT4Rec.load_from_checkpoint(
                 model,
                 map_location=torch.device("cpu"),
                 weights_only=False,
@@ -126,7 +126,7 @@ class Bert4RecCompiled(BaseCompiledModel):
         item_seq_name = schema.item_id_feature_name
         max_seq_len = lightning_model._model.max_len
 
-        batch_size, num_candidates_to_score = Bert4RecCompiled._get_input_params(
+        batch_size, num_candidates_to_score = BERT4RecCompiled._get_input_params(
             mode, batch_size, num_candidates_to_score
         )
 
@@ -161,7 +161,7 @@ class Bert4RecCompiled(BaseCompiledModel):
         if hasattr(torch.backends, "mha"):
             torch.backends.mha.set_fastpath_enabled(value=False)
 
-        compiled_model = Bert4RecCompiled._run_model_compilation(
+        compiled_model = BERT4RecCompiled._run_model_compilation(
             lightning_model,
             model_input_sample,
             model_input_names,

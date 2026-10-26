@@ -38,7 +38,7 @@ class EncoderProto(Protocol):
     def reset_parameters(self) -> None: ...
 
 
-class Bert4RecBody(torch.nn.Module):
+class BERT4RecBody(torch.nn.Module):
     """
     Implementation of the body of the BERT4Rec model.\n
     It can include various self-written blocks for modifying the model,
@@ -99,7 +99,7 @@ class Bert4RecBody(torch.nn.Module):
         return hidden_state
 
 
-class Bert4Rec(torch.nn.Module):
+class BERT4Rec(torch.nn.Module):
     """
     A model using the BERT4Rec architecture as a hidden state generator.
     The hidden states are multiplied by the item embeddings,
@@ -111,44 +111,67 @@ class Bert4Rec(torch.nn.Module):
 
     .. code-block:: python
 
-        from replay.data import FeatureHint, FeatureSource, FeatureType
-        from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
-        from replay.nn.sequential.bert4rec import Bert4Rec
-
-        tensor_schema = TensorSchema(
-            [
-                TensorFeatureInfo(
-                    "item_id",
-                    is_seq=True,
-                    feature_type=FeatureType.CATEGORICAL,
-                    embedding_dim=256,
-                    padding_value=NUM_UNIQUE_ITEMS,
-                    cardinality=NUM_UNIQUE_ITEMS,
-                    feature_hint=FeatureHint.ITEM_ID,
-                    feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")]
-                ),
-            ]
-        )
-
-        bert4rec = Bert4Rec.from_params(
-            schema=tensor_schema,
-            embedding_dim=256,
-            num_heads=2,
-            num_blocks=2,
-            max_sequence_length=100,
-            dropout=0.2,
-        )
+        >>> from replay.data import FeatureHint, FeatureSource, FeatureType
+        >>> from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
+        >>> from replay.nn.agg import SumAggregator
+        >>> from replay.nn.embedding import SequenceEmbedding
+        >>> from replay.nn.loss import CE
+        >>> from replay.nn.sequential import (
+        ...     BERT4Rec,
+        ...     BERT4RecBody,
+        ...     BERT4RecTransformerLayer,
+        ...     BERTPositionAwareAggregator,
+        ... )
+        ...
+        >>> NUM_UNIQUE_ITEMS = 200 # number of unique item_id in the item catalog
+        >>> tensor_schema = TensorSchema(
+        ...     [
+        ...         TensorFeatureInfo(
+        ...             "item_id",
+        ...             is_seq=True,
+        ...             feature_type=FeatureType.CATEGORICAL,
+        ...             embedding_dim=256,
+        ...             padding_value=NUM_UNIQUE_ITEMS,
+        ...             cardinality=NUM_UNIQUE_ITEMS,
+        ...             feature_hint=FeatureHint.ITEM_ID,
+        ...             feature_sources=[TensorFeatureSource(FeatureSource.INTERACTIONS, "item_id")]
+        ...         ),
+        ...     ]
+        ... )
+        ...
+        >>> body = BERT4RecBody(
+        ...    embedder=SequenceEmbedding(
+        ...        schema=tensor_schema,
+        ...    ),
+        ...    embedding_aggregator=BERTPositionAwareAggregator(
+        ...        embedding_aggregator=SumAggregator(embedding_dim=256),
+        ...        max_sequence_length=100,
+        ...        dropout=0.2,
+        ...    ),
+        ...    encoder=BERT4RecTransformerLayer(
+        ...        embedding_dim=256,
+        ...        num_heads=2,
+        ...        num_blocks=2,
+        ...        feed_forward_hidden=1024,
+        ...        dropout=0.3,
+        ...        activation="relu",
+        ...    ),
+        ... )
+        >>> bert4rec = BERT4Rec(
+        ...     body=body,
+        ...     loss=CE(ignore_index=tensor_schema[tensor_schema.item_id_feature_name].padding_value),
+        ... )
 
     """
 
     def __init__(
         self,
-        body: Bert4RecBody,
+        body: BERT4RecBody,
         loss: LossProto,
         head: HeadProto | None = None,
     ):
         """
-        :param body: An instance of Bert4RecBody.
+        :param body: An instance of BERT4RecBody.
         :param loss: An object of a class that performs loss calculation
             based on hidden states from the model, positive and optionally negative labels.
         :param head: An object of a class that performs logits calculation from hidden states and item embeddings.
@@ -176,7 +199,7 @@ class Bert4Rec(torch.nn.Module):
         excluded_features: Optional[list[str]] = None,
         categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
         head: HeadProto | None = None,
-    ) -> "Bert4Rec":
+    ) -> "BERT4Rec":
         """
         Build a BERT4Rec model from common hyperparameters.
 
@@ -199,8 +222,8 @@ class Bert4Rec(torch.nn.Module):
         from replay.nn.embedding import SequenceEmbedding
         from replay.nn.loss import CE
 
-        from .agg import BertPositionAwareAggregator
-        from .transformer import Bert4RecTransformerLayer
+        from .agg import BERTPositionAwareAggregator
+        from .transformer import BERT4RecTransformerLayer
 
         excluded_features = [
             schema.query_id_feature_name,
@@ -209,18 +232,18 @@ class Bert4Rec(torch.nn.Module):
         ]
         excluded_features = list(set(excluded_features))
 
-        body = Bert4RecBody(
+        body = BERT4RecBody(
             embedder=SequenceEmbedding(
                 schema=schema,
                 categorical_list_feature_aggregation_method=categorical_list_feature_aggregation_method,
                 excluded_features=excluded_features,
             ),
-            embedding_aggregator=BertPositionAwareAggregator(
+            embedding_aggregator=BERTPositionAwareAggregator(
                 embedding_aggregator=SumAggregator(embedding_dim=embedding_dim),
                 max_sequence_length=max_sequence_length,
                 dropout=dropout,
             ),
-            encoder=Bert4RecTransformerLayer(
+            encoder=BERT4RecTransformerLayer(
                 embedding_dim=embedding_dim,
                 num_heads=num_heads,
                 num_blocks=num_blocks,

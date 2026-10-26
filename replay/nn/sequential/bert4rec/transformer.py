@@ -75,7 +75,7 @@ class BERT4RecTransformerBlock(torch.nn.Module):
         return self.dropout(z)
 
 
-class Bert4RecTransformerLayer(torch.nn.Module):
+class BERT4RecTransformerLayer(torch.nn.Module):
     """
     Stack of BERT4Rec transformer blocks.
     """

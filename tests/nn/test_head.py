@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from replay.nn.head import EmbeddingTyingHead
+from replay.nn.head import ClassificationHead, EmbeddingTyingHead
 
 
 @pytest.mark.parametrize(
@@ -51,3 +51,32 @@ def test_head_matches_transposed_matmul(shape_hidden, shape_embeddings):
     torch.testing.assert_close(actual, reference)
     torch.testing.assert_close(hidden_states.grad, reference_hidden_states.grad)
     torch.testing.assert_close(item_embeddings.grad, reference_item_embeddings.grad)
+
+
+@pytest.mark.parametrize(
+    "shape_hidden, expected_shape",
+    [
+        ((25, 128), (25, 10)),
+        ((25, 50, 128), (25, 50, 10)),
+    ],
+)
+def test_classification_head_forward(shape_hidden, expected_shape):
+    hidden_states = torch.rand(shape_hidden)
+    item_embeddings = torch.rand(10, 128)
+
+    head = ClassificationHead(hidden_size=128, n_classes=10)
+    scores = head(hidden_states, item_embeddings)
+
+    assert scores.shape == expected_shape
+
+
+def test_classification_head_reset_parameters():
+    head = ClassificationHead(hidden_size=3, n_classes=2)
+    with torch.no_grad():
+        head.linear.weight.zero_()
+        head.linear.bias.fill_(3.0)
+
+    head.reset_parameters()
+
+    assert torch.count_nonzero(head.linear.weight) > 0
+    assert (head.linear.bias != 3.0).all()
