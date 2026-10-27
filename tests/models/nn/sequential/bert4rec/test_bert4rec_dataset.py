@@ -4,10 +4,10 @@ from replay.utils import TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
     from replay.models.nn.sequential.bert4rec import (
-        BERT4RecPredictionDataset,
-        BERT4RecTrainingDataset,
-        BERT4RecUniformMasker,
-        BERT4RecValidationDataset,
+        Bert4RecPredictionDataset,
+        Bert4RecTrainingDataset,
+        Bert4RecUniformMasker,
+        Bert4RecValidationDataset,
     )
 
 torch = pytest.importorskip("torch")
@@ -35,7 +35,7 @@ torch = pytest.importorskip("torch")
     ],
 )
 def test_uniform_bert_masking_corner_cases(mask_prob, padding_mask, result):
-    masker = BERT4RecUniformMasker(mask_prob=mask_prob)
+    masker = Bert4RecUniformMasker(mask_prob=mask_prob)
     tokens_mask = masker.mask(paddings=padding_mask)
 
     assert all(tokens_mask == result)
@@ -52,21 +52,21 @@ def test_uniform_bert_masking_corner_cases(mask_prob, padding_mask, result):
 )
 def test_bert_training_dataset_exceptions(wrong_sequential_dataset, max_len, feature_name, exception, exception_text):
     with exception as exc:
-        BERT4RecTrainingDataset(wrong_sequential_dataset, max_len, label_feature_name=feature_name)
+        Bert4RecTrainingDataset(wrong_sequential_dataset, max_len, label_feature_name=feature_name)
 
     assert str(exc.value) == exception_text
 
 
 @pytest.mark.torch
 def test_bert_datasets_length(sequential_dataset):
-    assert len(BERT4RecTrainingDataset(sequential_dataset, 8)) == 4
-    assert len(BERT4RecPredictionDataset(sequential_dataset, 8)) == 4
-    assert len(BERT4RecValidationDataset(sequential_dataset, sequential_dataset, sequential_dataset, 8)) == 4
+    assert len(Bert4RecTrainingDataset(sequential_dataset, 8)) == 4
+    assert len(Bert4RecPredictionDataset(sequential_dataset, 8)) == 4
+    assert len(Bert4RecValidationDataset(sequential_dataset, sequential_dataset, sequential_dataset, 8)) == 4
 
 
 @pytest.mark.torch
 def test_bert_training_dataset_getitem(sequential_dataset):
-    batch = BERT4RecTrainingDataset(
+    batch = Bert4RecTrainingDataset(
         sequential_dataset,
         max_sequence_length=8,
         label_feature_name="some_item_feature",
@@ -81,7 +81,7 @@ def test_bert_training_dataset_getitem(sequential_dataset):
 
 @pytest.mark.torch
 def test_bert_prediction_dataset_getitem(sequential_dataset):
-    batch = BERT4RecPredictionDataset(sequential_dataset, 8)[1]
+    batch = Bert4RecPredictionDataset(sequential_dataset, 8)[1]
 
     assert batch["query_id"].item() == 1
     assert all(batch["pad_mask"] == torch.tensor([0, 0, 0, 0, 1, 1, 1, 1], dtype=torch.bool))
@@ -90,7 +90,7 @@ def test_bert_prediction_dataset_getitem(sequential_dataset):
 
 @pytest.mark.torch
 def test_bert_validation_dataset_getitem(sequential_dataset):
-    batch = BERT4RecValidationDataset(sequential_dataset, sequential_dataset, sequential_dataset, 8)[2]
+    batch = Bert4RecValidationDataset(sequential_dataset, sequential_dataset, sequential_dataset, 8)[2]
 
     assert batch["query_id"].item() == 2
     assert all(batch["pad_mask"] == torch.tensor([0, 0, 0, 0, 0, 0, 1, 1], dtype=torch.bool))

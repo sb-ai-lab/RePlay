@@ -1,44 +1,44 @@
-BERT4Rec
+Bert4Rec
 ========
 
-BERT4Rec
+Bert4Rec
 ________
-.. autoclass:: replay.models.nn.sequential.BERT4Rec
+.. autoclass:: replay.models.nn.sequential.Bert4Rec
    :members: __init__, forward, predict
 
-BERT4RecModel
+Bert4RecModel
 _____________
-.. autoclass:: replay.models.nn.sequential.bert4rec.BERT4RecModel
+.. autoclass:: replay.models.nn.sequential.bert4rec.Bert4RecModel
    :members: __init__, forward, predict, forward_step, get_logits, get_query_embeddings
 
-BERT4RecTrainingDataset
+Bert4RecTrainingDataset
 _______________________
-.. autoclass:: replay.models.nn.sequential.bert4rec.BERT4RecTrainingDataset
+.. autoclass:: replay.models.nn.sequential.bert4rec.Bert4RecTrainingDataset
    :members: __init__
 
-BERT4RecValidationDataset
+Bert4RecValidationDataset
 _________________________
-.. autoclass:: replay.models.nn.sequential.bert4rec.BERT4RecValidationDataset
+.. autoclass:: replay.models.nn.sequential.bert4rec.Bert4RecValidationDataset
    :members: __init__
 
-BERT4RecPredictionDataset
+Bert4RecPredictionDataset
 _________________________
-.. autoclass:: replay.models.nn.sequential.bert4rec.BERT4RecPredictionDataset
+.. autoclass:: replay.models.nn.sequential.bert4rec.Bert4RecPredictionDataset
    :members: __init__
 
-BERT4RecTrainingBatch
+Bert4RecTrainingBatch
 _____________________
-.. autoclass:: replay.models.nn.sequential.bert4rec.BERT4RecTrainingBatch
+.. autoclass:: replay.models.nn.sequential.bert4rec.Bert4RecTrainingBatch
    :members:
 
-BERT4RecValidationBatch
+Bert4RecValidationBatch
 _______________________
-.. autoclass:: replay.models.nn.sequential.bert4rec.BERT4RecValidationBatch
+.. autoclass:: replay.models.nn.sequential.bert4rec.Bert4RecValidationBatch
    :members:
 
-BERT4RecPredictionBatch
+Bert4RecPredictionBatch
 _______________________
-.. autoclass:: replay.models.nn.sequential.bert4rec.BERT4RecPredictionBatch
+.. autoclass:: replay.models.nn.sequential.bert4rec.Bert4RecPredictionBatch
    :members:
 
 SasRec (legacy)
@@ -86,14 +86,14 @@ _______________________
 
 Compiled sequential models
 ==========================
-Sequential models like SasRec and BERT4Rec can be converted to ONNX format for fast inference on CPU.
+Sequential models like SasRec and Bert4Rec can be converted to ONNX format for fast inference on CPU.
 
 SasRecCompiled
 ______________
 .. autoclass:: replay.models.nn.sequential.compiled.SasRecCompiled
    :members: compile, predict
 
-BERT4RecCompiled
+Bert4RecCompiled
 ________________
-.. autoclass:: replay.models.nn.sequential.compiled.BERT4RecCompiled
+.. autoclass:: replay.models.nn.sequential.compiled.Bert4RecCompiled
    :members: compile, predict

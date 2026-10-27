@@ -6,7 +6,7 @@ from replay.utils import TORCH_AVAILABLE
 if TORCH_AVAILABLE:
     from replay.experimental.nn.data.schema_builder import TensorSchemaBuilder
     from replay.models.nn.optimizer_utils import FatLRSchedulerFactory, FatOptimizerFactory
-    from replay.models.nn.sequential.bert4rec import BERT4Rec, BERT4RecPredictionBatch, BERT4RecPredictionDataset
+    from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionBatch, Bert4RecPredictionDataset
 
 torch = pytest.importorskip("torch")
 L = pytest.importorskip("lightning")
@@ -28,7 +28,7 @@ def test_training_bert4rec_with_different_losses(
     item_user_sequential_dataset, train_bert_loader, val_bert_loader, loss_type, loss_sample_count
 ):
     trainer = L.Trainer(max_epochs=1)
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
         hidden_size=64,
@@ -46,7 +46,7 @@ def test_deprecated_bert4rec_pipeline(
     deprecated_pred_bert_loader,
 ):
     trainer = L.Trainer(max_epochs=1)
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
         hidden_size=64,
@@ -67,7 +67,7 @@ def test_deprecated_bert4rec_pipeline(
 @pytest.mark.torch
 def test_init_bert4rec_with_invalid_loss_type(item_user_sequential_dataset):
     with pytest.raises(NotImplementedError) as exc:
-        BERT4Rec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_type="")
+        Bert4Rec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_type="")
 
     assert str(exc.value) == "Not supported loss_type"
 
@@ -76,7 +76,7 @@ def test_init_bert4rec_with_invalid_loss_type(item_user_sequential_dataset):
 def test_train_bert4rec_with_invalid_loss_type(item_user_sequential_dataset, train_bert_loader):
     with pytest.raises(ValueError):
         trainer = L.Trainer(max_epochs=1)
-        model = BERT4Rec(
+        model = Bert4Rec(
             tensor_schema=item_user_sequential_dataset._tensor_schema,
             max_seq_len=5,
             hidden_size=64,
@@ -87,10 +87,10 @@ def test_train_bert4rec_with_invalid_loss_type(item_user_sequential_dataset, tra
 
 @pytest.mark.torch
 def test_prediction_bert4rec(item_user_sequential_dataset, train_bert_loader):
-    pred = BERT4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_loader = torch.utils.data.DataLoader(pred)
     trainer = L.Trainer(max_epochs=1)
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
         hidden_size=64,
@@ -112,10 +112,10 @@ def test_prediction_bert4rec(item_user_sequential_dataset, train_bert_loader):
     [True, False],
 )
 def test_prediction_bert_with_candidates(item_user_sequential_dataset, train_bert_loader, candidates, tying_head):
-    pred = BERT4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_bert_loader = torch.utils.data.DataLoader(pred, batch_size=1)
     trainer = L.Trainer(max_epochs=1)
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         enable_embedding_tying=tying_head,
         max_seq_len=5,
@@ -149,10 +149,10 @@ def test_prediction_bert_with_candidates(item_user_sequential_dataset, train_ber
 
 @pytest.mark.torch
 def test_predictions_bert_equal_with_permuted_candidates(item_user_sequential_dataset, train_bert_loader):
-    pred = BERT4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_bert_loader = torch.utils.data.DataLoader(pred)
     trainer = L.Trainer(max_epochs=1)
-    model = BERT4Rec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64)
+    model = Bert4Rec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64)
     trainer.fit(model, train_bert_loader)
 
     sorted_candidates = torch.LongTensor([0, 1, 2, 3])
@@ -176,7 +176,7 @@ def test_predictions_bert_equal_with_permuted_candidates(item_user_sequential_da
 def test_prediction_optimized_bert_invalid_candidates_to_score(
     item_user_sequential_dataset, train_bert_loader, candidates
 ):
-    model = BERT4Rec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64)
+    model = Bert4Rec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64)
     with pytest.raises(ValueError):
         model.candidates_to_score = candidates
 
@@ -200,7 +200,7 @@ def test_bert4rec_configure_optimizers(
     lr_scheduler_type,
 ):
     if optimizer_factory:
-        model = BERT4Rec(
+        model = Bert4Rec(
             tensor_schema=item_user_sequential_dataset._tensor_schema,
             max_seq_len=5,
             hidden_size=64,
@@ -208,7 +208,7 @@ def test_bert4rec_configure_optimizers(
             optimizer_factory=optimizer_factory,
         )
     else:
-        model = BERT4Rec(
+        model = Bert4Rec(
             tensor_schema=item_user_sequential_dataset._tensor_schema,
             max_seq_len=5,
             hidden_size=64,
@@ -225,7 +225,7 @@ def test_bert4rec_configure_optimizers(
 
 @pytest.mark.torch
 def test_bert4rec_configure_wrong_optimizer(item_user_sequential_dataset):
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
         hidden_size=64,
@@ -252,7 +252,7 @@ def test_different_sampling_strategies(
     item_user_sequential_dataset, train_bert_loader, val_bert_loader, negative_sampling_strategy, negatives_sharing
 ):
     trainer = L.Trainer(max_epochs=1)
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
         hidden_size=64,
@@ -267,7 +267,7 @@ def test_different_sampling_strategies(
 @pytest.mark.torch
 def test_not_implemented_sampling_strategy(item_user_sequential_dataset, train_bert_loader, val_bert_loader):
     trainer = L.Trainer(max_epochs=1)
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_sample_count=6
     )
     model._negative_sampling_strategy = ""
@@ -279,7 +279,7 @@ def test_not_implemented_sampling_strategy(item_user_sequential_dataset, train_b
 def test_model_predict_with_nn_parallel(item_user_sequential_dataset, simple_masks):
     item_sequences, padding_mask, tokens_mask, _ = simple_masks
 
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64, loss_sample_count=6
     )
 
@@ -304,7 +304,7 @@ def test_bert4rec_get_embeddings():
         )
         .build()
     )
-    model = BERT4Rec(schema, max_seq_len=5, enable_embedding_tying=True)
+    model = Bert4Rec(schema, max_seq_len=5, enable_embedding_tying=True)
     model_embeddings = model.get_all_embeddings()
     model_item_embedding = model_embeddings["item_embedding"]
 
@@ -389,7 +389,7 @@ def test_bert4rec_fine_tuning_save_load(fitted_bert4rec, new_items_dataset, trai
     model.set_item_embeddings_by_size(new_vocab_size)
     trainer.fit(model, train_bert_loader)
     trainer.save_checkpoint("bert_test.ckpt")
-    best_model = BERT4Rec.load_from_checkpoint("bert_test.ckpt", weights_only=False)
+    best_model = Bert4Rec.load_from_checkpoint("bert_test.ckpt", weights_only=False)
 
     assert best_model.get_all_embeddings()["item_embedding"].shape[0] == new_vocab_size
 
@@ -416,14 +416,14 @@ def test_bert4rec_fine_tuning_errors(fitted_bert4rec):
 def test_predict_step_with_small_seq_len(item_user_num_sequential_dataset, simple_masks):
     item_sequences, padding_mask, tokens_mask, _ = simple_masks
 
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_num_sequential_dataset._tensor_schema,
         max_seq_len=10,
         hidden_size=64,
         loss_sample_count=6,
     )
 
-    batch = BERT4RecPredictionBatch(
+    batch = Bert4RecPredictionBatch(
         torch.arange(0, 4), padding_mask, {"item_id": item_sequences, "num_feature": item_sequences}, tokens_mask
     )
     model.predict_step(batch, 0)
@@ -433,11 +433,11 @@ def test_predict_step_with_small_seq_len(item_user_num_sequential_dataset, simpl
 def test_predict_step_with_big_seq_len(item_user_sequential_dataset, simple_masks):
     item_sequences, padding_mask, tokens_mask, _ = simple_masks
 
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=3, hidden_size=64, loss_sample_count=6
     )
 
-    batch = BERT4RecPredictionBatch(torch.arange(0, 4), padding_mask, {"item_id": item_sequences}, tokens_mask)
+    batch = Bert4RecPredictionBatch(torch.arange(0, 4), padding_mask, {"item_id": item_sequences}, tokens_mask)
     with pytest.raises(ValueError):
         model.predict_step(batch, 0)
 
@@ -445,7 +445,7 @@ def test_predict_step_with_big_seq_len(item_user_sequential_dataset, simple_mask
 @pytest.mark.torch
 def test_bert4rec_get_set_optim_factory(item_user_sequential_dataset):
     optim_factory = FatOptimizerFactory()
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         optimizer_factory=optim_factory,
     )
@@ -458,7 +458,7 @@ def test_bert4rec_get_set_optim_factory(item_user_sequential_dataset):
 
 @pytest.mark.torch
 def test_bert4rec_set_invalid_optim_factory(item_user_sequential_dataset):
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
     )
     new_factory = "Let's say it's an optimizer_factory"

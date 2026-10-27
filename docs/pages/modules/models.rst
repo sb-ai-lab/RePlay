@@ -25,7 +25,7 @@ ___________________
     "Association Rules Item-to-Item Recommender", "PySpark"
     "Cluster Recommender", "PySpark"
     "Neural Matrix Factorization (Experimental)", "Python CPU/GPU"
-    "BERT4Rec", "Python CPU/GPU"
+    "Bert4Rec", "Python CPU/GPU"
     "SasRec", "Python CPU/GPU"
     "TwoTower", "Python CPU/GPU"
     "MultVAE (Experimental)", "Python CPU/GPU"

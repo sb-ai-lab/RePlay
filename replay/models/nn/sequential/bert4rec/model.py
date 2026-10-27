@@ -9,10 +9,10 @@ from replay.data.nn import TensorFeatureInfo, TensorMap, TensorSchema
 
 
 @deprecated(
-    "`BERT4RecModel` class is deprecated. Use `replay.nn.sequential.BERT4Rec` instead.",
+    "`Bert4RecModel` class is deprecated. Use `replay.nn.sequential.BERT4Rec` instead.",
     stacklevel=2,
 )
-class BERT4RecModel(torch.nn.Module):
+class Bert4RecModel(torch.nn.Module):
     """
     BERT model
     """
@@ -62,7 +62,7 @@ class BERT4RecModel(torch.nn.Module):
         self.item_count = schema.item_id_features.item().cardinality
         assert self.item_count
 
-        self.item_embedder = BERTEmbedding(
+        self.item_embedder = BertEmbedding(
             schema,
             max_len=max_len,
             dropout=dropout,
@@ -175,12 +175,12 @@ class BERT4RecModel(torch.nn.Module):
                 torch.nn.init.xavier_normal_(param.data)
 
 
-class BERTEmbedding(torch.nn.Module):
+class BertEmbedding(torch.nn.Module):
     """
     BERT Embedding which is consisted with under features
         1. TokenEmbedding : normal embedding matrix
         2. PositionalEmbedding : adding positional information using sin, cos
-        sum of all these features are output of BERTEmbedding
+        sum of all these features are output of BertEmbedding
     """
 
     def __init__(
@@ -404,9 +404,9 @@ class EmbeddingTyingHead(BaseHead):
     Head that calculate logits for all item_ids given output embeddings.
     """
 
-    def __init__(self, item_embedder: BERTEmbedding, n_items: int):
+    def __init__(self, item_embedder: BertEmbedding, n_items: int):
         """
-        :param item_embedder: BERT embedding.
+        :param item_embedder: Bert embedding.
         :param n_items: Number of items.
         """
         super().__init__()

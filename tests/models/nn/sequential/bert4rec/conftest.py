@@ -9,7 +9,7 @@ if TORCH_AVAILABLE:
     import torch
 
     from replay.data.nn import SequenceTokenizer, TensorFeatureInfo, TensorFeatureSource, TensorSchema
-    from replay.models.nn.sequential.bert4rec import BERT4Rec, BERT4RecTrainingDataset
+    from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecTrainingDataset
 
 
 @pytest.fixture(scope="module")
@@ -59,9 +59,9 @@ def fitted_bert4rec(feature_schema_for_bert4rec):
     tokenizer.fit(train_dataset)
     sequential_train_dataset = tokenizer.transform(train_dataset)
 
-    model = BERT4Rec(tensor_schema, max_seq_len=5, hidden_size=64)
+    model = Bert4Rec(tensor_schema, max_seq_len=5, hidden_size=64)
     trainer = L.Trainer(max_epochs=1)
-    train_loader = torch.utils.data.DataLoader(BERT4RecTrainingDataset(sequential_train_dataset, 5))
+    train_loader = torch.utils.data.DataLoader(Bert4RecTrainingDataset(sequential_train_dataset, 5))
 
     trainer.fit(model, train_dataloaders=train_loader)
 
@@ -95,9 +95,9 @@ def fitted_bert4rec_enable_embedding_tying(feature_schema_for_bert4rec):
     tokenizer.fit(train_dataset)
     sequential_train_dataset = tokenizer.transform(train_dataset)
 
-    model = BERT4Rec(tensor_schema, max_seq_len=5, hidden_size=64, enable_embedding_tying=True)
+    model = Bert4Rec(tensor_schema, max_seq_len=5, hidden_size=64, enable_embedding_tying=True)
     trainer = L.Trainer(max_epochs=1)
-    train_loader = torch.utils.data.DataLoader(BERT4RecTrainingDataset(sequential_train_dataset, 5))
+    train_loader = torch.utils.data.DataLoader(Bert4RecTrainingDataset(sequential_train_dataset, 5))
 
     trainer.fit(model, train_dataloaders=train_loader)
 

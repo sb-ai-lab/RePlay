@@ -5,10 +5,10 @@ import pytest
 from replay.utils import OPENVINO_AVAILABLE, TORCH_AVAILABLE
 
 if TORCH_AVAILABLE:
-    from replay.models.nn.sequential.bert4rec import BERT4Rec, BERT4RecPredictionBatch, BERT4RecPredictionDataset
+    from replay.models.nn.sequential.bert4rec import Bert4Rec, Bert4RecPredictionBatch, Bert4RecPredictionDataset
 
 if OPENVINO_AVAILABLE:
-    from replay.models.nn.sequential.compiled import BERT4RecCompiled
+    from replay.models.nn.sequential.compiled import Bert4RecCompiled
 
 
 torch = pytest.importorskip("torch")
@@ -40,11 +40,11 @@ L = pytest.importorskip("lightning")
 def test_prediction_optimized_bert4rec(
     item_user_sequential_dataset, train_bert_loader, num_candidates, candidates, mode, batch_size, tmp_path
 ):
-    pred = BERT4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_bert4rec_loader = torch.utils.data.DataLoader(pred, batch_size=batch_size)
     cardinality = item_user_sequential_dataset.schema["item_id"].cardinality
 
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
         hidden_size=64,
@@ -54,7 +54,7 @@ def test_prediction_optimized_bert4rec(
     trainer.fit(model, train_bert_loader)
     trainer.save_checkpoint(tmp_path / "test.ckpt")
 
-    opt_model = BERT4RecCompiled.compile(
+    opt_model = Bert4RecCompiled.compile(
         model=(tmp_path / "test.ckpt"),
         mode=mode,
         batch_size=batch_size if mode != "dynamic_batch_size" else None,
@@ -96,21 +96,21 @@ def test_prediction_optimized_bert4rec(
 def test_deprecated_prediction_optimized_bert4rec(
     item_user_sequential_dataset, deprecated_train_bert_loader, num_candidates, candidates, mode, batch_size, tmp_path
 ):
-    class DeprecatedBERT4RecPredictionDataset(BERT4RecPredictionDataset):
+    class DeprecatedBert4RecPredictionDataset(Bert4RecPredictionDataset):
         def __getitem__(self, index: int) -> dict:
             res = super().__getitem__(index)
-            return BERT4RecPredictionBatch(
+            return Bert4RecPredictionBatch(
                 query_id=res["query_id"],
                 padding_mask=res["pad_mask"],
                 features=res["inputs"],
                 tokens_mask=res["token_mask"],
             )
 
-    pred = DeprecatedBERT4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred = DeprecatedBert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_bert4rec_loader = torch.utils.data.DataLoader(pred, batch_size=batch_size)
     cardinality = item_user_sequential_dataset.schema["item_id"].cardinality
 
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
         hidden_size=64,
@@ -121,7 +121,7 @@ def test_deprecated_prediction_optimized_bert4rec(
         trainer.fit(model, deprecated_train_bert_loader)
     trainer.save_checkpoint(tmp_path / "test.ckpt")
 
-    opt_model = BERT4RecCompiled.compile(
+    opt_model = Bert4RecCompiled.compile(
         model=(tmp_path / "test.ckpt"),
         mode=mode,
         batch_size=batch_size if mode != "dynamic_batch_size" else None,
@@ -141,17 +141,17 @@ def test_deprecated_prediction_optimized_bert4rec(
 
 @pytest.mark.conditional
 def test_predictions_optimized_bert4rec_equal_with_permuted_candidates(item_user_sequential_dataset, train_bert_loader):
-    pred = BERT4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_bert4rec_loader = torch.utils.data.DataLoader(pred)
     trainer = L.Trainer(max_epochs=1)
-    model = BERT4Rec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64)
+    model = Bert4Rec(tensor_schema=item_user_sequential_dataset._tensor_schema, max_seq_len=5, hidden_size=64)
     trainer.fit(model, train_bert_loader)
 
     sorted_candidates = torch.LongTensor([0, 1, 2, 3])
     permuted_candidates = torch.LongTensor([3, 0, 2, 1])
     _, ordering = torch.sort(permuted_candidates)
 
-    opt_model = BERT4RecCompiled.compile(
+    opt_model = Bert4RecCompiled.compile(
         model=model,
         num_candidates_to_score=sorted_candidates.shape[0],
     )
@@ -176,9 +176,9 @@ def test_predictions_optimized_bert4rec_equal_with_permuted_candidates(item_user
 def test_prediction_optimized_bert4rec_invalid_candidates_to_score(
     item_user_sequential_dataset, train_bert_loader, num_candidates, candidates, tmp_path
 ):
-    pred = BERT4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_bert4rec_loader = torch.utils.data.DataLoader(pred)
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
         hidden_size=64,
@@ -190,7 +190,7 @@ def test_prediction_optimized_bert4rec_invalid_candidates_to_score(
 
     batch = next(iter(pred_bert4rec_loader))
     with pytest.raises(ValueError) as e:
-        model = BERT4RecCompiled.compile(
+        model = Bert4RecCompiled.compile(
             model=(tmp_path / "test.ckpt"),
             mode="one_query",
             num_candidates_to_score=num_candidates,
@@ -216,10 +216,10 @@ def test_prediction_optimized_bert4rec_invalid_candidates_to_score(
 def test_prediction_optimized_bert4rec_invalid_batch_in_batch_mode(
     item_user_sequential_dataset, train_bert_loader, mode, batch_size, model_batch_size, tmp_path
 ):
-    pred = BERT4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     pred_bert4rec_loader = torch.utils.data.DataLoader(pred, batch_size=batch_size)
 
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
         hidden_size=64,
@@ -229,7 +229,7 @@ def test_prediction_optimized_bert4rec_invalid_batch_in_batch_mode(
     trainer.fit(model, train_bert_loader)
     trainer.save_checkpoint(tmp_path / "test.ckpt")
 
-    opt_model = BERT4RecCompiled.compile(
+    opt_model = Bert4RecCompiled.compile(
         model=(tmp_path / "test.ckpt"),
         mode=mode,
         batch_size=model_batch_size,
@@ -243,12 +243,12 @@ def test_prediction_optimized_bert4rec_invalid_batch_in_batch_mode(
 @pytest.mark.conditional
 def test_optimized_bert4rec_invalid_mode():
     with pytest.raises(ValueError):
-        BERT4RecCompiled.compile(model="some_path", mode="invalid_mode")
+        Bert4RecCompiled.compile(model="some_path", mode="invalid_mode")
 
 
 @pytest.mark.conditional
 def test_optimized_bert4rec_compile_from_different_sources(item_user_sequential_dataset, train_bert_loader, tmp_path):
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
         hidden_size=64,
@@ -258,31 +258,31 @@ def test_optimized_bert4rec_compile_from_different_sources(item_user_sequential_
     trainer.fit(model, train_bert_loader)
     trainer.save_checkpoint(tmp_path / "test.ckpt")
 
-    opt_model1 = BERT4RecCompiled.compile(model=str(tmp_path / "test.ckpt"))
-    opt_model2 = BERT4RecCompiled.compile(model=(tmp_path / "test.ckpt"))
-    opt_model3 = BERT4RecCompiled.compile(model=model)
+    opt_model1 = Bert4RecCompiled.compile(model=str(tmp_path / "test.ckpt"))
+    opt_model2 = Bert4RecCompiled.compile(model=(tmp_path / "test.ckpt"))
+    opt_model3 = Bert4RecCompiled.compile(model=model)
     assert str(opt_model1._model) == str(opt_model2._model) == str(opt_model3._model)
 
 
 @pytest.mark.conditional
 def test_optimized_bert4rec_onnx_path_param(item_user_sequential_dataset, tmp_path):
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
         hidden_size=64,
     )
     path_to_save = tmp_path / "model.onnx"
-    BERT4RecCompiled.compile(model=model, onnx_path=path_to_save)
+    Bert4RecCompiled.compile(model=model, onnx_path=path_to_save)
     assert os.path.exists(path_to_save)
 
 
 @pytest.mark.conditional
 @pytest.mark.parametrize("threads", [1, 2])
 def test_optimized_bert4rec_num_threads_param(item_user_sequential_dataset, threads):
-    model = BERT4Rec(
+    model = Bert4Rec(
         tensor_schema=item_user_sequential_dataset._tensor_schema,
         max_seq_len=5,
         hidden_size=64,
     )
-    opt_model = BERT4RecCompiled.compile(model=model, num_threads=threads)
+    opt_model = Bert4RecCompiled.compile(model=model, num_threads=threads)
     assert opt_model._model.get_property("INFERENCE_NUM_THREADS") == threads

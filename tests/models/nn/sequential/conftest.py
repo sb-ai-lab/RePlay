@@ -11,12 +11,12 @@ if TORCH_AVAILABLE:
 
     from replay.data.nn import PandasSequentialDataset, PolarsSequentialDataset, TensorFeatureInfo, TensorSchema
     from replay.models.nn.sequential.bert4rec import (
-        BERT4RecPredictionBatch,
-        BERT4RecPredictionDataset,
-        BERT4RecTrainingBatch,
-        BERT4RecTrainingDataset,
-        BERT4RecValidationBatch,
-        BERT4RecValidationDataset,
+        Bert4RecPredictionBatch,
+        Bert4RecPredictionDataset,
+        Bert4RecTrainingBatch,
+        Bert4RecTrainingDataset,
+        Bert4RecValidationBatch,
+        Bert4RecValidationDataset,
     )
     from replay.models.nn.sequential.sasrec import (
         SasRecPredictionBatch,
@@ -363,13 +363,13 @@ def item_user_num_sequential_dataset():
 
 @pytest.fixture(scope="module")
 def train_bert_loader(item_user_sequential_dataset):
-    train = BERT4RecTrainingDataset(item_user_sequential_dataset, 5)
+    train = Bert4RecTrainingDataset(item_user_sequential_dataset, 5)
     return torch.utils.data.DataLoader(train)
 
 
 @pytest.fixture(scope="module")
 def val_bert_loader(item_user_sequential_dataset):
-    val = BERT4RecValidationDataset(
+    val = Bert4RecValidationDataset(
         item_user_sequential_dataset, item_user_sequential_dataset, item_user_sequential_dataset, max_sequence_length=5
     )
     return torch.utils.data.DataLoader(val)
@@ -377,7 +377,7 @@ def val_bert_loader(item_user_sequential_dataset):
 
 @pytest.fixture(scope="module")
 def pred_bert_loader(item_user_sequential_dataset):
-    pred = BERT4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred = Bert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     return torch.utils.data.DataLoader(pred)
 
 
@@ -403,10 +403,10 @@ def pred_sasrec_loader(item_user_sequential_dataset):
 
 @pytest.fixture(scope="module")
 def deprecated_train_bert_loader(item_user_sequential_dataset):
-    class DeprecatedBERT4RecTrainingDataset(BERT4RecTrainingDataset):
+    class DeprecatedBert4RecTrainingDataset(Bert4RecTrainingDataset):
         def __getitem__(self, index: int) -> dict:
             res = super().__getitem__(index)
-            return BERT4RecTrainingBatch(
+            return Bert4RecTrainingBatch(
                 query_id=res["query_id"],
                 padding_mask=res["pad_mask"],
                 features=res["inputs"],
@@ -414,16 +414,16 @@ def deprecated_train_bert_loader(item_user_sequential_dataset):
                 labels=res["positive_labels"],
             )
 
-    train = DeprecatedBERT4RecTrainingDataset(item_user_sequential_dataset, 5)
+    train = DeprecatedBert4RecTrainingDataset(item_user_sequential_dataset, 5)
     return torch.utils.data.DataLoader(train)
 
 
 @pytest.fixture(scope="module")
 def deprecated_val_bert_loader(item_user_sequential_dataset):
-    class DeprecatedBERT4RecValidationDataset(BERT4RecValidationDataset):
+    class DeprecatedBert4RecValidationDataset(Bert4RecValidationDataset):
         def __getitem__(self, index: int) -> dict:
             res = super().__getitem__(index)
-            return BERT4RecValidationBatch(
+            return Bert4RecValidationBatch(
                 query_id=res["query_id"],
                 padding_mask=res["pad_mask"],
                 features=res["inputs"],
@@ -432,7 +432,7 @@ def deprecated_val_bert_loader(item_user_sequential_dataset):
                 train=res["train"],
             )
 
-    val = DeprecatedBERT4RecValidationDataset(
+    val = DeprecatedBert4RecValidationDataset(
         item_user_sequential_dataset,
         item_user_sequential_dataset,
         item_user_sequential_dataset,
@@ -443,17 +443,17 @@ def deprecated_val_bert_loader(item_user_sequential_dataset):
 
 @pytest.fixture(scope="module")
 def deprecated_pred_bert_loader(item_user_sequential_dataset):
-    class DeprecatedBERT4RecPredictionDataset(BERT4RecPredictionDataset):
+    class DeprecatedBert4RecPredictionDataset(Bert4RecPredictionDataset):
         def __getitem__(self, index: int) -> dict:
             res = super().__getitem__(index)
-            return BERT4RecPredictionBatch(
+            return Bert4RecPredictionBatch(
                 query_id=res["query_id"],
                 padding_mask=res["pad_mask"],
                 features=res["inputs"],
                 tokens_mask=res["token_mask"],
             )
 
-    pred = DeprecatedBERT4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
+    pred = DeprecatedBert4RecPredictionDataset(item_user_sequential_dataset, max_sequence_length=5)
     return torch.utils.data.DataLoader(pred)
 
 

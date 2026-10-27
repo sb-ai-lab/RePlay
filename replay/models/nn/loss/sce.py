@@ -55,7 +55,7 @@ class ScalableCrossEntropyLoss:
         :param positive_labels: Positive labels.
         :param all_embeddings: Matrix of all item embeddings.
         :param padding_mask: Padding mask.
-        :param tokens_mask: Tokens mask (need only for BERT4Rec).
+        :param tokens_mask: Tokens mask (need only for Bert4Rec).
             Default: ``None``.
         """
         masked_tokens = padding_mask if tokens_mask is None else ~(~padding_mask + tokens_mask)
