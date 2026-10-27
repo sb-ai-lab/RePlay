@@ -14,9 +14,9 @@ BERT4RecBody
 .. autoclass:: replay.nn.sequential.bert4rec.BERT4RecBody
    :members: __init__, forward
 
-BERTPositionAwareAggregator
-```````````````````````````
-.. autoclass:: replay.nn.sequential.bert4rec.BERTPositionAwareAggregator
+BERT4RecPositionAwareAggregator
+````````````````````````````````
+.. autoclass:: replay.nn.sequential.bert4rec.BERT4RecPositionAwareAggregator
    :members: __init__, forward
 
 BERT4RecTransformerBlock

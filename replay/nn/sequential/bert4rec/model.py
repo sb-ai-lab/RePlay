@@ -120,7 +120,7 @@ class BERT4Rec(torch.nn.Module):
         ...     BERT4Rec,
         ...     BERT4RecBody,
         ...     BERT4RecTransformerLayer,
-        ...     BERTPositionAwareAggregator,
+        ...     BERT4RecPositionAwareAggregator,
         ... )
         ...
         >>> NUM_UNIQUE_ITEMS = 200 # number of unique item_id in the item catalog
@@ -143,7 +143,7 @@ class BERT4Rec(torch.nn.Module):
         ...    embedder=SequenceEmbedding(
         ...        schema=tensor_schema,
         ...    ),
-        ...    embedding_aggregator=BERTPositionAwareAggregator(
+        ...    embedding_aggregator=BERT4RecPositionAwareAggregator(
         ...        embedding_aggregator=SumAggregator(embedding_dim=256),
         ...        max_sequence_length=100,
         ...        dropout=0.2,
@@ -222,7 +222,7 @@ class BERT4Rec(torch.nn.Module):
         from replay.nn.embedding import SequenceEmbedding
         from replay.nn.loss import CE
 
-        from .agg import BERTPositionAwareAggregator
+        from .agg import BERT4RecPositionAwareAggregator
         from .transformer import BERT4RecTransformerLayer
 
         excluded_features = [
@@ -238,7 +238,7 @@ class BERT4Rec(torch.nn.Module):
                 categorical_list_feature_aggregation_method=categorical_list_feature_aggregation_method,
                 excluded_features=excluded_features,
             ),
-            embedding_aggregator=BERTPositionAwareAggregator(
+            embedding_aggregator=BERT4RecPositionAwareAggregator(
                 embedding_aggregator=SumAggregator(embedding_dim=embedding_dim),
                 max_sequence_length=max_sequence_length,
                 dropout=dropout,
