@@ -114,7 +114,7 @@ class GroupedUniformNegativeSamplingTransform(UniformNegativeSamplingTransform):
 
     Use it together with :class:`~replay.nn.loss.GroupedCESampled`; its
     ``group_size`` must match the loss's ``logical_batch_size``. See
-    ``examples/17_twotower_advanced_example.ipynb`` for a complete runnable
+    ``examples/15_twotower_example/advanced_example.ipynb`` for a complete runnable
     configuration.
     """
 

@@ -228,8 +228,8 @@ pip install ligfhtfm
 [Neural TS](https://github.com/sb-ai-lab/RePlay/blob/main/examples/12_neural_ts_exp.ipynb) | An example of using Neural Thompson Sampling bandit model (based on Wide&Deep architecture) |
 [Personalized Bandit Comparison](https://github.com/sb-ai-lab/RePlay/blob/main/examples/13_personalized_bandit_comparison.ipynb) | A comparison of context-free and contextual bandit models |
 [Hierarchical Recommender](https://github.com/sb-ai-lab/RePlay/blob/main/examples/14_hierarchical_recommender.ipynb) | An example of using HierarchicalRecommender with user-disjoint LinUCB |
-[TwoTower Simple Example](https://github.com/sb-ai-lab/RePlay/blob/main/examples/twotower/01_simple_example.ipynb) | A simple example of using transformer-based TwoTower model with batch-wise reading and preprocessing via ParquetModul |
-[TwoTower Advanced Example](https://github.com/sb-ai-lab/RePlay/blob/main/examples/twotower/02_advanced_example.ipynb) | An advanced example that expands the previous one, demonstrating how to construct a model via blocks, accelerate the model, and use additional dataset features.
+[TwoTower Simple Example](https://github.com/sb-ai-lab/RePlay/blob/main/examples/twotower/simple_example.ipynb) | A simple example of using transformer-based TwoTower model with batch-wise reading and preprocessing via ParquetModul |
+[TwoTower Advanced Example](https://github.com/sb-ai-lab/RePlay/blob/main/examples/twotower/advanced_example.ipynb) | An advanced example that expands the previous one, demonstrating how to construct a model via blocks, accelerate the model, and use additional dataset features.
 
 ### Videos and papers
 * **Video guides**:
