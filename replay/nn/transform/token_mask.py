@@ -66,12 +66,23 @@ class TokenMaskTransform(torch.nn.Module):
 
 
 class TargetMLMTransform(torch.nn.Module):
+    """
+    Creates a target mask for the recsys analog of Masked Language Modeling (MLM) task.
+
+    The resulting mask selects non-padding tokens masked by :class:`TokenMaskTransform`.
+    """
+
     def __init__(
         self,
         token_mask_col: str = "token_mask",
         padding_mask_col: str = "padding_mask",
         out_feature_name: str = "target_padding_mask",
     ) -> None:
+        """
+        :param token_mask_col: A name of the column containing the token mask.
+        :param padding_mask_col: A name of the column containing the padding mask.
+        :param out_feature_name: A name of the resulting target mask column.
+        """
         super().__init__()
         self.token_mask_col = token_mask_col
         self.padding_mask_col = padding_mask_col

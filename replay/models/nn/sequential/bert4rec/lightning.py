@@ -15,7 +15,8 @@ from .model import Bert4RecModel, CatFeatureEmbedding
 
 @deprecated(
     "`Bert4Rec` class is deprecated. Use `replay.nn.sequential.BERT4Rec` and "
-    "`replay.nn.lightning.LightningModule` instead."
+    "`replay.nn.lightning.LightningModule` instead.",
+    stacklevel=2,
 )
 class Bert4Rec(lightning.LightningModule):
     """

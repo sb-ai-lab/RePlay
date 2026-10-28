@@ -86,6 +86,8 @@ class BERT4RecBody(torch.nn.Module):
             Expected shape: ``(batch_size, sequence_length, embedding_dim)``
         """
         embeddings = self.embedder(feature_tensors)
+
+        assert "token_mask" in feature_tensors
         agg_emb: torch.Tensor = self.embedding_aggregator(embeddings, feature_tensors["token_mask"])
         assert agg_emb.dim() == 3
 
