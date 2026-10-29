@@ -291,11 +291,6 @@ DefaultAttentionMask
 Transformer Heads
 _________________
 
-HeadProto
-`````````
-.. autoclass:: replay.nn.head.HeadProto
-   :members:
-
 EmbeddingTyingHead
 ``````````````````
 .. autoclass:: replay.nn.head.EmbeddingTyingHead
