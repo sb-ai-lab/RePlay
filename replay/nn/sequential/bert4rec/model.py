@@ -38,7 +38,7 @@ class EncoderProto(Protocol):
     def reset_parameters(self) -> None: ...
 
 
-class BERT4RecBody(torch.nn.Module):
+class Bert4RecBody(torch.nn.Module):
     """
     Implementation of the body of the BERT4Rec model.\n
     It can include various self-written blocks for modifying the model,
@@ -101,7 +101,7 @@ class BERT4RecBody(torch.nn.Module):
         return hidden_state
 
 
-class BERT4Rec(torch.nn.Module):
+class Bert4Rec(torch.nn.Module):
     """
     A model using the BERT4Rec architecture as a hidden state generator.
     The hidden states are multiplied by the item embeddings,
@@ -119,10 +119,10 @@ class BERT4Rec(torch.nn.Module):
         >>> from replay.nn.embedding import SequenceEmbedding
         >>> from replay.nn.loss import CE
         >>> from replay.nn.sequential import (
-        ...     BERT4Rec,
-        ...     BERT4RecBody,
-        ...     BERT4RecTransformerLayer,
-        ...     BERT4RecPositionAwareAggregator,
+        ...     Bert4Rec,
+        ...     Bert4RecBody,
+        ...     Bert4RecTransformerLayer,
+        ...     Bert4RecPositionAwareAggregator,
         ... )
         ...
         >>> NUM_UNIQUE_ITEMS = 200 # number of unique item_id in the item catalog
@@ -141,16 +141,16 @@ class BERT4Rec(torch.nn.Module):
         ...     ]
         ... )
         ...
-        >>> body = BERT4RecBody(
+        >>> body = Bert4RecBody(
         ...    embedder=SequenceEmbedding(
         ...        schema=tensor_schema,
         ...    ),
-        ...    embedding_aggregator=BERT4RecPositionAwareAggregator(
+        ...    embedding_aggregator=Bert4RecPositionAwareAggregator(
         ...        embedding_aggregator=SumAggregator(embedding_dim=256),
         ...        max_sequence_length=100,
         ...        dropout=0.2,
         ...    ),
-        ...    encoder=BERT4RecTransformerLayer(
+        ...    encoder=Bert4RecTransformerLayer(
         ...        embedding_dim=256,
         ...        num_heads=2,
         ...        num_blocks=2,
@@ -159,7 +159,7 @@ class BERT4Rec(torch.nn.Module):
         ...        activation="relu",
         ...    ),
         ... )
-        >>> bert4rec = BERT4Rec(
+        >>> bert4rec = Bert4Rec(
         ...     body=body,
         ...     loss=CE(ignore_index=tensor_schema[tensor_schema.item_id_feature_name].padding_value),
         ... )
@@ -168,12 +168,12 @@ class BERT4Rec(torch.nn.Module):
 
     def __init__(
         self,
-        body: BERT4RecBody,
+        body: Bert4RecBody,
         loss: LossProto,
         head: HeadProto | None = None,
     ):
         """
-        :param body: An instance of BERT4RecBody.
+        :param body: An instance of Bert4RecBody.
         :param loss: An object of a class that performs loss calculation
             based on hidden states from the model, positive and optionally negative labels.
         :param head: An object of a class that performs logits calculation from hidden states and item embeddings.
@@ -201,7 +201,7 @@ class BERT4Rec(torch.nn.Module):
         excluded_features: Optional[list[str]] = None,
         categorical_list_feature_aggregation_method: Literal["sum", "mean", "max"] = "sum",
         head: HeadProto | None = None,
-    ) -> "BERT4Rec":
+    ) -> "Bert4Rec":
         """
         Build a BERT4Rec model from common hyperparameters.
 
@@ -224,8 +224,8 @@ class BERT4Rec(torch.nn.Module):
         from replay.nn.embedding import SequenceEmbedding
         from replay.nn.loss import CE
 
-        from .agg import BERT4RecPositionAwareAggregator
-        from .transformer import BERT4RecTransformerLayer
+        from .agg import Bert4RecPositionAwareAggregator
+        from .transformer import Bert4RecTransformerLayer
 
         excluded_features = [
             schema.query_id_feature_name,
@@ -234,18 +234,18 @@ class BERT4Rec(torch.nn.Module):
         ]
         excluded_features = list(set(excluded_features))
 
-        body = BERT4RecBody(
+        body = Bert4RecBody(
             embedder=SequenceEmbedding(
                 schema=schema,
                 categorical_list_feature_aggregation_method=categorical_list_feature_aggregation_method,
                 excluded_features=excluded_features,
             ),
-            embedding_aggregator=BERT4RecPositionAwareAggregator(
+            embedding_aggregator=Bert4RecPositionAwareAggregator(
                 embedding_aggregator=SumAggregator(embedding_dim=embedding_dim),
                 max_sequence_length=max_sequence_length,
                 dropout=dropout,
             ),
-            encoder=BERT4RecTransformerLayer(
+            encoder=Bert4RecTransformerLayer(
                 embedding_dim=embedding_dim,
                 num_heads=num_heads,
                 num_blocks=num_blocks,

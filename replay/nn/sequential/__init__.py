@@ -1,4 +1,4 @@
-from .bert4rec import BERT4Rec, BERT4RecBody, BERT4RecPositionAwareAggregator, BERT4RecTransformerLayer
+from .bert4rec import Bert4Rec, Bert4RecBody, Bert4RecPositionAwareAggregator, Bert4RecTransformerLayer
 from .length_bucket import LengthBucketedQueryEncoder
 from .sasrec import (
     DiffTransformerBlock,

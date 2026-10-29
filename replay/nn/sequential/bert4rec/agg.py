@@ -6,7 +6,7 @@ from replay.data.nn.schema import TensorMap
 from replay.nn.agg import AggregatorProto
 
 
-class BERT4RecPositionAwareAggregator(torch.nn.Module):
+class Bert4RecPositionAwareAggregator(torch.nn.Module):
     """
     Aggregates feature embeddings, applies BERT4Rec token masking, and adds positional embeddings.
     """

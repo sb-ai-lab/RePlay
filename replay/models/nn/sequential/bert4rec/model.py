@@ -9,7 +9,7 @@ from replay.data.nn import TensorFeatureInfo, TensorMap, TensorSchema
 
 
 @deprecated(
-    "`Bert4RecModel` class is deprecated. Use `replay.nn.sequential.BERT4Rec` instead.",
+    "`Bert4RecModel` class is deprecated. Use `replay.nn.sequential.Bert4Rec` instead.",
     stacklevel=2,
 )
 class Bert4RecModel(torch.nn.Module):

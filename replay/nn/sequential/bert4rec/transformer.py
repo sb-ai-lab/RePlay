@@ -7,7 +7,7 @@ from replay.data.nn import TensorMap
 from replay.nn.ffn import PositionwiseFeedForward
 
 
-class BERT4RecTransformerBlock(torch.nn.Module):
+class Bert4RecTransformerBlock(torch.nn.Module):
     """
     BERT4Rec transformer block with bidirectional self-attention and a feed-forward network.
     """
@@ -75,7 +75,7 @@ class BERT4RecTransformerBlock(torch.nn.Module):
         return self.dropout(z)
 
 
-class BERT4RecTransformerLayer(torch.nn.Module):
+class Bert4RecTransformerLayer(torch.nn.Module):
     """
     Stack of BERT4Rec transformer blocks.
     """
@@ -101,7 +101,7 @@ class BERT4RecTransformerLayer(torch.nn.Module):
         self.num_blocks = num_blocks
         self.transformer_blocks = torch.nn.ModuleList(
             [
-                BERT4RecTransformerBlock(
+                Bert4RecTransformerBlock(
                     embedding_dim,
                     num_heads,
                     feed_forward_hidden,

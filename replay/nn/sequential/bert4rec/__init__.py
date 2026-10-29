@@ -1,3 +1,3 @@
-from .agg import BERT4RecPositionAwareAggregator
-from .model import BERT4Rec, BERT4RecBody
-from .transformer import BERT4RecTransformerBlock, BERT4RecTransformerLayer
+from .agg import Bert4RecPositionAwareAggregator
+from .model import Bert4Rec, Bert4RecBody
+from .transformer import Bert4RecTransformerBlock, Bert4RecTransformerLayer

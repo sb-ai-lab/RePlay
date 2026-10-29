@@ -3,30 +3,30 @@ BERT4Rec
 
 BERT4Rec
 ________
-.. autoclass:: replay.nn.sequential.bert4rec.BERT4Rec
+.. autoclass:: replay.nn.sequential.bert4rec.Bert4Rec
    :members: __init__, forward, from_params
 
 BERT4Rec Building Blocks
 ________________________
 
-BERT4RecBody
+Bert4RecBody
 ````````````
-.. autoclass:: replay.nn.sequential.bert4rec.BERT4RecBody
+.. autoclass:: replay.nn.sequential.bert4rec.Bert4RecBody
    :members: __init__, forward
 
-BERT4RecPositionAwareAggregator
+Bert4RecPositionAwareAggregator
 ````````````````````````````````
-.. autoclass:: replay.nn.sequential.bert4rec.BERT4RecPositionAwareAggregator
+.. autoclass:: replay.nn.sequential.bert4rec.Bert4RecPositionAwareAggregator
    :members: __init__, forward
 
-BERT4RecTransformerBlock
+Bert4RecTransformerBlock
 `````````````````````````
-.. autoclass:: replay.nn.sequential.bert4rec.transformer.BERT4RecTransformerBlock
+.. autoclass:: replay.nn.sequential.bert4rec.transformer.Bert4RecTransformerBlock
    :members: __init__, forward
 
-BERT4RecTransformerLayer
+Bert4RecTransformerLayer
 `````````````````````````
-.. autoclass:: replay.nn.sequential.bert4rec.BERT4RecTransformerLayer
+.. autoclass:: replay.nn.sequential.bert4rec.Bert4RecTransformerLayer
    :members: __init__, forward
 
 
