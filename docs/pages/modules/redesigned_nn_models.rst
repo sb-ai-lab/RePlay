@@ -1,12 +1,12 @@
-BERT4Rec
+Bert4Rec
 ========
 
-BERT4Rec
+Bert4Rec
 ________
 .. autoclass:: replay.nn.sequential.bert4rec.Bert4Rec
    :members: __init__, forward, from_params
 
-BERT4Rec Building Blocks
+Bert4Rec Building Blocks
 ________________________
 
 Bert4RecBody
@@ -30,7 +30,7 @@ Bert4RecTransformerLayer
    :members: __init__, forward
 
 
-BERT4Rec Transforms
+Bert4Rec Transforms
 ___________________
 .. autofunction:: replay.nn.transform.template.make_default_bert4rec_transforms
 
@@ -434,6 +434,11 @@ ____________________________________
 A standard set of transforms for models
 _______________________________________
 
+Bert4Rec Transforms
+```````````````````
+.. autofunction:: replay.nn.transform.template.make_default_bert4rec_transforms
+    :noindex:
+
 SasRec Transforms
 ````````````````````
 .. autofunction:: replay.nn.transform.template.make_default_sasrec_transforms
@@ -442,11 +447,6 @@ SasRec Transforms
 TwoTower Transforms
 ````````````````````
 .. autofunction:: replay.nn.transform.template.make_default_twotower_transforms
-    :noindex:
-
-BERT4Rec Transforms
-```````````````````
-.. autofunction:: replay.nn.transform.template.make_default_bert4rec_transforms
     :noindex:
 
 Easy training, validation and inference with Lightning
