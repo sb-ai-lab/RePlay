@@ -32,7 +32,6 @@ class EncoderProto(Protocol):
         feature_tensors: TensorMap,
         input_embeddings: torch.Tensor,
         padding_mask: torch.BoolTensor,
-        attention_mask: torch.Tensor,
     ) -> torch.Tensor: ...
 
     def reset_parameters(self) -> None: ...

@@ -3,9 +3,8 @@ import torch
 
 class TokenMaskTransform(torch.nn.Module):
     """
-    For the feature tensor specified by ``token_name``, randomly masks items
+    For the padding mask tensor specified by ``token_name``, randomly masks items
     in the sequence based on a uniform distribution with specified probability of masking.
-    In fact, this transform creates a mask for the Masked Language Modeling (MLM) task analog in the recommendations.
 
     Example:
 
@@ -31,11 +30,14 @@ class TokenMaskTransform(torch.nn.Module):
         """
         :param token_name: A name of the column containing the unmasked tokes.
         :param out_feature_name: A name of the resulting  mask column. Default: ``token_mask``.
-        :param mask_prob: Probability of masking the item, i.e. setting it to ``0``. Default: ``0.15``.
+        :param mask_prob: Probability of masking the item. Default: ``0.15``.
         :param generator: a random number generator to be used for generating
                 the uniform distribution. Default: ``None``.
         """
         super().__init__()
+        if not (0 < mask_prob < 1):
+            msg = "Probability of masking must be 0 < `mask_prob` < 1"
+            raise ValueError(msg)
         self.token_name = token_name
         self.out_feature_name = out_feature_name
         self.mask_prob = mask_prob
@@ -48,18 +50,19 @@ class TokenMaskTransform(torch.nn.Module):
 
         assert paddings.dtype == torch.bool, "Source tensor for token mask should be boolean."
 
-        mask_prob = torch.rand(paddings.shape, dtype=torch.float32, device=paddings.device, generator=self.generator)
+        mask_prob = torch.rand(paddings.shape, dtype=torch.float32, generator=self.generator).to(paddings.device)
 
         # mask[i], 0 ~ mask_prob, 1 ~ (1 - mask_prob)
-        mask = (mask_prob * paddings) >= self.mask_prob
+        mask = paddings * (mask_prob >= self.mask_prob)
 
         # Fix corner cases in mask
         # 1. If all token are not masked, add mask to the end
-        if mask.all() or mask[paddings].all():
-            mask[-1] = 0
+        valid_mask = mask[paddings]
+        if valid_mask.all():
+            mask[-1, -1] = False
         # 2. If all token are masked, add non-masked before the last
-        elif (not mask.any()) and (len(mask) > 1):
-            mask[-2] = 1
+        elif not valid_mask.any():
+            mask[-1, -2] = True
 
         output_batch[self.out_feature_name] = mask
         return output_batch
@@ -91,7 +94,5 @@ class TargetMLMTransform(torch.nn.Module):
     def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         output_batch = dict(batch.items())
 
-        output_batch[self.out_feature_name] = torch.logical_xor(
-            output_batch[self.padding_mask_col], output_batch[self.token_mask_col]
-        )
+        output_batch[self.out_feature_name] = output_batch[self.padding_mask_col] & ~output_batch[self.token_mask_col]
         return output_batch

@@ -45,11 +45,7 @@ def make_default_bert4rec_transforms(tensor_schema: TensorSchema) -> dict[str, l
             if feature.is_seq
         ],
         SequenceRollTransform("padding_mask", roll=-1, padding_value=1),
-        SequenceRollTransform("token_mask", roll=-1, padding_value=0),
-        CopyTransform({item_id_name: "positive_labels"}),
-        TargetMLMTransform(),
-        UnsqueezeTransform("target_padding_mask", -1),
-        UnsqueezeTransform("positive_labels", -1),
+        SequenceRollTransform("token_mask", roll=-1, padding_value=0), 
         GroupTransform({"feature_tensors": [*tensor_schema.names, "token_mask"]}),
     ]
     val_transforms = copy.deepcopy(inference_transforms)

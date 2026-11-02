@@ -222,22 +222,30 @@ def test_token_mask_transform(random_batch):
 
 
 @pytest.mark.parametrize(
-    "mask_prob, batch",
+    "mask_prob, expected_mask",
     [
-        (0.0, {"padding_mask": torch.tensor([0, 0, 0, 0, 0, 1, 1, 1], dtype=torch.bool)}),
-        (1.0, {"padding_mask": torch.tensor([0, 0, 0, 0, 0, 1, 1, 1], dtype=torch.bool)}),
-        (1e-6, {"padding_mask": torch.tensor([0, 1, 1, 1, 1, 1, 1, 1], dtype=torch.bool)}),
+        pytest.param(1e-6, [[0, 0, 1, 1], [0, 1, 1, 0]], id="no-tokens-masked"),
+        pytest.param(1 - 1e-6, [[0, 0, 0, 0], [0, 0, 1, 0]], id="all-tokens-masked"),
     ],
 )
-def test_token_mask_transform_corner_cases(mask_prob, batch):
-    transform = TokenMaskTransform(mask_prob=mask_prob, token_name="padding_mask")
-    transformed_batch = transform(batch)
+def test_token_mask_transform_corner_cases(mask_prob, expected_mask):
+    padding_mask = torch.tensor([[0, 0, 1, 1], [0, 1, 1, 1]], dtype=torch.bool)
+    transform = TokenMaskTransform(
+        mask_prob=mask_prob,
+        token_name="padding_mask",
+        generator=torch.Generator().manual_seed(0),
+    )
+    transformed_batch = transform({"padding_mask": padding_mask})
 
     token_mask = transformed_batch["token_mask"]
-    padding_mask = batch["padding_mask"]
-    not_padded_token_mask = token_mask[padding_mask]
+    torch.testing.assert_close(token_mask, torch.tensor(expected_mask, dtype=torch.bool))
+    assert not (token_mask & ~padding_mask).any()
 
-    assert torch.any(not_padded_token_mask == 0)
+
+@pytest.mark.parametrize("mask_prob", [0.0, 1.0])
+def test_token_mask_transform_rejects_boundary_probabilities(mask_prob):
+    with pytest.raises(ValueError, match="0 < `mask_prob` < 1"):
+        TokenMaskTransform(mask_prob=mask_prob, token_name="padding_mask")
 
 
 @pytest.mark.parametrize("max_len", [1, 10])
