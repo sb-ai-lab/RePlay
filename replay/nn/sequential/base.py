@@ -30,10 +30,10 @@ class BaseSequentialModel(torch.nn.Module):
 
     @classmethod
     def from_params(cls, *args: Any) -> "BaseSequentialModel":
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def reset_parameters(self) -> None:
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def get_logits(
         self,
