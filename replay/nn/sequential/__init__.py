@@ -1,3 +1,4 @@
+from .base import BaseSequentialModel
 from .bert4rec import Bert4Rec, Bert4RecBody, Bert4RecPositionAwareAggregator, Bert4RecTransformerLayer
 from .length_bucket import LengthBucketedQueryEncoder
 from .sasrec import (
