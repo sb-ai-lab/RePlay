@@ -234,6 +234,7 @@ pip install ligfhtfm
 	- [Replay for offline recommendations, AI Journey 2021](https://www.youtube.com/watch?v=ejQZKGAG0xs)
 
 * **Research papers**:
+    - [Mitigating Popularity Bias in Sequential Recommendations with Sparse Prior-Regularized Objective](https://arxiv.org/abs/2610.17823) Anton Pembek, Anton Klenitskiy, Alexander Savchenko, Alexey Vasilev. In The 35th ACM International Conference on Information and Knowledge Management (CIKM 2026)
     - [RePlay: a Recommendation Framework for Experimentation and Production Use](https://arxiv.org/abs/2409.07272) Alexey Vasilev, Anna Volodkevich, Denis Kulandin, Tatiana Bysheva, Anton Klenitskiy. In The 18th ACM Conference on Recommender Systems (RecSys '24)
 	- [Turning Dross Into Gold Loss: is BERT4Rec really better than SASRec?](https://doi.org/10.1145/3604915.3610644) Anton Klenitskiy, Alexey Vasilev. In The 17th ACM Conference on Recommender Systems (RecSys '23)
     - [The Long Tail of Context: Does it Exist and Matter?](https://arxiv.org/abs/2210.01023). Konstantin Bauman, Alexey Vasilev, Alexander Tuzhilin. In Workshop on Context-Aware Recommender Systems (CARS) (RecSys '22)
