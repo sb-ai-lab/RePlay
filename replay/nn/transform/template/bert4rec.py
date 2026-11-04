@@ -11,6 +11,7 @@ from replay.nn.transform import (
     TargetMLMTransform,
     TokenMaskTransform,
     UnsqueezeTransform,
+    FunctionTransform
 )
 
 
@@ -30,7 +31,13 @@ def make_default_bert4rec_transforms(tensor_schema: TensorSchema) -> dict[str, l
         RenameTransform({padding_mask_name: "padding_mask"}),
         TokenMaskTransform(token_name="padding_mask"),
         CopyTransform({item_id_name: "positive_labels"}),
-        TargetMLMTransform(),
+        # TargetMLMTransform(),
+        FunctionTransform(
+            function=lambda input, other: torch.logical_and(input, torch.logical_not(other)),
+            input="padding_mask",
+            other="token_mask",
+            out="target_padding_mask"
+        ),
         UnsqueezeTransform("target_padding_mask", -1),
         UnsqueezeTransform("positive_labels", -1),
         GroupTransform({"feature_tensors": [*tensor_schema.names, "token_mask"]}),

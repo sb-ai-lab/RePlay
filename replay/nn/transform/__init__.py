@@ -1,6 +1,7 @@
 from .copy import CopyTransform
 from .equality_mask import EqualityMaskTransform
 from .grouping import GroupTransform
+from .logical import FunctionTransform
 from .negative_sampling import (
     GroupedUniformNegativeSamplingTransform,
     MultiClassNegativeSamplingTransform,
@@ -18,6 +19,7 @@ __all__ = [
     "AdaptiveTrimTransform",
     "CopyTransform",
     "EqualityMaskTransform",
+    "FunctionTransform",
     "GroupTransform",
     "GroupedUniformNegativeSamplingTransform",
     "MultiClassNegativeSamplingTransform",
