@@ -108,7 +108,46 @@ class AdaptiveTrimTransform(torch.nn.Module):
 
 
 class TargetAwareAdaptiveTrimTransform(torch.nn.Module):
-    """Trim left padding unused by both model inputs and next-token targets."""
+    """Remove the common left prefix unused by inputs and training targets.
+
+    The transform is intended for left-padded sequential batches. A column can
+    be removed only when it is ``False`` in both ``padding_mask`` and
+    ``target_padding_mask`` for every row. This target-aware rule preserves the
+    extra position commonly introduced by next-token shifting, even when that
+    position is padding from the model-input point of view.
+
+    Every tensor named in ``feature_names``, as well as both masks, must start
+    with the same ``[batch, sequence]`` dimensions. They are sliced together on
+    the sequence dimension; trailing dimensions are preserved. Other batch
+    entries are left unchanged. Both masks must be two-dimensional boolean
+    tensors on the same device. If there is no removable prefix, the original
+    batch object is returned.
+
+    Apply this transform after creating the input and target masks, but before
+    adding a positive-label dimension to ``target_padding_mask``. It should be
+    combined with :class:`~replay.nn.sequential.LengthBucketedQueryEncoder`:
+    this transform crops padding shared by the physical batch, and the encoder
+    then crops additional padding inside groups of similarly sized sequences.
+
+    Example:
+
+    .. code-block:: python
+
+        >>> input_batch = {
+        ...     "item_id": torch.tensor([[0, 0, 3, 4, 5]]),
+        ...     "positive_labels": torch.tensor([[0, 3, 4, 5, 6]]),
+        ...     "padding_mask": torch.tensor([[False, False, True, True, True]]),
+        ...     "target_padding_mask": torch.tensor([[False, True, True, True, True]]),
+        ... }
+        >>> transform = TargetAwareAdaptiveTrimTransform(
+        ...     feature_names=["item_id", "positive_labels"],
+        ... )
+        >>> output_batch = transform(input_batch)
+        >>> output_batch["item_id"]
+        tensor([[0, 3, 4, 5]])
+        >>> output_batch["target_padding_mask"]
+        tensor([[True, True, True, True]])
+    """
 
     def __init__(
         self,
@@ -117,9 +156,12 @@ class TargetAwareAdaptiveTrimTransform(torch.nn.Module):
         target_padding_mask_name: str = "target_padding_mask",
     ) -> None:
         """
-        :param feature_names: names of sequence features to trim.
-        :param padding_mask_name: name of the input padding mask.
-        :param target_padding_mask_name: name of the next-token target mask.
+        :param feature_names: Name or names of sequence tensors to trim. The two
+            mask names are added automatically and need not be included.
+        :param padding_mask_name: Name of the boolean input mask, where ``True``
+            marks a valid model-input position.
+        :param target_padding_mask_name: Name of the boolean target mask, where
+            ``True`` marks a valid training target.
         """
         super().__init__()
         names = [feature_names] if isinstance(feature_names, str) else list(feature_names)
