@@ -222,13 +222,13 @@ pip install ligfhtfm
  [Item2item Recommendations.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/06_item2item_recommendations.ipynb) | Item to Item recommendations example |
 | [Filters](https://github.com/sb-ai-lab/RePlay/blob/main/examples/07_filters.ipynb) | An example of using filters |
 | [Recommending for categories](https://github.com/sb-ai-lab/RePlay/blob/main/examples/08_recommending_for_categories.ipynb) | An example of recommendation for product categories |
- [SASRec Example](https://github.com/sb-ai-lab/RePlay/blob/main/examples/09_sasrec_example.ipynb) | An example of using transformer-based SASRec model to generate recommendations via ParquetModule |
-| [BERT4rec Example](https://github.com/sb-ai-lab/RePlay/blob/main/examples/10_bert4rec_example.ipynb) | An example of using transformer-based BERT4Rec model to generate recommendations |
- [SASRec dataframes comparison](https://github.com/sb-ai-lab/RePlay/blob/main/examples/11_sasrec_dataframes_comparison.ipynb) | speed comparison of using different frameworks (pandas, polars, pyspark) for data processing during SASRec training |
- [16_sasrec_prentmax_example.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/16_sasrec_prentmax_example.ipynb) | An example of training SASRec with PR-Entmax, a loss function designed to reduce popularity bias, and comparing its recommendation metrics with CE loss. |
 [Neural TS](https://github.com/sb-ai-lab/RePlay/blob/main/examples/12_neural_ts_exp.ipynb) | An example of using Neural Thompson Sampling bandit model (based on Wide&Deep architecture) |
 [Personalized Bandit Comparison](https://github.com/sb-ai-lab/RePlay/blob/main/examples/13_personalized_bandit_comparison.ipynb) | A comparison of context-free and contextual bandit models |
 [Hierarchical Recommender](https://github.com/sb-ai-lab/RePlay/blob/main/examples/14_hierarchical_recommender.ipynb) | An example of using HierarchicalRecommender with user-disjoint LinUCB |
+[SASRec Example](https://github.com/sb-ai-lab/RePlay/blob/main/examples/sasrec/example.ipynb) | An example of using transformer-based SASRec model to generate recommendations via ParquetModule |
+[SASRec dataframes comparison](https://github.com/sb-ai-lab/RePlay/blob/main/examples/sasrec/dataframes_comparison.ipynb) | Speed comparison of using different frameworks (pandas, polars, pyspark) for data processing during SASRec training (deprecated)|
+[SASRec with PR-Entmax loss](https://github.com/sb-ai-lab/RePlay/blob/main/examples/sasrec/prentmax_example.ipynb) | An example of training SASRec with PR-Entmax, a loss function designed to reduce popularity bias, and comparing its recommendation metrics with CE loss. |
+[BERT4rec Example](https://github.com/sb-ai-lab/RePlay/blob/main/examples/bert4rec/example.ipynb) | An example of using transformer-based BERT4Rec model to generate recommendations |
 [TwoTower Simple Example](https://github.com/sb-ai-lab/RePlay/blob/main/examples/twotower/simple_example.ipynb) | A simple example of using transformer-based TwoTower model with batch-wise reading and preprocessing via ParquetModule |
 [TwoTower Advanced Example](https://github.com/sb-ai-lab/RePlay/blob/main/examples/twotower/advanced_example.ipynb) | An advanced example that expands the previous one, demonstrating how to construct a model via blocks, accelerate the model, and use additional dataset features
 
