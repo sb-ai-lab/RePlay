@@ -4,13 +4,54 @@ from replay.data.nn import TensorMap
 
 
 class LengthBucketedQueryEncoder(torch.nn.Module):
-    """Evaluate similarly sized left-padded sequences together during training.
+    """Run similarly sized left-padded sequences together during training.
 
-    Cropped padding positions are restored as zeros. Downstream training code
-    must ignore them through its target mask. RePlay attention masks may be
-    shared, batch-aligned, or flattened as ``[batch * heads, sequence, sequence]``.
-    The wrapped encoder must process batch rows independently. Stochastic layers
-    may consume random values in a different order than an unbucketed encoder.
+    The wrapper sorts rows by the number of ``True`` values in ``padding_mask``,
+    splits them into buckets of at most ``bucket_size`` rows, and removes the
+    left prefix not needed by the longest sequence in each bucket. It invokes
+    ``encoder`` once per bucket and restores the original row order and sequence
+    length afterwards. Removed positions in the returned tensor are zeros and
+    must be excluded from the objective by the target mask.
+
+    ``sequence_shift`` retains positions immediately before the first valid
+    input. This is needed when targets are shifted relative to inputs: for a
+    :class:`~replay.nn.transform.NextTokenTransform` with ``shift=1``, use
+    ``sequence_shift=1``. It must match the target shift or positions required
+    by the loss can be cropped.
+
+    Bucketing is active only in training mode. In evaluation mode the full batch
+    is passed to the wrapped encoder unchanged. The wrapped encoder must process
+    rows independently and preserve the
+    ``[batch, sequence, embedding]`` shape. Because rows are reordered and the
+    encoder is called several times, stochastic layers can draw random values in
+    a different order than without bucketing.
+
+    Batch-aligned feature tensors are reordered; those whose second dimension is
+    the sequence length are also cropped. Scalars and tensors not starting with
+    the batch size are passed through unchanged. The attention mask can be
+    shared (``[sequence, sequence]``), batch-aligned, or flattened as
+    ``[batch * heads, sequence, sequence]``.
+
+    For best efficiency, first use
+    :class:`~replay.nn.transform.TargetAwareAdaptiveTrimTransform` to remove
+    padding common to the physical batch, then use this wrapper to remove
+    padding within each bucket.
+
+    Example:
+
+    .. code-block:: python
+
+        from replay.nn.sequential import LengthBucketedQueryEncoder, SasRecTransformerLayer
+
+        query_encoder = LengthBucketedQueryEncoder(
+            encoder=SasRecTransformerLayer(
+                embedding_dim=128,
+                num_heads=4,
+                num_blocks=2,
+            ),
+            bucket_size=32,
+            sequence_shift=1,
+        )
     """
 
     def __init__(
@@ -20,11 +61,13 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
         sequence_shift: int = 1,
     ) -> None:
         """
-        :param encoder: row-independent query encoder accepting feature tensors,
-            embeddings, padding mask and attention mask.
-        :param bucket_size: maximum number of rows evaluated together.
-        :param sequence_shift: number of positions retained before the first valid input token.
-            Must match the ``shift`` used by ``NextTokenTransform``.
+        :param encoder: Row-independent query encoder called as
+            ``encoder(feature_tensors, input_embeddings, padding_mask, attention_mask)``.
+        :param bucket_size: Maximum number of rows evaluated in one encoder call.
+            A smaller value can remove more padding but causes more encoder calls.
+        :param sequence_shift: Number of positions to retain immediately before
+            the first valid input token. Must match the ``shift`` used by
+            :class:`~replay.nn.transform.NextTokenTransform`.
         """
         super().__init__()
         if bucket_size <= 0:
@@ -91,7 +134,17 @@ class LengthBucketedQueryEncoder(torch.nn.Module):
         padding_mask: torch.BoolTensor,
         attention_mask: torch.Tensor,
     ) -> torch.Tensor:
-        """Run the wrapped encoder and restore the original row order."""
+        """Run the wrapped encoder and restore the original batch layout.
+
+        :param feature_tensors: Feature mapping consumed by the wrapped encoder.
+        :param input_embeddings: Input tensor of shape
+            ``[batch, sequence, embedding]``.
+        :param padding_mask: Boolean mask of shape ``[batch, sequence]`` where
+            ``True`` marks a valid input position.
+        :param attention_mask: Attention mask ending in
+            ``[sequence, sequence]`` dimensions.
+        :return: Encoder output with the same shape as ``input_embeddings``.
+        """
         if input_embeddings.ndim != 3:
             msg = "input_embeddings must have shape [batch, sequence, embedding]"
             raise ValueError(msg)

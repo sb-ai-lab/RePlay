@@ -6,9 +6,24 @@ from replay.nn.loss.ce import CESampled
 
 
 class GroupedCESampled(CESampled):
-    """Sampled CE with one independent negative pool per logical batch group.
+    """Compute sampled cross-entropy with a negative pool per logical group.
 
-    Negative pools must contain unique item IDs.
+    The physical batch is divided into consecutive groups of at most
+    ``logical_batch_size`` rows. Group ``i`` is scored against
+    ``negative_labels[i]``; the final group may be smaller. This preserves the
+    negative-sampling scope of smaller batches when several of them are packed
+    into one physical batch.
+
+    Exactly one positive item is supported at every sequence position.
+    Each group must contain at least one valid target, and the final result
+    is the mean of the group losses, giving every active logical group equal
+    weight regardless of its number of targets.
+
+    ``negative_labels`` must have shape ``[ceil(B / G), K]``, where ``B`` is the
+    physical batch size, ``G`` is ``logical_batch_size``, and ``K`` is the
+    number of negatives. Item IDs in each pool must be unique. Use
+    :class:`~replay.nn.transform.GroupedUniformNegativeSamplingTransform`
+    to satisfy this contract; its ``group_size`` must equal ``logical_batch_size``.
     """
 
     def __init__(
@@ -123,6 +138,22 @@ class GroupedCESampled(CESampled):
         padding_mask: torch.BoolTensor,  # noqa: ARG002
         target_padding_mask: torch.BoolTensor,
     ) -> torch.Tensor:
+        """Calculate the mean loss over active logical groups.
+
+        :param model_embeddings: Model output of shape
+            ``[batch, sequence, embedding]``.
+        :param feature_tensors: Unused feature mapping, accepted for the common
+            RePlay loss interface.
+        :param positive_labels: Positive item IDs of shape
+            ``[batch, sequence, 1]``.
+        :param negative_labels: One shared negative pool per group, with shape
+            ``[ceil(batch / logical_batch_size), num_negatives]``.
+        :param padding_mask: Unused input mask, accepted for the common RePlay
+            loss interface.
+        :param target_padding_mask: Boolean mask with the same shape as
+            ``positive_labels``.
+        :return: Scalar mean of the per-group cross-entropy losses.
+        """
         active_groups = self._validate_inputs(
             model_embeddings,
             positive_labels,
