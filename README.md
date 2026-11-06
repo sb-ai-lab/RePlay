@@ -222,9 +222,9 @@ pip install ligfhtfm
  [Item2item Recommendations.ipynb](https://github.com/sb-ai-lab/RePlay/blob/main/examples/06_item2item_recommendations.ipynb) | Item to Item recommendations example |
 | [Filters](https://github.com/sb-ai-lab/RePlay/blob/main/examples/07_filters.ipynb) | An example of using filters |
 | [Recommending for categories](https://github.com/sb-ai-lab/RePlay/blob/main/examples/08_recommending_for_categories.ipynb) | An example of recommendation for product categories |
-[Neural TS](https://github.com/sb-ai-lab/RePlay/blob/main/examples/12_neural_ts_exp.ipynb) | An example of using Neural Thompson Sampling bandit model (based on Wide&Deep architecture) |
-[Personalized Bandit Comparison](https://github.com/sb-ai-lab/RePlay/blob/main/examples/13_personalized_bandit_comparison.ipynb) | A comparison of context-free and contextual bandit models |
-[Hierarchical Recommender](https://github.com/sb-ai-lab/RePlay/blob/main/examples/14_hierarchical_recommender.ipynb) | An example of using HierarchicalRecommender with user-disjoint LinUCB |
+[Neural TS](https://github.com/sb-ai-lab/RePlay/blob/main/examples/09_neural_ts_exp.ipynb) | An example of using Neural Thompson Sampling bandit model (based on Wide&Deep architecture) |
+[Personalized Bandit Comparison](https://github.com/sb-ai-lab/RePlay/blob/main/examples/10_personalized_bandit_comparison.ipynb) | A comparison of context-free and contextual bandit models |
+[Hierarchical Recommender](https://github.com/sb-ai-lab/RePlay/blob/main/examples/11_hierarchical_recommender.ipynb) | An example of using HierarchicalRecommender with user-disjoint LinUCB |
 [SASRec Example](https://github.com/sb-ai-lab/RePlay/blob/main/examples/sasrec/example.ipynb) | An example of using transformer-based SASRec model to generate recommendations via ParquetModule |
 [SASRec dataframes comparison [deprecated]](https://github.com/sb-ai-lab/RePlay/blob/main/examples/sasrec/dataframes_comparison.ipynb) | Speed comparison of using different frameworks (pandas, polars, pyspark) for data processing during SASRec training|
 [SASRec with PR-Entmax loss](https://github.com/sb-ai-lab/RePlay/blob/main/examples/sasrec/prentmax_example.ipynb) | An example of training SASRec with PR-Entmax, a loss function designed to reduce popularity bias, and comparing its recommendation metrics with CE loss. |
