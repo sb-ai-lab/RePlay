@@ -1,3 +1,5 @@
+from functools import partial
+
 import pytest
 import torch
 
@@ -13,6 +15,8 @@ from replay.nn.loss import (
     LogInCESampled,
     LogOutCE,
     LogOutCEWeighted,
+    PREntmax,
+    PREntmaxSampled,
 )
 from replay.nn.loss.base import weighted_mean
 
@@ -30,6 +34,15 @@ from replay.nn.loss.base import weighted_mean
         (LogInCESampled()),
         (LogOutCE(ignore_index=3, cardinality=3)),
         (LogOutCEWeighted(feature_name="sample_weights", ignore_index=3, cardinality=3)),
+        PREntmax(
+            item_frequency=torch.tensor([0.1, 0.3, 0.6]),
+            ignore_index=3,
+        ),
+        PREntmaxSampled(
+            item_frequency=torch.tensor([0.1, 0.3, 0.6]),
+            gamma=0.1,
+            ignore_index=3,
+        ),
     ],
     ids=[
         "CE",
@@ -42,6 +55,8 @@ from replay.nn.loss.base import weighted_mean
         "LogInCE sampled",
         "LogOutCE",
         "LogOutCE weighted",
+        "PR-Entmax",
+        "PR-Entmax sampled",
     ],
 )
 def test_setting_logits_callback_loss(loss, hidden_simple_batch):
@@ -64,6 +79,17 @@ def test_setting_logits_callback_loss(loss, hidden_simple_batch):
         (LogInCESampled()),
         (LogOutCE(ignore_index=3, cardinality=3)),
         (LogOutCEWeighted(feature_name="sample_weight", ignore_index=3, cardinality=3)),
+        PREntmax(
+            item_frequency=torch.tensor([0.1, 0.3, 0.6]),
+            ignore_index=3,
+        ),
+        PREntmaxSampled(
+            item_frequency=torch.tensor([0.1, 0.3, 0.6]),
+            gamma=0.1,
+            ignore_index=3,
+        ),
+        PREntmax(ignore_index=3, temperature=1),
+        PREntmaxSampled(ignore_index=3, temperature=1),
     ],
     ids=[
         "CE",
@@ -77,6 +103,10 @@ def test_setting_logits_callback_loss(loss, hidden_simple_batch):
         "LogInCE sampled",
         "LogOutCE",
         "LogOutCE weighted",
+        "PR-Entmax",
+        "PR-Entmax sampled",
+        "Entmax",
+        "Entmax sampled",
     ],
 )
 @pytest.mark.parametrize(
@@ -97,7 +127,7 @@ def test_loss_forward(loss, batch_name, request):
     loss.logits_callback = get_logits
 
     batch = request.getfixturevalue(batch_name)
-    if isinstance(loss, CE) and batch_name == "hidden_simple_batch_multipositive":
+    if isinstance(loss, (CE, PREntmax)) and batch_name == "hidden_simple_batch_multipositive":
         with pytest.raises(NotImplementedError):
             _ = loss(**batch)
     else:
@@ -110,8 +140,13 @@ def test_loss_forward(loss, batch_name, request):
         (CESampled(ignore_index=3)),
         (BCESampled()),
         (LogInCESampled()),
+        PREntmaxSampled(
+            item_frequency=torch.tensor([0.1, 0.3, 0.6]),
+            gamma=0.1,
+            ignore_index=3,
+        ),
     ],
-    ids=["CE sampled", "BCE sampled", "LogInCESampled"],
+    ids=["CE sampled", "BCE sampled", "LogInCESampled", "PR-Entmax sampled"],
 )
 @pytest.mark.parametrize(
     "batch_name",
@@ -135,7 +170,19 @@ def test_loss_forward_with_multiclass_negatives(loss, batch_name, request):
     loss(**batch)
 
 
-@pytest.mark.parametrize("loss_class", [CESampled, BCESampled, LogInCESampled])
+@pytest.mark.parametrize(
+    "loss_class",
+    [
+        CESampled,
+        BCESampled,
+        LogInCESampled,
+        partial(
+            PREntmaxSampled,
+            item_frequency=torch.tensor([0.1, 0.3, 0.6]),
+            gamma=0.1,
+        ),
+    ],
+)
 @pytest.mark.parametrize("negative_labels_ignore_index", [-100, 0])
 def test_sampled_loss_ignores_padded_negatives(loss_class, negative_labels_ignore_index):
     loss = loss_class(negative_labels_ignore_index=negative_labels_ignore_index)
@@ -225,3 +272,16 @@ def test_weighted_losses_use_weighted_mean(
     expected = weighted_mean(base_loss(**hidden_simple_weighted_batch), sample_weight)
 
     torch.testing.assert_close(actual, expected)
+
+
+@pytest.mark.parametrize("loss_class", [PREntmax, PREntmaxSampled])
+@pytest.mark.parametrize(
+    "kwargs, message",
+    [
+        ({"item_frequency": torch.zeros(2, 3)}, "one-dimensional"),
+        ({"temperature": 0}, "temperature must be greater than zero"),
+    ],
+)
+def test_entmax_validates_constructor_arguments(loss_class, kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        loss_class(**kwargs)
