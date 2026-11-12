@@ -11,7 +11,6 @@ class FunctionTransform(torch.nn.Module):
     :func:`torch.logical_not`, and binary functions, such as
     :func:`torch.logical_and`. For a binary function, ``other`` can be the
     name of another tensor in the batch or a constant value.
-
     The input batch is not modified. If ``out`` is omitted, the input tensor
     is replaced in the returned batch.
 
