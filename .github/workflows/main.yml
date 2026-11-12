@@ -2,7 +2,7 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [main, 'release/**']
+    branches: [main, 'release/**', 'fix/ci-spark']
   pull_request:
     branches: [main, refactoring]
   workflow_dispatch:
