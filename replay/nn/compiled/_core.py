@@ -18,6 +18,7 @@ from ._manifest import (
     MANIFEST_FILENAME,
     ExportManifest,
 )
+from ._swap import swap_embedding_bags
 
 MODE_DYNAMIC_BATCH = "dynamic_batch_size"
 MODE_BATCH = "batch"
@@ -50,12 +51,14 @@ def _stack_versions() -> dict[str, str]:
     }
 
 
-def _build_sample(schema, graph_inputs, batch_size, max_seq_len, num_candidates):
+def _build_sample(schema, graph_inputs, batch_size, max_seq_len, num_candidates, list_feature_length):
     sample = {}
     for graph_input in graph_inputs:
         if graph_input.kind == "feature":
             info = schema[graph_input.name]
-            if info.is_cat:
+            if info.is_list:
+                tensor = torch.randint(0, info.cardinality + 1, (batch_size, max_seq_len, list_feature_length))
+            elif info.is_cat:
                 tensor = torch.randint(0, info.cardinality, (batch_size, max_seq_len))
             elif info.tensor_dim == 1:
                 tensor = torch.randn(batch_size, max_seq_len)
@@ -182,12 +185,16 @@ def compile(
     num_candidates: int | None = None,
     batch_size: int = 2,
     max_seq_len: int = 32,
+    list_feature_length: int = 8,
     exporter: str = AUTO,
     opset_version: int = DEFAULT_OPSET_VERSION,
     num_threads: int | None = None,
     config_path: str | Path | None = None,
 ) -> CompiledModel:
     """Export a ``replay.nn`` model's ``forward_inference`` to ONNX and compile it with OpenVINO.
+
+    ``EmbeddingBag`` modules are swapped in-place for exportable equivalents
+    with tied weights (identical outputs, training before compile unaffected).
 
     :param model: a torch module from ``replay.nn`` (``SasRec``, ``TwoTower``),
         or a path to a checkpoint artifact with a config sidecar
@@ -202,6 +209,7 @@ def compile(
         (and only valid with) the ``explicit`` policy.
     :param batch_size: batch size used for tracing; the fixed size under the ``batch`` mode.
     :param max_seq_len: sequence length used for tracing.
+    :param list_feature_length: bag width used for tracing ``CATEGORICAL_LIST`` features.
     :param exporter: ``auto`` (default; dynamo when the graph contains ``RMSNorm``,
         legacy otherwise), ``legacy`` or ``dynamo``.
     :param opset_version: ONNX opset version.
@@ -235,8 +243,16 @@ def compile(
     adapter = resolve_adapter(model)
     wrapper, graph_inputs, features = adapter.build(model, schema, candidates_policy)
     wrapper.eval()
+    swap_embedding_bags(wrapper)
 
-    sample = _build_sample(schema, graph_inputs, batch_size, max_seq_len, num_candidates)
+    sample = _build_sample(
+        schema,
+        graph_inputs,
+        batch_size,
+        max_seq_len,
+        num_candidates,
+        list_feature_length,
+    )
     input_names = [graph_input.name for graph_input in graph_inputs]
     args = tuple(sample[name] for name in input_names)
 

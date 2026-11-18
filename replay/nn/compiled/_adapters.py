@@ -25,7 +25,9 @@ class GraphInput:
 
 
 def feature_axes(record: FeatureRecord) -> list[str]:
-    """Axis names of one feature input; ``tensor_dim`` beyond 1 adds a static axis."""
+    """Axis names of one feature input; ``tensor_dim``/list width beyond 1 adds a static axis."""
+    if record.is_list:
+        return ["batch", "seq_len", "list_len"]
     if record.is_categorical or record.tensor_dim in (None, 1):
         return ["batch", "seq_len"]
     return ["batch", "seq_len", "tensor_dim"]
@@ -74,12 +76,7 @@ class SasRecAdapter:
             msg = f"Unknown candidates policy: {candidates_policy!r}"
             raise ValueError(msg)
 
-        records = []
-        for info in schema.values():
-            if info.is_list:
-                msg = f"Feature {info.name!r} is a categorical list; list features are not exportable yet"
-                raise NotImplementedError(msg)
-            records.append(FeatureRecord.from_tensor_info(info))
+        records = [FeatureRecord.from_tensor_info(info) for info in schema.values()]
         feature_names = [record.name for record in records]
 
         graph_inputs = [

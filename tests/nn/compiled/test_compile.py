@@ -30,6 +30,7 @@ pytest.importorskip("openvino")
 ATOL, RTOL = 1e-4, 1e-3
 BATCH, SEQ_LEN, CARDINALITY, EMB_DIM = 4, 16, 50, 32
 NUM_HEADS, NUM_BLOCKS = 2, 1
+LIST_CARDINALITY, LIST_LENGTH = 8, 3
 
 if torch.cuda.is_available():  # D6 contract: comparisons run with TF32 off
     torch.backends.cuda.matmul.allow_tf32 = False
@@ -76,10 +77,13 @@ def make_schema(with_list_feature=False, with_num_feature=True):
     return TensorSchema(features)
 
 
-def build_sasrec(schema, normalization):
+def build_sasrec(schema, normalization, aggregation="sum"):
     torch.manual_seed(2026)
     body = SasRecBody(
-        embedder=SequenceEmbedding(schema=schema),
+        embedder=SequenceEmbedding(
+            schema=schema,
+            categorical_list_feature_aggregation_method=aggregation,
+        ),
         embedding_aggregator=PositionAwareAggregator(
             embedding_aggregator=SumAggregator(embedding_dim=EMB_DIM),
             max_sequence_length=SEQ_LEN,
@@ -127,13 +131,16 @@ def build_twotower(schema):
     return TwoTower(body=body, loss=CE(ignore_index=schema.item_id_features.item().padding_value))
 
 
-def make_inputs(batch=BATCH, seq_len=SEQ_LEN, num_candidates=None):
+def make_inputs(batch=BATCH, seq_len=SEQ_LEN, num_candidates=None, with_list=False):
     rng = np.random.RandomState(2026)
     inputs = {
         "item_id": rng.randint(0, CARDINALITY, size=(batch, seq_len)).astype(np.int64),
         "price": rng.standard_normal((batch, seq_len)).astype(np.float32),
         "padding_mask": np.ones((batch, seq_len), dtype=bool),
     }
+    if with_list:
+        inputs["cat_list"] = rng.randint(0, LIST_CARDINALITY + 1, size=(batch, seq_len, LIST_LENGTH)).astype(np.int64)
+        inputs["cat_list"][0, : seq_len // 3] = LIST_CARDINALITY
     inputs["padding_mask"][0, : seq_len // 3] = False
     inputs["padding_mask"][2, : 2 * seq_len // 3] = False
     if num_candidates is not None:
@@ -324,10 +331,43 @@ def test_twotower_rejects_explicit_candidates(twotower, tensor_schema):
         compile(twotower, tensor_schema, candidates_policy="explicit", num_candidates=4)
 
 
-def test_list_feature_not_exportable(sasrec):
+def test_feature_rich_list_feature():
     schema = make_schema(with_list_feature=True)
-    with pytest.raises(NotImplementedError, match="list features are not exportable"):
-        compile(sasrec, schema)
+    model = build_sasrec(schema, torch.nn.LayerNorm(EMB_DIM))
+    inputs = make_inputs(with_list=True)
+
+    compiled = compile(model, schema, max_seq_len=SEQ_LEN, list_feature_length=LIST_LENGTH)
+    assert "cat_list" in compiled.input_names
+    assert compiled.manifest.input_shapes["cat_list"] == ["batch", "seq_len", LIST_LENGTH]
+    feature_record = next(record for record in compiled.manifest.features if record.name == "cat_list")
+    assert feature_record.is_list
+    assert_parity(compiled, model, inputs)
+
+
+def test_feature_rich_mean_aggregation():
+    schema = make_schema(with_list_feature=True)
+    model = build_sasrec(schema, torch.nn.LayerNorm(EMB_DIM), aggregation="mean")
+    inputs = make_inputs(with_list=True)
+
+    compiled = compile(model, schema, max_seq_len=SEQ_LEN, list_feature_length=LIST_LENGTH)
+    assert compiled.manifest.exporter == LEGACY
+    assert_parity(compiled, model, inputs)
+
+
+def test_feature_rich_dynamo():
+    schema = make_schema(with_list_feature=True)
+    model = build_sasrec(schema, torch.nn.LayerNorm(EMB_DIM))
+    inputs = make_inputs(with_list=True)
+
+    compiled = compile(
+        model,
+        schema,
+        max_seq_len=SEQ_LEN,
+        list_feature_length=LIST_LENGTH,
+        exporter="dynamo",
+    )
+    assert compiled.manifest.exporter == DYNAMO
+    assert_parity(compiled, model, inputs)
 
 
 def test_unsupported_model_type():
