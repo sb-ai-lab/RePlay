@@ -1,11 +1,20 @@
-"""Offline item-embedding matrix artifact for the two-artifact TwoTower topology (D3)."""
+"""Offline item-embedding matrix artifact for the two-artifact TwoTower topology (D3).
+
+Importable without torch: serving only needs :class:`ItemEmbeddings`
+and :func:`load_item_embeddings`.
+"""
+
+from __future__ import annotations
 
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
-import torch
+
+if TYPE_CHECKING:
+    import torch
 
 ITEM_EMBEDDINGS_FILENAME = "item_embeddings.npy"
 ITEM_EMBEDDINGS_LAYOUT_FILENAME = "item_embeddings.json"
@@ -52,6 +61,8 @@ def export_item_embeddings(model: torch.nn.Module) -> ItemEmbeddings:
     :param model: a ``TwoTower`` module (eval mode is enforced).
     :return: an :class:`ItemEmbeddings` with a ``[num_items, embedding_dim]`` float matrix.
     """
+    import torch
+
     from replay.nn.sequential.twotower.model import TwoTower
 
     if not isinstance(model, TwoTower):

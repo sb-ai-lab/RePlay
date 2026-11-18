@@ -1,8 +1,7 @@
-from replay.utils import TORCH_AVAILABLE
+"""Neural building blocks for recommendation models.
 
-if not TORCH_AVAILABLE:
-    msg = (
-        "The replay.nn module is unavailable. "
-        "To use the functionality from this module, please install ``torch`` and ``lightning``."
-    )
-    raise ImportError(msg)
+The model subpackages require torch and lightning. The compiled-artifact
+serving path (``replay.nn.compiled``: ``load``, ``encode_inputs``,
+``ItemEmbeddings``) deliberately does not, so serving environments can
+skip the training stack entirely.
+"""

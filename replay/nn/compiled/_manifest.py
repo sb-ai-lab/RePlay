@@ -1,9 +1,12 @@
-"""Export manifest: everything a consumer needs to run a compiled graph."""
+"""Export manifest: everything a consumer needs to run a compiled graph.
+
+This module must stay importable without torch: the serving load path
+(:func:`replay.nn.compiled.load`) reads manifests on machines that never
+see the training stack.
+"""
 
 from dataclasses import asdict, dataclass, field
 from typing import Any
-
-import torch
 
 FEATURE_INPUT = "feature"
 PADDING_MASK_INPUT = "padding_mask"
@@ -13,18 +16,20 @@ CANDIDATES_FULL_VOCAB = "full_vocab"
 CANDIDATES_EXPLICIT = "explicit"
 
 MANIFEST_FILENAME = "manifest.json"
-
-_TORCH_TO_NUMPY_DTYPE = {
-    torch.int32: "int32",
-    torch.int64: "int64",
-    torch.float32: "float32",
-    torch.float64: "float64",
-}
+MANIFEST_FORMAT_VERSION = 1
 
 
-def numpy_dtype_name(dtype: torch.dtype) -> str:
+def numpy_dtype_name(dtype) -> str:
+    import torch
+
+    dtype_map = {
+        torch.int32: "int32",
+        torch.int64: "int64",
+        torch.float32: "float32",
+        torch.float64: "float64",
+    }
     try:
-        return _TORCH_TO_NUMPY_DTYPE[dtype]
+        return dtype_map[dtype]
     except KeyError:
         msg = f"Unsupported dtype for compiled graphs: {dtype}"
         raise ValueError(msg) from None
@@ -46,6 +51,8 @@ class FeatureRecord:
 
     @classmethod
     def from_tensor_info(cls, info) -> "FeatureRecord":
+        import torch
+
         dtype = torch.int64 if info.is_cat else torch.float32
         return cls(
             name=info.name,
@@ -90,6 +97,8 @@ class ExportManifest:
     versions: dict[str, str] = field(default_factory=dict)
     max_seq_len: int = 0
     encoding: EncodingContract = field(default_factory=EncodingContract)
+    format_version: int = MANIFEST_FORMAT_VERSION
+    item_matrix: dict[str, Any] | None = None
 
     def feature_names(self) -> list[str]:
         return [record.name for record in self.features]
@@ -100,6 +109,13 @@ class ExportManifest:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ExportManifest":
         data = dict(data)
+        version = int(data.pop("format_version", 0) or 0)
+        if version == 0:
+            msg = "Manifest predates the artifact format (no format_version); recompile the artifact"
+            raise ValueError(msg)
+        if version > MANIFEST_FORMAT_VERSION:
+            msg = f"Manifest format version {version} is newer than supported {MANIFEST_FORMAT_VERSION}; upgrade replay"
+            raise ValueError(msg)
         features = [FeatureRecord(**record) for record in data.pop("features")]
         encoding = EncodingContract(**data.pop("encoding", {}))
         return cls(features=features, encoding=encoding, **data)

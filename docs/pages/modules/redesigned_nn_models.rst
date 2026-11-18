@@ -523,3 +523,16 @@ ItemEmbeddings
 load_item_embeddings
 ````````````````````
 .. autofunction:: replay.nn.compiled.load_item_embeddings
+
+Artifact format and torch-free serving
+______________________________________
+
+A saved artifact directory holds ``model.onnx`` and ``manifest.json``
+(the graph contract: features, input order and shapes, candidates policy,
+encoding contract, stack versions, ``format_version``), optionally with
+``item_embeddings.npy``/``item_embeddings.json`` for TwoTower pairs,
+referenced from the manifest's ``item_matrix`` block. Manifests without a
+known ``format_version`` are refused; newer versions than the installed
+replay are refused as well. :func:`replay.nn.compiled.load` needs only
+numpy and openvino — torch is never imported on the serving path, so
+containers can skip the training stack entirely.

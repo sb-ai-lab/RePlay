@@ -7,4 +7,4 @@ import pytest
 @pytest.mark.skipif(importlib.util.find_spec("torch"), reason="PyTorch is installed.")
 def test_import_raises_when_torch_missing():
     with pytest.raises(ImportError):
-        from replay import nn  # noqa: F401
+        from replay.nn.sequential import TwoTower  # noqa: F401

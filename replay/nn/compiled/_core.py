@@ -1,24 +1,33 @@
-"""Generic compilation core: :func:`compile`, :class:`CompiledModel` and :func:`load`."""
+"""Generic compilation core: :func:`compile`, :class:`CompiledModel` and :func:`load`.
+
+The serving path (:func:`load`, :meth:`CompiledModel.predict`) is importable
+and usable without torch; only :func:`compile` needs the training stack.
+"""
+
+from __future__ import annotations
 
 import json
+import sys
 import tempfile
+from dataclasses import replace
+from importlib.util import find_spec
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
-import torch
 
 from replay.utils import OPENVINO_AVAILABLE
 
-from ._adapters import resolve_adapter
-from ._checkpoint import restore_from_checkpoint
-from ._exporters import AUTO, export_onnx, select_exporter
+from ._items import ITEM_EMBEDDINGS_FILENAME, ITEM_EMBEDDINGS_LAYOUT_FILENAME, ItemEmbeddings
 from ._manifest import (
     CANDIDATES_EXPLICIT,
     CANDIDATES_FULL_VOCAB,
     MANIFEST_FILENAME,
     ExportManifest,
 )
-from ._swap import swap_embedding_bags
+
+if TYPE_CHECKING:
+    import torch
 
 MODE_DYNAMIC_BATCH = "dynamic_batch_size"
 MODE_BATCH = "batch"
@@ -34,15 +43,22 @@ _DYNAMIC_AXES = frozenset({AXIS_BATCH, AXIS_SEQUENCE, "candidates"})
 def _check_conditional_stack() -> None:
     if not OPENVINO_AVAILABLE:
         msg = (
-            "replay.nn.compiled requires torch, onnx and openvino; "
+            "replay.nn.compiled compile requires torch, onnx and openvino; "
             "install the missing packages manually (see the README install notes)"
         )
+        raise ImportError(msg)
+
+
+def _check_load_stack() -> None:
+    if find_spec("openvino") is None:
+        msg = "loading compiled artifacts requires openvino; install it manually (see the README install notes)"
         raise ImportError(msg)
 
 
 def _stack_versions() -> dict[str, str]:
     import onnx
     import openvino
+    import torch
 
     return {
         "torch": torch.__version__,
@@ -52,6 +68,8 @@ def _stack_versions() -> dict[str, str]:
 
 
 def _build_sample(schema, graph_inputs, batch_size, max_seq_len, num_candidates, list_feature_length):
+    import torch
+
     sample = {}
     for graph_input in graph_inputs:
         if graph_input.kind == "feature":
@@ -120,7 +138,8 @@ def _compile_openvino(onnx_bytes, manifest, num_threads):
 
 
 def _to_numpy(value):
-    if isinstance(value, torch.Tensor):
+    torch = sys.modules.get("torch")
+    if torch is not None and isinstance(value, torch.Tensor):
         return value.detach().numpy()
     return np.asarray(value)
 
@@ -165,12 +184,33 @@ class CompiledModel:
         result = self._model(arrays)
         return np.asarray(result[self._model.output(0)])
 
-    def save(self, path: str | Path) -> None:
-        """Persist the ONNX graph and its manifest into directory ``path``."""
+    def save(self, path: str | Path, item_embeddings: ItemEmbeddings | None = None) -> None:
+        """Persist the ONNX graph and its manifest into directory ``path``.
+
+        With ``item_embeddings`` (TwoTower artifacts) the item-embedding matrix
+        and its layout manifest are stored alongside and referenced from
+        the export manifest.
+        """
         directory = Path(path)
         directory.mkdir(parents=True, exist_ok=True)
         (directory / ONNX_FILENAME).write_bytes(self._onnx_bytes)
-        (directory / MANIFEST_FILENAME).write_text(json.dumps(self._manifest.to_dict(), indent=2))
+        manifest = self._manifest
+        if item_embeddings is not None:
+            if manifest.model_type != "twotower_query":
+                msg = f"item_embeddings pair only with twotower_query artifacts, not {manifest.model_type!r}"
+                raise ValueError(msg)
+            item_embeddings.save(directory)
+            manifest = replace(
+                manifest,
+                item_matrix={
+                    "filename": ITEM_EMBEDDINGS_FILENAME,
+                    "layout_manifest": ITEM_EMBEDDINGS_LAYOUT_FILENAME,
+                    "num_items": item_embeddings.num_items,
+                    "embedding_dim": item_embeddings.embedding_dim,
+                    "dtype": str(item_embeddings.matrix.dtype),
+                },
+            )
+        (directory / MANIFEST_FILENAME).write_text(json.dumps(manifest.to_dict(), indent=2))
 
     def __repr__(self) -> str:
         return f"CompiledModel(model_type={self._manifest.model_type!r}, exporter={self._manifest.exporter!r})"
@@ -186,7 +226,7 @@ def compile(
     batch_size: int = 2,
     max_seq_len: int = 32,
     list_feature_length: int = 8,
-    exporter: str = AUTO,
+    exporter: str = "auto",
     opset_version: int = DEFAULT_OPSET_VERSION,
     num_threads: int | None = None,
     config_path: str | Path | None = None,
@@ -221,6 +261,11 @@ def compile(
         (rebuilds the item tower); the module form takes the reader inside the model.
     :return: a :class:`CompiledModel` ready for :meth:`CompiledModel.predict`.
     """
+    from ._adapters import resolve_adapter
+    from ._checkpoint import restore_from_checkpoint
+    from ._exporters import export_onnx, select_exporter
+    from ._swap import swap_embedding_bags
+
     _check_conditional_stack()
     if mode not in _MODES:
         msg = f"Unknown mode: {mode!r}; expected one of {', '.join(_MODES)}"
@@ -294,12 +339,15 @@ def compile(
 def load(path: str | Path, *, num_threads: int | None = None) -> CompiledModel:
     """Load a saved artifact directory and compile it with OpenVino.
 
+    Requires only numpy and openvino — torch is never imported, so serving
+    containers can ship without the training stack.
+
     :param path: directory holding ``model.onnx`` and ``manifest.json``
         (as written by :meth:`CompiledModel.save`).
     :param num_threads: CPU threads for OpenVINO compilation; ``None`` lets OpenVino decide.
     :return: a :class:`CompiledModel` ready for :meth:`CompiledModel.predict`.
     """
-    _check_conditional_stack()
+    _check_load_stack()
     directory = Path(path)
     manifest = ExportManifest.from_dict(json.loads((directory / MANIFEST_FILENAME).read_text()))
     onnx_bytes = (directory / ONNX_FILENAME).read_bytes()

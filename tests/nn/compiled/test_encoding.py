@@ -74,6 +74,8 @@ def make_manifest(features, *, exporter="dynamo", max_seq_len=8, input_shapes=No
         "input_shapes": shapes,
         "versions": {},
         "max_seq_len": max_seq_len,
+        "format_version": 1,
+        "item_matrix": None,
         "encoding": {"padding_side": "front", "keep": "last", "default_value": "padding_value", "mask_true": "valid"},
     }
 
