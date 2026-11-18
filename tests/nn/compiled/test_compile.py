@@ -31,6 +31,10 @@ ATOL, RTOL = 1e-4, 1e-3
 BATCH, SEQ_LEN, CARDINALITY, EMB_DIM = 4, 16, 50, 32
 NUM_HEADS, NUM_BLOCKS = 2, 1
 
+if torch.cuda.is_available():  # D6 contract: comparisons run with TF32 off
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.allow_tf32 = False
+
 
 def make_schema(with_list_feature=False, with_num_feature=True):
     features = [
@@ -444,3 +448,36 @@ def test_compile_checkpoint_missing_sidecar(tmp_path):
 def test_compile_module_requires_schema(sasrec):
     with pytest.raises(ValueError, match="schema is required"):
         compile(sasrec)
+
+
+def test_full_vocab_scores_come_from_graph_initializer(sasrec, tensor_schema, inputs, tmp_path):
+    compiled = compile(sasrec, tensor_schema, max_seq_len=SEQ_LEN)
+    artifact = tmp_path / "artifact"
+    compiled.save(artifact)
+
+    import onnx
+
+    proto = onnx.load(str(artifact / "model.onnx"))
+    graph_inputs = [value.name for value in proto.graph.input]
+    assert graph_inputs == compiled.manifest.input_names
+    initializers = {initializer.name for initializer in proto.graph.initializer}
+    assert initializers, "full-vocab scoring must be baked into the graph, not fed at runtime"
+    embedding_weights = [name for name in initializers if "embedding" in name.lower()]
+    assert embedding_weights
+
+
+def test_compile_from_checkpoint_explicit_candidates(tensor_schema, tmp_path):
+    model, config = capture_config(SasRec, tensor_schema, **FROM_PARAMS)
+    ckpt = tmp_path / "best.ckpt"
+    torch.save(model.state_dict(), ckpt)
+    save_config(config, ckpt)
+
+    inputs = make_inputs(num_candidates=6)
+    compiled = compile(
+        ckpt,
+        max_seq_len=SEQ_LEN,
+        candidates_policy="explicit",
+        num_candidates=6,
+    )
+    assert compiled.manifest.candidates_policy == "explicit"
+    assert_parity(compiled, model, inputs)
