@@ -464,3 +464,19 @@ SeenItemsFilter
 ```````````````
 .. autoclass:: replay.nn.lightning.postprocessor.SeenItemsFilter
    :members: __init__, on_validation, on_prediction
+
+Compiled Inference
+==================
+
+compile
+_______
+.. autofunction:: replay.nn.compiled.compile
+
+CompiledModel
+_____________
+.. autoclass:: replay.nn.compiled.CompiledModel
+   :members: __init__, predict, save, manifest, input_names
+
+load
+____
+.. autofunction:: replay.nn.compiled.load

@@ -74,16 +74,14 @@ class ExportManifest:
     output_names: list[str]
     candidates_policy: str
     features: list[FeatureRecord]
-    dynamic_axes: dict[str, list[str]] = field(default_factory=dict)
+    input_shapes: dict[str, list[int | str]] = field(default_factory=dict)
     versions: dict[str, str] = field(default_factory=dict)
 
     def feature_names(self) -> list[str]:
         return [record.name for record in self.features]
 
     def to_dict(self) -> dict[str, Any]:
-        data = asdict(self)
-        data["features"] = [asdict(record) for record in self.features]
-        return data
+        return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ExportManifest":

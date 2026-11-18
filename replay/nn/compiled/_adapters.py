@@ -24,17 +24,25 @@ class GraphInput:
     axes: list[str]
 
 
+def feature_axes(record: FeatureRecord) -> list[str]:
+    """Axis names of one feature input; ``tensor_dim`` beyond 1 adds a static axis."""
+    if record.is_categorical or record.tensor_dim in (None, 1):
+        return ["batch", "seq_len"]
+    return ["batch", "seq_len", "tensor_dim"]
+
+
 class InferenceAdapter(Protocol):
     """Builds a flat-input wrapper around a model's ``forward_inference``."""
 
     model_type: str
+    output_name: str
 
     def build(
         self,
         model: torch.nn.Module,
         schema: TensorSchema,
         candidates_policy: str,
-    ) -> tuple[torch.nn.Module, list[GraphInput]]: ...
+    ) -> tuple[torch.nn.Module, list[GraphInput], list[FeatureRecord]]: ...
 
 
 class _SasRecGraph(torch.nn.Module):
@@ -59,6 +67,7 @@ class _SasRecGraph(torch.nn.Module):
 
 class SasRecAdapter:
     model_type = "sasrec"
+    output_name = "logits"
 
     def build(self, model, schema, candidates_policy):
         if candidates_policy not in (CANDIDATES_FULL_VOCAB, CANDIDATES_EXPLICIT):
@@ -66,12 +75,9 @@ class SasRecAdapter:
             raise ValueError(msg)
 
         records = []
-        for _, info in schema.items():
+        for info in schema.values():
             if info.is_list:
-                msg = (
-                    f"Feature {info.name!r} is a categorical list; "
-                    "list features are not exportable yet"
-                )
+                msg = f"Feature {info.name!r} is a categorical list; list features are not exportable yet"
                 raise NotImplementedError(msg)
             records.append(FeatureRecord.from_tensor_info(info))
         feature_names = [record.name for record in records]
@@ -81,7 +87,7 @@ class SasRecAdapter:
                 name=name,
                 kind="feature",
                 dtype=torch.int64 if record.is_categorical else torch.float32,
-                axes=["batch", "seq_len"],
+                axes=feature_axes(record),
             )
             for name, record in zip(feature_names, records, strict=True)
         ]
@@ -98,10 +104,14 @@ class SasRecAdapter:
             feature_names=feature_names,
             candidates_as_input=candidates_policy == CANDIDATES_EXPLICIT,
         )
-        return wrapper, graph_inputs
+        return wrapper, graph_inputs, records
 
 
 class _TwoTowerQueryGraph(torch.nn.Module):
+    """Query tower only, per the two-artifact topology: the graph outputs
+    last-position query embeddings; the item-embedding matrix stays an
+    external artifact and the scorer lives in the serving layer."""
+
     def __init__(self, model, feature_names: list[str]):
         super().__init__()
         self._model = model
@@ -111,18 +121,20 @@ class _TwoTowerQueryGraph(torch.nn.Module):
         num_features = len(self._feature_names)
         feature_tensors = dict(zip(self._feature_names, inputs[:num_features], strict=True))
         padding_mask = inputs[num_features]
-        output = self._model.forward_inference(
-            feature_tensors=feature_tensors,
-            padding_mask=padding_mask,
-            candidates_to_score=None,
-        )
-        return output["logits"]
+        hidden_states = self._model.body.query_tower(feature_tensors, padding_mask)
+        if self._model.context_merger is not None:
+            hidden_states = self._model.context_merger(
+                model_hidden_state=hidden_states,
+                feature_tensors=feature_tensors,
+            )
+        return hidden_states[:, -1, :].contiguous()
 
 
 class TwoTowerQueryAdapter:
-    """Online query tower: full-catalog scoring only, per the two-graph layout."""
+    """Online query tower of the two-artifact layout (item matrix is exported separately)."""
 
     model_type = "twotower_query"
+    output_name = "query_embeddings"
 
     def build(self, model, schema, candidates_policy):
         if candidates_policy != CANDIDATES_FULL_VOCAB:
@@ -136,7 +148,7 @@ class TwoTowerQueryAdapter:
                 name=name,
                 kind="feature",
                 dtype=torch.int64 if record.is_categorical else torch.float32,
-                axes=["batch", "seq_len"],
+                axes=feature_axes(record),
             )
             for name, record in zip(feature_names, records, strict=True)
         ]
@@ -144,7 +156,7 @@ class TwoTowerQueryAdapter:
             GraphInput(name="padding_mask", kind="padding_mask", dtype=torch.bool, axes=["batch", "seq_len"]),
         )
         wrapper = _TwoTowerQueryGraph(model=model, feature_names=feature_names)
-        return wrapper, graph_inputs
+        return wrapper, graph_inputs, records
 
 
 _ADAPTERS: dict[str, InferenceAdapter] = {
