@@ -85,23 +85,39 @@ def schema_from_dict(data: dict[str, Any]) -> TensorSchema:
     return TensorSchema([_feature_info_from_dict(feature) for feature in data["features"]])
 
 
-def capture_config(model_cls, schema: TensorSchema, **from_params: Any) -> tuple[torch.nn.Module, ModelConfig]:
+def capture_config(
+    model_cls,
+    schema: TensorSchema,
+    *,
+    item_features_reader=None,
+    **from_params: Any,
+) -> tuple[torch.nn.Module, ModelConfig]:
     """Build a model with ``model_cls.from_params`` and capture its rebuild recipe.
 
     :param model_cls: a model class such as ``SasRec`` exposing ``from_params``.
     :param schema: the model's ``TensorSchema``.
+    :param item_features_reader: the catalog reader, required for ``TwoTower``
+        (not serialized; the catalog itself lives in the checkpoint buffers).
     :param from_params: keyword arguments forwarded to ``from_params``;
         they must be JSON-primitive (the schema is stored separately).
     :return: the built model and its :class:`ModelConfig`.
     """
+    from replay.nn.sequential.twotower.model import TwoTower
+
     from ._adapters import resolve_adapter
 
+    if item_features_reader is not None and model_cls is not TwoTower:
+        msg = f"item_features_reader is only accepted for TwoTower, got: {model_cls.__name__}"
+        raise ValueError(msg)
     try:
         json.dumps(from_params)
     except TypeError as exc:
         msg = f"from_params kwargs must be JSON-primitive to be captured: {exc}"
         raise ValueError(msg) from None
-    model = model_cls.from_params(schema=schema, **from_params)
+    if item_features_reader is not None:
+        model = model_cls.from_params(schema=schema, item_features_reader=item_features_reader, **from_params)
+    else:
+        model = model_cls.from_params(schema=schema, **from_params)
     config = ModelConfig(
         model_type=resolve_adapter(model).model_type,
         from_params=from_params,
@@ -133,11 +149,14 @@ def read_config(ckpt_path: str | Path) -> ModelConfig:
 
 def _model_class(model_type: str):
     from replay.nn.sequential.sasrec.model import SasRec
+    from replay.nn.sequential.twotower.model import TwoTower
 
-    from ._adapters import SasRecAdapter
+    from ._adapters import SasRecAdapter, TwoTowerQueryAdapter
 
     if model_type == SasRecAdapter.model_type:
         return SasRec
+    if model_type == TwoTowerQueryAdapter.model_type:
+        return TwoTower
     msg = f"No rebuild support for model type: {model_type!r}"
     raise ValueError(msg)
 
@@ -149,7 +168,9 @@ def _load_state_dict(ckpt_path: Path) -> dict:
 
 
 def restore_from_checkpoint(
-    ckpt_path: str | Path, config_path: str | Path | None = None
+    ckpt_path: str | Path,
+    config_path: str | Path | None = None,
+    item_features_reader=None,
 ) -> tuple[torch.nn.Module, TensorSchema]:
     """Rebuild a model and its schema from a checkpoint plus config sidecar.
 
@@ -157,6 +178,9 @@ def restore_from_checkpoint(
         checkpoint (its ``state_dict`` is used, ``model.`` prefixes stripped).
     :param config_path: explicit sidecar path; ``None`` reads the sibling
         ``<ckpt>.config.json``.
+    :param item_features_reader: catalog reader, required for ``TwoTower``
+        checkpoints (rebuilds the item tower; the catalog values themselves
+        come from the checkpoint's ``item_reference_*`` buffers).
     :return: the rebuilt module (weights loaded, ``eval`` mode) and its schema.
     """
     path = Path(ckpt_path)
@@ -165,7 +189,16 @@ def restore_from_checkpoint(
     else:
         config = read_config(path)
     schema = schema_from_dict(config.schema)
-    model = _model_class(config.model_type).from_params(schema=schema, **config.from_params)
+    model_cls = _model_class(config.model_type)
+    from ._adapters import TwoTowerQueryAdapter
+
+    if config.model_type == TwoTowerQueryAdapter.model_type:
+        if item_features_reader is None:
+            msg = "TwoTower checkpoints need item_features_reader to rebuild the item tower"
+            raise ValueError(msg)
+        model = model_cls.from_params(schema=schema, item_features_reader=item_features_reader, **config.from_params)
+    else:
+        model = model_cls.from_params(schema=schema, **config.from_params)
     model.load_state_dict(_load_state_dict(path), strict=True)
     model.eval()
     return model, schema

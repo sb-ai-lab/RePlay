@@ -190,6 +190,7 @@ def compile(
     opset_version: int = DEFAULT_OPSET_VERSION,
     num_threads: int | None = None,
     config_path: str | Path | None = None,
+    item_features_reader=None,
 ) -> CompiledModel:
     """Export a ``replay.nn`` model's ``forward_inference`` to ONNX and compile it with OpenVINO.
 
@@ -216,6 +217,8 @@ def compile(
     :param num_threads: CPU threads for OpenVINO compilation; ``None`` lets OpenVino decide.
     :param config_path: explicit config sidecar for the checkpoint path form of ``model``;
         ``None`` reads the sibling ``<ckpt>.config.json``.
+    :param item_features_reader: catalog reader for ``TwoTower`` checkpoint paths
+        (rebuilds the item tower); the module form takes the reader inside the model.
     :return: a :class:`CompiledModel` ready for :meth:`CompiledModel.predict`.
     """
     _check_conditional_stack()
@@ -235,10 +238,14 @@ def compile(
         if schema is not None:
             msg = "schema comes from the checkpoint config sidecar; do not pass schema with a checkpoint path"
             raise ValueError(msg)
-        model, schema = restore_from_checkpoint(model, config_path)
-    elif schema is None:
-        msg = "schema is required when model is a torch module"
-        raise ValueError(msg)
+        model, schema = restore_from_checkpoint(model, config_path, item_features_reader)
+    else:
+        if item_features_reader is not None:
+            msg = "item_features_reader is only accepted with a checkpoint path"
+            raise ValueError(msg)
+        if schema is None:
+            msg = "schema is required when model is a torch module"
+            raise ValueError(msg)
 
     adapter = resolve_adapter(model)
     wrapper, graph_inputs, features = adapter.build(model, schema, candidates_policy)

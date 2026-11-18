@@ -507,3 +507,19 @@ ______________________
 encode_inputs
 ```````````
 .. autofunction:: replay.nn.compiled.encode_inputs
+
+TwoTower item embeddings
+________________________
+
+export_item_embeddings
+``````````````````````
+.. autofunction:: replay.nn.compiled.export_item_embeddings
+
+ItemEmbeddings
+````````````
+.. autoclass:: replay.nn.compiled.ItemEmbeddings
+   :members: __init__, save, num_items, embedding_dim
+
+load_item_embeddings
+````````````````````
+.. autofunction:: replay.nn.compiled.load_item_embeddings
