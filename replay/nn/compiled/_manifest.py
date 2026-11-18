@@ -38,10 +38,11 @@ class FeatureRecord:
     dtype: str
     is_categorical: bool
     is_list: bool
+    is_seq: bool = True
     cardinality: int | None = None
     tensor_dim: int | None = None
     embedding_dim: int | None = None
-    padding_value: int | None = None
+    padding_value: int | float | None = None
 
     @classmethod
     def from_tensor_info(cls, info) -> "FeatureRecord":
@@ -51,11 +52,22 @@ class FeatureRecord:
             dtype=numpy_dtype_name(dtype),
             is_categorical=info.is_cat,
             is_list=info.is_list,
+            is_seq=info.is_seq,
             cardinality=info.cardinality if info.is_cat else None,
             tensor_dim=info.tensor_dim if info.is_num else None,
             embedding_dim=info.embedding_dim,
-            padding_value=info.padding_value if info.is_cat else None,
+            padding_value=info.padding_value,
         )
+
+
+@dataclass
+class EncodingContract:
+    """How online values become graph inputs; see :func:`replay.nn.compiled.encode_inputs`."""
+
+    padding_side: str = "front"
+    keep: str = "last"
+    default_value: str = "padding_value"
+    mask_true: str = "valid"
 
 
 @dataclass
@@ -76,6 +88,8 @@ class ExportManifest:
     features: list[FeatureRecord]
     input_shapes: dict[str, list[int | str]] = field(default_factory=dict)
     versions: dict[str, str] = field(default_factory=dict)
+    max_seq_len: int = 0
+    encoding: EncodingContract = field(default_factory=EncodingContract)
 
     def feature_names(self) -> list[str]:
         return [record.name for record in self.features]
@@ -85,5 +99,7 @@ class ExportManifest:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ExportManifest":
+        data = dict(data)
         features = [FeatureRecord(**record) for record in data.pop("features")]
-        return cls(features=features, **data)
+        encoding = EncodingContract(**data.pop("encoding", {}))
+        return cls(features=features, encoding=encoding, **data)

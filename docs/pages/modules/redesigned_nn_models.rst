@@ -500,3 +500,10 @@ save_config
 read_config
 ```````````
 .. autofunction:: replay.nn.compiled.read_config
+
+Pre-inference encoding
+______________________
+
+encode_inputs
+```````````
+.. autofunction:: replay.nn.compiled.encode_inputs

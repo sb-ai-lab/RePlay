@@ -278,6 +278,7 @@ def compile(
         features=features,
         input_shapes=_input_shapes(graph_inputs, sample, mode),
         versions=_stack_versions(),
+        max_seq_len=max_seq_len,
     )
     compiled_model = _compile_openvino(onnx_bytes, manifest, num_threads)
     return CompiledModel(compiled_model=compiled_model, manifest=manifest, onnx_bytes=onnx_bytes)
