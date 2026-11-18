@@ -74,8 +74,10 @@ def _build_sample(schema, graph_inputs, batch_size, max_seq_len, num_candidates,
     for graph_input in graph_inputs:
         if graph_input.kind == "feature":
             info = schema[graph_input.name]
-            if info.is_list:
+            if info.is_list and info.is_cat:
                 tensor = torch.randint(0, info.cardinality + 1, (batch_size, max_seq_len, list_feature_length))
+            elif info.is_list:
+                tensor = torch.randn(batch_size, max_seq_len, info.tensor_dim)
             elif info.is_cat:
                 tensor = torch.randint(0, info.cardinality, (batch_size, max_seq_len))
             elif info.tensor_dim == 1:

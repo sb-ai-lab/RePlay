@@ -433,6 +433,34 @@ def test_multi_dim_numerical_feature():
     assert_parity(compiled, model, inputs)
 
 
+def test_numerical_list_feature():
+    schema = make_schema(with_num_feature=False)
+    schema = TensorSchema(
+        [
+            *schema.values(),
+            TensorFeatureInfo(
+                "vectors",
+                is_seq=True,
+                feature_type=FeatureType.NUMERICAL_LIST,
+                tensor_dim=3,
+                padding_value=0.0,
+                embedding_dim=EMB_DIM,
+                feature_sources=[TensorFeatureSource(FeatureSource.ITEM_FEATURES, "vectors")],
+            ),
+        ]
+    )
+    model = build_sasrec(schema, torch.nn.LayerNorm(EMB_DIM))
+    rng = np.random.RandomState(7)
+    inputs = {
+        "item_id": rng.randint(0, CARDINALITY, size=(BATCH, SEQ_LEN)).astype(np.int64),
+        "vectors": rng.standard_normal((BATCH, SEQ_LEN, 3)).astype(np.float32),
+        "padding_mask": np.ones((BATCH, SEQ_LEN), dtype=bool),
+    }
+    compiled = compile(model, schema, max_seq_len=SEQ_LEN)
+    assert compiled.manifest.input_shapes["vectors"] == ["batch", "seq_len", 3]
+    assert_parity(compiled, model, inputs)
+
+
 def test_export_seam_default_and_unknown_exporter():
     from replay.nn.compiled._exporters import export_onnx
 

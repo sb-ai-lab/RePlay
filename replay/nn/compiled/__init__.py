@@ -18,6 +18,7 @@ _EXPORTS = {
     "load": "._core",
     "load_item_embeddings": "._items",
     "read_config": "._checkpoint",
+    "restore_from_checkpoint": "._checkpoint",
     "save_config": "._checkpoint",
 }
 

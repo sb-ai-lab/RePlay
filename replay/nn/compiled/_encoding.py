@@ -93,14 +93,14 @@ def _encode_categorical(record, values, mapping):
         raise ValueError(msg)
     pad = record["padding_value"]
     if record["is_list"]:
-        return [[mapping.get(x, pad) for x in (row or [])] for row in values]
+        return [[mapping.get(x, pad) for x in (row if row is not None else [])] for row in values]
     return [mapping.get(v, pad) for v in values]
 
 
 def _encode_numerical(record, values):
     pad = record["padding_value"]
     if record["is_list"]:
-        return [[float(x) for x in (row or [])] for row in values]
+        return [[float(x) for x in (row if row is not None else [])] for row in values]
     return [float(v) if v is not None else pad for v in values]
 
 
