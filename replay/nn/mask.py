@@ -28,9 +28,9 @@ class AttentionMaskBase(torch.nn.Module):
         """
         attention_mask = self._get_attention_mask(feature_tensor)
 
-        diagonal_attention_mask = torch.diag(
-            torch.ones(padding_mask.size(1), dtype=torch.bool, device=padding_mask.device)
-        )
+        # identity via arange equality: torch.diag is not ONNX-exportable
+        positions = torch.arange(padding_mask.size(1), device=padding_mask.device)
+        diagonal_attention_mask = positions.unsqueeze(0) == positions.unsqueeze(1)
         # (B, L) -> (B, 1, 1, L)
         key_padding_mask = padding_mask.unsqueeze(1).unsqueeze(1)
         # (B, 1, 1, L) -> (B, 1, L, L), where 0 - PAD, 1 - otherwise
