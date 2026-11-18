@@ -10,7 +10,7 @@ if TORCH_AVAILABLE:
     from replay.data import FeatureHint, FeatureSource, FeatureType
     from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
     from replay.nn.agg import SumAggregator
-    from replay.nn.compiled import CompiledModel, compile, load
+    from replay.nn.compiled import CompiledModel, capture_config, compile, load, save_config
     from replay.nn.compiled._exporters import DYNAMO, LEGACY
     from replay.nn.embedding import SequenceEmbedding
     from replay.nn.ffn import SwiGLUEncoder
@@ -398,3 +398,49 @@ def test_export_seam_default_and_unknown_exporter():
     assert onnx_bytes
     with pytest.raises(ValueError, match="Unknown exporter"):
         export_onnx(module, args, ["x"], ["y"], {}, 20, exporter="tensorrt")
+
+
+FROM_PARAMS = {
+    "embedding_dim": EMB_DIM,
+    "num_heads": NUM_HEADS,
+    "num_blocks": NUM_BLOCKS,
+    "max_sequence_length": SEQ_LEN,
+    "dropout": 0.0,
+}
+
+
+def _save_sasrec_checkpoint(tensor_schema, tmp_path):
+    model, config = capture_config(SasRec, tensor_schema, **FROM_PARAMS)
+    ckpt = tmp_path / "best.ckpt"
+    torch.save(model.state_dict(), ckpt)
+    sidecar = save_config(config, ckpt)
+    return model, ckpt, sidecar
+
+
+def test_compile_from_checkpoint(tensor_schema, inputs, tmp_path):
+    model, ckpt, sidecar = _save_sasrec_checkpoint(tensor_schema, tmp_path)
+
+    compiled = compile(ckpt, max_seq_len=SEQ_LEN)
+    assert compiled.manifest.model_type == "sasrec"
+    assert_parity(compiled, model, inputs)
+
+    compiled_explicit = compile(ckpt, max_seq_len=SEQ_LEN, config_path=sidecar)
+    assert_parity(compiled_explicit, model, inputs)
+
+
+def test_compile_checkpoint_rejects_schema(tensor_schema, tmp_path):
+    _, ckpt, _ = _save_sasrec_checkpoint(tensor_schema, tmp_path)
+    with pytest.raises(ValueError, match="do not pass schema"):
+        compile(ckpt, tensor_schema, max_seq_len=SEQ_LEN)
+
+
+def test_compile_checkpoint_missing_sidecar(tmp_path):
+    ckpt = tmp_path / "orphan.ckpt"
+    torch.save({}, ckpt)
+    with pytest.raises(FileNotFoundError, match="config sidecar"):
+        compile(ckpt, max_seq_len=SEQ_LEN)
+
+
+def test_compile_module_requires_schema(sasrec):
+    with pytest.raises(ValueError, match="schema is required"):
+        compile(sasrec)

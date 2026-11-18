@@ -480,3 +480,23 @@ _____________
 load
 ____
 .. autofunction:: replay.nn.compiled.load
+
+Checkpoint config capture
+_________________________
+
+capture_config
+``````````````
+.. autofunction:: replay.nn.compiled.capture_config
+
+ModelConfig
+````````````
+.. autoclass:: replay.nn.compiled.ModelConfig
+   :members: __init__
+
+save_config
+```````````
+.. autofunction:: replay.nn.compiled.save_config
+
+read_config
+```````````
+.. autofunction:: replay.nn.compiled.read_config

@@ -10,6 +10,7 @@ import torch
 from replay.utils import OPENVINO_AVAILABLE
 
 from ._adapters import resolve_adapter
+from ._checkpoint import restore_from_checkpoint
 from ._exporters import AUTO, export_onnx, select_exporter
 from ._manifest import (
     CANDIDATES_EXPLICIT,
@@ -173,8 +174,8 @@ class CompiledModel:
 
 
 def compile(
-    model: torch.nn.Module,
-    schema,
+    model: torch.nn.Module | str | Path,
+    schema=None,
     *,
     mode: str = MODE_DYNAMIC_BATCH,
     candidates_policy: str = CANDIDATES_FULL_VOCAB,
@@ -184,11 +185,16 @@ def compile(
     exporter: str = AUTO,
     opset_version: int = DEFAULT_OPSET_VERSION,
     num_threads: int | None = None,
+    config_path: str | Path | None = None,
 ) -> CompiledModel:
     """Export a ``replay.nn`` model's ``forward_inference`` to ONNX and compile it with OpenVINO.
 
-    :param model: a torch module from ``replay.nn`` (``SasRec``, ``TwoTower``).
+    :param model: a torch module from ``replay.nn`` (``SasRec``, ``TwoTower``),
+        or a path to a checkpoint artifact with a config sidecar
+        (see :func:`replay.nn.compiled.capture_config`) — the module and its
+        schema are then rebuilt automatically.
     :param schema: the model's ``TensorSchema``; graph inputs follow its feature order.
+        Required with a module, forbidden with a checkpoint path (the sidecar owns it).
     :param mode: ``dynamic_batch_size`` (batch and sequence length stay dynamic)
         or ``batch`` (batch is fixed at ``batch_size``, sequence length stays dynamic).
     :param candidates_policy: ``full_vocab`` or ``explicit`` (candidates become a graph input).
@@ -200,6 +206,8 @@ def compile(
         legacy otherwise), ``legacy`` or ``dynamo``.
     :param opset_version: ONNX opset version.
     :param num_threads: CPU threads for OpenVINO compilation; ``None`` lets OpenVino decide.
+    :param config_path: explicit config sidecar for the checkpoint path form of ``model``;
+        ``None`` reads the sibling ``<ckpt>.config.json``.
     :return: a :class:`CompiledModel` ready for :meth:`CompiledModel.predict`.
     """
     _check_conditional_stack()
@@ -213,6 +221,15 @@ def compile(
         raise ValueError(msg)
     if not explicit and num_candidates is not None:
         msg = "num_candidates is only accepted when candidates_policy is 'explicit'"
+        raise ValueError(msg)
+
+    if isinstance(model, (str, Path)):
+        if schema is not None:
+            msg = "schema comes from the checkpoint config sidecar; do not pass schema with a checkpoint path"
+            raise ValueError(msg)
+        model, schema = restore_from_checkpoint(model, config_path)
+    elif schema is None:
+        msg = "schema is required when model is a torch module"
         raise ValueError(msg)
 
     adapter = resolve_adapter(model)
