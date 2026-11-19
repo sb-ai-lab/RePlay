@@ -231,6 +231,7 @@ pip install ligfhtfm
 [BERT4rec Example](https://github.com/sb-ai-lab/RePlay/blob/main/examples/bert4rec/example.ipynb) | An example of using transformer-based BERT4Rec model to generate recommendations |
 [TwoTower Simple Example](https://github.com/sb-ai-lab/RePlay/blob/main/examples/twotower/simple_example.ipynb) | A simple example of using transformer-based TwoTower model with batch-wise reading and preprocessing via ParquetModule |
 [TwoTower Advanced Example](https://github.com/sb-ai-lab/RePlay/blob/main/examples/twotower/advanced_example.ipynb) | An advanced example that expands the previous one, demonstrating how to construct a model via blocks, accelerate the model, and use additional dataset features
+|[TwoTower Compiled Inference](https://github.com/sb-ai-lab/RePlay/blob/main/examples/twotower/compiled_inference.ipynb) | An example of packaging a trained TwoTower model for online serving with `replay.nn.compiled`: an OpenVINO query-tower graph, an item-embedding matrix artifact, and NumPy request encoding without PyTorch |
 
 ### Videos and papers
 * **Video guides**:
