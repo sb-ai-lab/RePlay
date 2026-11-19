@@ -1,4 +1,4 @@
-"""Offline item-embedding matrix artifact for the two-artifact TwoTower topology (D3).
+"""Offline item-embedding matrix artifact for the two-artifact TwoTower topology.
 
 Importable without torch: serving only needs :class:`ItemEmbeddings`
 and :func:`load_item_embeddings`.

@@ -1,4 +1,4 @@
-"""Pre-inference encoding of online event dicts into compiled-graph inputs (D11).
+"""Pre-inference encoding of online event dicts into compiled-graph inputs.
 
 The contract implemented here is recorded in every export manifest
 (``encoding`` block) and mirrors ``TorchSequentialDataset``:

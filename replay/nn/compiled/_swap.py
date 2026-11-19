@@ -1,4 +1,4 @@
-"""Inference swap: EmbeddingBag -> Embedding + reduction (D7)."""
+"""Inference swap: EmbeddingBag -> Embedding + reduction."""
 
 import torch
 

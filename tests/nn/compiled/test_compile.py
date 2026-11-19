@@ -32,7 +32,7 @@ BATCH, SEQ_LEN, CARDINALITY, EMB_DIM = 4, 16, 50, 32
 NUM_HEADS, NUM_BLOCKS = 2, 1
 LIST_CARDINALITY, LIST_LENGTH = 8, 3
 
-if torch.cuda.is_available():  # D6 contract: comparisons run with TF32 off
+if torch.cuda.is_available():  # parity comparisons run with TF32 off
     torch.backends.cuda.matmul.allow_tf32 = False
     torch.backends.cudnn.allow_tf32 = False
 

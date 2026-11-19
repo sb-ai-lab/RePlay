@@ -1,4 +1,4 @@
-"""Checkpoint config capture: rebuild a module from a saved artifact (D8)."""
+"""Checkpoint config capture: rebuild a module from a saved artifact."""
 
 import json
 from dataclasses import asdict, dataclass
