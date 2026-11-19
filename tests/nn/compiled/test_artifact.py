@@ -148,6 +148,7 @@ def test_save_rejects_matrix_for_sasrec(tmp_path):
     assert saved["item_matrix"] is None
 
 
+@pytest.mark.conditional
 @pytest.mark.skipif(not TORCH_AVAILABLE, reason="torch required")
 class TestTwoTowerArtifactPair:
     SEQ_LEN, CARDINALITY, EMB_DIM = 16, 50, 32
