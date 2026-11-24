@@ -67,7 +67,7 @@ class SequenceGenerator:
         self,
         groupby_column: str | list[str],
         orderby_column: str | list[str] | None = None,
-        transform_columns: None | str | list[str] = None,
+        transform_columns: str | list[str] | None = None,
         len_window: int = 50,
         sequence_prefix: str | None = None,
         sequence_suffix: str | None = "_list",
