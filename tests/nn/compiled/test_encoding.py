@@ -56,7 +56,7 @@ ITEM_MAPPING = {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5, "f": 6, "g": 7, "h": 8}
 GENRE_MAPPING = {"x": 0, "y": 1, "z": 2}
 
 
-def make_manifest(features, *, exporter="dynamo", max_seq_len=8, input_shapes=None):
+def make_manifest(features, *, max_seq_len=8, input_shapes=None):
     shapes = dict(input_shapes or {})
     for record in features:
         has_width = record["is_list"] or (record["tensor_dim"] or 1) > 1
@@ -64,7 +64,7 @@ def make_manifest(features, *, exporter="dynamo", max_seq_len=8, input_shapes=No
     shapes.setdefault("padding_mask", ["batch", "seq_len"])
     return {
         "model_type": "sasrec",
-        "exporter": exporter,
+        "exporter": "dynamo",
         "opset_version": 20,
         "input_kinds": ["feature"] * len(features) + ["padding_mask"],
         "input_names": [record["name"] for record in features] + ["padding_mask"],
@@ -160,21 +160,6 @@ def test_seq_len_override_and_cap():
 
     with pytest.raises(ValueError, match="exceeds the manifest max_seq_len"):
         encode_inputs(manifest, histories, {"item_id": ITEM_MAPPING}, seq_len=5)
-
-
-def test_legacy_graph_forces_traced_length():
-    manifest = make_manifest([ITEM_ID], exporter="legacy", max_seq_len=6)
-    histories = [[event("a"), event("b")]]
-
-    inputs = encode_inputs(manifest, histories, {"item_id": ITEM_MAPPING})
-    assert inputs["item_id"].shape == (1, 6)
-    np.testing.assert_array_equal(inputs["padding_mask"], [[False] * 4 + [True] * 2])
-
-    inputs = encode_inputs(manifest, histories, {"item_id": ITEM_MAPPING}, seq_len=6)
-    assert inputs["item_id"].shape == (1, 6)
-
-    with pytest.raises(ValueError, match=r"[Ll]egacy"):
-        encode_inputs(manifest, histories, {"item_id": ITEM_MAPPING}, seq_len=3)
 
 
 def test_static_batch_size_enforced():
@@ -417,7 +402,7 @@ def test_encoded_inputs_predict_like_torch():
 
     model, compiled = _build_sasrec(_e2e_schema())
     inputs = encode_inputs(compiled.manifest, _raw_histories(), {"item_id": ITEM_MAPPING, "genre": GENRE_MAPPING})
-    assert inputs["item_id"].shape == (2, SEQ_LEN)
+    assert inputs["item_id"].shape == (2, max(map(len, _raw_histories())))
 
     np.testing.assert_allclose(compiled.predict(inputs), _torch_reference(model, inputs), atol=ATOL, rtol=RTOL)
 

@@ -102,11 +102,10 @@ def capture_config(
         they must be JSON-primitive (the schema is stored separately).
     :return: the built model and its :class:`ModelConfig`.
     """
-    from replay.nn.sequential.twotower.model import TwoTower
+    from ._models import resolve_branch
 
-    from ._adapters import resolve_adapter
-
-    if item_features_reader is not None and model_cls is not TwoTower:
+    branch = resolve_branch(model_cls)
+    if item_features_reader is not None and not branch.uses_item_features_reader:
         msg = f"item_features_reader is only accepted for TwoTower, got: {model_cls.__name__}"
         raise ValueError(msg)
     try:
@@ -119,7 +118,7 @@ def capture_config(
     else:
         model = model_cls.from_params(schema=schema, **from_params)
     config = ModelConfig(
-        model_type=resolve_adapter(model).model_type,
+        model_type=branch.model_type,
         from_params=from_params,
         schema=schema_to_dict(schema),
     )
@@ -145,20 +144,6 @@ def read_config(ckpt_path: str | Path) -> ModelConfig:
         msg = f"No config sidecar for checkpoint {ckpt_path!s}: expected {path}"
         raise FileNotFoundError(msg)
     return ModelConfig.from_dict(json.loads(path.read_text()))
-
-
-def _model_class(model_type: str):
-    from replay.nn.sequential.sasrec.model import SasRec
-    from replay.nn.sequential.twotower.model import TwoTower
-
-    from ._adapters import SasRecAdapter, TwoTowerQueryAdapter
-
-    if model_type == SasRecAdapter.model_type:
-        return SasRec
-    if model_type == TwoTowerQueryAdapter.model_type:
-        return TwoTower
-    msg = f"No rebuild support for model type: {model_type!r}"
-    raise ValueError(msg)
 
 
 def _load_state_dict(ckpt_path: Path) -> dict:
@@ -189,16 +174,21 @@ def restore_from_checkpoint(
     else:
         config = read_config(path)
     schema = schema_from_dict(config.schema)
-    model_cls = _model_class(config.model_type)
-    from ._adapters import TwoTowerQueryAdapter
+    from ._models import branch_by_type
 
-    if config.model_type == TwoTowerQueryAdapter.model_type:
+    branch = branch_by_type(config.model_type)
+    if branch.uses_item_features_reader:
         if item_features_reader is None:
-            msg = "TwoTower checkpoints need item_features_reader to rebuild the item tower"
+            msg = f"{branch.model_type} checkpoints need item_features_reader to rebuild the item tower"
             raise ValueError(msg)
-        model = model_cls.from_params(schema=schema, item_features_reader=item_features_reader, **config.from_params)
+        model = branch.model_cls.from_params(
+            schema=schema, item_features_reader=item_features_reader, **config.from_params
+        )
+    elif item_features_reader is not None:
+        msg = f"item_features_reader is only accepted for TwoTower checkpoints, got: {config.model_type!r}"
+        raise ValueError(msg)
     else:
-        model = model_cls.from_params(schema=schema, **config.from_params)
+        model = branch.model_cls.from_params(schema=schema, **config.from_params)
     model.load_state_dict(_load_state_dict(path), strict=True)
     model.eval()
     return model, schema

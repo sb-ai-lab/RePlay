@@ -21,7 +21,6 @@ _SUPPORTED_ENCODING = {
     "default_value": "padding_value",
     "mask_true": "valid",
 }
-_LEGACY_EXPORTER = "legacy"
 
 
 def _manifest_data(manifest) -> dict[str, Any]:
@@ -73,18 +72,11 @@ def _static_axis(data: dict[str, Any], name: str, position: int) -> int | None:
     return dim if isinstance(dim, int) else None
 
 
-def _resolve_target(data: dict[str, Any], histories, seq_len: int | None, cap: int) -> int:
+def _resolve_target(histories, seq_len: int | None, cap: int) -> int:
     if seq_len is not None and seq_len > cap:
         msg = f"seq_len={seq_len} exceeds the manifest max_seq_len={cap}"
         raise ValueError(msg)
-    target = seq_len or min(max(len(history) for history in histories), cap)
-    if data.get("exporter") == _LEGACY_EXPORTER:
-        # legacy graphs bake sequence-length shape math: inputs must match the traced length
-        if seq_len is not None and seq_len != cap:
-            msg = f"Legacy-exported graphs require seq_len={cap} (traced length)"
-            raise ValueError(msg)
-        target = cap
-    return target
+    return seq_len or min(max(len(history) for history in histories), cap)
 
 
 def _encode_categorical(record, values, mapping):
@@ -135,7 +127,7 @@ def encode_inputs(
     rows are front-padded (and truncated) to the width fixed at compile time,
     and ``padding_mask`` marks valid positions.  ``seq_len`` overrides the pad
     target (the longest history in the batch by default) and must not exceed
-    ``max_seq_len``; legacy-exported graphs always use ``max_seq_len``.
+    ``max_seq_len``.
 
     :param manifest: the export manifest (object or parsed ``manifest.json``).
     :param batch: online event histories, one per user.
@@ -152,7 +144,7 @@ def encode_inputs(
         raise ValueError(msg)
 
     histories = _normalize_batch(batch)
-    target = _resolve_target(data, histories, seq_len, cap)
+    target = _resolve_target(histories, seq_len, cap)
 
     static_batch = _static_axis(data, data["features"][0]["name"], 0)
     if static_batch is not None and len(histories) != static_batch:

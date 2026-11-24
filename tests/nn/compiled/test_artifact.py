@@ -77,10 +77,10 @@ def test_manifest_format_version_gate():
     with pytest.raises(ValueError, match="newer than supported"):
         ExportManifest.from_dict(manifest_dict(format_version=MANIFEST_FORMAT_VERSION + 1))
 
-    legacy = manifest_dict()
-    del legacy["format_version"]
+    old = manifest_dict()
+    del old["format_version"]
     with pytest.raises(ValueError, match="predates the artifact format"):
-        ExportManifest.from_dict(legacy)
+        ExportManifest.from_dict(old)
 
 
 def test_load_requires_openvino(monkeypatch, tmp_path):

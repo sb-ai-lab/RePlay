@@ -64,7 +64,7 @@ def test_numpy_dtype_name_unsupported():
 def test_manifest_roundtrip():
     manifest = ExportManifest(
         model_type="sasrec",
-        exporter="legacy",
+        exporter="dynamo",
         opset_version=20,
         input_kinds=["feature", "padding_mask"],
         input_names=["item_id", "padding_mask"],

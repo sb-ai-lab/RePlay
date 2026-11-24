@@ -1,7 +1,9 @@
-"""Offline item-embedding matrix artifact for the two-artifact TwoTower topology.
+"""Item-embedding matrix artifact format for the two-artifact TwoTower topology.
 
-Importable without torch: serving only needs :class:`ItemEmbeddings`
-and :func:`load_item_embeddings`.
+This module is the on-disk contract and stays importable without torch:
+serving only needs :class:`ItemEmbeddings` and :func:`load_item_embeddings`.
+The torch-side producer (encoding a live model's catalog) lives in the
+TwoTower compilation branch: ``replay.nn.compiled.export_item_embeddings``.
 """
 
 from __future__ import annotations
@@ -9,15 +11,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import numpy as np
 
-if TYPE_CHECKING:
-    import torch
-
 ITEM_EMBEDDINGS_FILENAME = "item_embeddings.npy"
 ITEM_EMBEDDINGS_LAYOUT_FILENAME = "item_embeddings.json"
+ITEM_MATRIX_MODEL_TYPE = "twotower_query"
 
 
 @dataclass
@@ -41,7 +40,7 @@ class ItemEmbeddings:
         directory.mkdir(parents=True, exist_ok=True)
         np.save(directory / ITEM_EMBEDDINGS_FILENAME, self.matrix)
         layout = {
-            "model_type": "twotower_query",
+            "model_type": ITEM_MATRIX_MODEL_TYPE,
             "num_items": self.num_items,
             "embedding_dim": self.embedding_dim,
             "dtype": str(self.matrix.dtype),
@@ -49,32 +48,6 @@ class ItemEmbeddings:
             "layout": "row i is the embedding of item id i",
         }
         (directory / ITEM_EMBEDDINGS_LAYOUT_FILENAME).write_text(json.dumps(layout, indent=2))
-
-
-def export_item_embeddings(model: torch.nn.Module) -> ItemEmbeddings:
-    """Encode the full item catalog with a ``TwoTower`` model's item tower.
-
-    The matrix is the offline artifact of the two-artifact topology: the online
-    query-tower graph is exported by :func:`replay.nn.compiled.compile`, scoring
-    (``query_embeddings @ matrix.T``) and ANN search stay in the serving layer.
-
-    :param model: a ``TwoTower`` module (eval mode is enforced).
-    :return: an :class:`ItemEmbeddings` with a ``[num_items, embedding_dim]`` float matrix.
-    """
-    import torch
-
-    from replay.nn.sequential.twotower.model import TwoTower
-
-    if not isinstance(model, TwoTower):
-        msg = f"Item embeddings are exported from TwoTower models, got: {type(model).__name__}"
-        raise TypeError(msg)
-    model.eval()
-    with torch.no_grad():
-        matrix = model.body.item_tower(None)
-    return ItemEmbeddings(
-        matrix=matrix.detach().numpy().astype(np.float32, copy=False),
-        feature_names=list(model.body.item_tower.feature_names),
-    )
 
 
 def load_item_embeddings(path: str | Path) -> ItemEmbeddings:

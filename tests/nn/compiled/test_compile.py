@@ -11,7 +11,7 @@ if TORCH_AVAILABLE:
     from replay.data.nn import TensorFeatureInfo, TensorFeatureSource, TensorSchema
     from replay.nn.agg import SumAggregator
     from replay.nn.compiled import CompiledModel, capture_config, compile, load, save_config
-    from replay.nn.compiled._exporters import DYNAMO, LEGACY
+    from replay.nn.compiled._exporters import DYNAMO
     from replay.nn.embedding import SequenceEmbedding
     from replay.nn.ffn import SwiGLUEncoder
     from replay.nn.loss import CE
@@ -213,7 +213,7 @@ def inputs():
 def test_full_vocab_parity_and_batch_growth(sasrec, tensor_schema, inputs):
     compiled = compile(sasrec, tensor_schema, max_seq_len=SEQ_LEN)
     assert isinstance(compiled, CompiledModel)
-    assert compiled.manifest.exporter == LEGACY
+    assert compiled.manifest.exporter == DYNAMO
     assert compiled.manifest.candidates_policy == "full_vocab"
     assert compiled.input_names == ["item_id", "price", "padding_mask"]
     assert_parity(compiled, sasrec, inputs)
@@ -223,8 +223,7 @@ def test_full_vocab_parity_and_batch_growth(sasrec, tensor_schema, inputs):
 
 
 def test_sequence_length_is_dynamic(sasrec, tensor_schema, inputs):
-    # dynamo honors runtime sequence length; legacy traces shape math as constants
-    compiled = compile(sasrec, tensor_schema, exporter="dynamo", max_seq_len=SEQ_LEN)
+    compiled = compile(sasrec, tensor_schema, max_seq_len=SEQ_LEN)
     shorter = {
         "item_id": inputs["item_id"][:, -10:],
         "price": inputs["price"][:, -10:],
@@ -252,16 +251,10 @@ def test_explicit_candidates(sasrec, tensor_schema):
     assert_parity(compiled, sasrec, permuted)
 
 
-def test_rmsnorm_auto_selects_dynamo(sasrec_rmsnorm, tensor_schema, inputs):
+def test_rmsnorm_parity(sasrec_rmsnorm, tensor_schema, inputs):
     compiled = compile(sasrec_rmsnorm, tensor_schema, max_seq_len=SEQ_LEN)
     assert compiled.manifest.exporter == DYNAMO
     assert_parity(compiled, sasrec_rmsnorm, inputs)
-
-
-def test_explicit_exporter_override(sasrec, tensor_schema, inputs):
-    compiled = compile(sasrec, tensor_schema, exporter="dynamo", max_seq_len=SEQ_LEN)
-    assert compiled.manifest.exporter == DYNAMO
-    assert_parity(compiled, sasrec, inputs)
 
 
 def test_num_threads(sasrec, tensor_schema, inputs):
@@ -306,11 +299,6 @@ def test_unknown_mode(sasrec, tensor_schema):
         compile(sasrec, tensor_schema, mode="one_query")
 
 
-def test_unknown_exporter(sasrec, tensor_schema):
-    with pytest.raises(ValueError, match="Unknown exporter"):
-        compile(sasrec, tensor_schema, exporter="onnx")
-
-
 def test_explicit_policy_requires_num_candidates(sasrec, tensor_schema):
     with pytest.raises(ValueError, match="num_candidates is required"):
         compile(sasrec, tensor_schema, candidates_policy="explicit")
@@ -350,22 +338,16 @@ def test_feature_rich_mean_aggregation():
     inputs = make_inputs(with_list=True)
 
     compiled = compile(model, schema, max_seq_len=SEQ_LEN, list_feature_length=LIST_LENGTH)
-    assert compiled.manifest.exporter == LEGACY
+    assert compiled.manifest.exporter == DYNAMO
     assert_parity(compiled, model, inputs)
 
 
-def test_feature_rich_dynamo():
+def test_feature_rich_sum_aggregation():
     schema = make_schema(with_list_feature=True)
     model = build_sasrec(schema, torch.nn.LayerNorm(EMB_DIM))
     inputs = make_inputs(with_list=True)
 
-    compiled = compile(
-        model,
-        schema,
-        max_seq_len=SEQ_LEN,
-        list_feature_length=LIST_LENGTH,
-        exporter="dynamo",
-    )
+    compiled = compile(model, schema, max_seq_len=SEQ_LEN, list_feature_length=LIST_LENGTH)
     assert compiled.manifest.exporter == DYNAMO
     assert_parity(compiled, model, inputs)
 
@@ -459,17 +441,6 @@ def test_numerical_list_feature():
     compiled = compile(model, schema, max_seq_len=SEQ_LEN)
     assert compiled.manifest.input_shapes["vectors"] == ["batch", "seq_len", 3]
     assert_parity(compiled, model, inputs)
-
-
-def test_export_seam_default_and_unknown_exporter():
-    from replay.nn.compiled._exporters import export_onnx
-
-    module = torch.nn.Linear(4, 2)
-    args = (torch.randn(3, 4),)
-    onnx_bytes = export_onnx(module, args, ["x"], ["y"], {}, 20)
-    assert onnx_bytes
-    with pytest.raises(ValueError, match="Unknown exporter"):
-        export_onnx(module, args, ["x"], ["y"], {}, 20, exporter="tensorrt")
 
 
 FROM_PARAMS = {

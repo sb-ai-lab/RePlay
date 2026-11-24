@@ -205,7 +205,6 @@ def test_two_artifacts_from_one_checkpoint(tmp_path):
 
 
 def test_capture_config_rejects_reader_for_sasrec():
-
     schema = make_schema()
     with pytest.raises(ValueError, match="only accepted for TwoTower"):
         capture_config(

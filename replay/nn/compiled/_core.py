@@ -2,6 +2,7 @@
 
 The serving path (:func:`load`, :meth:`CompiledModel.predict`) is importable
 and usable without torch; only :func:`compile` needs the training stack.
+Model-specific behavior is delegated to the per-model branches in ``_models``.
 """
 
 from __future__ import annotations
@@ -18,7 +19,12 @@ import numpy as np
 
 from replay.utils import OPENVINO_AVAILABLE
 
-from ._items import ITEM_EMBEDDINGS_FILENAME, ITEM_EMBEDDINGS_LAYOUT_FILENAME, ItemEmbeddings
+from ._items import (
+    ITEM_EMBEDDINGS_FILENAME,
+    ITEM_EMBEDDINGS_LAYOUT_FILENAME,
+    ITEM_MATRIX_MODEL_TYPE,
+    ItemEmbeddings,
+)
 from ._manifest import (
     CANDIDATES_EXPLICIT,
     CANDIDATES_FULL_VOCAB,
@@ -198,8 +204,8 @@ class CompiledModel:
         (directory / ONNX_FILENAME).write_bytes(self._onnx_bytes)
         manifest = self._manifest
         if item_embeddings is not None:
-            if manifest.model_type != "twotower_query":
-                msg = f"item_embeddings pair only with twotower_query artifacts, not {manifest.model_type!r}"
+            if manifest.model_type != ITEM_MATRIX_MODEL_TYPE:
+                msg = f"item_embeddings pair only with {ITEM_MATRIX_MODEL_TYPE} artifacts, not {manifest.model_type!r}"
                 raise ValueError(msg)
             item_embeddings.save(directory)
             manifest = replace(
@@ -228,7 +234,6 @@ def compile(
     batch_size: int = 2,
     max_seq_len: int = 32,
     list_feature_length: int = 8,
-    exporter: str = "auto",
     opset_version: int = DEFAULT_OPSET_VERSION,
     num_threads: int | None = None,
     config_path: str | Path | None = None,
@@ -248,13 +253,17 @@ def compile(
     :param mode: ``dynamic_batch_size`` (batch and sequence length stay dynamic)
         or ``batch`` (batch is fixed at ``batch_size``, sequence length stays dynamic).
     :param candidates_policy: ``full_vocab`` or ``explicit`` (candidates become a graph input).
+        Under ``full_vocab`` the graph scores the whole vocabulary (SasRec logits
+        over all items; TwoTower query embeddings for the full-catalog matrix).
+        Under ``explicit`` an int64 ``candidates`` tensor is an extra graph input
+        and the graph scores exactly those ids (SasRec only — the TwoTower query
+        graph emits embeddings and candidate selection is a row gather over the
+        item matrix in the serving layer, so it needs no graph input).
     :param num_candidates: candidate count to trace with; required for
         (and only valid with) the ``explicit`` policy.
     :param batch_size: batch size used for tracing; the fixed size under the ``batch`` mode.
     :param max_seq_len: sequence length used for tracing.
     :param list_feature_length: bag width used for tracing ``CATEGORICAL_LIST`` features.
-    :param exporter: ``auto`` (default; dynamo when the graph contains ``RMSNorm``,
-        legacy otherwise), ``legacy`` or ``dynamo``.
     :param opset_version: ONNX opset version.
     :param num_threads: CPU threads for OpenVINO compilation; ``None`` lets OpenVino decide.
     :param config_path: explicit config sidecar for the checkpoint path form of ``model``;
@@ -263,9 +272,9 @@ def compile(
         (rebuilds the item tower); the module form takes the reader inside the model.
     :return: a :class:`CompiledModel` ready for :meth:`CompiledModel.predict`.
     """
-    from ._adapters import resolve_adapter
     from ._checkpoint import restore_from_checkpoint
-    from ._exporters import export_onnx, select_exporter
+    from ._exporters import DYNAMO, export_onnx
+    from ._models import resolve_branch
     from ._swap import swap_embedding_bags
 
     _check_conditional_stack()
@@ -294,7 +303,7 @@ def compile(
             msg = "schema is required when model is a torch module"
             raise ValueError(msg)
 
-    adapter = resolve_adapter(model)
+    adapter = resolve_branch(model)
     wrapper, graph_inputs, features = adapter.build(model, schema, candidates_policy)
     wrapper.eval()
     swap_embedding_bags(wrapper)
@@ -310,7 +319,6 @@ def compile(
     input_names = [graph_input.name for graph_input in graph_inputs]
     args = tuple(sample[name] for name in input_names)
 
-    exporter_name = select_exporter(wrapper, exporter)
     onnx_bytes = export_onnx(
         wrapper,
         args,
@@ -318,12 +326,11 @@ def compile(
         [adapter.output_name],
         _dynamic_axes(graph_inputs, mode, adapter.output_name),
         opset_version,
-        exporter=exporter_name,
     )
 
     manifest = ExportManifest(
         model_type=adapter.model_type,
-        exporter=exporter_name,
+        exporter=DYNAMO,
         opset_version=opset_version,
         input_kinds=[graph_input.kind for graph_input in graph_inputs],
         input_names=input_names,
