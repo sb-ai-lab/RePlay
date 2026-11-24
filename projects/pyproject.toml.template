@@ -1,12 +1,21 @@
 [build-system]
-requires = ["poetry-core>=2.2.1", "poetry-dynamic-versioning>=1.0.0,<2.0.0  ", "setuptools"]
-build-backend = "poetry_dynamic_versioning.backend"
+requires = ["uv_build>=0.12.3,<1"]
+build-backend = "uv_build"
 
 [dependency-groups]
+conditional = [
+    "fixed-install-nmslib",
+    "hnswlib",
+    "lightfm; python_version < '3.13'",
+    "onnx",
+    "onnxscript",
+    "openvino",
+    "optuna",
+]
 dev = [
-    {include-group = "docs"},
-    {include-group = "style"},
-    {include-group = "tests"},
+    { include-group = "docs" },
+    { include-group = "style" },
+    { include-group = "tests" },
 ]
 docs = [
     "enum-tools[sphinx] (>=0.13.0,<0.14)",
@@ -42,17 +51,18 @@ tests = [
 
 [project]
 name = "replay-rec"
+version = "0.23.0"
 license = "Apache-2.0"
 description = "RecSys Library"
 authors = [
-    {name = "AI Lab"},
-    {name = "Alexey Vasilev"},
-    {name = "Anna Volodkevich"},
-    {name = "Alexey Grishanov"},
-    {name = "Yan-Martin Tamm"},
-    {name = "Boris Shminke"},
-    {name = "Alexander Sidorenko"},
-    {name = "Roza Aysina"},
+    { name = "AI Lab" },
+    { name = "Alexey Vasilev" },
+    { name = "Anna Volodkevich" },
+    { name = "Alexey Grishanov" },
+    { name = "Yan-Martin Tamm" },
+    { name = "Boris Shminke" },
+    { name = "Alexander Sidorenko" },
+    { name = "Roza Aysina" },
 ]
 readme = "README.md"
 classifiers = [
@@ -75,32 +85,38 @@ dependencies = [
     "pyarrow (<24)",
     "tqdm (>=4.67,<5)",
     "typing-extensions (>=4.12.0,<5)",
-{% if project == "default" %}
-    "pyspark (>=3.0,<5); extra == 'spark'",
-    "psutil (<8); extra == 'spark'",
-    "torch (>=1.8, <3.0.0); extra == 'torch'",
-    "pytorch-optimizer (>=3.8.0,<4); extra == 'torch'",
-    "lightning (<3.0.0); extra == 'torch'",
-{% endif %}
 {% if project == "experimental" %}
     "ipython (>=8.0,<10)",
     "torch (>=1.8,<3.0.0)",
     "lightning (<3.0.0)",
     "pytorch-optimizer (>=3.8.0,<4)",
     "numba (>=0.50,<1)",
-    "pyspark (>=3.0,<5)",
+    "pyspark (>=3.0,<4); python_version < '3.13'",
+    "pyspark (>=4.0,<4.1); python_version >= '3.13'",
     "psutil (<8)",
     "d3rlpy (>=2.8.1,<3)",
     "lightautoml (>=0.4.1,<0.5); python_version < '3.13'",
     "sb-obp (>=0.5.10,<0.6); python_version < '3.13'",
 {% endif %}
 ]
-dynamic = ["version", "dependencies"]
 
 {% if project == "default" %}
 [project.optional-dependencies]
-spark = ["pyspark", "psutil"]
-torch = ["torch", "pytorch-optimizer", "lightning"]
+spark = [
+    "psutil (<8)",
+    "pyspark (>=3.0,<4); python_version < '3.13'",
+    "pyspark (>=4.0,<4.1); python_version >= '3.13'",
+]
+torch = [
+    "lightning (<3.0.0)",
+    "pytorch-optimizer (>=3.8.0,<4)",
+    "torch (>=1.8,<3.0.0)",
+]
+torch-cpu = [
+    "lightning (<3.0.0)",
+    "pytorch-optimizer (>=3.8.0,<4)",
+    "torch (>=1.8,<3.0.0)",
+]
 
 {% endif %}
 [project.urls]
@@ -118,33 +134,6 @@ omit = [
     "replay/models/extensions/ann/index_stores/hdfs_index_store.py",
     "replay/experimental/*",
 ]
-
-[tool.poetry]
-packages = [{include = "replay"}]
-exclude = [
-    "replay/conftest.py",
-{% if project == "default" %}
-    "replay/experimental",
-{% endif %}
-]
-version = "0.0.0"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.docs]
-optional = true
-
-[tool.poetry.group.style]
-optional = true
-
-[tool.poetry.group.tests]
-optional = true
-
-[tool.poetry-dynamic-versioning]
-enable = true
-format-jinja = """0.23.0{{ env['PACKAGE_SUFFIX'] }}"""
-vcs = "git"
 
 [tool.pytest]
 doctest_optionflags = ["NORMALIZE_WHITESPACE"]
@@ -175,11 +164,11 @@ line-length = 120
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["ARG", "C4", "E", "EM", "ERA", "F", "FLY", "I", "INP", "ISC", "N", "PERF", "PGH", "PIE", "PYI", "Q", "RUF", "SIM", "TID", "W"]
+select = ["ARG", "C4", "E", "EM", "F", "FLY", "I", "INP", "ISC", "N", "PERF", "PGH", "PIE", "PYI", "Q", "RUF", "SIM", "TID", "W"]
 extend-select = ["C90", "T10", "T20", "UP004"]
 ignore = ["SIM115"]
-mccabe = {max-complexity = 13}
-isort = {combine-as-imports = true, force-wrap-aliases = true}
+mccabe = { max-complexity = 13 }
+isort = { combine-as-imports = true, force-wrap-aliases = true }
 
 [tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"
@@ -206,3 +195,38 @@ in_place = true
 no_comments = true
 spaces_indent_inline_array = 4
 trailing_comma_inline_array = true
+
+[tool.uv.build-backend]
+module-name = ["replay"]
+module-root = ""
+source-exclude = [
+    "replay/conftest.py",
+{% if project == "default" %}
+    "replay/experimental",
+{% endif %}
+]
+wheel-exclude = [
+    "replay/conftest.py",
+{% if project == "default" %}
+    "replay/experimental",
+{% endif %}
+]
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
+
+[[tool.uv.index]]
+name = "torch-cpu-mirror"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+lightfm = { git = "https://github.com/daviddavo/lightfm.git", rev = "f0eb500ead54ab65eb8e1b3890337a7223a35114" }
+{% if project == "default" %}
+torch = [
+    { index = "torch-cpu-mirror", marker = "extra == 'torch-cpu'" },
+    { index = "pypi", marker = "extra == 'torch' and extra != 'torch-cpu'" },
+]
+{% endif %}
