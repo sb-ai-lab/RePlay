@@ -1,5 +1,8 @@
 ARG python
-FROM python:${python}-slim-bookworm AS builder
+FROM python:${python}-slim-bookworm
+
+COPY --from=ghcr.io/astral-sh/uv:0.12.3 /uv /uvx /bin/
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
     apt-utils \
@@ -12,5 +15,3 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /root
-
-RUN pip install --no-cache-dir --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning

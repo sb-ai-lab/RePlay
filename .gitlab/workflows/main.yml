@@ -8,59 +8,24 @@ workflow:
 image: "${CI_REGISTRY_IMAGE}:${VERSION}_py310"
 
 variables:
-  VERSION: "0.0.14"
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  VERSION: "uv_1.0"
   RUNNER: amazme-1
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.uv-cache"
+  UV_LINK_MODE: "copy"
   REVIEW_AGENT_OUTPUT_FILE: "review-agent-output.json"
 
+default:
+  cache:
+    key: ${CI_PROJECT_ID}_uv
+    paths:
+      - .uv-cache
+
 .wrapper_install: &wrapper_install
-  - ./poetry_wrapper.sh ${WRAPPER_ARGS} sync ${WRAPPER_EXTRAS}
-  - ./poetry_wrapper.sh ${WRAPPER_ARGS} --generate
-
-.activate_poetry: &activate_poetry
-  - ./poetry_wrapper.sh ${WRAPPER_ARGS} --generate
-  - eval $(poetry env activate)
-
-.install_pyspark_by_python: &install_pyspark_by_python
-  - |
-    if python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 13) else 1)"; then
-      poetry run pip install -q --upgrade "pyspark>=4.0,<4.1"
-      echo "Using PySpark 4.0.x for Python >= 3.13"
-    else
-      echo "Using lock-file PySpark for Python < 3.13"
-    fi
-
-.install_conditionals: &install_conditionals
-  - *activate_poetry
-  - *install_pyspark_by_python
-  - |
-    poetry run pip install -q --upgrade \
-      "numpy<2.5" \
-      onnx \
-      onnxscript \
-      openvino \
-      optuna \
-      hnswlib \
-      fixed-install-nmslib
-  - |
-    if python -c "import sys; raise SystemExit(0 if sys.version_info < (3, 13) else 1)"; then
-      poetry run pip install -q --upgrade \
-        git+https://github.com/daviddavo/lightfm.git@f0eb500ead54ab65eb8e1b3890337a7223a35114
-      echo "sb-obp and LightAutoML are installed by poetry sync from lock file (no pip upgrade)"
-    else
-      echo "Skipping LightFM, sb-obp and LightAutoML for Python >= 3.13"
-    fi
-
-.install_torch_cpu: &install_torch_cpu
-  - |
-    pip install -q --upgrade \
-      --extra-index-url https://download.pytorch.org/whl/cpu \
-      "lightning<3.0.0" \
-      "pytorch-optimizer<4" \
-      "torch<3.0.0"
+  - ./uv_wrapper.sh ${WRAPPER_ARGS} sync ${WRAPPER_EXTRAS}
+  - ./uv_wrapper.sh ${WRAPPER_ARGS} --generate
 
 .install_review_agent_deps: &install_review_agent_deps
-  - pip install -q "pydantic>=2,<3"
+  - uv pip install --system -q "pydantic>=2,<3"
 
 stages:
   - code_quality
@@ -83,120 +48,16 @@ ruff:
   before_script:
     - *wrapper_install
   script:
-    - *activate_poetry
-    - poetry run ruff check .
-    - poetry run ruff format . --check
+    - uv run --no-sync ruff check .
+    - uv run --no-sync ruff format . --check
   tags:
     - ${RUNNER}
 
-poetry-check:
+uv-check:
   stage: code_quality
-  variables:
-    WRAPPER_EXTRAS: --only style
   script:
-    - |
-      echo "=== poetry-check diagnostics: prefer IPv4 ==="
-      if [ -w /etc/gai.conf ]; then
-        if ! grep -q '^precedence ::ffff:0:0/96  100$' /etc/gai.conf 2>/dev/null; then
-          echo 'precedence ::ffff:0:0/96  100' >> /etc/gai.conf
-        fi
-        echo "--- /etc/gai.conf tail ---"
-        tail -n 20 /etc/gai.conf || true
-      else
-        echo "/etc/gai.conf is not writable"
-      fi
-      python - <<'PY'
-      import socket
-
-      for hostname in ("pypi.org", "files.pythonhosted.org"):
-          print(f"--- getaddrinfo {hostname} ---")
-          for item in socket.getaddrinfo(hostname, 443, type=socket.SOCK_STREAM):
-              family = "AF_INET6" if item[0] == socket.AF_INET6 else "AF_INET" if item[0] == socket.AF_INET else str(item[0])
-              print(family, item[4][0])
-      PY
-    - |
-      echo "=== poetry-check diagnostics: environment ==="
-      python --version
-      pip --version
-      poetry --version
-      env | sort | grep -E '^(CI_|HTTPS?_PROXY=|NO_PROXY=|PIP_|POETRY_|http_proxy=|https_proxy=|no_proxy=)' || true
-    - |
-      echo "=== poetry-check diagnostics: config files ==="
-      test -f /etc/resolv.conf && cat /etc/resolv.conf || true
-      test -f /etc/hosts && cat /etc/hosts || true
-      echo "=== poetry-check diagnostics: poetry/pip config ==="
-      poetry config --list || true
-      pip config debug || true
-      pip config list || true
-    - |
-      echo "=== poetry-check diagnostics: dns ==="
-      getent hosts pypi.org || true
-      getent hosts files.pythonhosted.org || true
-      command -v nslookup >/dev/null 2>&1 && nslookup pypi.org || true
-      command -v nslookup >/dev/null 2>&1 && nslookup files.pythonhosted.org || true
-      command -v host >/dev/null 2>&1 && host pypi.org || true
-      command -v host >/dev/null 2>&1 && host files.pythonhosted.org || true
-      echo "=== poetry-check diagnostics: routing ==="
-      command -v ip >/dev/null 2>&1 && ip route || true
-      command -v route >/dev/null 2>&1 && route -n || true
-    - |
-      echo "=== poetry-check diagnostics: tcp/http/tls ==="
-      python - <<'PY'
-      import json
-      import socket
-      import ssl
-      import traceback
-      import urllib.request
-
-      for hostname in ("pypi.org", "files.pythonhosted.org"):
-          print(f"--- {hostname} ---")
-          try:
-              addresses = socket.getaddrinfo(hostname, 443, type=socket.SOCK_STREAM)
-              unique = sorted({item[4][0] for item in addresses})
-              print("resolved:", ", ".join(unique))
-          except Exception as exc:
-              print("resolution_failed:", repr(exc))
-              continue
-
-          try:
-              with socket.create_connection((hostname, 443), timeout=10) as sock:
-                  with ssl.create_default_context().wrap_socket(sock, server_hostname=hostname) as tls_sock:
-                      print("tls_version:", tls_sock.version())
-                      print("peer:", tls_sock.getpeername())
-          except Exception as exc:
-              print("tls_failed:", repr(exc))
-
-      print("=== urllib diagnostics ===")
-      for url in (
-          "https://pypi.org/simple/tomlkit/",
-          "https://pypi.org/pypi/tomlkit/0.14.0/json",
-      ):
-          print(f"--- {url} ---")
-          request = urllib.request.Request(
-              url,
-              headers={
-                  "User-Agent": "RePlay-CI-poetry-check/1.0",
-                  "Accept": "application/json, text/html;q=0.9, */*;q=0.8",
-              },
-          )
-          try:
-              with urllib.request.urlopen(request, timeout=20) as response:
-                  body = response.read(512)
-                  print("status:", response.status)
-                  print("content_type:", response.headers.get("Content-Type"))
-                  print("content_length:", response.headers.get("Content-Length"))
-                  print("server:", response.headers.get("Server"))
-                  print("body_prefix:", json.dumps(body.decode("utf-8", errors="replace")))
-          except Exception as exc:
-              print("http_failed:", repr(exc))
-              print(traceback.format_exc())
-      PY
-      curl -Ivs --max-time 20 https://pypi.org/simple/tomlkit/ || true
-      curl -Ivs --max-time 20 https://files.pythonhosted.org/ || true
-    - ./poetry_wrapper.sh ${WRAPPER_ARGS} -vvv sync ${WRAPPER_EXTRAS}
-    - ./poetry_wrapper.sh ${WRAPPER_ARGS} check
-    - ./poetry_wrapper.sh ${WRAPPER_ARGS} --experimental -vvv sync ${WRAPPER_EXTRAS}
-    - ./poetry_wrapper.sh ${WRAPPER_ARGS} --experimental check
+    - ./uv_wrapper.sh lock --check
+    - ./uv_wrapper.sh --experimental lock --check
   tags:
     - ${RUNNER}
 
@@ -207,10 +68,10 @@ toml-sort:
   before_script:
     - *wrapper_install
   script:
-    - ./poetry_wrapper.sh --generate
-    - poetry run toml-sort --check pyproject.toml
-    - ./poetry_wrapper.sh --experimental --generate
-    - poetry run toml-sort --check pyproject.toml
+    - ./uv_wrapper.sh --generate
+    - uv run --no-sync toml-sort --check pyproject.toml
+    - ./uv_wrapper.sh --experimental --generate
+    - uv run --no-sync toml-sort --check pyproject.toml
   tags:
     - ${RUNNER}
 
@@ -280,60 +141,26 @@ sphinx-job:
   needs:
     - ruff
     - toml-sort
-    - poetry-check
+    - uv-check
   variables:
     WRAPPER_ARGS: --experimental
-    WRAPPER_EXTRAS: --with docs
+    WRAPPER_EXTRAS: --no-default-groups --group docs --group conditional
   before_script:
     - *wrapper_install
-    - *install_conditionals
   script:
-    - make -C docs clean html
+    - uv run --no-sync make -C docs clean html
   tags:
     - ${RUNNER}
-  
-# prefetch-artifacts:
-#   stage: prefetch_artifacts
-#   image: "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
-#   cache:
-#     paths:
-#       - .venv
-#     key: ${CI_COMMIT_REF_SLUG}_${py_version}
-#     policy: push
-#   needs: []
-#   tags:
-#     - ${RUNNER}
-#   script:
-#     - poetry config virtualenvs.in-project true
-#     - ./poetry_wrapper.sh sync -E spark -E torch --with dev
-#     - *install_conditionals
-#   after_script:
-#     - ./poetry_wrapper.sh show
-#     - ./poetry_wrapper.sh env activate
-#   parallel:
-#     matrix:
-#       - py_version:
-#         - "py310"
-#         - "py311"
-#         - "py312"
 
 .pytest_template: &pytest_template
   image: "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
-  # cache:
-  #   paths:
-  #     - .venv
-  #   policy: pull
-  #   key: ${CI_COMMIT_REF_SLUG}_${py_version}
   tags:
     - ${RUNNER}
   needs:
     - ruff
     - toml-sort
-    - poetry-check
+    - uv-check
   before_script:
-    # - poetry config virtualenvs.in-project true
-    # - poetry config virtualenvs.create false
-    # - poetry config virtualenvs.create false
     - export REPLAY_SPARK_CORE_COUNT=4
     - export REPLAY_SPARK_MEMORY=16
     - *wrapper_install
@@ -349,11 +176,10 @@ sphinx-job:
 pytest-core:
   <<: *pytest_template
   stage: test_core
-  variables: 
-    WRAPPER_EXTRAS: --with tests
+  variables:
+    WRAPPER_EXTRAS: --no-default-groups --group tests
   script:
-    - *activate_poetry
-    - poetry run pytest -m core tests/ --ignore=tests/experimental --ignore=tests/conditional
+    - uv run --no-sync pytest -m core tests/ --ignore=tests/experimental --ignore=tests/conditional
     - mv .coverage .coverage_core_${py_version}
   artifacts:
     paths:
@@ -365,11 +191,9 @@ pytest-conditional:
   stage: test_conditional
   variables:
     WRAPPER_ARGS: --experimental
-    WRAPPER_EXTRAS: --with tests
+    WRAPPER_EXTRAS: --no-default-groups --group tests --group conditional
   script:
-    - *install_conditionals
-    - *activate_poetry
-    - poetry run pytest -m conditional tests/ --ignore=tests/experimental
+    - uv run --no-sync pytest -m conditional tests/ --ignore=tests/experimental
     - mv .coverage .coverage_conditional_${py_version}
   artifacts:
     paths:
@@ -380,12 +204,10 @@ pytest-torch:
   <<: *pytest_template
   stage: test_torch
   variables:
-    WRAPPER_EXTRAS: --with tests
+    WRAPPER_EXTRAS: --no-default-groups --group tests --extra torch-cpu
   script:
-    - *activate_poetry
-    - *install_torch_cpu
     - |
-      poetry run pytest \
+      uv run --no-sync pytest \
         -m "not spark and not experimental and not conditional" \
         tests/ \
         --ignore=tests/experimental \
@@ -400,12 +222,10 @@ pytest-spark:
   <<: *pytest_template
   stage: test_spark
   variables:
-    WRAPPER_EXTRAS: -E spark --with tests
+    WRAPPER_EXTRAS: --no-default-groups --group tests --extra spark
   script:
-    - *activate_poetry
-    - *install_pyspark_by_python
     - |
-      poetry run pytest \
+      uv run --no-sync pytest \
         -m "not torch and not experimental and not conditional" \
         tests/ \
         --ignore=tests/experimental \
@@ -421,13 +241,10 @@ pytest-spark-and-torch:
   <<: *pytest_template
   stage: test_spark_torch
   variables:
-    WRAPPER_EXTRAS: -E spark --with tests
+    WRAPPER_EXTRAS: --no-default-groups --group tests --extra spark --extra torch-cpu
   script:
-    - *activate_poetry
-    - *install_pyspark_by_python
-    - *install_torch_cpu
     - |
-      poetry run pytest \
+      uv run --no-sync pytest \
         -m "not experimental and not conditional" \
         --ignore=replay/models/nn/sequential/compiled \
         --ignore=replay/experimental \
@@ -444,13 +261,10 @@ pytest-models:
   <<: *pytest_template
   stage: test_models
   variables:
-    WRAPPER_EXTRAS: -E spark --with tests
+    WRAPPER_EXTRAS: --no-default-groups --group tests --extra spark --extra torch-cpu
   script:
-    - *activate_poetry
-    - *install_pyspark_by_python
-    - *install_torch_cpu
     - |
-      poetry run pytest \
+      uv run --no-sync pytest \
         -m "not experimental and not conditional" \
         tests/models \
         --ignore=replay/experimental \
@@ -464,6 +278,25 @@ pytest-models:
 
 pytest-experimental:
   <<: *pytest_template
+  stage: test_experimental
+  parallel:
+    matrix:
+      - py_version:
+        - "py310"
+  variables:
+    WRAPPER_ARGS: --experimental
+    WRAPPER_EXTRAS: --no-default-groups --group tests --group conditional
+  script:
+    - uv run --no-sync pytest -m "experimental"
+    - mv .coverage .coverage_experimental_${py_version}
+  artifacts:
+    paths:
+      - .coverage_experimental_${py_version}
+    expire_in: 1 day
+
+merge-coverage:
+  stage: merge coverage
+  image: "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
   parallel:
     matrix:
       - py_version:
@@ -472,43 +305,14 @@ pytest-experimental:
         - "py312"
         - "py313"
         - "py314"
-  stage: test_experimental
   variables:
-    WRAPPER_ARGS: --experimental
-    WRAPPER_EXTRAS: --with tests
-  script:
-    - *install_conditionals
-    - *activate_poetry
-    - poetry run pytest -m "experimental"
-    - mv .coverage .coverage_experimental_${py_version}
-  artifacts:
-    paths:
-      - .coverage_experimental_${py_version}
-    expire_in: 1 day
-
-.merge-coverage-template: &merge-coverage-template
-  stage: merge coverage
-  # cache:
-  #   <<: *global_cache
-  #   key: ${CI_COMMIT_REF_SLUG}_${py_version}
+    WRAPPER_EXTRAS: --no-default-groups --group tests
   before_script:
     - *wrapper_install
   script:
-    - *activate_poetry
-    - |
-      poetry run coverage combine \
-        .coverage_core_${py_version} \
-        .coverage_conditional_${py_version} \
-        .coverage_spark_${py_version} \
-        .coverage_torch_${py_version} \
-        .coverage_spark_and_torch_${py_version} \
-        .coverage_models_${py_version} \
-        .coverage_experimental_${py_version}
-    - poetry run coverage xml
-    - poetry run coverage report -m --fail-under=100
-  tags:
-    - ${RUNNER}
-  image: "${CI_REGISTRY_IMAGE}:${VERSION}_${py_version}"
+    - uv run --no-sync coverage combine .coverage_*_${py_version}
+    - uv run --no-sync coverage xml
+    - uv run --no-sync coverage report -m --fail-under=100
   coverage: '/TOTAL.*\s+(\d+%)$/'
   artifacts:
     paths:
@@ -517,76 +321,8 @@ pytest-experimental:
       coverage_report:
         coverage_format: cobertura
         path: coverage.xml
-
-merge-coverage-py310:
-  <<: *merge-coverage-template
-  variables:
-    py_version: py310
-    WRAPPER_EXTRAS: --only tests
-  needs:
-    - "pytest-core: [py310]"
-    - "pytest-conditional: [py310]"
-    - "pytest-torch: [py310]"
-    - "pytest-spark: [py310]"
-    - "pytest-spark-and-torch: [py310]"
-    - "pytest-models: [py310]"
-    - "pytest-experimental: [py310]"
-
-merge-coverage-py311:
-  <<: *merge-coverage-template
-  variables:
-    py_version: py311
-    WRAPPER_EXTRAS: --only tests
-  needs:
-    - "pytest-core: [py311]"
-    - "pytest-conditional: [py311]"
-    - "pytest-torch: [py311]"
-    - "pytest-spark: [py311]"
-    - "pytest-spark-and-torch: [py311]"
-    - "pytest-models: [py311]"
-    - "pytest-experimental: [py311]"
-
-merge-coverage-py312:
-  <<: *merge-coverage-template
-  variables:
-    py_version: py312
-    WRAPPER_EXTRAS: --only tests
-  needs:
-    - "pytest-core: [py312]"
-    - "pytest-conditional: [py312]"
-    - "pytest-torch: [py312]"
-    - "pytest-spark: [py312]"
-    - "pytest-spark-and-torch: [py312]"
-    - "pytest-models: [py312]"
-    - "pytest-experimental: [py312]"
-
-merge-coverage-py313:
-  <<: *merge-coverage-template
-  variables:
-    py_version: py313
-    WRAPPER_EXTRAS: --only tests
-  needs:
-    - "pytest-core: [py313]"
-    - "pytest-conditional: [py313]"
-    - "pytest-torch: [py313]"
-    - "pytest-spark: [py313]"
-    - "pytest-spark-and-torch: [py313]"
-    - "pytest-models: [py313]"
-    - "pytest-experimental: [py313]"
-
-merge-coverage-py314:
-  <<: *merge-coverage-template
-  variables:
-    py_version: py314
-    WRAPPER_EXTRAS: --only tests
-  needs:
-    - "pytest-core: [py314]"
-    - "pytest-conditional: [py314]"
-    - "pytest-torch: [py314]"
-    - "pytest-spark: [py314]"
-    - "pytest-spark-and-torch: [py314]"
-    - "pytest-models: [py314]"
-    - "pytest-experimental: [py314]"
+  tags:
+    - ${RUNNER}
 
 examples-execute-job:
   before_script:
@@ -607,12 +343,9 @@ build-production-package:
     - ${RUNNER}
   script:
     - export PACKAGE_SUFFIX=.dev${CI_JOB_ID}
-    - echo $PACKAGE_SUFFIX
-    - ./poetry_wrapper.sh --generate
-    - poetry version
-    - poetry config repositories.replay ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi
-    - poetry publish --build -r replay -u gitlab-ci-token -p ${CI_JOB_TOKEN}
-
+    - ./uv_wrapper.sh --generate
+    - uv build
+    - uv publish --publish-url "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi" --username gitlab-ci-token --password "${CI_JOB_TOKEN}"
 
 build-experimental-package:
   rules:
@@ -622,8 +355,6 @@ build-experimental-package:
     - ${RUNNER}
   script:
     - export PACKAGE_SUFFIX=.preview${CI_JOB_ID}
-    - echo $PACKAGE_SUFFIX
-    - ./poetry_wrapper.sh --experimental --generate
-    - poetry version
-    - poetry config repositories.replay ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi
-    - poetry publish --build -r replay -u gitlab-ci-token -p ${CI_JOB_TOKEN}
+    - ./uv_wrapper.sh --experimental --generate
+    - uv build
+    - uv publish --publish-url "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi" --username gitlab-ci-token --password "${CI_JOB_TOKEN}"
