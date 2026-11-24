@@ -15,7 +15,18 @@ CONFIG_SUFFIX = ".config.json"
 
 @dataclass
 class ModelConfig:
-    """Everything needed to rebuild a model next to its checkpoint."""
+    """Rebuild recipe stored as a JSON sidecar next to a checkpoint.
+
+    Checkpoint weights carry neither the tensor schema nor the constructor
+    parameters, so a bare checkpoint cannot rebuild a model on its own. This
+    records what :func:`restore_from_checkpoint` needs: the model type, the
+    ``from_params`` kwargs and the schema.
+
+    Typical flow: :func:`capture_config` builds the model and returns its
+    config, :func:`save_config` writes the sidecar next to the checkpoint,
+    and :func:`restore_from_checkpoint` rebuilds the model and schema from
+    the pair on the serving side.
+    """
 
     model_type: str
     from_params: dict[str, Any]
@@ -94,6 +105,11 @@ def capture_config(
 ) -> tuple[torch.nn.Module, ModelConfig]:
     """Build a model with ``model_cls.from_params`` and capture its rebuild recipe.
 
+    The sidecar route covers models built via ``from_params`` (the standard
+    hyperparameters). A module constructed directly through ``__init__`` has
+    no JSON recipe by construction: pass the live module to ``compile``
+    instead of capturing a config.
+
     :param model_cls: a model class such as ``SasRec`` exposing ``from_params``.
     :param schema: the model's ``TensorSchema``.
     :param item_features_reader: the catalog reader, required for ``TwoTower``
@@ -158,6 +174,10 @@ def restore_from_checkpoint(
     item_features_reader=None,
 ) -> tuple[torch.nn.Module, TensorSchema]:
     """Rebuild a model and its schema from a checkpoint plus config sidecar.
+
+    The model is rebuilt via ``from_params`` from the sidecar recipe. Models
+    constructed directly (outside ``from_params``) have no sidecar to read:
+    hand the live module to ``compile`` instead.
 
     :param ckpt_path: checkpoint file: a raw ``state_dict`` or a Lightning
         checkpoint (its ``state_dict`` is used, ``model.`` prefixes stripped).
