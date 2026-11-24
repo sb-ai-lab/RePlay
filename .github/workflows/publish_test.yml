@@ -1,10 +1,10 @@
 name: Publish to test PyPI
 
-on: 
+on:
   workflow_dispatch:
 
 jobs:
-  
+
   publish_test:
     runs-on: ubuntu-latest
     permissions:
@@ -22,20 +22,14 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: clear_poetry_cache
-        run: poetry cache clear PyPI --all
-      - name: install_dev_dependencies
-        uses: ./.github/actions/install-poetry-deps
-        with:
-          with-dev: "true"
-
       - name: build
         run: |
           export PACKAGE_SUFFIX=.preview
           echo $PACKAGE_SUFFIX
-          poetry build
+          ./uv_wrapper.sh --generate
+          uv build
 
       - name: publish
         uses: pypa/gh-action-pypi-publish@release/v1
-        with: 
+        with:
           repository-url: https://test.pypi.org/legacy/

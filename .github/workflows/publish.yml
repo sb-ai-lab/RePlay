@@ -1,12 +1,12 @@
 name: Publish to PyPI
 
-# Run publish only on release branch after finished CI 
+# Run publish only on release branch after finished CI
 on:
   workflow_run:
     workflows: ["CI Pipeline"]
     types: [completed]
     branches: ['release/**']
-  
+
   workflow_dispatch:
 
 jobs:
@@ -35,18 +35,11 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: clear_poetry_cache
-        run: poetry cache clear PyPI --all
-
-      - name: install_experimental_dependencies
-        uses: ./.github/actions/install-poetry-deps
-        with:
-          experimental: "true"
-
       - name: build_experimental
         run: |
           export PACKAGE_SUFFIX=.preview
-          poetry build
+          ./uv_wrapper.sh --experimental --generate
+          uv build
 
       - name: publish_experimental
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -70,19 +63,10 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: clear_poetry_cache
-        run: poetry cache clear PyPI --all
-
-      - name: install_production_dependencies
-        uses: ./.github/actions/install-poetry-deps
-        with:
-          extras: "spark"
-      - name: install_torch_cpu
-        uses: ./.github/actions/install-torch-cpu
-
       - name: build_production
         run: |
-          poetry build
+          ./uv_wrapper.sh --generate
+          uv build
 
       - name: publish_production
         uses: pypa/gh-action-pypi-publish@release/v1

@@ -1,0 +1,69 @@
+name: "Install uv Dependencies"
+description: "Generate project files and run uv sync for CI"
+
+inputs:
+  experimental:
+    description: "Use experimental pyproject/lock"
+    required: false
+    default: "false"
+  groups:
+    description: "Space-separated dependency groups to install with uv sync"
+    required: false
+    default: ""
+  extras:
+    description: "Space-separated list of extras for uv sync"
+    required: false
+    default: ""
+  conditional:
+    description: "Include the conditional dependency group"
+    required: false
+    default: "false"
+  java:
+    description: "Set up Java 17 for Spark tests"
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Java
+      if: ${{ inputs.java == 'true' }}
+      uses: actions/setup-java@v4
+      with:
+        distribution: "temurin"
+        java-version: "17"
+
+    - name: Generate and sync dependencies
+      shell: bash
+      env:
+        INPUT_EXPERIMENTAL: ${{ inputs.experimental }}
+        INPUT_GROUPS: ${{ inputs.groups }}
+        INPUT_EXTRAS: ${{ inputs.extras }}
+        INPUT_CONDITIONAL: ${{ inputs.conditional }}
+      run: |
+        set -euo pipefail
+
+        project_args=()
+        if [[ "$INPUT_EXPERIMENTAL" == "true" ]]; then
+          project_args+=(--experimental)
+        fi
+
+        sync_args=(--no-default-groups)
+        if [[ -n "$INPUT_GROUPS" ]]; then
+          read -r -a groups_array <<< "$INPUT_GROUPS"
+          for group in "${groups_array[@]}"; do
+            sync_args+=(--group "$group")
+          done
+        fi
+        if [[ "$INPUT_CONDITIONAL" == "true" ]]; then
+          sync_args+=(--group conditional)
+        fi
+        if [[ -n "$INPUT_EXTRAS" ]]; then
+          read -r -a extras_array <<< "$INPUT_EXTRAS"
+          for extra in "${extras_array[@]}"; do
+            sync_args+=(--extra "$extra")
+          done
+        fi
+
+        ./uv_wrapper.sh "${project_args[@]}" sync "${sync_args[@]}"
+        ./uv_wrapper.sh "${project_args[@]}" --generate

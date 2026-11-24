@@ -1,5 +1,5 @@
 name: "CI Setup"
-description: "Composite action to prepare Python and Poetry for CI"
+description: "Composite action to prepare Python and uv for CI"
 
 inputs:
   python-version:
@@ -10,13 +10,14 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Set up Python
-      uses: actions/setup-python@v6
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
       with:
-        python-version: ${{ inputs.python-version }}
+        version: "0.12.3"
+        enable-cache: true
 
-    - name: Install Poetry tooling
+    - name: Setup Python
       shell: bash
-      run: |
-        set -euo pipefail
-        pip install --upgrade pip wheel poetry==2.2.1 poetry-dynamic-versioning --no-cache-dir
+      env:
+        CI_PYTHON_VERSION: ${{ inputs.python-version }}
+      run: uv python install "$CI_PYTHON_VERSION"

@@ -1,12 +1,12 @@
 name: Deploy Docs to Pages
 
-# Run deploy only on release branch after finished CI 
+# Run deploy only on release branch after finished CI
 on:
   workflow_run:
     workflows: ["CI Pipeline"]
     types: [completed]
     branches: ['release/**']
-  
+
   workflow_dispatch:
 
 permissions:
@@ -36,19 +36,14 @@ jobs:
         uses: ./.github/actions/ci-setup
         with:
           python-version: "3.10"
-      - name: clear_poetry_cache
-        run: poetry cache clear PyPI --all
       - name: install_experimental_docs_dependencies
-        uses: ./.github/actions/install-poetry-deps
+        uses: ./.github/actions/install-uv-deps
         with:
           experimental: "true"
-          dependency-groups: "docs"
-      - name: install_conditionals
-        uses: ./.github/actions/install-conditionals
+          groups: "docs"
+          conditional: "true"
       - name: build_docs
-        run: |
-          eval "$(poetry env activate)"
-          make -C docs clean html
+        run: uv run --no-sync make -C docs clean html
 
       - name: setup_pages
         uses: actions/configure-pages@v6
@@ -57,7 +52,7 @@ jobs:
         uses: actions/upload-pages-artifact@v6
         with:
           path: 'docs/_build/html/'
-          
+
       - name: deploy_to_github_pages
         id: deployment
         uses: actions/deploy-pages@v4

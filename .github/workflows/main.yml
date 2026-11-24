@@ -17,28 +17,24 @@ jobs:
         uses: ./.github/actions/ci-setup
         with:
           python-version: "3.10"
-      - name: install_core_dependencies_with_style
-        uses: ./.github/actions/install-poetry-deps
+      - name: install_style_dependencies
+        uses: ./.github/actions/install-uv-deps
         with:
-          dependency-groups: "style"
-      - name: clear_poetry_cache
-        run: |
-          eval "$(poetry env activate)"
-          poetry cache clear PyPI --all
+          groups: "style"
       - name: ruff
         run: |
-          poetry run ruff check .
-          poetry run ruff format . --check --diff
-      - name: poetry-check
+          uv run --no-sync ruff check .
+          uv run --no-sync ruff format . --check --diff
+      - name: uv-check
         run: |
-          ./poetry_wrapper.sh check
-          ./poetry_wrapper.sh --experimental check
+          ./uv_wrapper.sh lock --check
+          ./uv_wrapper.sh --experimental lock --check
       - name: toml-sort
         run: |
-          ./poetry_wrapper.sh --generate
-          poetry run toml-sort --check pyproject.toml
-          ./poetry_wrapper.sh --experimental --generate
-          poetry run toml-sort --check pyproject.toml
+          ./uv_wrapper.sh --generate
+          uv run --no-sync toml-sort --check pyproject.toml
+          ./uv_wrapper.sh --experimental --generate
+          uv run --no-sync toml-sort --check pyproject.toml
 
   pytest_core:
     needs: static_tests
@@ -55,14 +51,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: install_core_dependencies
-        uses: ./.github/actions/install-poetry-deps
+        uses: ./.github/actions/install-uv-deps
         with:
-          dependency-groups: "tests"
-      - name: prepare_pyproject_for_tests
-        run: ./poetry_wrapper.sh --generate
+          groups: "tests"
       - name: pytest
         run: |
-          poetry run pytest -m core tests/ --ignore=tests/experimental --ignore=tests/conditional
+          uv run --no-sync pytest -m core tests/ --ignore=tests/experimental --ignore=tests/conditional
           mv .coverage coverage_core_${{ matrix.python-version }}
       - name: upload_coverage
         uses: actions/upload-artifact@v6
@@ -85,19 +79,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: install_experimental_dependencies
-        uses: ./.github/actions/install-poetry-deps
+        uses: ./.github/actions/install-uv-deps
         with:
           experimental: "true"
-          dependency-groups: "tests"
-      - name: install_pyspark
-        uses: ./.github/actions/install-pyspark
-      - name: install_conditionals
-        uses: ./.github/actions/install-conditionals
-      - name: prepare_pyproject_for_tests
-        run: ./poetry_wrapper.sh --experimental --generate
+          groups: "tests"
+          conditional: "true"
+          java: "true"
       - name: pytest
         run: |
-          poetry run pytest -m conditional tests/ --ignore=tests/experimental
+          uv run --no-sync pytest -m conditional tests/ --ignore=tests/experimental
           mv .coverage coverage_conditional_${{ matrix.python-version }}
       - name: upload_coverage
         uses: actions/upload-artifact@v6
@@ -119,15 +109,14 @@ jobs:
         uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
-      - name: install_base_dependencies
-        uses: ./.github/actions/install-poetry-deps
+      - name: install_torch_cpu_dependencies
+        uses: ./.github/actions/install-uv-deps
         with:
-          dependency-groups: "tests"
-      - name: install_torch_cpu
-        uses: ./.github/actions/install-torch-cpu
+          groups: "tests"
+          extras: "torch-cpu"
       - name: pytest
         run: |
-          poetry run pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/conditional
+          uv run --no-sync pytest -m "not spark and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/conditional
           mv .coverage coverage_torch_${{ matrix.python-version }}
       - name: upload_coverage
         uses: actions/upload-artifact@v6
@@ -150,15 +139,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: install_spark_dependencies
-        uses: ./.github/actions/install-poetry-deps
+        uses: ./.github/actions/install-uv-deps
         with:
-          dependency-groups: "tests"
+          groups: "tests"
           extras: "spark"
-      - name: install_pyspark
-        uses: ./.github/actions/install-pyspark
+          java: "true"
       - name: pytest
         run: |
-          poetry run pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
+          uv run --no-sync pytest -m "not torch and not experimental and not conditional" tests/ --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
           mv .coverage coverage_spark_${{ matrix.python-version }}
       - name: upload_coverage
         uses: actions/upload-artifact@v6
@@ -180,18 +168,15 @@ jobs:
         uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
-      - name: install_spark_dependencies
-        uses: ./.github/actions/install-poetry-deps
+      - name: install_spark_torch_dependencies
+        uses: ./.github/actions/install-uv-deps
         with:
-          dependency-groups: "tests"
-          extras: "spark"
-      - name: install_pyspark
-        uses: ./.github/actions/install-pyspark
-      - name: install_torch_cpu
-        uses: ./.github/actions/install-torch-cpu
+          groups: "tests"
+          extras: "spark torch-cpu"
+          java: "true"
       - name: pytest
         run: |
-          poetry run pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
+          uv run --no-sync pytest -m "not experimental and not conditional" --ignore=replay/models/nn/sequential/compiled --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/models --ignore=tests/conditional
           mv .coverage coverage_spark_and_torch_${{ matrix.python-version }}
       - name: upload_coverage
         uses: actions/upload-artifact@v6
@@ -214,17 +199,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: install_experimental_dependencies
-        uses: ./.github/actions/install-poetry-deps
+        uses: ./.github/actions/install-uv-deps
         with:
           experimental: "true"
-          dependency-groups: "tests"
-      - name: install_pyspark
-        uses: ./.github/actions/install-pyspark
-      - name: install_conditionals
-        uses: ./.github/actions/install-conditionals
+          groups: "tests"
+          conditional: "true"
+          java: "true"
       - name: pytest
         run: |
-          poetry run pytest -m "experimental" tests/
+          uv run --no-sync pytest -m "experimental" tests/
           mv .coverage coverage_experimental_${{ matrix.python-version }}
       - name: upload_coverage
         uses: actions/upload-artifact@v6
@@ -246,18 +229,15 @@ jobs:
         uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
-      - name: install_spark_dependencies
-        uses: ./.github/actions/install-poetry-deps
+      - name: install_spark_torch_dependencies
+        uses: ./.github/actions/install-uv-deps
         with:
-          dependency-groups: "tests"
-          extras: "spark"
-      - name: install_pyspark
-        uses: ./.github/actions/install-pyspark
-      - name: install_torch_cpu
-        uses: ./.github/actions/install-torch-cpu
+          groups: "tests"
+          extras: "spark torch-cpu"
+          java: "true"
       - name: pytest
         run: |
-          poetry run pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/conditional
+          uv run --no-sync pytest -m "not experimental and not conditional" tests/models --ignore=replay/experimental --ignore=tests/experimental --ignore=tests/conditional
           mv .coverage coverage_models_${{ matrix.python-version }}
       - name: upload_coverage
         uses: actions/upload-artifact@v6
@@ -279,10 +259,10 @@ jobs:
         uses: ./.github/actions/ci-setup
         with:
           python-version: ${{ matrix.python-version }}
-      - name: install_core_dependencies
-        uses: ./.github/actions/install-poetry-deps
+      - name: install_tests_dependencies
+        uses: ./.github/actions/install-uv-deps
         with:
-          dependency-groups: "tests"
+          groups: "tests"
       - name: download_coverage_reports
         uses: actions/download-artifact@v4
         with:
@@ -290,9 +270,9 @@ jobs:
           merge-multiple: true
       - name: combine_coverage
         run: |
-          poetry run coverage combine coverage_core_${{ matrix.python-version }} coverage_conditional_${{ matrix.python-version }} coverage_torch_${{ matrix.python-version }} coverage_spark_${{ matrix.python-version }} coverage_spark_and_torch_${{ matrix.python-version }} coverage_models_${{ matrix.python-version }} coverage_experimental_${{ matrix.python-version }}
-          poetry run coverage report --fail-under=100
-          poetry run coverage xml
+          uv run --no-sync coverage combine coverage_*_${{ matrix.python-version }}
+          uv run --no-sync coverage report --fail-under=100
+          uv run --no-sync coverage xml
 
   build_production:
     needs: merge_coverage
@@ -304,16 +284,11 @@ jobs:
         uses: ./.github/actions/ci-setup
         with:
           python-version: "3.10"
-      - name: install_spark_dependencies
-        uses: ./.github/actions/install-poetry-deps
-        with:
-          extras: "spark"
-      - name: install_torch_cpu
-        uses: ./.github/actions/install-torch-cpu
       - name: build
         run: |
           export PACKAGE_SUFFIX=.dev
-          poetry build
+          ./uv_wrapper.sh --generate
+          uv build
 
   build_experimental:
     needs: merge_coverage
@@ -325,12 +300,8 @@ jobs:
         uses: ./.github/actions/ci-setup
         with:
           python-version: "3.10"
-      - name: install_experimental_dev_dependencies
-        uses: ./.github/actions/install-poetry-deps
-        with:
-          experimental: "true"
-          with-dev: "true"
       - name: build
         run: |
           export PACKAGE_SUFFIX=.preview
-          poetry build
+          ./uv_wrapper.sh --experimental --generate
+          uv build
